@@ -39,6 +39,12 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		r.Use(rateLimitMiddleware.Handler)
 	}
 	
+	// Caching middleware
+	if cfg.Cache.Enabled {
+		cacheMiddleware := middleware.NewCacheMiddleware(cfg, logger)
+		r.Use(cacheMiddleware.Handler)
+	}
+	
 	// Health check
 	r.Get("/health", handlers.Health)
 	r.Get("/ready", handlers.Ready)

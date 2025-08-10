@@ -21,7 +21,10 @@ redis:
   
 # Cache configuration (in-memory only in lite mode)
 cache:
-  enabled: false  # Disable persistent cache
+  enabled: true  # Enable in-memory cache in lite mode
+  ttl: 300s  # Cache for 5 minutes
+  max_size: 100  # Maximum number of cached items
+  strategy: lru  # Least recently used eviction
   
 # Rate limiting configuration (in-memory only in lite mode)
 rate_limit:

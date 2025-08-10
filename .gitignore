@@ -143,3 +143,4 @@ docs/swagger.local.yaml
 test_api.sh
 ARCHITECTURE.md
 API_SPECIFICATION.md
+logs/*
