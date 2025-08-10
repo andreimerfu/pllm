@@ -73,6 +73,10 @@ type CacheConfig struct {
 
 type RateLimitConfig struct {
 	Enabled             bool `mapstructure:"enabled"`
+	GlobalRPM           int  `mapstructure:"global_rpm"`
+	ChatCompletionsRPM  int  `mapstructure:"chat_completions_rpm"`
+	CompletionsRPM      int  `mapstructure:"completions_rpm"`
+	EmbeddingsRPM       int  `mapstructure:"embeddings_rpm"`
 	RequestsPerMinute   int  `mapstructure:"requests_per_minute"`
 	Burst               int  `mapstructure:"burst"`
 	CleanupInterval     time.Duration `mapstructure:"cleanup_interval"`

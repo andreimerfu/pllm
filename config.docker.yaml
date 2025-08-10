@@ -35,8 +35,12 @@ cache:
 # Rate limiting configuration
 rate_limit:
   enabled: true
-  requests_per_minute: 60
-  burst: 10
+  global_rpm: 300  # Global requests per minute
+  chat_completions_rpm: 100  # Chat completions per minute
+  completions_rpm: 100  # Completions per minute
+  embeddings_rpm: 500  # Embeddings per minute
+  requests_per_minute: 300  # Default fallback
+  burst: 20  # Allow burst of 20 requests
   cleanup_interval: 1m
 
 # JWT configuration

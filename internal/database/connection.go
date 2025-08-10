@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -192,4 +193,44 @@ func IsHealthy() bool {
 	}
 	
 	return true
+}
+
+// TestConnection tests if a database connection can be established
+func TestConnection(ctx context.Context, cfg *Config) error {
+	if cfg.DSN == "" {
+		return fmt.Errorf("database DSN is required")
+	}
+	
+	// Configure logger
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		logger.Config{
+			SlowThreshold:             time.Second,
+			LogLevel:                  logger.Silent, // Silent for test
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  false,
+		},
+	)
+	
+	// Open connection
+	db, err := gorm.Open(postgres.Open(cfg.DSN), &gorm.Config{
+		Logger: newLogger,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	
+	// Get SQL database
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get database: %w", err)
+	}
+	defer sqlDB.Close()
+	
+	// Test connection with context
+	if err := sqlDB.PingContext(ctx); err != nil {
+		return fmt.Errorf("failed to ping database: %w", err)
+	}
+	
+	return nil
 }

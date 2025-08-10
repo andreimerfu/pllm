@@ -156,6 +156,35 @@ func IsHealthy() bool {
 	return true
 }
 
+// TestConnection tests if a Redis connection can be established
+func TestConnection(ctx context.Context, cfg *Config) error {
+	if cfg.RedisURL == "" {
+		return fmt.Errorf("redis URL is required")
+	}
+	
+	opt, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		return fmt.Errorf("failed to parse redis URL: %w", err)
+	}
+	
+	if cfg.Password != "" {
+		opt.Password = cfg.Password
+	}
+	if cfg.DB != 0 {
+		opt.DB = cfg.DB
+	}
+	
+	testClient := redis.NewClient(opt)
+	defer testClient.Close()
+	
+	// Test connection with context
+	if err := testClient.Ping(ctx).Err(); err != nil {
+		return fmt.Errorf("failed to ping redis: %w", err)
+	}
+	
+	return nil
+}
+
 type CacheStats struct {
 	Hits   int64   `json:"hits"`
 	Misses int64   `json:"misses"`

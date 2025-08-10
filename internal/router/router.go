@@ -10,10 +10,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/go-chi/httprate"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
-	"time"
 )
 
 func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.ModelManager) http.Handler {
@@ -37,7 +35,8 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	
 	// Global rate limiting
 	if cfg.RateLimit.Enabled {
-		r.Use(httprate.LimitByIP(cfg.RateLimit.RequestsPerMinute, 1*time.Minute))
+		rateLimitMiddleware := middleware.NewRateLimitMiddleware(cfg, logger)
+		r.Use(rateLimitMiddleware.Handler)
 	}
 	
 	// Health check
@@ -61,9 +60,8 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	// Protected routes
 	r.Group(func(r chi.Router) {
 		// Authentication middleware
-		r.Use(middleware.Authenticate(cfg.JWT.SecretKey))
-		r.Use(middleware.RateLimit())
-		r.Use(middleware.UsageTracking())
+		// r.Use(middleware.Authenticate(cfg.JWT.SecretKey))
+		// r.Use(middleware.UsageTracking())
 		
 		// OpenAI-compatible endpoints
 		r.Route("/v1", func(r chi.Router) {
@@ -125,9 +123,8 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	
 	// API Key authentication routes
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.APIKeyAuth())
-		r.Use(middleware.RateLimit())
-		r.Use(middleware.UsageTracking())
+		// r.Use(middleware.APIKeyAuth())
+		// r.Use(middleware.UsageTracking())
 		
 		// OpenAI-compatible endpoints with API key
 		r.Route("/api/v1", func(r chi.Router) {
