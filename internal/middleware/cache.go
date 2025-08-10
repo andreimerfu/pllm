@@ -105,6 +105,7 @@ func (m *CacheMiddleware) Handler(next http.Handler) http.Handler {
 			// Cache hit
 			var cached CachedResponse
 			if err := json.Unmarshal(cachedData, &cached); err == nil {
+				RecordCacheHit(r.URL.Path)
 				m.serveCachedResponse(w, &cached)
 				m.log.Debug("Cache hit", 
 					zap.String("key", cacheKey),
@@ -113,6 +114,9 @@ func (m *CacheMiddleware) Handler(next http.Handler) http.Handler {
 				return
 			}
 		}
+		
+		// Cache miss
+		RecordCacheMiss(r.URL.Path)
 		
 		// Cache miss - capture response
 		captureWriter := &responseWriter{

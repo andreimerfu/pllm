@@ -87,6 +87,9 @@ func (m *RateLimitMiddleware) Handler(next http.Handler) http.Handler {
 		w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(time.Now().Add(window).Unix(), 10))
 		
 		if !allowed {
+			// Rate limit hit - record metric
+			RecordRateLimitHit(r.URL.Path)
+			
 			// Rate limit exceeded
 			w.Header().Set("Retry-After", strconv.Itoa(int(window.Seconds())))
 			w.WriteHeader(http.StatusTooManyRequests)
@@ -98,6 +101,9 @@ func (m *RateLimitMiddleware) Handler(next http.Handler) http.Handler {
 				zap.String("method", r.Method))
 			return
 		}
+		
+		// Rate limit allowed - record metric
+		RecordRateLimitAllowed(r.URL.Path)
 		
 		next.ServeHTTP(w, r)
 	})

@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
@@ -46,8 +46,8 @@ services:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
     networks:
       - pllm-network
 
@@ -60,9 +60,12 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=redis-datasource
     volumes:
       - grafana_data:/var/lib/grafana
       - ./config/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./config/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
+      - ./config/grafana-dashboards:/etc/grafana/provisioning/dashboards
     networks:
       - pllm-network
     depends_on:
@@ -73,8 +76,8 @@ services:
     image: jaegertracing/all-in-one:latest
     container_name: pllm-jaeger
     ports:
-      - "16686:16686"  # Jaeger UI
-      - "14268:14268"  # Collector HTTP endpoint
+      - "16686:16686" # Jaeger UI
+      - "14268:14268" # Collector HTTP endpoint
     environment:
       - COLLECTOR_ZIPKIN_HTTP_PORT=9411
     networks:
@@ -87,9 +90,9 @@ services:
       dockerfile: Dockerfile
     container_name: pllm-gateway
     ports:
-      - "8080:8080"   # Main API
-      - "8081:8081"   # Admin API
-      - "9090:9090"   # Metrics
+      - "8080:8080" # Main API
+      - "8081:8081" # Admin API
+      - "9090:9090" # Metrics
     environment:
       - DATABASE_URL=postgres://pllm:pllm@postgres:5432/pllm?sslmode=disable
       - REDIS_URL=redis://redis:6379
@@ -121,7 +124,15 @@ services:
     networks:
       - pllm-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/health",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3

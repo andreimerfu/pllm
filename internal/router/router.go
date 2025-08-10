@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
 )
@@ -22,6 +23,9 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	r.Use(chiMiddleware.RealIP)
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(middleware.Logger(logger))
+	
+	// Metrics middleware
+	r.Use(middleware.MetricsMiddleware(logger))
 	
 	// CORS
 	r.Use(cors.Handler(cors.Options{
@@ -48,6 +52,9 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	// Health check
 	r.Get("/health", handlers.Health)
 	r.Get("/ready", handlers.Ready)
+	
+	// Prometheus metrics endpoint
+	r.Get("/metrics", promhttp.Handler().ServeHTTP)
 	
 	// Swagger documentation
 	r.Get("/swagger/*", httpSwagger.WrapHandler)

@@ -231,7 +231,7 @@ router_settings:
   # Redis configuration for distributed rate limiting
   redis_host: ${REDIS_HOST:-localhost}
   redis_password: ${REDIS_PASSWORD:-}
-  redis_port: ${REDIS_PORT:-6379}
+  redis_port: ${REDIS_PORT:-6380}
   redis_db: ${REDIS_DB:-0}
   
   # Fallback chains
