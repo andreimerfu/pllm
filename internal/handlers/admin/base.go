@@ -1,0 +1,28 @@
+package admin
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"go.uber.org/zap"
+)
+
+type baseHandler struct {
+	logger *zap.Logger
+}
+
+func (h *baseHandler) sendResponse(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(data)
+}
+
+func (h *baseHandler) sendError(w http.ResponseWriter, status int, message string) {
+	h.sendResponse(w, status, map[string]string{
+		"error": message,
+	})
+}
+
+func (h *baseHandler) notImplemented(w http.ResponseWriter, endpoint string) {
+	h.sendError(w, http.StatusNotImplemented, endpoint+" not yet implemented")
+}

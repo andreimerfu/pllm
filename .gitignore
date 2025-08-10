@@ -1,0 +1,145 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE specific files
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+/pllm
+/dist/
+/build/
+/logs/
+*.log
+
+# Docker
+docker-compose.override.yml
+.dockerignore.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Cache and temporary files
+.cache/
+tmp/
+temp/
+
+# Configuration files with secrets
+config.local.yaml
+config.local.yml
+config.secret.yaml
+config.secret.yml
+*-secret.yaml
+*-secret.yml
+
+# API Keys and credentials
+*.key
+*.pem
+*.crt
+*.cer
+credentials.json
+service-account.json
+
+# Testing
+coverage.txt
+coverage.html
+*.coverprofile
+test-results/
+
+# Documentation build artifacts
+docs/_build/
+docs/site/
+
+# Claude specific files
+.claude/
+CLAUDE.md
+*.claude
+claude.json
+.claudeignore
+.claude-code/
+
+# Helper/temporary markdown files
+*.helper.md
+*.temp.md
+TODO.md
+NOTES.md
+SCRATCH.md
+WIP.md
+INITIAL_PROMPT.md
+marketing-strategy-document.md
+MICROSERVICES_ARCHITECTURE.md
+
+# Swap files
+*.bak
+*.backup
+*.tmp
+
+# Binary outputs
+bin/
+dist/
+
+# Performance profiling
+*.prof
+*.pprof
+
+# Monitoring data
+prometheus_data/
+grafana_data/
+jaeger_data/
+
+# Local development configs
+*.local
+local-*
+
+# Generated files
+generated/
+*.generated.go
+
+# Ignore swagger files that might contain sensitive info
+docs/swagger.local.json
+docs/swagger.local.yaml
+
+
+test_api.sh
+ARCHITECTURE.md
+API_SPECIFICATION.md

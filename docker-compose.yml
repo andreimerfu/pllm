@@ -1,0 +1,138 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pllm-postgres
+    environment:
+      POSTGRES_USER: pllm
+      POSTGRES_PASSWORD: pllm
+      POSTGRES_DB: pllm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - pllm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pllm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pllm-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pllm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pllm-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - pllm-network
+
+  # Optional: Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pllm-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+    networks:
+      - pllm-network
+    depends_on:
+      - prometheus
+
+  # Optional: Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: pllm-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Collector HTTP endpoint
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+    networks:
+      - pllm-network
+
+  # Main pllm service
+  pllm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pllm-gateway
+    ports:
+      - "8080:8080"   # Main API
+      - "8081:8081"   # Admin API
+      - "9090:9090"   # Metrics
+    environment:
+      - DATABASE_URL=postgres://pllm:pllm@postgres:5432/pllm?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-super-secret-jwt-key-change-this}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme123!}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@pllm.io}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+      # OpenAI Configuration - Add your API key here
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-your-openai-api-key}
+      # Optional: Additional OpenAI keys for load balancing
+      - OPENAI_API_KEY_1=${OPENAI_API_KEY:-sk-your-openai-api-key}
+      - OPENAI_API_KEY_2=${OPENAI_API_KEY_2:-}
+      - OPENAI_API_KEY_3=${OPENAI_API_KEY_3:-}
+      # Optional: Other providers
+      - ANTHROPIC_API_KEY_1=${ANTHROPIC_API_KEY:-}
+      - AZURE_API_KEY_EAST=${AZURE_API_KEY_EAST:-}
+      - GROQ_API_KEY_1=${GROQ_API_KEY:-}
+      - MISTRAL_API_KEY_1=${MISTRAL_API_KEY:-}
+    volumes:
+      - ./config.docker.yaml:/app/config.yaml:ro
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - pllm-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  pllm-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

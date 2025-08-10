@@ -1,0 +1,365 @@
+# pllm Configuration File
+# Similar to LiteLLM but with enhanced features
+
+# Model deployments with multiple API keys per provider
+model_list:
+  # OpenAI deployments with multiple API keys
+  - model_name: gpt-4
+    litellm_params:
+      model: openai/gpt-4
+      api_key: ${OPENAI_API_KEY_1}
+      organization: ${OPENAI_ORG_1}
+      api_base: https://api.openai.com/v1
+      rpm: 60
+      tpm: 90000
+    priority: 10
+    weight: 1
+    
+  - model_name: gpt-4
+    litellm_params:
+      model: openai/gpt-4
+      api_key: ${OPENAI_API_KEY_2}
+      organization: ${OPENAI_ORG_2}
+      api_base: https://api.openai.com/v1
+      rpm: 60
+      tpm: 90000
+    priority: 10
+    weight: 1
+    
+  - model_name: gpt-4
+    litellm_params:
+      model: openai/gpt-4
+      api_key: ${OPENAI_API_KEY_3}
+      api_base: https://api.openai.com/v1
+      rpm: 60
+      tpm: 90000
+    priority: 10
+    weight: 1
+
+  # Azure OpenAI deployments with multiple regions
+  - model_name: gpt-4
+    litellm_params:
+      model: azure/gpt-4-deployment-east
+      api_base: https://my-azure-east.openai.azure.com/
+      api_key: ${AZURE_API_KEY_EAST}
+      api_version: "2024-02-01"
+      rpm: 60
+      tpm: 90000
+    priority: 9
+    weight: 2
+    region: us-east
+    
+  - model_name: gpt-4
+    litellm_params:
+      model: azure/gpt-4-deployment-west
+      api_base: https://my-azure-west.openai.azure.com/
+      api_key: ${AZURE_API_KEY_WEST}
+      api_version: "2024-02-01"
+      rpm: 60
+      tpm: 90000
+    priority: 9
+    weight: 2
+    region: us-west
+    
+  - model_name: gpt-4
+    litellm_params:
+      model: azure/gpt-4-deployment-eu
+      api_base: https://my-azure-eu.openai.azure.com/
+      api_key: ${AZURE_API_KEY_EU}
+      api_version: "2024-02-01"
+      rpm: 60
+      tpm: 90000
+    priority: 8
+    weight: 1
+    region: europe
+
+  # GPT-3.5 deployments with multiple keys
+  - model_name: gpt-3.5-turbo
+    litellm_params:
+      model: openai/gpt-3.5-turbo
+      api_key: ${OPENAI_API_KEY_1}
+      rpm: 3500
+      tpm: 90000
+    priority: 10
+    weight: 1
+    
+  - model_name: gpt-3.5-turbo
+    litellm_params:
+      model: openai/gpt-3.5-turbo
+      api_key: ${OPENAI_API_KEY_2}
+      rpm: 3500
+      tpm: 90000
+    priority: 10
+    weight: 1
+
+  # Anthropic Claude deployments
+  - model_name: claude-3-opus
+    litellm_params:
+      model: anthropic/claude-3-opus-20240229
+      api_key: ${ANTHROPIC_API_KEY_1}
+      api_base: https://api.anthropic.com
+      rpm: 60
+      tpm: 100000
+    priority: 10
+    weight: 1
+    
+  - model_name: claude-3-opus
+    litellm_params:
+      model: anthropic/claude-3-opus-20240229
+      api_key: ${ANTHROPIC_API_KEY_2}
+      api_base: https://api.anthropic.com
+      rpm: 60
+      tpm: 100000
+    priority: 10
+    weight: 1
+
+  - model_name: claude-3-sonnet
+    litellm_params:
+      model: anthropic/claude-3-sonnet-20240229
+      api_key: ${ANTHROPIC_API_KEY_1}
+      rpm: 60
+      tpm: 100000
+    priority: 10
+    weight: 1
+
+  # AWS Bedrock deployments (multiple regions)
+  - model_name: claude-3-opus
+    litellm_params:
+      model: bedrock/anthropic.claude-3-opus-20240229-v1:0
+      aws_access_key_id: ${AWS_ACCESS_KEY_ID}
+      aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+      aws_region_name: us-east-1
+      rpm: 60
+      tpm: 100000
+    priority: 8
+    weight: 1
+    region: us-east-1
+    
+  - model_name: claude-3-opus
+    litellm_params:
+      model: bedrock/anthropic.claude-3-opus-20240229-v1:0
+      aws_access_key_id: ${AWS_ACCESS_KEY_ID}
+      aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+      aws_region_name: us-west-2
+      rpm: 60
+      tpm: 100000
+    priority: 8
+    weight: 1
+    region: us-west-2
+
+  # Google Gemini deployments
+  - model_name: gemini-pro
+    litellm_params:
+      model: vertex_ai/gemini-pro
+      vertex_project: ${VERTEX_PROJECT}
+      vertex_location: ${VERTEX_LOCATION}
+      api_key: ${GOOGLE_API_KEY_1}
+      rpm: 60
+      tpm: 100000
+    priority: 9
+    weight: 1
+    
+  - model_name: gemini-pro
+    litellm_params:
+      model: vertex_ai/gemini-pro
+      vertex_project: ${VERTEX_PROJECT}
+      vertex_location: ${VERTEX_LOCATION}
+      api_key: ${GOOGLE_API_KEY_2}
+      rpm: 60
+      tpm: 100000
+    priority: 9
+    weight: 1
+
+  # Groq deployments (fast inference)
+  - model_name: llama-3-70b
+    litellm_params:
+      model: groq/llama3-70b-8192
+      api_key: ${GROQ_API_KEY_1}
+      rpm: 30
+      tpm: 50000
+    priority: 7
+    weight: 1
+    
+  - model_name: llama-3-70b
+    litellm_params:
+      model: groq/llama3-70b-8192
+      api_key: ${GROQ_API_KEY_2}
+      rpm: 30
+      tpm: 50000
+    priority: 7
+    weight: 1
+
+  # Mistral AI deployments
+  - model_name: mistral-large
+    litellm_params:
+      model: mistral/mistral-large-latest
+      api_key: ${MISTRAL_API_KEY_1}
+      api_base: https://api.mistral.ai/v1
+      rpm: 60
+      tpm: 100000
+    priority: 8
+    weight: 1
+
+  # Perplexity deployments
+  - model_name: perplexity-online
+    litellm_params:
+      model: perplexity/pplx-70b-online
+      api_key: ${PERPLEXITY_API_KEY}
+      rpm: 60
+      tpm: 50000
+    priority: 7
+    weight: 1
+
+  # Together AI deployments
+  - model_name: mixtral-8x7b
+    litellm_params:
+      model: together_ai/mistralai/Mixtral-8x7B-Instruct-v0.1
+      api_key: ${TOGETHER_API_KEY}
+      rpm: 60
+      tpm: 100000
+    priority: 7
+    weight: 1
+
+# Router settings for load balancing
+router_settings:
+  routing_strategy: least-busy  # Options: round-robin, least-busy, weighted, priority, latency-based, usage-based, simple-shuffle
+  num_retries: 3
+  timeout: 300  # 5 minutes for long LLM requests
+  allowed_fails: 3
+  cooldown_time: 60  # seconds
+  
+  # Redis configuration for distributed rate limiting
+  redis_host: ${REDIS_HOST:-localhost}
+  redis_password: ${REDIS_PASSWORD:-}
+  redis_port: ${REDIS_PORT:-6379}
+  redis_db: ${REDIS_DB:-0}
+  
+  # Fallback chains
+  fallbacks:
+    gpt-4: ["gpt-3.5-turbo", "claude-3-sonnet"]
+    claude-3-opus: ["claude-3-sonnet", "gpt-4"]
+    gemini-pro: ["gpt-3.5-turbo", "claude-3-haiku"]
+    
+  # Context window fallbacks
+  context_window_fallbacks:
+    gpt-4: ["gpt-4-32k", "claude-3-opus"]
+    gpt-3.5-turbo: ["gpt-3.5-turbo-16k", "claude-3-haiku"]
+    
+  # Model aliasing for backward compatibility
+  model_group_alias:
+    "gpt-4-turbo": "gpt-4"
+    "gpt-4-turbo-preview": "gpt-4"
+    "claude-3": "claude-3-opus"
+    "claude": "claude-3-sonnet"
+
+# Server configuration
+server:
+  port: 8080
+  admin_port: 8081
+  metrics_port: 9090
+  read_timeout: 30s
+  write_timeout: 300s
+  idle_timeout: 120s
+  graceful_shutdown: 30s
+
+# Database configuration
+database:
+  url: postgres://pllm:pllm@localhost:5432/pllm?sslmode=disable
+  max_connections: 100
+  max_idle_connections: 10
+  conn_max_lifetime: 1h
+
+# Cache configuration
+cache:
+  enabled: true
+  ttl: 3600s
+  max_size: 1000
+  strategy: lru
+  semantic_cache: true
+  semantic_threshold: 0.95
+
+# Rate limiting configuration
+rate_limit:
+  enabled: true
+  requests_per_minute: 60
+  burst: 10
+  cleanup_interval: 1m
+  by_api_key: true
+  by_user: true
+  by_group: true
+
+# JWT configuration
+jwt:
+  secret_key: your-super-secret-jwt-key-change-this
+  access_token_duration: 15m
+  refresh_token_duration: 168h
+
+# Admin configuration
+admin:
+  username: admin
+  password: changeme123!
+  email: admin@pllm.io
+
+# Monitoring configuration
+monitoring:
+  enable_metrics: true
+  enable_tracing: true
+  jaeger_endpoint: ${JAEGER_ENDPOINT:-http://localhost:14268/api/traces}
+  service_name: pllm
+
+# Logging configuration
+logging:
+  level: ${LOG_LEVEL:-info}
+  format: ${LOG_FORMAT:-json}
+  output_path: stdout
+
+# CORS configuration
+cors:
+  allowed_origins:
+    - http://localhost:3000
+    - http://localhost:5173
+    - http://localhost:8081
+  allowed_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allowed_headers:
+    - Accept
+    - Authorization
+    - Content-Type
+    - X-API-Key
+  exposed_headers:
+    - X-Request-ID
+    - X-RateLimit-Limit
+    - X-RateLimit-Remaining
+    - X-RateLimit-Reset
+  allow_credentials: true
+  max_age: 86400
+
+# Budget and cost management
+budget:
+  enable_tracking: true
+  alert_threshold: 0.8  # Alert at 80% of budget
+  hard_limit: true      # Stop requests when budget exceeded
+  
+# Security settings
+security:
+  api_key_hash_cost: 12
+  encrypt_credentials: true
+  audit_logging: true
+  ip_whitelist: []
+  ip_blacklist: []
+
+# Feature flags
+features:
+  enable_streaming: true
+  enable_functions: true
+  enable_vision: true
+  enable_tools: true
+  enable_embeddings: true
+  enable_audio: true
+  enable_images: true
+  enable_moderations: true
+  enable_fine_tuning: false

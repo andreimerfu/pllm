@@ -1,0 +1,210 @@
+# pllm Docker Configuration
+# This configuration is optimized for Docker deployment
+
+# Server configuration
+server:
+  port: 8080
+  admin_port: 8081
+  metrics_port: 9090
+  read_timeout: 30s
+  write_timeout: 300s
+  idle_timeout: 120s
+  graceful_shutdown: 30s
+
+# Database configuration
+database:
+  url: postgres://pllm:pllm@postgres:5432/pllm?sslmode=disable
+  max_connections: 100
+  max_idle_connections: 10
+  conn_max_lifetime: 1h
+
+# Redis configuration
+redis:
+  url: redis://redis:6379
+  password: ""
+  db: 0
+  pool_size: 100
+
+# Cache configuration
+cache:
+  enabled: true
+  ttl: 3600s
+  max_size: 1000
+  strategy: lru
+
+# Rate limiting configuration
+rate_limit:
+  enabled: true
+  requests_per_minute: 60
+  burst: 10
+  cleanup_interval: 1m
+
+# JWT configuration
+jwt:
+  secret_key: your-super-secret-jwt-key-change-this
+  access_token_duration: 15m
+  refresh_token_duration: 168h
+
+# Admin configuration
+admin:
+  username: admin
+  password: changeme123!
+  email: admin@pllm.io
+
+# Monitoring configuration
+monitoring:
+  enable_metrics: true
+  enable_tracing: false
+  service_name: pllm
+
+# Logging configuration
+logging:
+  level: info
+  format: json
+  output_path: stdout
+
+# CORS configuration
+cors:
+  allowed_origins:
+    - http://localhost:3000
+    - http://localhost:5173
+    - http://localhost:8080
+    - http://localhost:8081
+  allowed_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allowed_headers:
+    - Accept
+    - Authorization
+    - Content-Type
+    - X-API-Key
+  exposed_headers:
+    - X-Request-ID
+    - X-RateLimit-Limit
+    - X-RateLimit-Remaining
+    - X-RateLimit-Reset
+  allow_credentials: true
+  max_age: 86400
+
+# Router configuration
+router:
+  routing_strategy: "priority"  # priority, round-robin, weighted, least-busy, latency-based, usage-based
+  fallback_enabled: true
+  retry_attempts: 2
+  timeout: 30s
+  health_check_interval: 30s
+
+# Model-centric configuration
+# Each model can have multiple instances with different API keys for load balancing
+model_list:
+  # GPT-4 instances
+  - id: gpt-4-primary
+    model_name: gpt-4
+    instance_name: primary
+    enabled: true
+    priority: 100
+    weight: 1.0
+    rpm: 60  # requests per minute
+    tpm: 90000  # tokens per minute
+    provider:
+      type: openai
+      model: gpt-4
+      api_key: ${OPENAI_API_KEY}
+      base_url: https://api.openai.com/v1
+    model_info:
+      mode: chat
+      supports_functions: true
+      supports_vision: false
+      supports_streaming: true
+      max_tokens: 8192
+      max_input_tokens: 8192
+      max_output_tokens: 4096
+      default_max_tokens: 1000
+    tags:
+      - production
+      - high-priority
+    
+  # GPT-4 Turbo
+  - id: gpt-4-turbo-main
+    model_name: gpt-4-turbo-preview
+    instance_name: main
+    enabled: true
+    priority: 100
+    weight: 1.0
+    rpm: 60
+    tpm: 128000
+    provider:
+      type: openai
+      model: gpt-4-turbo-preview
+      api_key: ${OPENAI_API_KEY}
+      base_url: https://api.openai.com/v1
+    model_info:
+      mode: chat
+      supports_functions: true
+      supports_vision: true
+      supports_streaming: true
+      max_tokens: 128000
+      max_input_tokens: 128000
+      max_output_tokens: 4096
+      default_max_tokens: 1000
+    tags:
+      - production
+      - vision-capable
+  
+  # GPT-3.5 Turbo instances
+  - id: gpt-3.5-turbo-primary
+    model_name: gpt-3.5-turbo
+    instance_name: primary
+    enabled: true
+    priority: 100
+    weight: 2.0  # Higher weight for more traffic
+    rpm: 200
+    tpm: 90000
+    provider:
+      type: openai
+      model: gpt-3.5-turbo
+      api_key: ${OPENAI_API_KEY}
+      base_url: https://api.openai.com/v1
+    model_info:
+      mode: chat
+      supports_functions: true
+      supports_vision: false
+      supports_streaming: true
+      max_tokens: 16385
+      max_input_tokens: 16385
+      max_output_tokens: 4096
+      default_max_tokens: 1000
+    tags:
+      - production
+      - low-cost
+  
+  # GPT-3.5 Turbo 16K
+  - id: gpt-3.5-turbo-16k
+    model_name: gpt-3.5-turbo-16k
+    instance_name: default
+    enabled: true
+    priority: 100
+    weight: 1.0
+    rpm: 200
+    tpm: 180000
+    provider:
+      type: openai
+      model: gpt-3.5-turbo-16k
+      api_key: ${OPENAI_API_KEY}
+      base_url: https://api.openai.com/v1
+    model_info:
+      mode: chat
+      supports_functions: true
+      supports_vision: false
+      supports_streaming: true
+      max_tokens: 16385
+      max_input_tokens: 16385
+      max_output_tokens: 4096
+      default_max_tokens: 1000
+    tags:
+      - production
+      - low-cost
+      - long-context

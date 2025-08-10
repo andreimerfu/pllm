@@ -1,0 +1,252 @@
+basePath: /v1
+definitions:
+  providers.APIError:
+    properties:
+      code: {}
+      message:
+        type: string
+      param:
+        type: string
+      type:
+        type: string
+    type: object
+  providers.ChatRequest:
+    properties:
+      frequency_penalty:
+        type: number
+      logit_bias:
+        additionalProperties:
+          type: integer
+        type: object
+      max_tokens:
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/providers.Message'
+        type: array
+      model:
+        type: string
+      "n":
+        type: integer
+      presence_penalty:
+        type: number
+      response_format:
+        $ref: '#/definitions/providers.ResponseFormat'
+      seed:
+        type: integer
+      stop:
+        items:
+          type: string
+        type: array
+      stream:
+        type: boolean
+      temperature:
+        type: number
+      tool_choice: {}
+      tools:
+        items:
+          $ref: '#/definitions/providers.Tool'
+        type: array
+      top_p:
+        type: number
+      user:
+        type: string
+    type: object
+  providers.ChatResponse:
+    properties:
+      choices:
+        items:
+          $ref: '#/definitions/providers.Choice'
+        type: array
+      created:
+        type: integer
+      id:
+        type: string
+      model:
+        type: string
+      object:
+        type: string
+      system_fingerprint:
+        type: string
+      usage:
+        $ref: '#/definitions/providers.Usage'
+    type: object
+  providers.Choice:
+    properties:
+      delta:
+        $ref: '#/definitions/providers.Message'
+      finish_reason:
+        type: string
+      index:
+        type: integer
+      logprobs: {}
+      message:
+        $ref: '#/definitions/providers.Message'
+    type: object
+  providers.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/providers.APIError'
+    type: object
+  providers.Function:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      parameters: {}
+    type: object
+  providers.FunctionCall:
+    properties:
+      arguments:
+        type: string
+      name:
+        type: string
+    type: object
+  providers.Message:
+    properties:
+      content: {}
+      name:
+        type: string
+      role:
+        type: string
+      tool_call_id:
+        type: string
+      tool_calls:
+        items:
+          $ref: '#/definitions/providers.ToolCall'
+        type: array
+    type: object
+  providers.ResponseFormat:
+    properties:
+      type:
+        type: string
+    type: object
+  providers.Tool:
+    properties:
+      function:
+        $ref: '#/definitions/providers.Function'
+      type:
+        type: string
+    type: object
+  providers.ToolCall:
+    properties:
+      function:
+        $ref: '#/definitions/providers.FunctionCall'
+      id:
+        type: string
+      type:
+        type: string
+    type: object
+  providers.Usage:
+    properties:
+      completion_tokens:
+        type: integer
+      prompt_tokens:
+        type: integer
+      total_tokens:
+        type: integer
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@pllm.io
+    name: API Support
+  description: A high-performance LLM Gateway with OpenAI-compatible API, supporting
+    multiple providers with load balancing, rate limiting, caching, and comprehensive
+    monitoring.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: pllm - Blazing Fast LLM Gateway
+  version: "1.0"
+paths:
+  /chat/completions:
+    post:
+      consumes:
+      - application/json
+      description: Creates a completion for the chat messages
+      parameters:
+      - description: API Key for authentication
+        in: header
+        name: X-API-Key
+        type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        type: string
+      - description: Chat completion request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/providers.ChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/providers.ChatResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/providers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/providers.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/providers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/providers.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/providers.ErrorResponse'
+      summary: Create chat completion
+      tags:
+      - Chat
+  /models:
+    get:
+      consumes:
+      - application/json
+      description: Lists all available models from configured providers
+      parameters:
+      - description: API Key for authentication
+        in: header
+        name: X-API-Key
+        type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/providers.ErrorResponse'
+      summary: List available models
+      tags:
+      - Models
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: X-API-Key
+    type: apiKey
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
