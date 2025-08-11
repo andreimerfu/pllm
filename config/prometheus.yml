@@ -23,3 +23,23 @@ scrape_configs:
       - source_labels: [__address__]
         target_label: instance
         replacement: 'pllm-gateway'
+  
+  # Node Exporter - System metrics
+  - job_name: 'node-exporter'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['node-exporter:9100']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'host-system'
+  
+  # cAdvisor - Container metrics
+  - job_name: 'cadvisor'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['cadvisor:8080']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'containers'

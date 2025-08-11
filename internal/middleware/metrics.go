@@ -12,6 +12,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// Go runtime and process metrics are automatically registered by promhttp.Handler()
+// so we don't need to register them explicitly here
+
 var (
 	// HTTP metrics
 	httpRequestsTotal = promauto.NewCounterVec(
@@ -165,14 +168,14 @@ func MetricsMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			
+
 			// Track active connections
 			activeConnections.Inc()
 			defer activeConnections.Dec()
 
 			// Get the route pattern
 			routePattern := getRoutePattern(r)
-			
+
 			// Track request size
 			requestSize := computeRequestSize(r)
 			httpRequestSize.WithLabelValues(r.Method, routePattern).Observe(float64(requestSize))
@@ -271,7 +274,7 @@ func getRoutePattern(r *http.Request) string {
 			return pattern
 		}
 	}
-	
+
 	// Fallback to normalizing the path
 	return normalizePath(r.URL.Path)
 }
@@ -299,7 +302,7 @@ func normalizePath(path string) string {
 	if strings.HasPrefix(path, "/metrics") {
 		return "/metrics"
 	}
-	
+
 	// For other paths, remove IDs and parameters
 	parts := strings.Split(path, "/")
 	for i, part := range parts {
@@ -308,17 +311,17 @@ func normalizePath(path string) string {
 			parts[i] = "{id}"
 		}
 	}
-	
+
 	return strings.Join(parts, "/")
 }
 
 func computeRequestSize(r *http.Request) int64 {
 	size := int64(0)
-	
+
 	// Add method and URL
 	size += int64(len(r.Method))
 	size += int64(len(r.URL.String()))
-	
+
 	// Add headers
 	for name, values := range r.Header {
 		size += int64(len(name))
@@ -326,12 +329,12 @@ func computeRequestSize(r *http.Request) int64 {
 			size += int64(len(value))
 		}
 	}
-	
+
 	// Add content length if available
 	if r.ContentLength > 0 {
 		size += r.ContentLength
 	}
-	
+
 	return size
 }
 
@@ -359,7 +362,7 @@ func isNumeric(s string) bool {
 
 func isID(s string) bool {
 	// Common ID patterns
-	return strings.HasPrefix(s, "sk-") || strings.HasPrefix(s, "pk-") || 
+	return strings.HasPrefix(s, "sk-") || strings.HasPrefix(s, "pk-") ||
 		strings.HasPrefix(s, "key-") || strings.HasPrefix(s, "usr-") ||
 		strings.HasPrefix(s, "grp-") || strings.HasPrefix(s, "org-")
 }
