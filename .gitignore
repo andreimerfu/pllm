@@ -144,3 +144,5 @@ test_api.sh
 ARCHITECTURE.md
 API_SPECIFICATION.md
 logs/*
+
+web/node_modules/*

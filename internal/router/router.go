@@ -7,6 +7,7 @@ import (
 	"github.com/amerfu/pllm/internal/handlers"
 	"github.com/amerfu/pllm/internal/middleware"
 	"github.com/amerfu/pllm/internal/services/models"
+	"github.com/amerfu/pllm/internal/ui"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -172,6 +173,27 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			r.Post("/moderations", llmHandler.CreateModeration)
 		})
 	})
+	
+	// UI routes (if enabled)
+	uiHandler, err := ui.NewHandler(cfg, logger)
+	if err != nil {
+		logger.Error("Failed to initialize UI handler", zap.Error(err))
+	} else if uiHandler.IsEnabled() {
+		// Mount UI at /ui with a wildcard to catch all subpaths
+		r.Mount("/ui", http.StripPrefix("/ui", uiHandler))
+		
+		// Also handle /ui without trailing slash
+		r.Get("/ui", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/ui/", http.StatusMovedPermanently)
+		})
+		
+		// Redirect root to UI
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/ui/", http.StatusFound)
+		})
+		
+		logger.Info("UI routes enabled")
+	}
 	
 	// Not found handler
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {

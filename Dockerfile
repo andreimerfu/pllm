@@ -1,4 +1,21 @@
-# Build stage
+# UI Build stage
+FROM node:20-alpine AS ui-builder
+
+WORKDIR /app/web
+
+# Copy package files
+COPY web/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy UI source
+COPY web/ ./
+
+# Build UI
+RUN npm run build
+
+# Go Build stage
 FROM golang:1.23-alpine AS builder
 
 # Install build dependencies
@@ -16,11 +33,14 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Copy built UI from ui-builder stage
+COPY --from=ui-builder /app/web/dist ./internal/ui/dist
+
 # Generate Swagger documentation
 RUN go install github.com/swaggo/swag/cmd/swag@latest
 RUN swag init -g cmd/server/main.go -o docs
 
-# Build the application
+# Build the application with embedded UI
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o pllm cmd/server/main.go
 
 # Final stage
