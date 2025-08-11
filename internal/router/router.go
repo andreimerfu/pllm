@@ -132,6 +132,12 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			r.Post("/groups/join", authHandler.JoinGroup)
 			r.Post("/groups/leave", authHandler.LeaveGroup)
 		})
+		
+		// Admin routes for monitoring
+		r.Route("/v1/admin", func(r chi.Router) {
+			// Model performance statistics
+			r.Get("/models/stats", llmHandler.ModelStats)
+		})
 	})
 	
 	// API Key authentication routes

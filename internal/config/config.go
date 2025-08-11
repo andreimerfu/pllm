@@ -15,10 +15,14 @@ type Config struct {
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	Admin    AdminConfig    `mapstructure:"admin"`
 	
-	// Model-centric configuration
-	ModelList []ModelInstance `mapstructure:"model_list"`
-	ModelGroups []ModelGroup    `mapstructure:"model_groups"`
-	Router   RouterSettings   `mapstructure:"router"`
+	// Model configuration - internal format after conversion
+	ModelList []ModelInstance `mapstructure:"-"`  // Will be populated from RawModelList
+	
+	// Raw configuration from YAML
+	RawModelList []ModelConfig `mapstructure:"model_list"`  // User-friendly format
+	ModelGroups []ModelGroup     `mapstructure:"model_groups"`
+	Router   RouterSettings      `mapstructure:"router"`
+	ModelAliases map[string][]string `mapstructure:"model_aliases"`
 	
 	Cache    CacheConfig    `mapstructure:"cache"`
 	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
@@ -137,8 +141,16 @@ func Load(configPath string) (*Config, error) {
 	if models, ok := modelList.([]interface{}); ok {
 		for i, modelRaw := range models {
 			if model, ok := modelRaw.(map[string]interface{}); ok {
-				if provider, ok := model["provider"].(map[string]interface{}); ok {
-					if apiKey, ok := provider["api_key"].(string); ok {
+				// Check both "params" (new format) and "provider" (old format)
+				var paramsMap map[string]interface{}
+				if params, ok := model["params"].(map[string]interface{}); ok {
+					paramsMap = params
+				} else if provider, ok := model["provider"].(map[string]interface{}); ok {
+					paramsMap = provider
+				}
+				
+				if paramsMap != nil {
+					if apiKey, ok := paramsMap["api_key"].(string); ok {
 						// Expand environment variable if it starts with $
 						if len(apiKey) > 2 && apiKey[0] == '$' && apiKey[1] == '{' {
 							// Find the closing }
@@ -146,7 +158,7 @@ func Load(configPath string) (*Config, error) {
 							if apiKey[endIdx] == '}' {
 								envVar := apiKey[2:endIdx] // Remove ${ and }
 								if envVal := os.Getenv(envVar); envVal != "" {
-									provider["api_key"] = envVal
+									paramsMap["api_key"] = envVal
 								}
 							}
 						}
@@ -172,12 +184,15 @@ func Load(configPath string) (*Config, error) {
 		config.Router.HealthCheckInterval = 30 * time.Second
 	}
 	
-	// Auto-generate IDs for model instances if not provided
-	for i := range config.ModelList {
-		if config.ModelList[i].ID == "" {
-			config.ModelList[i].ID = fmt.Sprintf("%s-%d", config.ModelList[i].ModelName, i)
-		}
+	// Convert ModelConfig to ModelInstance format
+	var convertedModels []ModelInstance
+	for _, model := range config.RawModelList {
+		instance := ConvertToModelInstance(model)
+		convertedModels = append(convertedModels, instance)
 	}
+	
+	// Set the converted models
+	config.ModelList = convertedModels
 	
 	cfg = &config
 	return cfg, nil
@@ -224,7 +239,7 @@ func setDefaults() {
 	viper.SetDefault("monitoring.service_name", "pllm")
 	
 	// Logging defaults
-	viper.SetDefault("logging.level", "info")
+	viper.SetDefault("logging.level", "debug")
 	viper.SetDefault("logging.format", "json")
 	viper.SetDefault("logging.output_path", "")
 	

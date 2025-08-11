@@ -46,6 +46,7 @@ PLLM delivers **enterprise-grade performance** that Python-based solutions like 
 
 - **OpenAI-Compatible API**: Drop-in replacement for OpenAI API
 - **Multiple Provider Support**: OpenAI, Anthropic, Azure, Bedrock, Vertex AI, and more
+- **Adaptive Routing**: Automatic failover and performance-based routing for zero failed requests under high load
 - **Multi-Key Load Balancing**: Support multiple API keys per provider for improved reliability
 - **Rate Limiting & Caching**: Built-in rate limiting and intelligent caching
 - **Authentication & Authorization**: JWT-based auth with API key support
@@ -166,6 +167,26 @@ response = client.chat.completions.create(
 )
 print(response.choices[0].message.content)
 ```
+
+## Adaptive Routing (High-Load Handling)
+
+PLLM includes advanced adaptive routing to ensure zero failed requests under high load:
+
+- **Automatic Failover**: Detects slow or failing models and routes to alternatives
+- **Performance-Based Selection**: Routes requests to fastest responding models
+- **Health Scoring**: Continuously monitors model performance (0-100 score)
+- **Circuit Breaking**: Opens circuits for failing models, with automatic recovery
+- **Load Shedding**: Protects system under extreme load conditions
+
+Configure fallback chains in `config.yaml`:
+```yaml
+router:
+  fallbacks:
+    my-gpt-4: ["my-gpt-35-turbo"]
+    my-gpt-35-turbo: ["my-gpt-35-turbo-16k"]
+```
+
+See [docs/ADAPTIVE_ROUTING.md](docs/ADAPTIVE_ROUTING.md) for detailed documentation.
 
 ## Architecture
 

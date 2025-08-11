@@ -46,14 +46,27 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Track request start for adaptive routing
+	h.modelManager.RecordRequestStart(request.Model)
+	
 	// Get best instance for the model
+	// Use adaptive routing for better high-load handling
 	startTime := time.Now()
-	instance, err := h.modelManager.GetBestInstance(r.Context(), request.Model)
+	instance, err := h.modelManager.GetBestInstanceAdaptive(r.Context(), request.Model)
 	if err != nil {
-		h.logger.Error("Failed to get model instance", zap.Error(err))
+		// Record failure for adaptive components
+		h.modelManager.RecordRequestEnd(request.Model, time.Since(startTime), false, err)
+		h.logger.Error("Failed to get model instance", 
+			zap.String("model", request.Model),
+			zap.Error(err))
 		h.sendError(w, http.StatusServiceUnavailable, "No instance available for model: "+request.Model)
 		return
 	}
+	
+	h.logger.Info("Selected instance for request",
+		zap.String("requested_model", request.Model),
+		zap.String("instance_id", instance.Config.ID),
+		zap.String("provider_model", instance.Config.Provider.Model))
 
 	// Handle streaming
 	if request.Stream {
@@ -62,12 +75,21 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create a copy of the request with the provider's actual model name
+	// Users call with their custom model name (e.g., "my-gpt-4")
+	// But we need to send the actual provider model name (e.g., "gpt-4")
+	providerRequest := request
+	providerRequest.Model = instance.Config.Provider.Model
+
 	// Forward request to provider
-	response, err := instance.Provider.ChatCompletion(r.Context(), &request)
-	latencyMs := time.Since(startTime).Milliseconds()
+	response, err := instance.Provider.ChatCompletion(r.Context(), &providerRequest)
+	latency := time.Since(startTime)
+	latencyMs := latency.Milliseconds()
 	
 	if err != nil {
 		instance.RecordError(err)
+		// Record failure for adaptive components
+		h.modelManager.RecordRequestEnd(request.Model, latency, false, err)
 		h.logger.Error("Provider request failed", zap.Error(err))
 		h.sendError(w, http.StatusInternalServerError, "Provider request failed")
 		return
@@ -76,6 +98,8 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// Record successful request
 	totalTokens := int32(response.Usage.TotalTokens)
 	instance.RecordRequest(totalTokens, latencyMs)
+	// Record success for adaptive components
+	h.modelManager.RecordRequestEnd(request.Model, latency, true, nil)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
@@ -158,6 +182,21 @@ func (h *LLMHandler) CreateSpeech(w http.ResponseWriter, r *http.Request) {
 
 func (h *LLMHandler) CreateModeration(w http.ResponseWriter, r *http.Request) {
 	h.sendError(w, http.StatusNotImplemented, "Moderation not yet implemented")
+}
+
+// ModelStats returns detailed statistics about model performance
+// @Summary Get model performance statistics
+// @Description Returns detailed performance metrics for all models including latency, health scores, and circuit breaker states
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /admin/models/stats [get]
+func (h *LLMHandler) ModelStats(w http.ResponseWriter, r *http.Request) {
+	stats := h.modelManager.GetModelStats()
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
 }
 
 func (h *LLMHandler) sendError(w http.ResponseWriter, status int, message string) {

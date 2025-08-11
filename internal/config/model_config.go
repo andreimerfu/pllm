@@ -104,6 +104,14 @@ type RouterSettings struct {
 	MaxRetries         int           `mapstructure:"max_retries" json:"max_retries"`
 	EnableLoadBalancing bool         `mapstructure:"enable_load_balancing" json:"enable_load_balancing"`
 	HealthCheckInterval time.Duration `mapstructure:"health_check_interval" json:"health_check_interval"`
+	
+	// Simple fallback configuration: model -> list of fallback models
+	Fallbacks map[string][]string `mapstructure:"fallbacks" json:"fallbacks"`
+	
+	// Circuit breaker settings
+	CircuitBreakerEnabled     bool          `mapstructure:"circuit_breaker_enabled" json:"circuit_breaker_enabled"`
+	CircuitBreakerThreshold   int           `mapstructure:"circuit_breaker_threshold" json:"circuit_breaker_threshold"`     // Failures before opening
+	CircuitBreakerCooldown    time.Duration `mapstructure:"circuit_breaker_cooldown" json:"circuit_breaker_cooldown"`       // Time before retry
 }
 
 // ModelGroup represents a logical grouping of model instances

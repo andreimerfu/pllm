@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/amerfu/pllm/internal/config"
+	"github.com/amerfu/pllm/internal/services/circuitbreaker"
+	"github.com/amerfu/pllm/internal/services/loadbalancer"
 	"github.com/amerfu/pllm/internal/services/providers"
 	"go.uber.org/zap"
 )
@@ -26,6 +28,15 @@ type ModelManager struct {
 	
 	// Round-robin state
 	roundRobinCounters map[string]*atomic.Uint64
+	
+	// Circuit breaker for model failures (simple version)
+	circuitBreaker *circuitbreaker.Manager
+	
+	// Advanced circuit breakers for performance-aware routing
+	adaptiveBreakers map[string]*circuitbreaker.AdaptiveBreaker
+	
+	// Load balancer for intelligent routing
+	loadBalancer *loadbalancer.AdaptiveLoadBalancer
 }
 
 // ModelInstance represents a single model instance
@@ -52,6 +63,23 @@ type ModelInstance struct {
 
 // NewModelManager creates a new model manager
 func NewModelManager(logger *zap.Logger, router config.RouterSettings) *ModelManager {
+	// Initialize circuit breaker if enabled
+	var cb *circuitbreaker.Manager
+	if router.CircuitBreakerEnabled {
+		threshold := router.CircuitBreakerThreshold
+		if threshold <= 0 {
+			threshold = 5 // Default threshold
+		}
+		cooldown := router.CircuitBreakerCooldown
+		if cooldown <= 0 {
+			cooldown = 30 * time.Second // Default cooldown
+		}
+		cb = circuitbreaker.NewManager(threshold, cooldown)
+	}
+	
+	// Initialize adaptive load balancer for high-load scenarios
+	lb := loadbalancer.NewAdaptiveLoadBalancer()
+	
 	return &ModelManager{
 		instances:         make(map[string]*ModelInstance),
 		modelMap:          make(map[string][]*ModelInstance),
@@ -59,6 +87,9 @@ func NewModelManager(logger *zap.Logger, router config.RouterSettings) *ModelMan
 		router:            router,
 		logger:            logger,
 		roundRobinCounters: make(map[string]*atomic.Uint64),
+		circuitBreaker:    cb,
+		adaptiveBreakers:  make(map[string]*circuitbreaker.AdaptiveBreaker),
+		loadBalancer:      lb,
 	}
 }
 
@@ -112,6 +143,31 @@ func (m *ModelManager) LoadModelInstances(instances []config.ModelInstance) erro
 			return insts[i].Config.Priority > insts[j].Config.Priority
 		})
 		m.modelMap[modelName] = insts
+		
+		// Register model with adaptive load balancer
+		maxResponseTime := 10 * time.Second // Default max response time
+		if len(insts) > 0 && insts[0].Config.Timeout > 0 {
+			maxResponseTime = insts[0].Config.Timeout
+		}
+		m.loadBalancer.RegisterModel(modelName, maxResponseTime)
+		
+		// Create adaptive circuit breaker for performance-aware routing
+		m.adaptiveBreakers[modelName] = circuitbreaker.NewAdaptiveBreaker(
+			5,                // failure threshold
+			2*time.Second,    // latency threshold (requests slower than this are "slow")
+			3,                // slow request limit before opening circuit
+		)
+		
+		m.logger.Debug("Registered model with adaptive components",
+			zap.String("model", modelName),
+			zap.Int("instances", len(insts)))
+	}
+	
+	// Set up fallback chains in load balancer
+	if m.router.Fallbacks != nil {
+		for model, fallbacks := range m.router.Fallbacks {
+			m.loadBalancer.SetFallbacks(model, fallbacks)
+		}
 	}
 	
 	m.logger.Info("Successfully loaded instances",
@@ -174,8 +230,183 @@ func (m *ModelManager) getOrCreateProvider(params config.ProviderParams) (provid
 	return provider, nil
 }
 
+// GetBestInstanceAdaptive uses adaptive load balancing for high-load scenarios
+func (m *ModelManager) GetBestInstanceAdaptive(ctx context.Context, modelName string) (*ModelInstance, error) {
+	// First check if the requested model exists
+	m.mu.RLock()
+	_, modelExists := m.modelMap[modelName]
+	m.mu.RUnlock()
+	
+	if !modelExists {
+		return nil, fmt.Errorf("model not found: %s", modelName)
+	}
+	
+	// Use adaptive load balancer to select the best model considering performance
+	selectedModel, err := m.loadBalancer.SelectModel(ctx, modelName)
+	if err != nil {
+		m.logger.Debug("Adaptive load balancer failed to select model", 
+			zap.String("model", modelName),
+			zap.Error(err))
+		// Fall back to regular GetBestInstance
+		return m.GetBestInstance(ctx, modelName)
+	}
+
+	m.logger.Debug("Adaptive load balancer selected model",
+		zap.String("requested", modelName),
+		zap.String("selected", selectedModel))
+
+	// Check adaptive circuit breaker for the selected model
+	if breaker, exists := m.adaptiveBreakers[selectedModel]; exists {
+		if !breaker.CanRequest() {
+			m.logger.Debug("Adaptive circuit breaker is open for model", 
+				zap.String("model", selectedModel))
+			// Try fallback through regular routing
+			return m.GetBestInstance(ctx, modelName)
+		}
+	}
+
+	// Get the actual instance for the selected model
+	m.mu.RLock()
+	instances, exists := m.modelMap[selectedModel]
+	m.mu.RUnlock()
+
+	if !exists || len(instances) == 0 {
+		m.logger.Warn("No instances found for selected model, falling back",
+			zap.String("selected", selectedModel),
+			zap.String("original", modelName))
+		return m.GetBestInstance(ctx, modelName)
+	}
+
+	// Select best instance for the chosen model
+	instance, err := m.selectBestInstanceForModel(ctx, selectedModel, instances)
+	if err != nil {
+		m.logger.Debug("Failed to select instance for model",
+			zap.String("model", selectedModel),
+			zap.Error(err))
+		return m.GetBestInstance(ctx, modelName)
+	}
+	
+	return instance, nil
+}
+
 // GetBestInstance returns the best instance for a model based on routing strategy
 func (m *ModelManager) GetBestInstance(ctx context.Context, modelName string) (*ModelInstance, error) {
+	// Check circuit breaker first if enabled
+	if m.circuitBreaker != nil && m.circuitBreaker.IsOpen(modelName) {
+		m.logger.Debug("Circuit breaker is open for model, trying fallbacks", 
+			zap.String("model", modelName))
+		
+		// Try fallback models
+		if fallbacks, exists := m.router.Fallbacks[modelName]; exists {
+			for _, fallbackModel := range fallbacks {
+				// Check if fallback's circuit is also open
+				if m.circuitBreaker.IsOpen(fallbackModel) {
+					continue
+				}
+				
+				instance, err := m.getBestInstanceInternal(ctx, fallbackModel)
+				if err == nil {
+					m.logger.Info("Using fallback model",
+						zap.String("original", modelName),
+						zap.String("fallback", fallbackModel))
+					return instance, nil
+				}
+			}
+		}
+		
+		return nil, fmt.Errorf("circuit breaker open for model %s and all fallbacks failed", modelName)
+	}
+	
+	// Try primary model
+	instance, err := m.getBestInstanceInternal(ctx, modelName)
+	if err == nil {
+		// Record success if circuit breaker is enabled
+		if m.circuitBreaker != nil {
+			m.circuitBreaker.RecordSuccess(modelName)
+		}
+		return instance, nil
+	}
+	
+	// Primary failed, record failure if circuit breaker is enabled
+	if m.circuitBreaker != nil {
+		m.circuitBreaker.RecordFailure(modelName)
+	}
+	
+	// Try fallback models
+	if fallbacks, exists := m.router.Fallbacks[modelName]; exists {
+		m.logger.Debug("Primary model failed, trying fallbacks",
+			zap.String("model", modelName),
+			zap.Error(err))
+		
+		for _, fallbackModel := range fallbacks {
+			// Check circuit breaker for fallback
+			if m.circuitBreaker != nil && m.circuitBreaker.IsOpen(fallbackModel) {
+				continue
+			}
+			
+			instance, fallbackErr := m.getBestInstanceInternal(ctx, fallbackModel)
+			if fallbackErr == nil {
+				m.logger.Info("Using fallback model",
+					zap.String("original", modelName),
+					zap.String("fallback", fallbackModel))
+				// Record success for fallback
+				if m.circuitBreaker != nil {
+					m.circuitBreaker.RecordSuccess(fallbackModel)
+				}
+				return instance, nil
+			}
+			
+			// Record fallback failure
+			if m.circuitBreaker != nil {
+				m.circuitBreaker.RecordFailure(fallbackModel)
+			}
+		}
+	}
+	
+	return nil, fmt.Errorf("model %s and all fallbacks failed: %w", modelName, err)
+}
+
+// selectBestInstanceForModel selects the best instance from a list of instances
+func (m *ModelManager) selectBestInstanceForModel(ctx context.Context, modelName string, instances []*ModelInstance) (*ModelInstance, error) {
+	// Filter healthy instances
+	var healthyInstances []*ModelInstance
+	for _, inst := range instances {
+		if inst.IsHealthy() && !inst.IsRateLimited() {
+			healthyInstances = append(healthyInstances, inst)
+		}
+	}
+	
+	if len(healthyInstances) == 0 {
+		// Try to find any instance that's not rate limited
+		for _, inst := range instances {
+			if !inst.IsRateLimited() {
+				return inst, nil
+			}
+		}
+		return nil, fmt.Errorf("no healthy instances available for model: %s", modelName)
+	}
+	
+	// Select based on routing strategy
+	switch m.router.RoutingStrategy {
+	case "round-robin":
+		return m.selectRoundRobin(modelName, healthyInstances), nil
+	case "weighted":
+		return m.selectWeighted(healthyInstances), nil
+	case "least-busy":
+		return m.selectLeastBusy(healthyInstances), nil
+	case "latency-based":
+		return m.selectLowestLatency(healthyInstances), nil
+	case "usage-based":
+		return m.selectByUsage(healthyInstances), nil
+	case "priority":
+		fallthrough
+	default:
+		return m.selectByPriority(healthyInstances), nil
+	}
+}
+
+// getBestInstanceInternal is the internal instance selection logic
+func (m *ModelManager) getBestInstanceInternal(ctx context.Context, modelName string) (*ModelInstance, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	
@@ -435,6 +666,96 @@ func (d *ModelInstance) RecordError(err error) {
 	if failures >= 3 { // TODO: make configurable
 		d.Healthy.Store(false)
 	}
+}
+
+// RecordRequestStart marks the beginning of a request (for tracking concurrent requests)
+func (m *ModelManager) RecordRequestStart(modelName string) {
+	// Debug logging
+	m.logger.Debug("RecordRequestStart called", 
+		zap.String("model", modelName),
+		zap.Int("breakers_count", len(m.adaptiveBreakers)))
+	
+	// Record in load balancer
+	m.loadBalancer.RecordRequestStart(modelName)
+	
+	// Track in adaptive circuit breaker
+	if breaker, exists := m.adaptiveBreakers[modelName]; exists {
+		m.logger.Debug("Found breaker for model", zap.String("model", modelName))
+		breaker.StartRequest()
+	} else {
+		m.logger.Debug("No breaker found for model", 
+			zap.String("model", modelName),
+			zap.Any("available_breakers", m.getAvailableBreakerNames()))
+	}
+}
+
+func (m *ModelManager) getAvailableBreakerNames() []string {
+	var names []string
+	for name := range m.adaptiveBreakers {
+		names = append(names, name)
+	}
+	return names
+}
+
+// RecordRequestEnd marks the end of a request with performance metrics
+func (m *ModelManager) RecordRequestEnd(modelName string, latency time.Duration, success bool, err error) {
+	// Record in load balancer
+	m.loadBalancer.RecordRequestEnd(modelName, latency, success)
+	
+	// Record in adaptive circuit breaker
+	if breaker, exists := m.adaptiveBreakers[modelName]; exists {
+		breaker.EndRequest()
+		if success {
+			breaker.RecordSuccess(latency)
+		} else {
+			// Check if it's a timeout
+			if err != nil && (contains(err.Error(), "timeout") || contains(err.Error(), "deadline")) {
+				breaker.RecordTimeout()
+			} else {
+				breaker.RecordFailure()
+			}
+		}
+	}
+	
+	// Record in simple circuit breaker if enabled
+	if m.circuitBreaker != nil {
+		if success {
+			m.circuitBreaker.RecordSuccess(modelName)
+		} else {
+			m.circuitBreaker.RecordFailure(modelName)
+		}
+	}
+}
+
+// GetModelStats returns performance statistics for all models
+func (m *ModelManager) GetModelStats() map[string]interface{} {
+	stats := make(map[string]interface{})
+	
+	// Get stats from load balancer
+	lbStats := m.loadBalancer.GetModelStats()
+	stats["load_balancer"] = lbStats
+	
+	// Get stats from adaptive circuit breakers
+	breakerStats := make(map[string]interface{})
+	for model, breaker := range m.adaptiveBreakers {
+		breakerStats[model] = breaker.GetState()
+	}
+	stats["adaptive_breakers"] = breakerStats
+	
+	// Check if we should shed load
+	stats["should_shed_load"] = m.loadBalancer.ShouldShedLoad()
+	
+	return stats
+}
+
+// contains is a helper function for string matching
+func contains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
 
 // healthCheckLoop periodically checks instance health
