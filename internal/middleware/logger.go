@@ -13,13 +13,14 @@ func Logger(logger *zap.Logger) func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			
-			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			// Use streaming-aware wrapper that preserves Flusher interface
+			ww := NewStreamingResponseWriter(w)
 			
 			defer func() {
 				logger.Info("request",
 					zap.String("method", r.Method),
 					zap.String("path", r.URL.Path),
-					zap.Int("status", ww.Status()),
+					zap.Int("status", ww.StatusCode()),
 					zap.Duration("duration", time.Since(start)),
 					zap.String("remote", r.RemoteAddr),
 					zap.String("request_id", middleware.GetReqID(r.Context())),

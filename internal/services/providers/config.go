@@ -15,4 +15,5 @@ type ProviderConfig struct {
 	Priority   int
 	Models     []string
 	Timeout    time.Duration
+	Extra      map[string]interface{} // Additional provider-specific configuration
 }

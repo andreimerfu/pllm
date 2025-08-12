@@ -79,8 +79,8 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		
 		// OpenAI-compatible endpoints
 		r.Route("/v1", func(r chi.Router) {
-			// Chat completions
-			r.Post("/chat/completions", llmHandler.ChatCompletions)
+			// Chat completions - use a custom handler that preserves Flusher
+			r.HandleFunc("/chat/completions", llmHandler.ChatCompletions)
 			
 			// Completions (legacy)
 			r.Post("/completions", llmHandler.Completions)

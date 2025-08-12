@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -66,12 +67,13 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("Selected instance for request",
 		zap.String("requested_model", request.Model),
 		zap.String("instance_id", instance.Config.ID),
-		zap.String("provider_model", instance.Config.Provider.Model))
+		zap.String("provider_model", instance.Config.Provider.Model),
+		zap.Bool("stream", request.Stream))
 
 	// Handle streaming
 	if request.Stream {
-		// TODO: Implement streaming
-		h.sendError(w, http.StatusNotImplemented, "Streaming not yet implemented")
+		h.logger.Info("Routing to streaming handler")
+		h.handleStreamingChat(w, r, &request, instance, startTime)
 		return
 	}
 
@@ -197,6 +199,143 @@ func (h *LLMHandler) ModelStats(w http.ResponseWriter, r *http.Request) {
 	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
+}
+
+// handleStreamingChat handles streaming chat completion requests
+func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request, request *providers.ChatRequest, instance *models.ModelInstance, startTime time.Time) {
+	// Debug: write type to header
+	w.Header().Set("X-Debug-Writer-Type", fmt.Sprintf("%T", w))
+	
+	h.logger.Info("Starting streaming request",
+		zap.String("model", request.Model),
+		zap.String("provider_model", instance.Config.Provider.Model),
+		zap.String("writer_type", fmt.Sprintf("%T", w)))
+	
+	// Set headers for SSE
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // Disable Nginx buffering
+	
+	// Our middleware ensures w is a StreamingResponseWriter which implements Flusher
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		// Add debug info to error response
+		errMsg := fmt.Sprintf("Streaming not supported - Writer type: %T", w)
+		h.logger.Error(errMsg,
+			zap.String("writer_type", fmt.Sprintf("%T", w)),
+			zap.String("model", request.Model))
+		// Send error response
+		h.sendError(w, http.StatusInternalServerError, errMsg)
+		return
+	}
+	
+	// Create a copy of the request with the provider's actual model name
+	providerRequest := *request
+	providerRequest.Model = instance.Config.Provider.Model
+	
+	// Get streaming response from provider
+	streamChan, err := instance.Provider.ChatCompletionStream(r.Context(), &providerRequest)
+	if err != nil {
+		instance.RecordError(err)
+		h.modelManager.RecordRequestEnd(request.Model, time.Since(startTime), false, err)
+		h.logger.Error("Failed to start streaming", 
+			zap.String("model", request.Model),
+			zap.Error(err))
+		// Send error in SSE format
+		fmt.Fprintf(w, "data: {\"error\": {\"message\": \"%s\"}}\n\n", err.Error())
+		flusher.Flush()
+		return
+	}
+	
+	// Stream responses to client
+	tokenCount := 0
+	chunkCount := 0
+	h.logger.Debug("Starting to read from stream channel")
+	
+	for chunk := range streamChan {
+		chunkCount++
+		// Count tokens (approximate)
+		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != nil {
+			if content, ok := chunk.Choices[0].Delta.Content.(string); ok {
+				// Rough token estimation: 1 token per 4 characters
+				tokenCount += len(content) / 4
+				if tokenCount == 0 {
+					tokenCount = 1
+				}
+			}
+		}
+		
+		// Convert chunk to JSON
+		data, err := json.Marshal(chunk)
+		if err != nil {
+			h.logger.Error("Failed to marshal streaming chunk", zap.Error(err))
+			continue
+		}
+		
+		// Write SSE formatted data
+		_, err = fmt.Fprintf(w, "data: %s\n\n", data)
+		if err != nil {
+			// Client disconnected
+			h.logger.Debug("Client disconnected during streaming", 
+				zap.String("model", request.Model))
+			break
+		}
+		
+		// Flush immediately for real-time streaming
+		flusher.Flush()
+		
+		if chunkCount == 1 {
+			h.logger.Debug("First chunk sent successfully")
+		}
+	}
+	
+	// Send final [DONE] marker
+	fmt.Fprintf(w, "data: [DONE]\n\n")
+	flusher.Flush()
+	
+	// Record successful streaming request
+	latency := time.Since(startTime)
+	latencyMs := latency.Milliseconds()
+	instance.RecordRequest(int32(tokenCount), latencyMs)
+	h.modelManager.RecordRequestEnd(request.Model, latency, true, nil)
+	
+	h.logger.Info("Streaming request completed",
+		zap.String("model", request.Model),
+		zap.Int("chunks_sent", chunkCount),
+		zap.Int("estimated_tokens", tokenCount),
+		zap.Int64("latency_ms", latencyMs))
+}
+
+// handleNonStreamingFallback handles streaming requests when flusher is not available
+func (h *LLMHandler) handleNonStreamingFallback(w http.ResponseWriter, r *http.Request, request *providers.ChatRequest, instance *models.ModelInstance, startTime time.Time) {
+	h.logger.Warn("Falling back to non-streaming response due to missing flusher")
+	
+	// Create a copy of the request with streaming disabled
+	providerRequest := *request
+	providerRequest.Model = instance.Config.Provider.Model
+	providerRequest.Stream = false
+	
+	// Forward request to provider as non-streaming
+	response, err := instance.Provider.ChatCompletion(r.Context(), &providerRequest)
+	latency := time.Since(startTime)
+	latencyMs := latency.Milliseconds()
+	
+	if err != nil {
+		instance.RecordError(err)
+		h.modelManager.RecordRequestEnd(request.Model, latency, false, err)
+		h.logger.Error("Provider request failed", zap.Error(err))
+		h.sendError(w, http.StatusInternalServerError, "Provider request failed")
+		return
+	}
+	
+	// Record successful request
+	totalTokens := int32(response.Usage.TotalTokens)
+	instance.RecordRequest(totalTokens, latencyMs)
+	h.modelManager.RecordRequestEnd(request.Model, latency, true, nil)
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *LLMHandler) sendError(w http.ResponseWriter, status int, message string) {

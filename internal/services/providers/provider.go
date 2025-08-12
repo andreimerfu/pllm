@@ -110,11 +110,17 @@ type Usage struct {
 }
 
 type StreamResponse struct {
-	ID      string   `json:"id"`
-	Object  string   `json:"object"`
-	Created int64    `json:"created"`
-	Model   string   `json:"model"`
-	Choices []Choice `json:"choices"`
+	ID      string         `json:"id"`
+	Object  string         `json:"object"`
+	Created int64          `json:"created"`
+	Model   string         `json:"model"`
+	Choices []StreamChoice `json:"choices"`
+}
+
+type StreamChoice struct {
+	Index        int     `json:"index"`
+	Delta        Message `json:"delta"`
+	FinishReason string  `json:"finish_reason,omitempty"`
 }
 
 type CompletionRequest struct {

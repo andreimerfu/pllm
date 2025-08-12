@@ -1,14 +1,15 @@
 package providers
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
-	
 )
 
 type OpenAIProvider struct {
@@ -95,8 +96,54 @@ func (p *OpenAIProvider) ChatCompletion(ctx context.Context, request *ChatReques
 }
 
 func (p *OpenAIProvider) ChatCompletionStream(ctx context.Context, request *ChatRequest) (<-chan StreamResponse, error) {
-	// Not implemented yet
-	return nil, fmt.Errorf("streaming not implemented")
+	// Create the stream channel
+	streamChan := make(chan StreamResponse, 100)
+	
+	go func() {
+		defer close(streamChan)
+		
+		// Enable streaming in request
+		request.Stream = true
+		
+		// Prepare the request body
+		reqBody, err := json.Marshal(request)
+		if err != nil {
+			return // Just close channel on error
+		}
+		
+		// Create HTTP request
+		req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/chat/completions", bytes.NewBuffer(reqBody))
+		if err != nil {
+			return // Just close channel on error
+		}
+		
+		// Set headers
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+p.apiKey)
+		req.Header.Set("Accept", "text/event-stream")
+		
+		// Only set organization header if it's explicitly provided and not empty
+		if p.orgID != "" && p.orgID != "0" && p.orgID != "null" {
+			req.Header.Set("OpenAI-Organization", p.orgID)
+		}
+		
+		// Make the request
+		resp, err := p.client.Do(req)
+		if err != nil {
+			return // Just close channel on error
+		}
+		defer resp.Body.Close()
+		
+		// Check for errors
+		if resp.StatusCode != http.StatusOK {
+			return // Just close channel on error
+		}
+		
+		// Parse SSE stream
+		p.parseStreamResponse(resp.Body, streamChan)
+	}()
+	
+	return streamChan, nil
 }
 
 func (p *OpenAIProvider) Completion(ctx context.Context, request *CompletionRequest) (*CompletionResponse, error) {
@@ -112,6 +159,51 @@ func (p *OpenAIProvider) CompletionStream(ctx context.Context, request *Completi
 func (p *OpenAIProvider) Embeddings(ctx context.Context, request *EmbeddingsRequest) (*EmbeddingsResponse, error) {
 	// Not implemented yet
 	return nil, fmt.Errorf("embeddings endpoint not implemented")
+}
+
+// parseStreamResponse parses the SSE stream response from OpenAI
+func (p *OpenAIProvider) parseStreamResponse(body io.Reader, streamChan chan<- StreamResponse) {
+	bufReader := bufio.NewReader(body)
+	
+	for {
+		line, err := bufReader.ReadString('\n')
+		if err != nil {
+			if err != io.EOF {
+				// Log error but continue
+			}
+			return
+		}
+		
+		line = strings.TrimSpace(line)
+		
+		// Skip empty lines
+		if line == "" {
+			continue
+		}
+		
+		// Check for SSE data prefix
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		
+		// Extract data
+		data := strings.TrimPrefix(line, "data: ")
+		
+		// Check for end of stream
+		if data == "[DONE]" {
+			return
+		}
+		
+		// Parse JSON data
+		var streamResp StreamResponse
+		if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
+			// Skip malformed data
+			continue
+		}
+		
+		// Send to channel
+		streamChan <- streamResp
+	}
 }
 
 func (p *OpenAIProvider) HealthCheck(ctx context.Context) error {

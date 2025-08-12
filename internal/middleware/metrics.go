@@ -146,23 +146,6 @@ var (
 	)
 )
 
-type metricsResponseWriter struct {
-	http.ResponseWriter
-	statusCode int
-	written    int64
-}
-
-func (rw *metricsResponseWriter) WriteHeader(code int) {
-	rw.statusCode = code
-	rw.ResponseWriter.WriteHeader(code)
-}
-
-func (rw *metricsResponseWriter) Write(b []byte) (int, error) {
-	n, err := rw.ResponseWriter.Write(b)
-	rw.written += int64(n)
-	return n, err
-}
-
 // MetricsMiddleware collects Prometheus metrics
 func MetricsMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -180,11 +163,8 @@ func MetricsMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 			requestSize := computeRequestSize(r)
 			httpRequestSize.WithLabelValues(r.Method, routePattern).Observe(float64(requestSize))
 
-			// Wrap response writer to capture status code and response size
-			wrapped := &metricsResponseWriter{
-				ResponseWriter: w,
-				statusCode:     http.StatusOK,
-			}
+			// Use streaming-aware wrapper that preserves Flusher interface
+			wrapped := NewStreamingResponseWriter(w)
 
 			// Process request
 			next.ServeHTTP(wrapped, r)
@@ -193,10 +173,10 @@ func MetricsMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 			duration := time.Since(start).Seconds()
 
 			// Record metrics
-			status := strconv.Itoa(wrapped.statusCode)
+			status := strconv.Itoa(wrapped.StatusCode())
 			httpRequestsTotal.WithLabelValues(r.Method, routePattern, status).Inc()
 			httpRequestDuration.WithLabelValues(r.Method, routePattern, status).Observe(duration)
-			httpResponseSize.WithLabelValues(r.Method, routePattern).Observe(float64(wrapped.written))
+			httpResponseSize.WithLabelValues(r.Method, routePattern).Observe(float64(wrapped.BytesWritten()))
 
 			// Log slow requests
 			if duration > 10 {
@@ -204,7 +184,7 @@ func MetricsMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 					zap.String("method", r.Method),
 					zap.String("path", r.URL.Path),
 					zap.Float64("duration", duration),
-					zap.Int("status", wrapped.statusCode),
+					zap.Int("status", wrapped.StatusCode()),
 				)
 			}
 		})

@@ -1,28 +1,20 @@
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard,
-  Brain,
-  Users,
-  Settings,
-  Activity,
-  Github,
-  Moon,
-  Sun,
-} from "lucide-react";
+import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Models", href: "/models", icon: Brain },
-  { name: "Users", href: "/users", icon: Users },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Dashboard", href: "/dashboard", icon: "lucide:layout-dashboard" },
+  { name: "Models", href: "/models", icon: "lucide:brain" },
+  { name: "Users", href: "/users", icon: "lucide:users" },
+  { name: "Settings", href: "/settings", icon: "lucide:settings" },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [isDark, setIsDark] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     // Check for saved theme preference or default to light
@@ -53,14 +45,42 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Mobile Menu Button */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="bg-background border-border"
+        >
+          {isMobileMenuOpen ? (
+            <Icon icon="lucide:x" width="16" height="16" />
+          ) : (
+            <Icon icon="lucide:menu" width="16" height="16" />
+          )}
+        </Button>
+      </div>
+
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/50"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-card border-r">
+      <div className={cn(
+        "fixed inset-y-0 left-0 z-50 w-64 bg-card border-r transform transition-transform duration-200 ease-in-out",
+        "lg:translate-x-0",
+        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      )}>
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b">
             <div className="flex items-center space-x-3">
-              <Activity className="h-8 w-8 text-primary" />
-              <span className="text-xl font-bold">pLLM Gateway</span>
+              <Icon icon="lucide:activity" width="32" height="32" className="text-primary" />
+              <span className="text-lg lg:text-xl font-bold">pLLM Gateway</span>
             </div>
           </div>
 
@@ -72,6 +92,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.name}
                   to={item.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className={cn(
                     "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
                     isActive
@@ -79,7 +100,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
-                  <item.icon className="mr-3 h-5 w-5" />
+                  <Icon icon={item.icon} width="20" height="20" className="mr-3" />
                   {item.name}
                 </Link>
               );
@@ -96,9 +117,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 className="h-9 w-9"
               >
                 {isDark ? (
-                  <Sun className="h-4 w-4" />
+                  <Icon icon="lucide:sun" width="16" height="16" />
                 ) : (
-                  <Moon className="h-4 w-4" />
+                  <Icon icon="lucide:moon" width="16" height="16" />
                 )}
               </Button>
               <a
@@ -107,7 +128,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
-                <Github className="h-5 w-5" />
+                <Icon icon="lucide:github" width="20" height="20" />
               </a>
             </div>
             <div className="text-xs text-muted-foreground">
@@ -119,8 +140,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main content */}
-      <div className="pl-64">
-        <main className="p-8">{children}</main>
+      <div className="lg:pl-64">
+        <main className="p-4 pt-16 lg:p-8 lg:pt-8">{children}</main>
       </div>
     </div>
   );

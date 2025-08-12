@@ -92,7 +92,7 @@ func (m *Manager) createProvider(name string, cfg ProviderConfig) (Provider, err
 	case "bedrock":
 		return NewBedrockProvider(name, cfg)
 	case "vertex":
-		return NewVertexAIProvider(name, cfg)
+		return NewVertexProvider(name, cfg)
 	case "cohere":
 		return NewCohereProvider(name, cfg)
 	case "huggingface":

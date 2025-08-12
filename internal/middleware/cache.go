@@ -32,26 +32,23 @@ type CachedResponse struct {
 	Provider   string             `json:"provider"`
 }
 
-type responseWriter struct {
-	http.ResponseWriter
-	body       *bytes.Buffer
-	statusCode int
-	written    bool
+// cacheResponseWriter captures response for caching
+type cacheResponseWriter struct {
+	*StreamingResponseWriter
+	body *bytes.Buffer
 }
 
-func (rw *responseWriter) Write(b []byte) (int, error) {
-	if !rw.written {
-		rw.written = true
+func newCacheResponseWriter(w http.ResponseWriter) *cacheResponseWriter {
+	return &cacheResponseWriter{
+		StreamingResponseWriter: NewStreamingResponseWriter(w),
+		body:                   &bytes.Buffer{},
 	}
-	return rw.body.Write(b)
 }
 
-func (rw *responseWriter) WriteHeader(code int) {
-	if !rw.written {
-		rw.statusCode = code
-		rw.ResponseWriter.WriteHeader(code)
-		rw.written = true
-	}
+func (rw *cacheResponseWriter) Write(b []byte) (int, error) {
+	// Write to both the buffer and the underlying writer
+	rw.body.Write(b)
+	return rw.StreamingResponseWriter.Write(b)
 }
 
 func NewCacheMiddleware(cfg *config.Config, log *zap.Logger) *CacheMiddleware {
@@ -83,6 +80,16 @@ func (m *CacheMiddleware) Handler(next http.Handler) http.Handler {
 		if !m.enabled {
 			next.ServeHTTP(w, r)
 			return
+		}
+		
+		// Check if this is a streaming request early
+		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/chat/completions") {
+			// Quick check for streaming without consuming body
+			if r.Header.Get("Accept") == "text/event-stream" {
+				// Skip cache middleware entirely for streaming
+				next.ServeHTTP(w, r)
+				return
+			}
 		}
 		
 		// Only cache GET requests and specific POST endpoints
@@ -119,26 +126,14 @@ func (m *CacheMiddleware) Handler(next http.Handler) http.Handler {
 		RecordCacheMiss(r.URL.Path)
 		
 		// Cache miss - capture response
-		captureWriter := &responseWriter{
-			ResponseWriter: w,
-			body:          &bytes.Buffer{},
-			statusCode:    http.StatusOK,
-		}
+		captureWriter := newCacheResponseWriter(w)
 		
 		next.ServeHTTP(captureWriter, r)
 		
-		// Write captured response to actual writer
-		for k, v := range captureWriter.Header() {
-			w.Header()[k] = v
-		}
-		if captureWriter.written && captureWriter.statusCode != 0 {
-			w.WriteHeader(captureWriter.statusCode)
-		}
+		// Response has already been written through the StreamingResponseWriter
+		// Just cache the response if it was successful
 		bodyBytes := captureWriter.body.Bytes()
-		w.Write(bodyBytes)
-		
-		// Cache successful responses
-		if m.shouldCacheResponse(captureWriter.statusCode, bodyBytes) {
+		if m.shouldCacheResponse(captureWriter.StatusCode(), bodyBytes) {
 			go m.cacheResponse(cacheKey, captureWriter, r)
 		}
 	})
@@ -254,7 +249,7 @@ func (m *CacheMiddleware) generateCacheKey(r *http.Request) (string, error) {
 	return fmt.Sprintf("llm:cache:%s", hex.EncodeToString(h.Sum(nil))), nil
 }
 
-func (m *CacheMiddleware) cacheResponse(key string, rw *responseWriter, r *http.Request) {
+func (m *CacheMiddleware) cacheResponse(key string, rw *cacheResponseWriter, r *http.Request) {
 	// Extract model and provider from response if available
 	var responseBody map[string]interface{}
 	model := ""
@@ -273,7 +268,7 @@ func (m *CacheMiddleware) cacheResponse(key string, rw *responseWriter, r *http.
 	cached := CachedResponse{
 		Body:       json.RawMessage(rw.body.Bytes()),
 		Headers:    make(map[string]string),
-		StatusCode: rw.statusCode,
+		StatusCode: rw.StatusCode(),
 		CachedAt:   time.Now(),
 		Model:      model,
 		Provider:   provider,

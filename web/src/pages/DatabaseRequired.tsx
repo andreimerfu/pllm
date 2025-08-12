@@ -1,4 +1,4 @@
-import { AlertCircle, Database, RefreshCw } from "lucide-react";
+import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,7 +18,7 @@ export default function DatabaseRequired() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
-            <Database className="h-6 w-6 text-destructive" />
+            <Icon icon="lucide:database" width="24" height="24" className="text-destructive" />
           </div>
           <CardTitle>Database Connection Required</CardTitle>
           <CardDescription>
@@ -28,7 +28,7 @@ export default function DatabaseRequired() {
         <CardContent className="space-y-4">
           <div className="rounded-lg bg-muted p-4">
             <div className="flex items-start space-x-2">
-              <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
+              <Icon icon="lucide:alert-circle" width="20" height="20" className="text-amber-500 mt-0.5" />
               <div className="text-sm">
                 <p className="font-medium">Configure Database</p>
                 <p className="text-muted-foreground mt-1">
@@ -53,7 +53,7 @@ export default function DatabaseRequired() {
           </div>
 
           <Button onClick={handleRefresh} className="w-full">
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <Icon icon="lucide:refresh-cw" width="16" height="16" className="mr-2" />
             Retry Connection
           </Button>
         </CardContent>

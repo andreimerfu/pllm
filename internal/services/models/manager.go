@@ -217,7 +217,7 @@ func (m *ModelManager) getOrCreateProvider(params config.ProviderParams) (provid
 	case "bedrock":
 		provider, err = providers.NewBedrockProvider(key, providerCfg)
 	case "vertex":
-		provider, err = providers.NewVertexAIProvider(key, providerCfg)
+		provider, err = providers.NewVertexProvider(key, providerCfg)
 	default:
 		return nil, fmt.Errorf("unknown provider type: %s", params.Type)
 	}

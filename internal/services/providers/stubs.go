@@ -5,115 +5,7 @@ import (
 	"fmt"
 )
 
-// Azure Provider
-type AzureProvider struct {
-	*BaseProvider
-}
-
-func NewAzureProvider(name string, cfg ProviderConfig) (*AzureProvider, error) {
-	return &AzureProvider{
-		BaseProvider: NewBaseProvider(name, "azure", cfg.Priority, cfg.Models),
-	}, nil
-}
-
-func (p *AzureProvider) ChatCompletion(ctx context.Context, request *ChatRequest) (*ChatResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *AzureProvider) ChatCompletionStream(ctx context.Context, request *ChatRequest) (<-chan StreamResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *AzureProvider) Completion(ctx context.Context, request *CompletionRequest) (*CompletionResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *AzureProvider) CompletionStream(ctx context.Context, request *CompletionRequest) (<-chan StreamResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *AzureProvider) Embeddings(ctx context.Context, request *EmbeddingsRequest) (*EmbeddingsResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *AzureProvider) HealthCheck(ctx context.Context) error {
-	p.SetHealthy(true)
-	return nil
-}
-
-// Bedrock Provider
-type BedrockProvider struct {
-	*BaseProvider
-}
-
-func NewBedrockProvider(name string, cfg ProviderConfig) (*BedrockProvider, error) {
-	return &BedrockProvider{
-		BaseProvider: NewBaseProvider(name, "bedrock", cfg.Priority, cfg.Models),
-	}, nil
-}
-
-func (p *BedrockProvider) ChatCompletion(ctx context.Context, request *ChatRequest) (*ChatResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *BedrockProvider) ChatCompletionStream(ctx context.Context, request *ChatRequest) (<-chan StreamResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *BedrockProvider) Completion(ctx context.Context, request *CompletionRequest) (*CompletionResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *BedrockProvider) CompletionStream(ctx context.Context, request *CompletionRequest) (<-chan StreamResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *BedrockProvider) Embeddings(ctx context.Context, request *EmbeddingsRequest) (*EmbeddingsResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *BedrockProvider) HealthCheck(ctx context.Context) error {
-	p.SetHealthy(true)
-	return nil
-}
-
-// VertexAI Provider
-type VertexAIProvider struct {
-	*BaseProvider
-}
-
-func NewVertexAIProvider(name string, cfg ProviderConfig) (*VertexAIProvider, error) {
-	return &VertexAIProvider{
-		BaseProvider: NewBaseProvider(name, "vertex", cfg.Priority, cfg.Models),
-	}, nil
-}
-
-func (p *VertexAIProvider) ChatCompletion(ctx context.Context, request *ChatRequest) (*ChatResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *VertexAIProvider) ChatCompletionStream(ctx context.Context, request *ChatRequest) (<-chan StreamResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *VertexAIProvider) Completion(ctx context.Context, request *CompletionRequest) (*CompletionResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *VertexAIProvider) CompletionStream(ctx context.Context, request *CompletionRequest) (<-chan StreamResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *VertexAIProvider) Embeddings(ctx context.Context, request *EmbeddingsRequest) (*EmbeddingsResponse, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (p *VertexAIProvider) HealthCheck(ctx context.Context) error {
-	p.SetHealthy(true)
-	return nil
-}
-
-// Cohere Provider
+// Cohere Provider (stub - to be implemented)
 type CohereProvider struct {
 	*BaseProvider
 }
@@ -149,7 +41,7 @@ func (p *CohereProvider) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-// HuggingFace Provider
+// HuggingFace Provider (stub - to be implemented)
 type HuggingFaceProvider struct {
 	*BaseProvider
 }
@@ -185,7 +77,7 @@ func (p *HuggingFaceProvider) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-// Custom Provider
+// Custom Provider (stub - to be implemented)
 type CustomProvider struct {
 	*BaseProvider
 }
