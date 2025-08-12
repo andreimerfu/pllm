@@ -15,6 +15,23 @@ COPY web/ ./
 # Build UI
 RUN npm run build
 
+# Docs Build stage
+FROM node:20-alpine AS docs-builder
+
+WORKDIR /app/docs
+
+# Copy package files
+COPY docs/package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy docs source
+COPY docs/ ./
+
+# Build documentation
+RUN npm run build
+
 # Go Build stage
 FROM golang:1.23-alpine AS builder
 
@@ -36,9 +53,12 @@ COPY . .
 # Copy built UI from ui-builder stage
 COPY --from=ui-builder /app/web/dist ./internal/ui/dist
 
+# Copy built docs from docs-builder stage
+COPY --from=docs-builder /app/docs/.vitepress/dist ./internal/docs/dist
+
 # Generate Swagger documentation
 RUN go install github.com/swaggo/swag/cmd/swag@latest
-RUN swag init -g cmd/server/main.go -o docs
+RUN swag init -g cmd/server/main.go -o internal/handlers/swagger
 
 # Build the application with embedded UI
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o pllm cmd/server/main.go

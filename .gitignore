@@ -89,6 +89,17 @@ test-results/
 # Documentation build artifacts
 docs/_build/
 docs/site/
+docs/node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# Generated Swagger documentation
+internal/handlers/swagger/docs.go
+internal/handlers/swagger/swagger.json
+internal/handlers/swagger/swagger.yaml
+
+# Embedded documentation dist
+internal/docs/dist/
 
 # Claude specific files
 .claude/

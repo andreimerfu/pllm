@@ -18,7 +18,7 @@ import (
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	
-	_ "github.com/amerfu/pllm/docs"
+	_ "github.com/amerfu/pllm/internal/handlers/swagger"
 )
 
 // @title pllm - Blazing Fast LLM Gateway

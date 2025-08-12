@@ -18,7 +18,7 @@ deps-update: ## Update Go dependencies
 	go mod tidy
 
 .PHONY: build
-build: ## Build the binary
+build: docs-build ## Build the binary with embedded docs
 	go build -o bin/pllm cmd/server/main.go
 
 .PHONY: run
@@ -115,11 +115,27 @@ install-tools: ## Install development tools
 .PHONY: swagger
 swagger: ## Generate Swagger documentation
 	@which swag > /dev/null || go install github.com/swaggo/swag/cmd/swag@latest
-	swag init -g cmd/server/main.go
+	swag init -g cmd/server/main.go -o internal/handlers/swagger
+
+##@ Documentation
+
+.PHONY: docs-dev
+docs-dev: ## Run VitePress documentation in development mode
+	cd docs && npm run dev
+
+.PHONY: docs-build
+docs-build: ## Build VitePress documentation
+	cd docs && npm run build
+	mkdir -p internal/docs/dist
+	cp -r docs/.vitepress/dist/* internal/docs/dist/
+
+.PHONY: docs-preview
+docs-preview: ## Preview built documentation
+	cd docs && npm run preview
 
 .PHONY: clean
 clean: ## Clean build artifacts
-	rm -rf bin/ tmp/ coverage.* *.out
+	rm -rf bin/ tmp/ coverage.* *.out internal/docs/dist
 
 .PHONY: env-setup
 env-setup: ## Create .env file from example

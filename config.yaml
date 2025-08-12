@@ -70,8 +70,33 @@ model_list:
       api_key: ${AZURE_API_KEY}
       api_version: 2024-02-15-preview
 
+  # Example with OpenRouter
+  - model_name: openrouter-gpt-4
+    params:
+      model: openai/gpt-4-turbo
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+    rpm: 200
+    tpm: 50000
+
+  # OpenRouter with multiple models
+  - model_name: openrouter-claude
+    params:
+      model: anthropic/claude-3-sonnet
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+
+  - model_name: openrouter-llama
+    params:
+      model: meta-llama/llama-2-70b-chat
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+
 # Model aliases/groups (optional)
 model_aliases:
-  smart: ["my-gpt-4", "azure-gpt-4"]
+  smart: ["my-gpt-4", "azure-gpt-4", "openrouter-gpt-4"]
   fast: ["my-gpt-35-turbo", "fast-gpt"]
   long-context: ["my-gpt-35-turbo-16k"]
+  claude: ["openrouter-claude"]
+  llama: ["openrouter-llama"]
+  openrouter: ["openrouter-gpt-4", "openrouter-claude", "openrouter-llama"]

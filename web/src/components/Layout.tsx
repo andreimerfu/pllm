@@ -153,14 +153,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   />
                 </div>
               </Button>
-              <a
-                href="https://github.com/amerfu/pllm"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 group"
-              >
-                <Icon icon="lucide:github" width="18" height="18" className="transition-transform duration-200" />
-              </a>
+              <div className="flex items-center space-x-2">
+                <a
+                  href="/docs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 group"
+                  title="Documentation"
+                >
+                  <Icon icon="lucide:book-open" width="18" height="18" className="transition-transform duration-200" />
+                </a>
+                <a
+                  href="https://github.com/amerfu/pllm"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 group"
+                  title="GitHub Repository"
+                >
+                  <Icon icon="lucide:github" width="18" height="18" className="transition-transform duration-200" />
+                </a>
+              </div>
             </div>
             <div className="text-xs text-muted-foreground space-y-1">
               <div className="flex items-center justify-between">

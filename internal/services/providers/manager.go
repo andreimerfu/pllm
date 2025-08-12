@@ -97,6 +97,8 @@ func (m *Manager) createProvider(name string, cfg ProviderConfig) (Provider, err
 		return NewCohereProvider(name, cfg)
 	case "huggingface":
 		return NewHuggingFaceProvider(name, cfg)
+	case "openrouter":
+		return NewOpenRouterProvider(name, cfg)
 	case "custom":
 		return NewCustomProvider(name, cfg)
 	default:
@@ -325,6 +327,53 @@ func (m *Manager) loadProvidersFromEnv() error {
 			m.providers[name] = provider
 			providersLoaded++
 			m.logger.Info("Loaded Anthropic provider from environment", 
+				zap.String("name", name))
+		}
+	}
+
+	// Check for OpenRouter API keys
+	openRouterKey := os.Getenv("OPENROUTER_API_KEY")
+	if openRouterKey == "" {
+		openRouterKey = os.Getenv("OPENROUTER_API_KEY_1")
+	}
+
+	if openRouterKey != "" {
+		name := "openrouter-0"
+		extraConfig := map[string]interface{}{
+			"http_referer": os.Getenv("OPENROUTER_HTTP_REFERER"),
+			"x_title":      os.Getenv("OPENROUTER_X_TITLE"),
+			"app_name":     os.Getenv("OPENROUTER_APP_NAME"),
+		}
+
+		cfg := ProviderConfig{
+			Type:     "openrouter",
+			APIKey:   openRouterKey,
+			BaseURL:  "https://openrouter.ai/api/v1",
+			Enabled:  true,
+			Priority: 10,
+			Models: []string{
+				"openai/gpt-4-turbo",
+				"openai/gpt-4",
+				"openai/gpt-3.5-turbo",
+				"anthropic/claude-3-opus",
+				"anthropic/claude-3-sonnet",
+				"anthropic/claude-3-haiku",
+				"meta-llama/llama-2-70b-chat",
+				"mistralai/mixtral-8x7b-instruct",
+				"google/gemini-pro",
+			},
+			Extra: extraConfig,
+		}
+
+		provider, err := NewOpenRouterProvider(name, cfg)
+		if err != nil {
+			m.logger.Error("Failed to create OpenRouter provider",
+				zap.String("name", name),
+				zap.Error(err))
+		} else {
+			m.providers[name] = provider
+			providersLoaded++
+			m.logger.Info("Loaded OpenRouter provider from environment",
 				zap.String("name", name))
 		}
 	}

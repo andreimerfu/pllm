@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/amerfu/pllm/internal/config"
+	"github.com/amerfu/pllm/internal/docs"
 	"github.com/amerfu/pllm/internal/handlers"
 	"github.com/amerfu/pllm/internal/middleware"
 	"github.com/amerfu/pllm/internal/services/models"
@@ -173,6 +174,22 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			r.Post("/moderations", llmHandler.CreateModeration)
 		})
 	})
+	
+	// Documentation routes
+	docsHandler, err := docs.NewHandler(cfg, logger)
+	if err != nil {
+		logger.Error("Failed to initialize docs handler", zap.Error(err))
+	} else if docsHandler.IsEnabled() {
+		// Mount docs at /docs with a wildcard to catch all subpaths
+		r.Mount("/docs", http.StripPrefix("/docs", docsHandler))
+		
+		// Also handle /docs without trailing slash
+		r.Get("/docs", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/docs/", http.StatusMovedPermanently)
+		})
+		
+		logger.Info("Documentation routes enabled")
+	}
 	
 	// UI routes (if enabled)
 	uiHandler, err := ui.NewHandler(cfg, logger)

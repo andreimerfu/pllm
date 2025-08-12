@@ -100,6 +100,12 @@ func ConvertToModelInstance(cfg ModelConfig) ModelInstance {
 		provider.AzureDeployment = modelName
 		provider.AzureEndpoint = cfg.Params.APIBase
 	}
+
+	// Handle OpenRouter-specific configuration
+	if providerType == "openrouter" {
+		// For OpenRouter, keep the full model name (e.g., "openai/gpt-4")
+		provider.Model = cfg.Params.Model
+	}
 	
 	// Create ModelInstance
 	return ModelInstance{
