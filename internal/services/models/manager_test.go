@@ -109,7 +109,7 @@ func TestAdaptiveLoadBalancer(t *testing.T) {
 		}
 		
 		stats := lb.GetModelStats()
-		modelStats := stats["test-model"].(map[string]interface{})
+		modelStats := stats["test-model"]
 		assert.Equal(t, float64(100), modelStats["health_score"])
 		assert.Equal(t, int64(3), modelStats["total_requests"])
 	})
@@ -136,9 +136,9 @@ func TestModelManager_AdaptiveRouting(t *testing.T) {
 			ModelName: "primary",
 			Enabled:   true,
 			Provider: config.ProviderParams{
-				Type:   "mock",
-				Model:  "mock-primary",
-				APIKey: "test",
+				Type:   "openai",
+				Model:  "gpt-3.5-turbo",
+				APIKey: "test-key",
 			},
 		},
 		{
@@ -146,9 +146,9 @@ func TestModelManager_AdaptiveRouting(t *testing.T) {
 			ModelName: "fallback1",
 			Enabled:   true,
 			Provider: config.ProviderParams{
-				Type:   "mock",
-				Model:  "mock-fallback1",
-				APIKey: "test",
+				Type:   "openai", 
+				Model:  "gpt-3.5-turbo",
+				APIKey: "test-key",
 			},
 		},
 	}
@@ -156,23 +156,32 @@ func TestModelManager_AdaptiveRouting(t *testing.T) {
 	err := manager.LoadModelInstances(instances)
 	require.NoError(t, err)
 	
+	// Check if instances were actually loaded
+	require.NotEmpty(t, manager.modelMap, "Model map should not be empty after loading instances")
+	require.Contains(t, manager.modelMap, "primary", "Primary model should be in model map")
+	
 	t.Run("Track requests in adaptive components", func(t *testing.T) {
+		// Debug: Check what models are loaded
+		t.Logf("Loaded models: %v", manager.modelMap)
+		t.Logf("Adaptive breakers: %v", manager.adaptiveBreakers)
+		
 		// Start tracking
 		manager.RecordRequestStart("primary")
 		
 		// Check that breaker is tracking
-		assert.NotNil(t, manager.adaptiveBreakers["primary"])
+		require.NotNil(t, manager.adaptiveBreakers)
+		assert.NotNil(t, manager.adaptiveBreakers["primary"], "Adaptive breaker for 'primary' should exist")
 		
 		// End tracking
 		manager.RecordRequestEnd("primary", 100*time.Millisecond, true, nil)
 		
 		// Get stats
 		stats := manager.GetModelStats()
-		lbStats := stats["load_balancer"].(map[string]interface{})
-		primaryStats := lbStats["primary"].(map[string]interface{})
+		lbStats := stats["load_balancer"].(map[string]map[string]interface{})
+		primaryStats := lbStats["primary"]
 		
 		// Should have tracked the request
-		assert.Equal(t, float64(1), primaryStats["total_requests"])
+		assert.Equal(t, int64(1), primaryStats["total_requests"])
 	})
 	
 	t.Run("GetBestInstanceAdaptive uses adaptive routing", func(t *testing.T) {

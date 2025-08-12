@@ -1,53 +1,55 @@
-import { Link, useLocation } from 'react-router-dom'
-import { cn } from '@/lib/utils'
-import { 
-  LayoutDashboard, 
-  Brain, 
-  Users, 
+import { Link, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import {
+  LayoutDashboard,
+  Brain,
+  Users,
   Settings,
   Activity,
   Github,
   Moon,
-  Sun
-} from 'lucide-react'
-import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
+  Sun,
+} from "lucide-react";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Models', href: '/models', icon: Brain },
-  { name: 'Users', href: '/users', icon: Users },
-  { name: 'Settings', href: '/settings', icon: Settings },
-]
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Models", href: "/models", icon: Brain },
+  { name: "Users", href: "/users", icon: Users },
+  { name: "Settings", href: "/settings", icon: Settings },
+];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const location = useLocation()
-  const [isDark, setIsDark] = useState(false)
+  const location = useLocation();
+  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
     // Check for saved theme preference or default to light
-    const savedTheme = localStorage.getItem('theme')
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark)
-    
-    setIsDark(shouldBeDark)
+    const savedTheme = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    ).matches;
+    const shouldBeDark = savedTheme === "dark" || (!savedTheme && prefersDark);
+
+    setIsDark(shouldBeDark);
     if (shouldBeDark) {
-      document.documentElement.classList.add('dark')
+      document.documentElement.classList.add("dark");
     }
-  }, [])
+  }, []);
 
   const toggleTheme = () => {
-    const newTheme = !isDark
-    setIsDark(newTheme)
-    
+    const newTheme = !isDark;
+    setIsDark(newTheme);
+
     if (newTheme) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('theme', 'dark')
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
     } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('theme', 'light')
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,29 +60,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center justify-between h-16 px-6 border-b">
             <div className="flex items-center space-x-3">
               <Activity className="h-8 w-8 text-primary" />
-              <span className="text-xl font-bold">PLLM Gateway</span>
+              <span className="text-xl font-bold">pLLM Gateway</span>
             </div>
           </div>
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-1">
             {navigation.map((item) => {
-              const isActive = location.pathname === item.href
+              const isActive = location.pathname === item.href;
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   className={cn(
-                    'flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                    "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
                     isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   <item.icon className="mr-3 h-5 w-5" />
                   {item.name}
                 </Link>
-              )
+              );
             })}
           </nav>
 
@@ -110,7 +112,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <div className="text-xs text-muted-foreground">
               <p>Version 1.0.0</p>
-              <p>© 2024 PLLM Gateway</p>
+              <p>© 2025 pLLM Gateway</p>
             </div>
           </div>
         </div>
@@ -118,10 +120,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <div className="pl-64">
-        <main className="p-8">
-          {children}
-        </main>
+        <main className="p-8">{children}</main>
       </div>
     </div>
-  )
+  );
 }

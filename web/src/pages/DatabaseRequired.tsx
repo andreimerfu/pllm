@@ -1,11 +1,17 @@
-import { AlertCircle, Database, RefreshCw } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AlertCircle, Database, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function DatabaseRequired() {
   const handleRefresh = () => {
-    window.location.reload()
-  }
+    window.location.reload();
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -26,7 +32,8 @@ export default function DatabaseRequired() {
               <div className="text-sm">
                 <p className="font-medium">Configure Database</p>
                 <p className="text-muted-foreground mt-1">
-                  Please ensure PostgreSQL is running and the DATABASE_URL environment variable is set correctly.
+                  Please ensure PostgreSQL is running and the DATABASE_URL
+                  environment variable is set correctly.
                 </p>
               </div>
             </div>
@@ -37,14 +44,12 @@ export default function DatabaseRequired() {
             <ol className="list-decimal list-inside space-y-1">
               <li>Start PostgreSQL using Docker Compose</li>
               <li>Set DATABASE_URL in your .env file</li>
-              <li>Restart the PLLM gateway</li>
+              <li>Restart the pLLM gateway</li>
             </ol>
           </div>
 
           <div className="bg-muted rounded-lg p-3">
-            <code className="text-xs">
-              docker compose up -d postgres
-            </code>
+            <code className="text-xs">docker compose up -d postgres</code>
           </div>
 
           <Button onClick={handleRefresh} className="w-full">
@@ -54,5 +59,5 @@ export default function DatabaseRequired() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
