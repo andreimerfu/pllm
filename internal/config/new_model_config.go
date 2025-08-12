@@ -43,11 +43,17 @@ type ModelParams struct {
 
 // ConvertToModelInstance converts new config format to internal ModelInstance
 func ConvertToModelInstance(cfg ModelConfig) ModelInstance {
-	// Parse provider type from model string (e.g., "azure/gpt-4" -> provider: azure, model: gpt-4)
+	// Detect provider type
 	providerType := "openai" // default
 	modelName := cfg.Params.Model
 	
-	if strings.Contains(modelName, "/") {
+	// Check if it's OpenRouter based on API base URL
+	if cfg.Params.APIBase != "" && strings.Contains(cfg.Params.APIBase, "openrouter.ai") {
+		providerType = "openrouter"
+		// Keep the full model name for OpenRouter
+		modelName = cfg.Params.Model
+	} else if strings.Contains(modelName, "/") {
+		// Parse provider type from model string (e.g., "azure/gpt-4" -> provider: azure, model: gpt-4)
 		parts := strings.SplitN(modelName, "/", 2)
 		providerType = parts[0]
 		modelName = parts[1]

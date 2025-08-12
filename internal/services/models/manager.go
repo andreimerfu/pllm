@@ -218,6 +218,8 @@ func (m *ModelManager) getOrCreateProvider(params config.ProviderParams) (provid
 		provider, err = providers.NewBedrockProvider(key, providerCfg)
 	case "vertex":
 		provider, err = providers.NewVertexProvider(key, providerCfg)
+	case "openrouter":
+		provider, err = providers.NewOpenRouterProvider(key, providerCfg)
 	default:
 		return nil, fmt.Errorf("unknown provider type: %s", params.Type)
 	}

@@ -146,6 +146,11 @@ services:
       - OPENAI_API_KEY_1=${OPENAI_API_KEY:-sk-your-openai-api-key}
       - OPENAI_API_KEY_2=${OPENAI_API_KEY_2:-}
       - OPENAI_API_KEY_3=${OPENAI_API_KEY_3:-}
+      # OpenRouter Configuration
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_HTTP_REFERER=${OPENROUTER_HTTP_REFERER:-http://localhost:8080}
+      - OPENROUTER_X_TITLE=${OPENROUTER_X_TITLE:-PLLM Gateway}
+      - OPENROUTER_APP_NAME=${OPENROUTER_APP_NAME:-pllm-gateway}
       # Optional: Other providers
       - ANTHROPIC_API_KEY_1=${ANTHROPIC_API_KEY:-}
       - AZURE_API_KEY_EAST=${AZURE_API_KEY_EAST:-}

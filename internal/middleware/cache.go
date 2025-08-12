@@ -140,9 +140,17 @@ func (m *CacheMiddleware) Handler(next http.Handler) http.Handler {
 }
 
 func (m *CacheMiddleware) shouldCache(r *http.Request) bool {
-	// Cache GET requests to models endpoint
-	if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/models") {
-		return true
+	// Never cache configuration endpoints - they should always reflect current state
+	if r.Method == http.MethodGet {
+		path := r.URL.Path
+		// Skip caching for dynamic/config endpoints
+		if strings.Contains(path, "/models") ||
+		   strings.Contains(path, "/health") ||
+		   strings.Contains(path, "/metrics") ||
+		   strings.Contains(path, "/admin") ||
+		   strings.Contains(path, "/config") {
+			return false
+		}
 	}
 	
 	// Cache POST requests to completion endpoints (if not streaming)

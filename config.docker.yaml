@@ -26,7 +26,7 @@ router:
   circuit_breaker_enabled: true
   circuit_breaker_threshold: 5
   circuit_breaker_cooldown: 30s
-  
+
   # Fallback chains - automatic failover when primary models are slow or failing
   fallbacks:
     my-gpt-4: ["my-gpt-35-turbo"]
@@ -41,7 +41,7 @@ model_list:
       api_key: ${OPENAI_API_KEY}
     rpm: 60
     tpm: 90000
-    
+
   # Primary GPT-3.5-Turbo instance
   - model_name: my-gpt-35-turbo
     params:
@@ -49,7 +49,7 @@ model_list:
       api_key: ${OPENAI_API_KEY}
     rpm: 200
     tpm: 90000
-    
+
   # GPT-3.5-Turbo-16K as fallback
   - model_name: my-gpt-35-turbo-16k
     params:
@@ -57,3 +57,12 @@ model_list:
       api_key: ${OPENAI_API_KEY}
     rpm: 200
     tpm: 180000
+
+  # OpenRouter models - uses full model path as OpenRouter expects
+  - model_name: deepseek-v3-free
+    params:
+      model: deepseek/deepseek-chat-v3-0324:free # OpenRouter format: provider/model
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+    rpm: 60
+    tpm: 50000
