@@ -3,6 +3,7 @@ import Dashboard from '@/pages/Dashboard'
 import Models from '@/pages/Models'
 import Users from '@/pages/Users'
 import Settings from '@/pages/Settings'
+import Chat from '@/pages/Chat'
 import Layout from '@/components/Layout'
 import { Toaster } from '@/components/ui/toaster'
 
@@ -15,6 +16,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/chat" element={<Chat />} />
           <Route path="/models" element={<Models />} />
           <Route path="/users" element={<Users />} />
           <Route path="/settings" element={<Settings />} />

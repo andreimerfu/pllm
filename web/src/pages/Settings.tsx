@@ -13,10 +13,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Settings() {
   return (
-    <div className="space-y-4 lg:space-y-6">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl lg:text-3xl font-bold">Settings</h1>
-        <p className="text-sm lg:text-base text-muted-foreground">
+        <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          Settings
+        </h1>
+        <p className="text-sm lg:text-base text-muted-foreground mt-1">
           Configure gateway settings and preferences
         </p>
       </div>
@@ -30,7 +32,7 @@ export default function Settings() {
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
-          <Card>
+          <Card className="transition-theme">
             <CardHeader>
               <CardTitle className="text-lg lg:text-xl">General Settings</CardTitle>
               <CardDescription>
@@ -56,15 +58,19 @@ export default function Settings() {
                 <Switch id="enable-logging" defaultChecked />
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
-                <Button className="w-full sm:w-auto">Save Changes</Button>
-                <Button variant="outline" className="w-full sm:w-auto">Reset to Defaults</Button>
+                <Button className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all duration-200">
+                  Save Changes
+                </Button>
+                <Button variant="outline" className="w-full sm:w-auto hover:bg-muted transition-colors">
+                  Reset to Defaults
+                </Button>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="database" className="space-y-4">
-          <Card>
+          <Card className="transition-theme">
             <CardHeader>
               <CardTitle className="text-lg lg:text-xl">Database Configuration</CardTitle>
               <CardDescription>
@@ -97,15 +103,19 @@ export default function Settings() {
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
-                <Button className="w-full sm:w-auto">Test Connection</Button>
-                <Button className="w-full sm:w-auto">Save Changes</Button>
+                <Button variant="outline" className="w-full sm:w-auto hover:bg-muted transition-colors">
+                  Test Connection
+                </Button>
+                <Button className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all duration-200">
+                  Save Changes
+                </Button>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="security" className="space-y-4">
-          <Card>
+          <Card className="transition-theme">
             <CardHeader>
               <CardTitle className="text-lg lg:text-xl">Security Settings</CardTitle>
               <CardDescription>
@@ -135,13 +145,15 @@ export default function Settings() {
                 <Label htmlFor="rate-limit">Rate Limit (requests/minute)</Label>
                 <Input id="rate-limit" type="number" defaultValue="60" className="max-w-xs" />
               </div>
-              <Button className="w-full sm:w-auto">Save Changes</Button>
+              <Button className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all duration-200">
+                Save Changes
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
-          <Card>
+          <Card className="transition-theme">
             <CardHeader>
               <CardTitle className="text-lg lg:text-xl">Notification Settings</CardTitle>
               <CardDescription>
@@ -174,7 +186,9 @@ export default function Settings() {
                   placeholder="https://hooks.slack.com/services/..."
                 />
               </div>
-              <Button className="w-full sm:w-auto">Save Changes</Button>
+              <Button className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all duration-200">
+                Save Changes
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

@@ -21,19 +21,21 @@ export default function Users() {
   )
 
   return (
-    <div className="space-y-4 lg:space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold">Users</h1>
-          <p className="text-sm lg:text-base text-muted-foreground">Manage user accounts and permissions</p>
+          <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Users
+          </h1>
+          <p className="text-sm lg:text-base text-muted-foreground mt-1">Manage user accounts and permissions</p>
         </div>
-        <Button className="w-full sm:w-auto">
+        <Button className="w-full sm:w-auto shadow-lg hover:shadow-xl transition-all duration-200">
           <Icon icon="lucide:user-plus" width="16" height="16" className="mr-2" />
           Add User
         </Button>
       </div>
 
-      <Card>
+      <Card className="transition-theme">
         <CardHeader>
           <CardTitle className="text-lg lg:text-xl">User Management</CardTitle>
           <CardDescription>View and manage all user accounts</CardDescription>
@@ -54,19 +56,24 @@ export default function Users() {
           {/* Mobile Card View */}
           <div className="block sm:hidden space-y-3">
             {filteredUsers.map(user => (
-              <Card key={user.id} className="p-4">
+              <Card key={user.id} className="p-4 transition-theme">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold">{user.name}</h3>
-                  <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>
+                  <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'} className="font-medium">
                     {user.role}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mb-2">{user.email}</p>
                 <div className="flex items-center justify-between">
-                  <Badge variant={user.status === 'Active' ? 'outline' : 'secondary'}>
+                  <Badge 
+                    variant={user.status === 'Active' ? 'outline' : 'secondary'}
+                    className={user.status === 'Active' ? 'border-green-200 text-green-700 dark:border-green-800 dark:text-green-400' : ''}
+                  >
                     {user.status}
                   </Badge>
-                  <Button variant="ghost" size="sm">Edit</Button>
+                  <Button variant="ghost" size="sm" className="hover:bg-muted transition-colors">
+                    Edit
+                  </Button>
                 </div>
               </Card>
             ))}
@@ -77,31 +84,37 @@ export default function Users() {
             <div className="min-w-[600px]">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2 min-w-[120px]">Name</th>
-                    <th className="text-left p-2 min-w-[200px]">Email</th>
-                    <th className="text-left p-2 min-w-[80px]">Role</th>
-                    <th className="text-left p-2 min-w-[80px]">Status</th>
-                    <th className="text-left p-2 min-w-[100px]">Actions</th>
+                  <tr className="border-b border-border">
+                    <th className="text-left p-3 font-semibold min-w-[120px]">Name</th>
+                    <th className="text-left p-3 font-semibold min-w-[200px]">Email</th>
+                    <th className="text-left p-3 font-semibold min-w-[80px]">Role</th>
+                    <th className="text-left p-3 font-semibold min-w-[80px]">Status</th>
+                    <th className="text-left p-3 font-semibold min-w-[100px]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredUsers.map(user => (
-                    <tr key={user.id} className="border-b hover:bg-muted/50">
-                      <td className="p-2 font-medium">{user.name}</td>
-                      <td className="p-2 text-muted-foreground">{user.email}</td>
-                      <td className="p-2">
-                        <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'}>
+                    <tr key={user.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors duration-200">
+                      <td className="p-3 font-medium">{user.name}</td>
+                      <td className="p-3 text-muted-foreground">{user.email}</td>
+                      <td className="p-3">
+                        <Badge variant={user.role === 'Admin' ? 'default' : 'secondary'} className="font-medium">
                           {user.role}
                         </Badge>
                       </td>
-                      <td className="p-2">
-                        <Badge variant={user.status === 'Active' ? 'outline' : 'secondary'}>
+                      <td className="p-3">
+                        <Badge 
+                          variant={user.status === 'Active' ? 'outline' : 'secondary'}
+                          className={user.status === 'Active' ? 'border-green-200 text-green-700 dark:border-green-800 dark:text-green-400 font-medium' : 'font-medium'}
+                        >
+                          <div className={`w-2 h-2 rounded-full mr-1.5 ${user.status === 'Active' ? 'bg-green-500' : 'bg-muted-foreground'}`} />
                           {user.status}
                         </Badge>
                       </td>
-                      <td className="p-2">
-                        <Button variant="ghost" size="sm">Edit</Button>
+                      <td className="p-3">
+                        <Button variant="ghost" size="sm" className="hover:bg-muted transition-colors">
+                          Edit
+                        </Button>
                       </td>
                     </tr>
                   ))}
