@@ -63,10 +63,23 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		uiPath = "/index.html"
 	}
 
-	// Check if file exists
+	// Check if it's a static asset (has file extension) or a route
+	hasExtension := strings.Contains(path.Base(uiPath), ".")
+	
+	// If it's not a static asset, serve index.html for client-side routing
+	if !hasExtension && uiPath != "/index.html" {
+		uiPath = "/index.html"
+	}
+
+	// Try to open the file
 	file, err := h.fileSystem.Open(uiPath)
 	if err != nil {
-		// For any 404, serve index.html for client-side routing
+		// If file not found and it was a static asset request, return 404
+		if hasExtension {
+			http.NotFound(w, r)
+			return
+		}
+		// Otherwise serve index.html
 		uiPath = "/index.html"
 		file, err = h.fileSystem.Open(uiPath)
 		if err != nil {
@@ -85,13 +98,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// If it's a directory, serve index.html
 	if stat.IsDir() {
-		uiPath = path.Join(uiPath, "index.html")
+		uiPath = "/index.html"
+		file.Close()
 		file, err = h.fileSystem.Open(uiPath)
 		if err != nil {
 			http.NotFound(w, r)
 			return
 		}
 		defer file.Close()
+		
+		stat, err = file.Stat()
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
 	}
 
 	// Set content type based on file extension
@@ -99,6 +119,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch ext {
 	case ".html":
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		// Disable caching for HTML to ensure updates are reflected
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	case ".js":
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	case ".css":
@@ -115,7 +137,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/x-icon")
 	}
 
-	// Serve the file
-	http.FileServer(h.fileSystem).ServeHTTP(w, r)
+	// Serve the file using http.ServeContent for proper handling
+	http.ServeContent(w, r, uiPath, stat.ModTime(), file.(http.File))
 }
 

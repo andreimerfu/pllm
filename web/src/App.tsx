@@ -7,9 +7,11 @@ import Keys from '@/pages/Keys'
 import Settings from '@/pages/Settings'
 import Chat from '@/pages/Chat'
 import Login from '@/pages/Login'
+import Callback from '@/pages/Callback'
+import SilentRenew from '@/pages/SilentRenew'
 import Layout from '@/components/Layout'
 import { Toaster } from '@/components/ui/toaster'
-import { AuthProvider } from '@/contexts/AuthContext'
+import { OIDCAuthProvider } from '@/contexts/OIDCAuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 
 function App() {
@@ -17,9 +19,11 @@ function App() {
   // we don't need to check database status here
   return (
     <Router basename="/ui">
-      <AuthProvider>
+      <OIDCAuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/callback" element={<Callback />} />
+          <Route path="/silent-renew" element={<SilentRenew />} />
           <Route path="/*" element={
             <ProtectedRoute>
               <Layout>
@@ -38,7 +42,7 @@ function App() {
           } />
         </Routes>
         <Toaster />
-      </AuthProvider>
+      </OIDCAuthProvider>
     </Router>
   )
 }

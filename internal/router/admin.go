@@ -38,6 +38,12 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	
 	// Initialize handlers
 	authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKey)
+	oauthHandler := admin.NewOAuthHandler(
+		cfg.Logger,
+		"http://dex:5556/dex",
+		"pllm-web",
+		"pllm-web-secret",
+	)
 	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService)
 	keyHandler := admin.NewKeyHandler(cfg.Logger, keyService, teamService)
 	budgetHandler := admin.NewBudgetHandler(cfg.Logger)
@@ -47,6 +53,8 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	// Auth endpoints (public - no auth required)
 	r.Post("/auth/login", authHandler.Login)
 	r.Get("/auth/validate", authHandler.Validate)
+	r.Post("/auth/token", oauthHandler.TokenExchange)
+	r.Get("/auth/userinfo", oauthHandler.UserInfo)
 	
 	// Stats endpoint (commonly accessed by dashboard)
 	r.Get("/stats", analyticsHandler.GetStats)
@@ -159,7 +167,7 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 	// })
 
 	// Initialize handlers
-	authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKey)
+	// authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKey) // Will be used when auth endpoints are enabled
 	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService)
 	keyHandler := admin.NewKeyHandler(cfg.Logger, keyService, teamService)
 	budgetHandler := admin.NewBudgetHandler(cfg.Logger)

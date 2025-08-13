@@ -30,6 +30,12 @@ admin:
 logging:
   level: debug
 
+# Dex Authentication Configuration
+dex:
+  issuer: http://dex:5556/dex
+  client_id: pllm-backend
+  client_secret: pllm-backend-secret
+
 # Router configuration with adaptive routing for high-load scenarios
 router:
   routing_strategy: "latency-based"
