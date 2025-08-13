@@ -8,18 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
 import ReactECharts from "echarts-for-react";
 import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
@@ -299,61 +287,123 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="h-[250px] sm:h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={modelHealthData}
-                  margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke={
-                      isDark ? "hsl(215, 27.9%, 16.9%)" : "hsl(220, 13%, 91%)"
-                    }
-                  />
-                  <XAxis
-                    dataKey="name"
-                    className="text-xs"
-                    tick={{
-                      fontSize: 12,
-                      fill: isDark
-                        ? "hsl(217.9, 10.6%, 64.9%)"
-                        : "hsl(220, 8.9%, 46.1%)",
-                    }}
-                    interval={0}
-                    angle={-45}
-                    textAnchor="end"
-                    height={60}
-                  />
-                  <YAxis
-                    className="text-xs"
-                    tick={{
-                      fontSize: 12,
-                      fill: isDark
-                        ? "hsl(217.9, 10.6%, 64.9%)"
-                        : "hsl(220, 8.9%, 46.1%)",
-                    }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: isDark
-                        ? "hsl(215, 27.9%, 16.9%)"
-                        : "hsl(0, 0%, 100%)",
-                      border: `1px solid ${isDark ? "hsl(215, 27.9%, 16.9%)" : "hsl(220, 13%, 91%)"}`,
-                      fontSize: "12px",
+              <ReactECharts
+                option={{
+                  backgroundColor: "transparent",
+                  tooltip: {
+                    trigger: "axis",
+                    axisPointer: {
+                      type: "shadow",
+                    },
+                    backgroundColor: isDark
+                      ? "hsl(215, 27.9%, 16.9%)"
+                      : "hsl(0, 0%, 100%)",
+                    borderColor: isDark
+                      ? "hsl(215, 27.9%, 16.9%)"
+                      : "hsl(220, 13%, 91%)",
+                    textStyle: {
                       color: isDark
                         ? "hsl(210, 20%, 98%)"
                         : "hsl(224, 71.4%, 4.1%)",
-                      borderRadius: "8px",
-                    }}
-                  />
-                  <Bar
-                    dataKey="health"
-                    fill="hsl(var(--primary))"
-                    radius={[6, 6, 0, 0]}
-                    className="transition-all duration-200 hover:opacity-80"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+                    },
+                  },
+                  grid: {
+                    left: "3%",
+                    right: "4%",
+                    bottom: "15%",
+                    top: "3%",
+                    containLabel: true,
+                  },
+                  xAxis: {
+                    type: "category",
+                    data: modelHealthData.map((m) => m.name),
+                    axisLine: {
+                      lineStyle: {
+                        color: isDark
+                          ? "hsl(215, 27.9%, 16.9%)"
+                          : "hsl(220, 13%, 91%)",
+                      },
+                    },
+                    axisLabel: {
+                      color: isDark
+                        ? "hsl(217.9, 10.6%, 64.9%)"
+                        : "hsl(220, 8.9%, 46.1%)",
+                      rotate: 45,
+                      fontSize: 11,
+                    },
+                    splitLine: {
+                      show: false,
+                    },
+                  },
+                  yAxis: {
+                    type: "value",
+                    name: "Health Score (%)",
+                    nameTextStyle: {
+                      color: isDark
+                        ? "hsl(217.9, 10.6%, 64.9%)"
+                        : "hsl(220, 8.9%, 46.1%)",
+                    },
+                    axisLine: {
+                      lineStyle: {
+                        color: isDark
+                          ? "hsl(215, 27.9%, 16.9%)"
+                          : "hsl(220, 13%, 91%)",
+                      },
+                    },
+                    axisLabel: {
+                      color: isDark
+                        ? "hsl(217.9, 10.6%, 64.9%)"
+                        : "hsl(220, 8.9%, 46.1%)",
+                    },
+                    splitLine: {
+                      lineStyle: {
+                        color: isDark
+                          ? "hsl(215, 27.9%, 16.9%)"
+                          : "hsl(220, 13%, 91%)",
+                        type: "dashed",
+                      },
+                    },
+                  },
+                  series: [
+                    {
+                      name: "Health Score",
+                      type: "bar",
+                      data: modelHealthData.map((m) => ({
+                        value: m.health,
+                        itemStyle: {
+                          color: {
+                            type: "linear",
+                            x: 0,
+                            y: 0,
+                            x2: 0,
+                            y2: 1,
+                            colorStops: [
+                              {
+                                offset: 0,
+                                color: isDark ? "#60a5fa" : "#3b82f6",
+                              },
+                              {
+                                offset: 1,
+                                color: isDark ? "#3b82f6" : "#2563eb",
+                              },
+                            ],
+                          },
+                          borderRadius: [6, 6, 0, 0],
+                        },
+                      })),
+                      emphasis: {
+                        itemStyle: {
+                          shadowBlur: 10,
+                          shadowOffsetX: 0,
+                          shadowColor: "rgba(0, 0, 0, 0.2)",
+                        },
+                      },
+                    },
+                  ],
+                }}
+                style={{ height: "100%", width: "100%" }}
+                opts={{ renderer: "svg" }}
+              />
             </div>
           </CardContent>
         </Card>
@@ -368,42 +418,89 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="h-[250px] sm:h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) =>
-                      `${name}: ${(percent * 100).toFixed(0)}%`
-                    }
-                    outerRadius={window.innerWidth < 640 ? 60 : 80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {pieData.map((_, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      fontSize: "12px",
-                      backgroundColor: isDark
-                        ? "hsl(215, 27.9%, 16.9%)"
-                        : "hsl(0, 0%, 100%)",
-                      border: `1px solid ${isDark ? "hsl(215, 27.9%, 16.9%)" : "hsl(220, 13%, 91%)"}`,
-                      borderRadius: "8px",
+              <ReactECharts
+                option={{
+                  backgroundColor: "transparent",
+                  tooltip: {
+                    trigger: "item",
+                    formatter: "{b}: {c} ({d}%)",
+                    backgroundColor: isDark
+                      ? "hsl(215, 27.9%, 16.9%)"
+                      : "hsl(0, 0%, 100%)",
+                    borderColor: isDark
+                      ? "hsl(215, 27.9%, 16.9%)"
+                      : "hsl(220, 13%, 91%)",
+                    textStyle: {
                       color: isDark
                         ? "hsl(210, 20%, 98%)"
                         : "hsl(224, 71.4%, 4.1%)",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+                    },
+                  },
+                  legend: {
+                    orient: "vertical",
+                    left: "left",
+                    data: pieData.map((d) => d.name),
+                    textStyle: {
+                      color: isDark
+                        ? "hsl(210, 20%, 98%)"
+                        : "hsl(224, 71.4%, 4.1%)",
+                      fontSize: 11,
+                    },
+                  },
+                  series: [
+                    {
+                      name: "Requests",
+                      type: "pie",
+                      radius: ["40%", "70%"],
+                      center: ["60%", "50%"],
+                      avoidLabelOverlap: true,
+                      itemStyle: {
+                        borderRadius: 10,
+                        borderColor: isDark ? "#030712" : "#fff",
+                        borderWidth: 2,
+                      },
+                      label: {
+                        show: true,
+                        formatter: "{d}%",
+                        position: "outside",
+                        color: isDark
+                          ? "hsl(210, 20%, 98%)"
+                          : "hsl(224, 71.4%, 4.1%)",
+                        fontSize: 11,
+                      },
+                      labelLine: {
+                        show: true,
+                        lineStyle: {
+                          color: isDark
+                            ? "hsl(215, 27.9%, 16.9%)"
+                            : "hsl(220, 13%, 91%)",
+                        },
+                      },
+                      emphasis: {
+                        itemStyle: {
+                          shadowBlur: 10,
+                          shadowOffsetX: 0,
+                          shadowColor: "rgba(0, 0, 0, 0.5)",
+                        },
+                        label: {
+                          show: true,
+                          fontSize: 14,
+                          fontWeight: "bold",
+                        },
+                      },
+                      data: pieData.map((item, index) => ({
+                        name: item.name,
+                        value: item.value,
+                        itemStyle: {
+                          color: COLORS[index % COLORS.length],
+                        },
+                      })),
+                    },
+                  ],
+                }}
+                style={{ height: "100%", width: "100%" }}
+                opts={{ renderer: "svg" }}
+              />
             </div>
           </CardContent>
         </Card>
