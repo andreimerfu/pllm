@@ -19,7 +19,7 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { login, loginWithCredentials } = useAuth();
+  const { loginWithCredentials } = useAuth();
   const { toast } = useToast();
 
   const handleCredentialsLogin = async (e: React.FormEvent) => {
@@ -44,11 +44,57 @@ export default function Login() {
     }
   };
 
-  const handleOAuthLogin = () => {
-    // For now, we'll use the generic login which will redirect to Dex
-    // Dex will show the provider selection screen
-    login();
+  const handleOAuthLogin = async (provider: 'github' | 'google' | 'microsoft') => {
+    // Redirect directly to the specific OAuth provider through Dex
+    // This bypasses the Dex UI selection screen
+    const returnUrl = window.location.pathname;
+    
+    // Generate PKCE challenge
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+    
+    // Store the code verifier for the callback
+    sessionStorage.setItem('code_verifier', codeVerifier);
+    
+    // Build the authorization URL with the connector parameter
+    const params = new URLSearchParams({
+      client_id: 'pllm-web',
+      redirect_uri: `${window.location.origin}/ui/callback`,
+      response_type: 'code',
+      scope: 'openid profile email',
+      state: btoa(JSON.stringify({ returnUrl })),
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+      // This tells Dex to skip the selection screen and go directly to the provider
+      connector_id: provider,
+    });
+    
+    const authUrl = `http://localhost:5556/dex/auth?${params.toString()}`;
+    console.log(`Redirecting to ${provider}:`, authUrl);
+    
+    // Redirect to the authorization endpoint
+    window.location.href = authUrl;
   };
+
+  // PKCE helper functions
+  function generateCodeVerifier(): string {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return btoa(String.fromCharCode.apply(null, Array.from(array)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+  }
+
+  async function generateCodeChallenge(verifier: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(digest))))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -70,7 +116,7 @@ export default function Login() {
             <Button
               variant="outline"
               className="w-full"
-              onClick={handleOAuthLogin}
+              onClick={() => handleOAuthLogin('github')}
               disabled={isLoading}
             >
               <Github className="mr-2 h-4 w-4" />
@@ -79,7 +125,7 @@ export default function Login() {
             <Button
               variant="outline"
               className="w-full"
-              onClick={handleOAuthLogin}
+              onClick={() => handleOAuthLogin('google')}
               disabled={isLoading}
             >
               <Mail className="mr-2 h-4 w-4" />
@@ -88,7 +134,7 @@ export default function Login() {
             <Button
               variant="outline"
               className="w-full"
-              onClick={handleOAuthLogin}
+              onClick={() => handleOAuthLogin('microsoft')}
               disabled={isLoading}
             >
               <Icon icon="mdi:microsoft" className="mr-2 h-4 w-4" />

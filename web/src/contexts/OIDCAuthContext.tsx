@@ -249,7 +249,7 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
         client_id: oidcConfig.client_id!,
         redirect_uri: oidcConfig.redirect_uri!,
         response_type: 'code',
-        scope: oidcConfig.scope!,
+        scope: 'openid profile email',
         state: btoa(JSON.stringify({ returnUrl })),
         code_challenge: codeChallenge,
         code_challenge_method: 'S256',

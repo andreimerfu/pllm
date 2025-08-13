@@ -42,6 +42,9 @@ staticClients:
       - email
       - groups
       - offline_access
+    # Skip the approval screen when possible
+    trustedPeers:
+      - pllm-web
 
   # Swagger UI client
   - id: pllm-swagger
@@ -131,3 +134,11 @@ expiry:
 frontend:
   theme: "light"
   issuer: "pLLM Gateway"
+
+# OAuth2 settings
+oauth2:
+  # Skip the approval screen for trusted clients
+  skipApprovalScreen: true
+  # Always show the approval screen for these response types
+  # alwaysShowLoginScreen: false
+  passwordConnector: local
