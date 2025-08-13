@@ -15,9 +15,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
-func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.ModelManager) http.Handler {
+func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.ModelManager, db *gorm.DB) http.Handler {
 	r := chi.NewRouter()
 	
 	// Basic middleware
@@ -174,6 +175,25 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			r.Post("/moderations", llmHandler.CreateModeration)
 		})
 	})
+	
+	// Admin routes - mount if database is available
+	if db != nil {
+		// Create admin sub-router configuration
+		adminConfig := &AdminRouterConfig{
+			Config:       cfg,
+			Logger:       logger,
+			DB:           db,
+			AuthService:  nil, // TODO: Enable when auth service is implemented
+			MasterKey:    "",  // TODO: Use cfg.Auth.MasterKey when config supports it
+			ModelManager: modelManager,
+		}
+		
+		// Mount admin routes at /api/admin
+		adminSubRouter := NewAdminSubRouter(adminConfig)
+		r.Mount("/api/admin", adminSubRouter)
+		
+		logger.Info("Admin routes mounted at /api/admin")
+	}
 	
 	// Documentation routes
 	docsHandler, err := docs.NewHandler(cfg, logger)

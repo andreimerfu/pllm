@@ -5,6 +5,16 @@ import (
 	"gorm.io/datatypes"
 )
 
+// GroupRole represents the role of a user in a group
+type GroupRole string
+
+const (
+	GroupRoleOwner  GroupRole = "owner"
+	GroupRoleAdmin  GroupRole = "admin"
+	GroupRoleMember GroupRole = "member"
+	GroupRoleViewer GroupRole = "viewer"
+)
+
 type Group struct {
 	BaseModel
 	Name        string `gorm:"uniqueIndex;not null" json:"name"`

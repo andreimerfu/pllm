@@ -2,6 +2,16 @@
 
 server:
   port: 8080
+  admin_port: 9090
+  metrics_port: 8081
+
+cors:
+  allowed_origins: ["http://localhost:3000", "http://localhost:5173", "*"]
+  allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+  allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+  exposed_headers: ["X-Request-ID"]
+  allow_credentials: true
+  max_age: 3600
 
 database:
   url: postgres://pllm:pllm@postgres:5432/pllm?sslmode=disable
@@ -62,6 +72,22 @@ model_list:
   - model_name: deepseek-v3-free
     params:
       model: deepseek/deepseek-chat-v3-0324:free # OpenRouter format: provider/model
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+    rpm: 60
+    tpm: 50000
+
+  - model_name: gemini-2.0-flash-exp-free
+    params:
+      model: google/gemini-2.0-flash-exp:free # OpenRouter format: provider/model
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+    rpm: 60
+    tpm: 50000
+
+  - model_name: gpt-oss-20b-free
+    params:
+      model: openai/gpt-oss-20b:free # OpenRouter format: provider/model
       api_key: ${OPENROUTER_API_KEY}
       api_base: https://openrouter.ai/api/v1
     rpm: 60

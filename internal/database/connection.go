@@ -91,7 +91,33 @@ func Initialize(cfg *Config) error {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 	
+	// Check if database needs seeding (auto-seed if empty)
+	if shouldAutoSeed() {
+		log.Println("Database is empty, running initial seed...")
+		if err := RunInitialSeed(); err != nil {
+			log.Printf("Warning: Failed to seed database: %v", err)
+			// Don't fail initialization if seeding fails
+		}
+	}
+	
 	return nil
+}
+
+func shouldAutoSeed() bool {
+	// Skip seeding if disabled via environment variable
+	if os.Getenv("DB_AUTO_SEED") == "false" {
+		return false
+	}
+	
+	// Check if database has any users
+	var count int64
+	DB.Model(&models.User{}).Count(&count)
+	return count == 0
+}
+
+func RunInitialSeed() error {
+	seeder := NewSeeder(DB)
+	return seeder.SeedAll()
 }
 
 func Migrate() error {
@@ -99,17 +125,16 @@ func Migrate() error {
 		return fmt.Errorf("database not initialized")
 	}
 	
-	// Create extensions
-	if err := DB.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"").Error; err != nil {
-		return fmt.Errorf("failed to create uuid extension: %w", err)
-	}
+	// Create extensions (PostgreSQL specific, will be ignored for SQLite)
+	DB.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
 	
-	// Auto migrate models
+	// Auto migrate all models including new ones
 	if err := DB.AutoMigrate(
 		&models.User{},
-		&models.Group{},
-		&models.UserGroup{},
-		&models.APIKey{},
+		&models.Team{},
+		&models.TeamMember{},
+		&models.VirtualKey{},
+		&models.APIKey{},      // Keep for backward compatibility
 		&models.Provider{},
 		&models.Model{},
 		&models.Budget{},
@@ -132,7 +157,22 @@ func createIndexes() error {
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
 	
-	// API Key indexes
+	// Virtual Key indexes (new primary key system)
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_key ON virtual_keys(key)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_user_id ON virtual_keys(user_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_team_id ON virtual_keys(team_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_is_active ON virtual_keys(is_active)")
+	
+	// Team indexes
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_teams_name ON teams(name)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_teams_is_active ON teams(is_active)")
+	
+	// Team Member indexes
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_team_members_team_id ON team_members(team_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON team_members(user_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_team_members_team_user ON team_members(team_id, user_id)")
+	
+	// API Key indexes (legacy, kept for backward compatibility)
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)")

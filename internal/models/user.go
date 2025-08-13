@@ -3,7 +3,6 @@ package models
 import (
 	"time"
 
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -21,11 +20,25 @@ type User struct {
 	LastLoginAt     *time.Time `json:"last_login_at"`
 	PasswordChangedAt *time.Time `json:"-"`
 	
+	// Budget Control (user-level)
+	MaxBudget       float64       `json:"max_budget"`
+	BudgetDuration  BudgetPeriod  `json:"budget_duration"`
+	CurrentSpend    float64       `json:"current_spend"`
+	BudgetResetAt   time.Time     `json:"budget_reset_at"`
+	
+	// Rate Limiting (user-level)
+	TPM              int `json:"tpm"`
+	RPM              int `json:"rpm"`
+	MaxParallelCalls int `json:"max_parallel_calls"`
+	
+	// Model Access Control
+	AllowedModels    []string `gorm:"type:text[]" json:"allowed_models,omitempty"`
+	BlockedModels    []string `gorm:"type:text[]" json:"blocked_models,omitempty"`
+	
 	// Relationships
-	APIKeys []APIKey `gorm:"foreignKey:UserID" json:"-"`
-	Groups  []Group  `gorm:"many2many:user_groups;" json:"groups,omitempty"`
-	Budgets []Budget `gorm:"foreignKey:UserID" json:"-"`
-	Usage   []Usage  `gorm:"foreignKey:UserID" json:"-"`
+	Teams       []TeamMember `gorm:"foreignKey:UserID" json:"teams,omitempty"`
+	VirtualKeys []VirtualKey `gorm:"foreignKey:UserID" json:"virtual_keys,omitempty"`
+	Usage       []Usage      `gorm:"foreignKey:UserID" json:"-"`
 }
 
 type UserRole string
@@ -73,19 +86,51 @@ func (u *User) ComparePassword(password string) bool {
 	return err == nil
 }
 
-type UserGroup struct {
-	UserID    uuid.UUID `gorm:"type:uuid;primaryKey"`
-	GroupID   uuid.UUID `gorm:"type:uuid;primaryKey"`
-	Role      GroupRole `gorm:"type:varchar(20);default:'member'"`
-	JoinedAt  time.Time
-	ExpiresAt *time.Time
+func (u *User) IsBudgetExceeded() bool {
+	return u.MaxBudget > 0 && u.CurrentSpend >= u.MaxBudget
 }
 
-type GroupRole string
+func (u *User) ShouldResetBudget() bool {
+	return time.Now().After(u.BudgetResetAt)
+}
 
-const (
-	GroupRoleOwner   GroupRole = "owner"
-	GroupRoleAdmin   GroupRole = "admin"
-	GroupRoleMember  GroupRole = "member"
-	GroupRoleViewer  GroupRole = "viewer"
-)
+func (u *User) ResetBudget() {
+	u.CurrentSpend = 0
+	
+	now := time.Now()
+	switch u.BudgetDuration {
+	case BudgetPeriodDaily:
+		u.BudgetResetAt = now.AddDate(0, 0, 1)
+	case BudgetPeriodWeekly:
+		u.BudgetResetAt = now.AddDate(0, 0, 7)
+	case BudgetPeriodMonthly:
+		u.BudgetResetAt = now.AddDate(0, 1, 0)
+	case BudgetPeriodYearly:
+		u.BudgetResetAt = now.AddDate(1, 0, 0)
+	default:
+		u.BudgetResetAt = now.AddDate(0, 0, 30)
+	}
+}
+
+func (u *User) IsModelAllowed(model string) bool {
+	// Check if model is blocked
+	for _, blocked := range u.BlockedModels {
+		if blocked == model || blocked == "*" {
+			return false
+		}
+	}
+	
+	// If no allowed models specified, allow all (except blocked)
+	if len(u.AllowedModels) == 0 {
+		return true
+	}
+	
+	// Check if model is in allowed list
+	for _, allowed := range u.AllowedModels {
+		if allowed == model || allowed == "*" {
+			return true
+		}
+	}
+	
+	return false
+}

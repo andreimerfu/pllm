@@ -1,0 +1,148 @@
+# Dex configuration for PLLM SSO
+issuer: http://localhost:5556/dex
+
+storage:
+  type: sqlite3
+  config:
+    file: /var/dex/dex.db
+
+web:
+  http: 0.0.0.0:5556
+
+telemetry:
+  http: 0.0.0.0:5558
+
+grpc:
+  addr: 0.0.0.0:5557
+  tlsCert: ""
+  tlsKey: ""
+  tlsClientCA: ""
+  reflection: true
+
+# OAuth2 configuration
+oauth2:
+  # Allow wildcard redirect URIs for development
+  alwaysShowLoginScreen: false
+  skipApprovalScreen: true
+  responseTypes: ["code", "token", "id_token"]
+
+# Static clients for PLLM
+staticClients:
+  - id: pllm-web
+    name: 'PLLM Web UI'
+    redirectURIs:
+      - 'http://localhost:3000/auth/callback'
+      - 'http://localhost:8080/auth/callback'
+      - 'http://localhost:5173/auth/callback'
+    secret: pllm-client-secret
+    public: false
+
+  - id: pllm-cli
+    name: 'PLLM CLI'
+    redirectURIs:
+      - 'http://localhost:8080/auth/cli/callback'
+      - 'urn:ietf:wg:oauth:2.0:oob'
+    secret: pllm-cli-secret
+    public: true
+
+# Connectors - configure your identity providers here
+connectors:
+  # GitHub OAuth
+  - type: github
+    id: github
+    name: GitHub
+    config:
+      clientID: $GITHUB_CLIENT_ID
+      clientSecret: $GITHUB_CLIENT_SECRET
+      redirectURI: http://localhost:5556/dex/callback
+      orgs:
+        - name: your-org # Replace with your GitHub org
+      loadAllGroups: true
+
+  # Google OAuth
+  - type: google
+    id: google
+    name: Google
+    config:
+      clientID: $GOOGLE_CLIENT_ID
+      clientSecret: $GOOGLE_CLIENT_SECRET
+      redirectURI: http://localhost:5556/dex/callback
+      hostedDomains:
+        - yourdomain.com # Replace with your domain
+
+  # LDAP (for enterprise)
+  - type: ldap
+    id: ldap
+    name: LDAP
+    config:
+      host: ldap.example.com:636
+      insecureNoSSL: false
+      insecureSkipVerify: false
+      bindDN: cn=admin,dc=example,dc=com
+      bindPW: $LDAP_ADMIN_PASSWORD
+      userSearch:
+        baseDN: ou=users,dc=example,dc=com
+        filter: "(objectClass=person)"
+        username: uid
+        idAttr: uid
+        emailAttr: mail
+        nameAttr: cn
+      groupSearch:
+        baseDN: ou=groups,dc=example,dc=com
+        filter: "(objectClass=groupOfNames)"
+        userMatchers:
+          - userAttr: DN
+            groupAttr: member
+        nameAttr: cn
+
+  # SAML (for enterprise SSO)
+  - type: saml
+    id: saml
+    name: SAML
+    config:
+      ssoURL: https://idp.example.com/sso
+      ssoIssuer: http://localhost:5556/dex/callback
+      ca: /etc/dex/saml-ca.crt
+      redirectURI: http://localhost:5556/dex/callback
+      usernameAttr: uid
+      emailAttr: email
+      groupsAttr: groups
+      nameIDPolicyFormat: emailAddress
+
+  # Mock connector for testing
+  - type: mockCallback
+    id: mock
+    name: Example
+    config:
+      # Example users for testing
+      # Remove in production!
+      users:
+        - email: "admin@example.com"
+          username: "admin"
+          userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
+          groups:
+            - "admins"
+            - "developers"
+        - email: "user@example.com"
+          username: "user"
+          userID: "08a8684b-db88-4b73-90a9-3cd1661f5467"
+          groups:
+            - "developers"
+
+# Enable refresh tokens
+enablePasswordDB: false
+expiry:
+  deviceRequests: "5m"
+  signingKeys: "6h"
+  idTokens: "24h"
+  refreshTokens:
+    reuseInterval: "3s"
+    validIfNotUsedFor: "2160h" # 90 days
+    absoluteLifetime: "3960h" # 165 days
+
+# Frontend configuration
+frontend:
+  theme: "dark"
+  issuer: "PLLM Authentication"
+  logoURL: "https://example.com/logo.png"
+  dir: ""

@@ -3,17 +3,21 @@ import { cn } from "@/lib/utils";
 import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: "lucide:layout-dashboard" },
   { name: "Chat", href: "/chat", icon: "lucide:messages-square" },
   { name: "Models", href: "/models", icon: "lucide:brain" },
+  { name: "Teams", href: "/teams", icon: "lucide:users-2" },
+  { name: "API Keys", href: "/keys", icon: "lucide:key" },
   { name: "Users", href: "/users", icon: "lucide:users" },
   { name: "Settings", href: "/settings", icon: "lucide:settings" },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const { logout } = useAuth();
   const [isDark, setIsDark] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -154,6 +158,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               </Button>
               <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={logout}
+                  className="h-10 w-10 rounded-xl hover:bg-muted transition-all duration-200 group"
+                  title="Logout"
+                >
+                  <Icon icon="lucide:log-out" width="18" height="18" className="text-muted-foreground group-hover:text-foreground transition-colors duration-200" />
+                </Button>
                 <a
                   href="/docs"
                   target="_blank"
