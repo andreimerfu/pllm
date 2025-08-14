@@ -8,7 +8,6 @@ import (
 	"github.com/amerfu/pllm/internal/handlers/admin"
 	"github.com/amerfu/pllm/internal/middleware"
 	"github.com/amerfu/pllm/internal/services/team"
-	"github.com/amerfu/pllm/internal/services/virtualkey"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -17,12 +16,12 @@ import (
 )
 
 type AdminRouterConfig struct {
-	Config       *config.Config
-	Logger       *zap.Logger
-	DB           *gorm.DB
-	AuthService  *auth.AuthService
-	MasterKey    string
-	ModelManager interface {
+	Config           *config.Config
+	Logger           *zap.Logger
+	DB               *gorm.DB
+	AuthService      *auth.AuthService
+	MasterKeyService *auth.MasterKeyService
+	ModelManager     interface {
 		GetModelStats() map[string]interface{}
 	}
 }
@@ -33,25 +32,27 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	r := chi.NewRouter()
 	
 	// Initialize services
-	keyService := virtualkey.NewVirtualKeyService(cfg.DB)
 	teamService := team.NewTeamService(cfg.DB)
 	
 	// Initialize handlers
-	authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKey)
+	authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKeyService, cfg.DB)
 	oauthHandler := admin.NewOAuthHandler(
 		cfg.Logger,
+		cfg.DB,
 		"http://dex:5556/dex",
 		"pllm-web",
 		"pllm-web-secret",
 	)
+	userHandler := admin.NewUserHandler(cfg.Logger, cfg.DB)
 	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService)
-	keyHandler := admin.NewKeyHandler(cfg.Logger, keyService, teamService)
+	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
 	budgetHandler := admin.NewBudgetHandler(cfg.Logger)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
 	
 	// Auth endpoints (public - no auth required)
 	r.Post("/auth/login", authHandler.Login)
+	r.Post("/auth/master-key", authHandler.MasterKeyLogin)  // Master key authentication
 	r.Get("/auth/validate", authHandler.Validate)
 	r.Post("/auth/token", oauthHandler.TokenExchange)
 	r.Get("/auth/userinfo", oauthHandler.UserInfo)
@@ -59,6 +60,17 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	// Stats endpoint (commonly accessed by dashboard)
 	r.Get("/stats", analyticsHandler.GetStats)
 	r.Get("/dashboard", analyticsHandler.GetDashboard)
+	
+	// User management
+	r.Route("/users", func(r chi.Router) {
+		r.Get("/", userHandler.ListUsers)
+		r.Post("/", userHandler.CreateUser)
+		r.Get("/{userID}", userHandler.GetUser)
+		r.Put("/{userID}", userHandler.UpdateUser)
+		r.Delete("/{userID}", userHandler.DeleteUser)
+		r.Get("/{userID}/stats", userHandler.GetUserStats)
+		r.Post("/{userID}/reset-budget", userHandler.ResetUserBudget)
+	})
 	
 	// Team management
 	r.Route("/teams", func(r chi.Router) {
@@ -156,7 +168,6 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 	}))
 
 	// Initialize services
-	keyService := virtualkey.NewVirtualKeyService(cfg.DB)
 	teamService := team.NewTeamService(cfg.DB)
 	// Budget service could be used for budget handlers if needed
 	// Note: Not starting the budget service monitor to avoid excessive logging
@@ -169,18 +180,17 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 	// Initialize handlers
 	// authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKey) // Will be used when auth endpoints are enabled
 	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService)
-	keyHandler := admin.NewKeyHandler(cfg.Logger, keyService, teamService)
+	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
 	budgetHandler := admin.NewBudgetHandler(cfg.Logger)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(&middleware.AuthConfig{
-		Logger:      cfg.Logger,
-		AuthService: cfg.AuthService,
-		KeyService:  keyService,
-		MasterKey:   cfg.MasterKey,
-		RequireAuth: false, // Allow public endpoints
+		Logger:           cfg.Logger,
+		AuthService:      cfg.AuthService,
+		MasterKeyService: cfg.MasterKeyService,
+		RequireAuth:      false, // Allow public endpoints
 	})
 
 	// Health check (public)

@@ -10,20 +10,20 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 	
 	"github.com/amerfu/pllm/internal/services/budget"
-	"github.com/amerfu/pllm/internal/services/virtualkey"
 )
 
 type UsageTracker struct {
 	logger        *zap.Logger
-	keyService    *virtualkey.VirtualKeyService
+	db            *gorm.DB
 	budgetService *budget.BudgetService
 }
 
 type UsageConfig struct {
 	Logger        *zap.Logger
-	KeyService    *virtualkey.VirtualKeyService
+	DB            *gorm.DB
 	BudgetService *budget.BudgetService
 }
 
@@ -40,7 +40,7 @@ type UsageMetrics struct {
 func NewUsageTracker(config *UsageConfig) *UsageTracker {
 	return &UsageTracker{
 		logger:        config.Logger,
-		keyService:    config.KeyService,
+		db:            config.DB,
 		budgetService: config.BudgetService,
 	}
 }
@@ -80,11 +80,11 @@ func (u *UsageTracker) recordUsage(ctx context.Context, r *http.Request, w *resp
 
 	// Get authentication context
 	authType := GetAuthType(ctx)
-	if authType != AuthTypeVirtualKey {
+	if authType != AuthTypeAPIKey {
 		return
 	}
 
-	key, ok := GetVirtualKey(ctx)
+	key, ok := GetKey(ctx)
 	if !ok {
 		return
 	}
@@ -95,8 +95,9 @@ func (u *UsageTracker) recordUsage(ctx context.Context, r *http.Request, w *resp
 		return
 	}
 
-	// Record usage in key service
-	if err := u.keyService.RecordUsage(ctx, key.ID, metrics.Tokens, metrics.Cost); err != nil {
+	// Record usage in key directly
+	key.RecordUsage(int(metrics.Tokens), metrics.Cost)
+	if err := u.db.Save(key).Error; err != nil {
 		u.logger.Error("Failed to record key usage", 
 			zap.String("key_id", key.ID.String()),
 			zap.Error(err))

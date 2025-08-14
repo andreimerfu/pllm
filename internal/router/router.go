@@ -2,7 +2,9 @@ package router
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/amerfu/pllm/internal/auth"
 	"github.com/amerfu/pllm/internal/config"
 	"github.com/amerfu/pllm/internal/docs"
 	"github.com/amerfu/pllm/internal/handlers"
@@ -20,6 +22,26 @@ import (
 
 func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.ModelManager, db *gorm.DB) http.Handler {
 	r := chi.NewRouter()
+
+	// Initialize auth services
+	masterKeyService := auth.NewMasterKeyService(&auth.MasterKeyConfig{
+		DB:          db,
+		MasterKey:   cfg.Auth.MasterKey,
+		JWTSecret:   []byte(cfg.JWT.SecretKey),
+		JWTIssuer:   "pllm",
+		TokenExpiry: 24 * time.Hour,
+	})
+
+	authService, err := auth.NewAuthService(&auth.AuthConfig{
+		DB:               db,
+		JWTSecret:        cfg.JWT.SecretKey,
+		JWTIssuer:        "pllm",
+		TokenExpiry:      cfg.JWT.AccessTokenDuration,
+		MasterKeyService: masterKeyService,
+	})
+	if err != nil {
+		logger.Fatal("Failed to initialize auth service", zap.Error(err))
+	}
 	
 	// Basic middleware
 	r.Use(chiMiddleware.RequestID)
@@ -64,7 +86,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	
 	// Initialize handlers
 	llmHandler := handlers.NewLLMHandler(logger, modelManager)
-	authHandler := handlers.NewAuthHandler(logger)
+	authHandler := handlers.NewAuthHandler(logger, authService, masterKeyService, db)
 	
 	// Public routes
 	r.Group(func(r chi.Router) {
@@ -180,12 +202,12 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	if db != nil {
 		// Create admin sub-router configuration
 		adminConfig := &AdminRouterConfig{
-			Config:       cfg,
-			Logger:       logger,
-			DB:           db,
-			AuthService:  nil, // TODO: Enable when auth service is implemented
-			MasterKey:    "",  // TODO: Use cfg.Auth.MasterKey when config supports it
-			ModelManager: modelManager,
+			Config:           cfg,
+			Logger:           logger,
+			DB:               db,
+			AuthService:      authService,
+			MasterKeyService: masterKeyService,
+			ModelManager:     modelManager,
 		}
 		
 		// Mount admin routes at /api/admin

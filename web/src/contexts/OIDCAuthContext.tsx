@@ -30,7 +30,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: () => Promise<void>;
   logout: () => Promise<void>;
-  loginWithCredentials: (username: string, password: string) => Promise<void>;
+  loginWithMasterKey: (masterKey: string) => Promise<void>;
   getAccessToken: () => string | null;
 }
 
@@ -270,70 +270,60 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithCredentials = async (username: string, password: string) => {
+  const loginWithMasterKey = async (masterKey: string) => {
     try {
-      // For static credentials, we'll use the resource owner password flow
-      // This requires Dex to be configured to accept password grants
-      const response = await fetch("http://localhost:5556/dex/token", {
+      // Authenticate with master key through our backend
+      const response = await fetch("/api/admin/auth/master-key", {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
         },
-        body: new URLSearchParams({
-          grant_type: "password",
-          username: username,
-          password: password,
-          client_id: oidcConfig.client_id!,
-          client_secret: oidcConfig.client_secret || "",
-          scope: oidcConfig.scope!,
-        }),
+        body: JSON.stringify({ master_key: masterKey }),
       });
 
       if (!response.ok) {
-        throw new Error("Invalid credentials");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Invalid master key");
       }
 
       const tokenResponse = await response.json();
       
-      // Create a User object from the token response
+      // Create a User object for master key access
       const user = new User({
         access_token: tokenResponse.access_token,
-        id_token: tokenResponse.id_token,
-        refresh_token: tokenResponse.refresh_token,
-        token_type: tokenResponse.token_type,
-        scope: tokenResponse.scope,
-        expires_at: Math.floor(Date.now() / 1000) + tokenResponse.expires_in,
+        id_token: tokenResponse.id_token || "",
+        token_type: "Bearer",
+        scope: "admin",
+        expires_at: Math.floor(Date.now() / 1000) + (tokenResponse.expires_in || 3600),
         profile: {
-          sub: "password-user",
-          iss: oidcConfig.authority!,
-          aud: oidcConfig.client_id!,
-          exp: Math.floor(Date.now() / 1000) + tokenResponse.expires_in,
+          sub: "master-key-user",
+          iss: "pllm-master",
+          aud: "pllm-admin",
+          exp: Math.floor(Date.now() / 1000) + (tokenResponse.expires_in || 3600),
           iat: Math.floor(Date.now() / 1000),
+          name: "Admin (Master Key)",
+          email: "admin@pllm.local",
+          role: "admin",
+          groups: ["admin"],
         } as any,
       });
 
       // Store the user
       await userManager.storeUser(user);
-      
-      // Load user info
-      const userWithInfo = await userManager.getUser();
-      setUser(userWithInfo);
-      
-      if (userWithInfo) {
-        localStorage.setItem("authToken", userWithInfo.access_token);
-      }
+      setUser(user);
+      localStorage.setItem("authToken", user.access_token);
 
       toast({
         title: "Success",
-        description: "Logged in successfully",
+        description: "Logged in with master key",
       });
 
-      navigate("/dashboard");
+      navigate("/ui/dashboard");
     } catch (error) {
-      console.error("Login with credentials error:", error);
+      console.error("Master key login error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Login failed",
+        description: error instanceof Error ? error.message : "Master key login failed",
         variant: "destructive",
       });
       throw error;
@@ -378,7 +368,7 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         logout,
-        loginWithCredentials,
+        loginWithMasterKey,
         getAccessToken,
       }}
     >

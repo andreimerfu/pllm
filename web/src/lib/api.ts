@@ -34,6 +34,16 @@ axiosInstance.interceptors.response.use(
   },
 );
 
+// Users API
+const users = {
+  list: () => axiosInstance.get("/api/admin/users"),
+  get: (id: string) => axiosInstance.get(`/api/admin/users/${id}`),
+  update: (id: string, data: any) =>
+    axiosInstance.put(`/api/admin/users/${id}`, data),
+  delete: (id: string) => axiosInstance.delete(`/api/admin/users/${id}`),
+  getStats: (id: string) => axiosInstance.get(`/api/admin/users/${id}/stats`),
+};
+
 // Teams API
 const teams = {
   list: () => axiosInstance.get("/api/admin/teams"),
@@ -71,6 +81,7 @@ const keys = {
 
 // Export the main API object
 const api = {
+  users,
   teams,
   keys,
   // Legacy exports for backward compatibility
@@ -88,6 +99,17 @@ export const getModels = () =>
 export const getModelStats = () =>
   axiosInstance.get("/api/admin/stats") as Promise<StatsResponse>;
 export const getMetrics = () => axiosInstance.get("/metrics");
+
+// Users (legacy exports)
+export const getUsers = () => axiosInstance.get("/api/admin/users");
+export const getUser = (id: string) =>
+  axiosInstance.get(`/api/admin/users/${id}`);
+export const updateUser = (id: string, data: any) =>
+  axiosInstance.put(`/api/admin/users/${id}`, data);
+export const deleteUser = (id: string) =>
+  axiosInstance.delete(`/api/admin/users/${id}`);
+export const getUserStats = (id: string) =>
+  axiosInstance.get(`/api/admin/users/${id}/stats`);
 
 // Teams (legacy exports)
 export const getTeams = () => axiosInstance.get("/api/admin/teams");

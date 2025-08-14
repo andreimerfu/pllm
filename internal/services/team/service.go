@@ -324,7 +324,7 @@ func (s *TeamService) GetTeamStats(ctx context.Context, teamID uuid.UUID) (map[s
 
 	// Count keys
 	var keyCount int64
-	s.db.Model(&models.VirtualKey{}).Where("team_id = ?", teamID).Count(&keyCount)
+	s.db.Model(&models.Key{}).Where("team_id = ?", teamID).Count(&keyCount)
 
 	stats := map[string]interface{}{
 		"team_id":          team.ID,

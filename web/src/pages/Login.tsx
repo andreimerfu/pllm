@@ -11,24 +11,32 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Icon } from "@iconify/react";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Github, Mail, Shield } from "lucide-react";
+import { Loader2, Github, Mail, Shield, Key } from "lucide-react";
 
 export default function Login() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [masterKey, setMasterKey] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { loginWithCredentials } = useAuth();
+  const [showMasterKeyDialog, setShowMasterKeyDialog] = useState(false);
+  const { login, loginWithMasterKey } = useAuth();
   const { toast } = useToast();
 
-  const handleCredentialsLogin = async (e: React.FormEvent) => {
+  const handleMasterKeyLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!username.trim() || !password.trim()) {
+    if (!masterKey.trim()) {
       toast({
         title: "Error",
-        description: "Please enter username and password",
+        description: "Please enter master key",
         variant: "destructive",
       });
       return;
@@ -36,7 +44,20 @@ export default function Login() {
 
     setIsLoading(true);
     try {
-      await loginWithCredentials(username, password);
+      await loginWithMasterKey(masterKey);
+      setShowMasterKeyDialog(false);
+      setMasterKey("");
+    } catch (error) {
+      // Error is handled in the context
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDexLogin = async () => {
+    setIsLoading(true);
+    try {
+      await login();
     } catch (error) {
       // Error is handled in the context
     } finally {
@@ -107,12 +128,34 @@ export default function Login() {
           </div>
           <CardTitle className="text-2xl text-center">pLLM Gateway</CardTitle>
           <CardDescription className="text-center">
-            Sign in to access the admin panel
+            Authenticate to access the admin panel
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Primary Login Button */}
+          <Button
+            className="w-full h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+            onClick={handleDexLogin}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Connecting...
+              </>
+            ) : (
+              <>
+                <Shield className="mr-2 h-5 w-5" />
+                Login with Dex
+              </>
+            )}
+          </Button>
+
           {/* OAuth Provider Buttons */}
           <div className="space-y-2">
+            <p className="text-xs text-center text-muted-foreground mb-3">
+              Or choose a specific provider:
+            </p>
             <Button
               variant="outline"
               className="w-full"
@@ -148,67 +191,65 @@ export default function Login() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-background px-2 text-muted-foreground">
-                Or continue with
+                Admin Access
               </span>
             </div>
           </div>
 
-          {/* Static Credentials Form */}
-          <form onSubmit={handleCredentialsLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">Email or Username</Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="admin@pllm.local"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={isLoading}
-                autoComplete="username"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                autoComplete="current-password"
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign in"
-              )}
-            </Button>
-          </form>
-
-          {/* Development/Testing Info */}
-          {import.meta.env.DEV && (
-            <div className="mt-6 pt-6 border-t">
-              <div className="text-sm text-muted-foreground space-y-2">
-                <p className="font-semibold">Test Accounts:</p>
-                <div className="space-y-1 text-xs">
-                  <div>
-                    <span className="font-medium">Admin:</span>{" "}
-                    <code className="bg-muted px-1 rounded">admin@pllm.local / admin</code>
-                  </div>
-                  <div>
-                    <span className="font-medium">User:</span>{" "}
-                    <code className="bg-muted px-1 rounded">user@pllm.local / user</code>
-                  </div>
+          {/* Master Key Access */}
+          <Dialog open={showMasterKeyDialog} onOpenChange={setShowMasterKeyDialog}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" className="w-full text-xs text-muted-foreground hover:text-foreground">
+                <Key className="mr-2 h-3 w-3" />
+                Admin Login with Master Key
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Admin Access</DialogTitle>
+                <DialogDescription>
+                  Enter the master key to access admin functions directly.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleMasterKeyLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="masterKey">Master Key</Label>
+                  <Input
+                    id="masterKey"
+                    type="password"
+                    placeholder="Enter master key"
+                    value={masterKey}
+                    onChange={(e) => setMasterKey(e.target.value)}
+                    disabled={isLoading}
+                    autoComplete="off"
+                  />
                 </div>
-              </div>
-            </div>
-          )}
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowMasterKeyDialog(false);
+                      setMasterKey("");
+                    }}
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Authenticating...
+                      </>
+                    ) : (
+                      "Login"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
     </div>

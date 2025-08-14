@@ -14,6 +14,7 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	JWT      JWTConfig      `mapstructure:"jwt"`
 	Admin    AdminConfig    `mapstructure:"admin"`
+	Auth     AuthConfig     `mapstructure:"auth"`
 	
 	// Model configuration - internal format after conversion
 	ModelList []ModelInstance `mapstructure:"-"`  // Will be populated from RawModelList
@@ -65,6 +66,23 @@ type AdminConfig struct {
 	Username string `mapstructure:"username"`
 	Password string `mapstructure:"password"`
 	Email    string `mapstructure:"email"`
+}
+
+type AuthConfig struct {
+	MasterKey    string    `mapstructure:"master_key"`
+	JWT          JWTConfig `mapstructure:"jwt"`
+	Dex          DexConfig `mapstructure:"dex"`
+	RequireAuth  bool      `mapstructure:"require_auth"`
+}
+
+type DexConfig struct {
+	Enabled      bool   `mapstructure:"enabled"`
+	Issuer       string `mapstructure:"issuer"`
+	ClientID     string `mapstructure:"client_id"`
+	ClientSecret string `mapstructure:"client_secret"`
+	RedirectURL  string `mapstructure:"redirect_url"`
+	Scopes       []string `mapstructure:"scopes"`
+	GroupMappings map[string]string `mapstructure:"group_mappings"`
 }
 
 
@@ -246,6 +264,11 @@ func setDefaults() {
 	// CORS defaults
 	viper.SetDefault("cors.allow_credentials", true)
 	viper.SetDefault("cors.max_age", 86400)
+	
+	// Auth defaults
+	viper.SetDefault("auth.require_auth", false)
+	viper.SetDefault("auth.dex.enabled", false)
+	viper.SetDefault("auth.dex.scopes", []string{"openid", "profile", "email", "groups"})
 }
 
 func bindEnvVars() {
@@ -276,6 +299,17 @@ func bindEnvVars() {
 	viper.BindEnv("admin.username", "ADMIN_USERNAME")
 	viper.BindEnv("admin.password", "ADMIN_PASSWORD")
 	viper.BindEnv("admin.email", "ADMIN_EMAIL")
+	
+	// Auth
+	viper.BindEnv("auth.master_key", "PLLM_MASTER_KEY")
+	viper.BindEnv("auth.require_auth", "PLLM_REQUIRE_AUTH")
+	
+	// Dex OAuth
+	viper.BindEnv("auth.dex.enabled", "DEX_ENABLED")
+	viper.BindEnv("auth.dex.issuer", "DEX_ISSUER")
+	viper.BindEnv("auth.dex.client_id", "DEX_CLIENT_ID")
+	viper.BindEnv("auth.dex.client_secret", "DEX_CLIENT_SECRET")
+	viper.BindEnv("auth.dex.redirect_url", "DEX_REDIRECT_URL")
 	
 	// Cache
 	viper.BindEnv("cache.ttl", "CACHE_TTL")

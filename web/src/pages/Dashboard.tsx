@@ -8,18 +8,28 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import ReactECharts from "echarts-for-react";
 import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/OIDCAuthContext";
+import { Link } from "react-router-dom";
 import {
   Tooltip as UITooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/components/ui/tooltip"
+import { Settings } from "lucide-react";
 
 export default function Dashboard() {
   const [isDark, setIsDark] = useState(false);
+  const { user } = useAuth();
+  
+  // Check if user is admin based on groups or profile
+  const isAdmin = (user?.profile?.groups && Array.isArray(user.profile.groups) && user.profile.groups.includes('admin')) || 
+                  user?.profile?.role === 'admin' || 
+                  user?.profile?.sub === 'master-key-user';
 
   useEffect(() => {
     const checkTheme = () => {
@@ -46,6 +56,8 @@ export default function Dashboard() {
     queryKey: ["models"],
     queryFn: getModels,
   });
+
+  // TODO: Add admin-specific data queries later
 
   const stats = statsData as StatsResponse;
   const models = (modelsData as ModelsResponse)?.data || [];
@@ -162,14 +174,28 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Real-time monitoring and analytics
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">
+            {isAdmin ? 'Admin dashboard with system monitoring and management' : 'Real-time monitoring and analytics'}
+          </p>
+        </div>
+        {isAdmin && (
+          <div className="flex space-x-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/settings">
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Summary Cards */}
+      {/* TODO: Add admin summary cards later */}
+
+      {/* System Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="transition-theme border-l-4 border-l-blue-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -274,6 +300,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* TODO: Add admin quick actions later */}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
@@ -657,6 +685,8 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* TODO: Add admin recent activity later */}
 
       {/* Model Status Table */}
       <Card className="transition-theme">

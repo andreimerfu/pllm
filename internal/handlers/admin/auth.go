@@ -6,17 +6,22 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
+
+	"github.com/amerfu/pllm/internal/auth"
 )
 
 type AuthHandler struct {
 	baseHandler
-	masterKey string
+	masterKeyService *auth.MasterKeyService
+	db               *gorm.DB
 }
 
-func NewAuthHandler(logger *zap.Logger, masterKey string) *AuthHandler {
+func NewAuthHandler(logger *zap.Logger, masterKeyService *auth.MasterKeyService, db *gorm.DB) *AuthHandler {
 	return &AuthHandler{
-		baseHandler: baseHandler{logger: logger},
-		masterKey:   masterKey,
+		baseHandler:      baseHandler{logger: logger},
+		masterKeyService: masterKeyService,
+		db:               db,
 	}
 }
 
@@ -30,44 +35,60 @@ type LoginResponse struct {
 	Message string `json:"message"`
 }
 
-func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+// MasterKeyLogin handles master key authentication for admin access
+func (h *AuthHandler) MasterKeyLogin(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.sendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	// Check if master key matches
+	// Check if master key is provided
 	if req.MasterKey == "" {
 		h.sendError(w, http.StatusBadRequest, "Master key is required")
 		return
 	}
 
-	// Default master key if not configured
-	expectedKey := h.masterKey
-	if expectedKey == "" {
-		expectedKey = "sk-pllm-test-key-2024"
-	}
-
-	if req.MasterKey != expectedKey {
-		h.logger.Warn("Invalid master key attempt",
-			zap.String("provided_key_prefix", req.MasterKey[:min(10, len(req.MasterKey))]),
-			zap.String("expected_key_prefix", expectedKey[:min(10, len(expectedKey))]),
-		)
+	// Validate master key using the service
+	masterCtx, err := h.masterKeyService.ValidateMasterKey(r.Context(), req.MasterKey)
+	if err != nil {
 		h.sendError(w, http.StatusUnauthorized, "Invalid master key")
 		return
 	}
 
-	// For now, return the master key as token (in production, generate JWT)
-	response := LoginResponse{
-		Success: true,
-		Token:   req.MasterKey,
-		Message: "Login successful",
+	// Generate JWT token for the master key session
+	token, err := h.masterKeyService.GenerateAdminToken(masterCtx)
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to generate token")
+		return
 	}
 
-	h.sendJSON(w, http.StatusOK, response)
+	h.sendJSON(w, http.StatusOK, LoginResponse{
+		Success: true,
+		Token:   token,
+		Message: "Master key authentication successful",
+	})
 }
 
+// Login is deprecated - users should use Dex OAuth
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	// For backward compatibility, check if it's a master key login
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.MasterKey != "" {
+		// Redirect to master key login
+		h.MasterKeyLogin(w, r)
+		return
+	}
+
+	h.sendError(w, http.StatusBadRequest, "Password authentication is deprecated. Please use Dex OAuth or master key")
+}
+
+// Validate checks if a token is valid
 func (h *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
 	// Get token from Authorization header
 	authHeader := r.Header.Get("Authorization")
@@ -82,34 +103,24 @@ func (h *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
 		token = authHeader[7:]
 	}
 
-	// Default master key if not configured
-	expectedKey := h.masterKey
-	if expectedKey == "" {
-		expectedKey = "sk-pllm-test-key-2024"
-	}
-
-	if token != expectedKey {
-		h.sendError(w, http.StatusUnauthorized, "Invalid token")
+	// Try to validate as master key first
+	masterCtx, err := h.masterKeyService.ValidateMasterKey(r.Context(), token)
+	if err == nil {
+		// It's a valid master key
+		response := map[string]interface{}{
+			"valid": true,
+			"user": map[string]interface{}{
+				"id":     "master",
+				"role":   "admin",
+				"type":   "master_key",
+				"scopes": masterCtx.Scopes,
+			},
+			"expires_at": masterCtx.ValidatedAt.Add(24 * time.Hour).Unix(),
+		}
+		h.sendJSON(w, http.StatusOK, response)
 		return
 	}
 
-	// Return success with some user info
-	response := map[string]interface{}{
-		"valid": true,
-		"user": map[string]interface{}{
-			"id":    "admin",
-			"role":  "admin",
-			"email": "admin@pllm.local",
-		},
-		"expires_at": time.Now().Add(24 * time.Hour).Unix(),
-	}
-
-	h.sendJSON(w, http.StatusOK, response)
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
+	// TODO: Validate as JWT token from Dex
+	h.sendError(w, http.StatusUnauthorized, "Invalid token")
 }

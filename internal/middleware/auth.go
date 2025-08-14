@@ -11,50 +11,47 @@ import (
 	
 	"github.com/amerfu/pllm/internal/auth"
 	"github.com/amerfu/pllm/internal/models"
-	"github.com/amerfu/pllm/internal/services/virtualkey"
 )
 
 type contextKey string
 
 const (
 	UserContextKey        contextKey = "user"
-	VirtualKeyContextKey  contextKey = "virtual_key"
+	KeyContextKey         contextKey = "key"
 	TeamContextKey        contextKey = "team"
 	AuthTypeContextKey    contextKey = "auth_type"
+	MasterKeyContextKey   contextKey = "master_key_context"
 )
 
 type AuthType string
 
 const (
 	AuthTypeMasterKey   AuthType = "master_key"
-	AuthTypeVirtualKey  AuthType = "virtual_key"
+	AuthTypeAPIKey      AuthType = "api_key"
 	AuthTypeJWT         AuthType = "jwt"
 	AuthTypeNone        AuthType = "none"
 )
 
 type AuthMiddleware struct {
-	logger         *zap.Logger
-	authService    *auth.AuthService
-	keyService     *virtualkey.VirtualKeyService
-	masterKey      string
-	requireAuth    bool
+	logger           *zap.Logger
+	authService      *auth.AuthService
+	masterKeyService *auth.MasterKeyService
+	requireAuth      bool
 }
 
 type AuthConfig struct {
-	Logger      *zap.Logger
-	AuthService *auth.AuthService
-	KeyService  *virtualkey.VirtualKeyService
-	MasterKey   string
-	RequireAuth bool
+	Logger           *zap.Logger
+	AuthService      *auth.AuthService
+	MasterKeyService *auth.MasterKeyService
+	RequireAuth      bool
 }
 
 func NewAuthMiddleware(config *AuthConfig) *AuthMiddleware {
 	return &AuthMiddleware{
-		logger:      config.Logger,
-		authService: config.AuthService,
-		keyService:  config.KeyService,
-		masterKey:   config.MasterKey,
-		requireAuth: config.RequireAuth,
+		logger:           config.Logger,
+		authService:      config.AuthService,
+		masterKeyService: config.MasterKeyService,
+		requireAuth:      config.RequireAuth,
 	}
 }
 
@@ -83,26 +80,28 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		// Process based on auth type
 		switch authType {
 		case AuthTypeMasterKey:
-			if authData != m.masterKey {
+			masterCtx, err := m.masterKeyService.ValidateMasterKey(r.Context(), authData)
+			if err != nil {
 				m.sendError(w, http.StatusUnauthorized, "Invalid master key")
 				return
 			}
 			ctx := context.WithValue(r.Context(), AuthTypeContextKey, AuthTypeMasterKey)
+			ctx = context.WithValue(ctx, MasterKeyContextKey, masterCtx)
 			next.ServeHTTP(w, r.WithContext(ctx))
 
-		case AuthTypeVirtualKey:
-			key, err := m.keyService.ValidateKey(r.Context(), authData)
+		case AuthTypeAPIKey:
+			key, err := m.authService.ValidateKey(r.Context(), authData)
 			if err != nil {
 				m.sendError(w, http.StatusUnauthorized, err.Error())
 				return
 			}
-			ctx := context.WithValue(r.Context(), AuthTypeContextKey, AuthTypeVirtualKey)
-			ctx = context.WithValue(ctx, VirtualKeyContextKey, key)
+			ctx := context.WithValue(r.Context(), AuthTypeContextKey, AuthTypeAPIKey)
+			ctx = context.WithValue(ctx, KeyContextKey, key)
 			if key.UserID != nil {
-				ctx = context.WithValue(ctx, UserContextKey, key.UserID)
+				ctx = context.WithValue(ctx, UserContextKey, *key.UserID)
 			}
 			if key.TeamID != nil {
-				ctx = context.WithValue(ctx, TeamContextKey, key.TeamID)
+				ctx = context.WithValue(ctx, TeamContextKey, *key.TeamID)
 			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 
@@ -176,9 +175,9 @@ func (m *AuthMiddleware) RequireTeamAccess(next http.Handler) http.Handler {
 			return
 		}
 
-		// Check virtual key team access
-		if authType == AuthTypeVirtualKey {
-			key := r.Context().Value(VirtualKeyContextKey).(*models.VirtualKey)
+		// Check API key team access
+		if authType == AuthTypeAPIKey {
+			key := r.Context().Value(KeyContextKey).(*models.Key)
 			if key.TeamID != nil && *key.TeamID == teamID {
 				next.ServeHTTP(w, r)
 				return
@@ -216,11 +215,10 @@ func (m *AuthMiddleware) RequireModelAccess(modelExtractor func(*http.Request) s
 				return
 			}
 
-			// Check virtual key model access
-			if authType == AuthTypeVirtualKey {
-				key := r.Context().Value(VirtualKeyContextKey).(*models.VirtualKey)
-				err := m.keyService.CheckModelAccess(r.Context(), key, model)
-				if err != nil {
+			// Check API key model access
+			if authType == AuthTypeAPIKey {
+				key := r.Context().Value(KeyContextKey).(*models.Key)
+				if !key.IsModelAllowed(model) {
 					m.sendError(w, http.StatusForbidden, "Model access denied")
 					return
 				}
@@ -239,8 +237,8 @@ func (m *AuthMiddleware) extractAuth(r *http.Request) (AuthType, string, error) 
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 {
 			// Assume it's a raw API key
-			if strings.HasPrefix(authHeader, "sk-") {
-				return AuthTypeVirtualKey, authHeader, nil
+			if strings.HasPrefix(authHeader, "sk-") || strings.HasPrefix(authHeader, "pllm_") {
+				return AuthTypeAPIKey, authHeader, nil
 			}
 			return "", "", nil
 		}
@@ -250,38 +248,40 @@ func (m *AuthMiddleware) extractAuth(r *http.Request) (AuthType, string, error) 
 
 		switch scheme {
 		case "bearer":
-			// Check if it's a virtual key or JWT
-			if strings.HasPrefix(credentials, "sk-") {
-				return AuthTypeVirtualKey, credentials, nil
+			// Check if it's an API key or JWT
+			if strings.HasPrefix(credentials, "sk-") || strings.HasPrefix(credentials, "pllm_") {
+				return AuthTypeAPIKey, credentials, nil
 			}
 			return AuthTypeJWT, credentials, nil
 		case "basic":
-			// Could be master key
-			if credentials == m.masterKey {
-				return AuthTypeMasterKey, credentials, nil
-			}
+			// Could be master key (encoded)
+			return AuthTypeMasterKey, credentials, nil
 		}
 	}
 
 	// Check X-API-Key header
 	apiKey := r.Header.Get("X-API-Key")
 	if apiKey != "" {
-		if apiKey == m.masterKey {
-			return AuthTypeMasterKey, apiKey, nil
+		if m.masterKeyService != nil && m.masterKeyService.IsConfigured() {
+			if _, err := m.masterKeyService.ValidateMasterKey(r.Context(), apiKey); err == nil {
+				return AuthTypeMasterKey, apiKey, nil
+			}
 		}
-		if strings.HasPrefix(apiKey, "sk-") {
-			return AuthTypeVirtualKey, apiKey, nil
+		if strings.HasPrefix(apiKey, "sk-") || strings.HasPrefix(apiKey, "pllm_") {
+			return AuthTypeAPIKey, apiKey, nil
 		}
 	}
 
 	// Check query parameter (for SSE connections)
 	apiKey = r.URL.Query().Get("api_key")
 	if apiKey != "" {
-		if apiKey == m.masterKey {
-			return AuthTypeMasterKey, apiKey, nil
+		if m.masterKeyService != nil && m.masterKeyService.IsConfigured() {
+			if _, err := m.masterKeyService.ValidateMasterKey(r.Context(), apiKey); err == nil {
+				return AuthTypeMasterKey, apiKey, nil
+			}
 		}
-		if strings.HasPrefix(apiKey, "sk-") {
-			return AuthTypeVirtualKey, apiKey, nil
+		if strings.HasPrefix(apiKey, "sk-") || strings.HasPrefix(apiKey, "pllm_") {
+			return AuthTypeAPIKey, apiKey, nil
 		}
 	}
 
@@ -315,8 +315,8 @@ func GetUserID(ctx context.Context) (uuid.UUID, bool) {
 	return userID, ok
 }
 
-func GetVirtualKey(ctx context.Context) (*models.VirtualKey, bool) {
-	key, ok := ctx.Value(VirtualKeyContextKey).(*models.VirtualKey)
+func GetKey(ctx context.Context) (*models.Key, bool) {
+	key, ok := ctx.Value(KeyContextKey).(*models.Key)
 	return key, ok
 }
 

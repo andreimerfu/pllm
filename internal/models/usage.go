@@ -17,8 +17,8 @@ type Usage struct {
 	User      User       `gorm:"foreignKey:UserID" json:"-"`
 	GroupID   *uuid.UUID `gorm:"type:uuid;index" json:"group_id,omitempty"`
 	Group     *Group     `gorm:"foreignKey:GroupID" json:"-"`
-	APIKeyID  uuid.UUID  `gorm:"type:uuid;not null;index" json:"api_key_id"`
-	APIKey    APIKey     `gorm:"foreignKey:APIKeyID" json:"-"`
+	KeyID     uuid.UUID  `gorm:"type:uuid;not null;index" json:"key_id"`
+	Key       Key        `gorm:"foreignKey:KeyID" json:"-"`
 	
 	// Provider/Model
 	Provider    string `gorm:"index" json:"provider"`

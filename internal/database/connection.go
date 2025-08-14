@@ -133,12 +133,12 @@ func Migrate() error {
 		&models.User{},
 		&models.Team{},
 		&models.TeamMember{},
-		&models.VirtualKey{},
-		&models.APIKey{},      // Keep for backward compatibility
+		&models.Key{},         // Unified key model
 		&models.Provider{},
 		&models.Model{},
 		&models.Budget{},
 		&models.Usage{},
+		&models.Audit{},       // New audit model
 	); err != nil {
 		return fmt.Errorf("failed to migrate models: %w", err)
 	}
@@ -157,7 +157,16 @@ func createIndexes() error {
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
 	
-	// Virtual Key indexes (new primary key system)
+	// New unified Key indexes
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_keys_key ON keys(key)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_keys_key_hash ON keys(key_hash)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_keys_key_prefix ON keys(key_prefix)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_keys_user_id ON keys(user_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_keys_team_id ON keys(team_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_keys_type ON keys(type)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_keys_is_active ON keys(is_active)")
+	
+	// Virtual Key indexes (legacy, for backward compatibility)
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_key ON virtual_keys(key)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_user_id ON virtual_keys(user_id)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_team_id ON virtual_keys(team_id)")
@@ -197,6 +206,22 @@ func createIndexes() error {
 	// Model indexes
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_models_provider_id ON models(provider_id)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_models_is_active ON models(is_active)")
+	
+	// User indexes for external identity
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_users_external_id ON users(external_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_users_external_provider ON users(external_provider)")
+	
+	// Audit indexes
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audits(timestamp)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_event_type ON audits(event_type)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_event_result ON audits(event_result)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_user_id ON audits(user_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_team_id ON audits(team_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_key_id ON audits(key_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_ip_address ON audits(ip_address)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_request_id ON audits(request_id)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_resource_type ON audits(resource_type)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_resource_id ON audits(resource_id)")
 	
 	return nil
 }

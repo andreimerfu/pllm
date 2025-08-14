@@ -18,10 +18,10 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.User{},
 		&models.Team{},
 		&models.TeamMember{},
-		&models.VirtualKey{},
+		&models.Key{},      // Unified key model
 		&models.Budget{},
 		&models.Usage{},
-		&models.APIKey{},  // Keep for backward compatibility
+		&models.Audit{},    // Audit logging
 	)
 	
 	if err != nil {
@@ -65,7 +65,7 @@ func printInitialSeedSummary(db *gorm.DB) {
 	var userCount, teamCount, keyCount int64
 	db.Model(&models.User{}).Count(&userCount)
 	db.Model(&models.Team{}).Count(&teamCount)
-	db.Model(&models.VirtualKey{}).Count(&keyCount)
+	db.Model(&models.Key{}).Count(&keyCount)
 	
 	log.Println("========================================")
 	log.Println("Database initialized with seed data:")
@@ -73,10 +73,10 @@ func printInitialSeedSummary(db *gorm.DB) {
 	log.Printf("  • Teams: %d", teamCount)
 	log.Printf("  • API Keys: %d", keyCount)
 	log.Println("----------------------------------------")
-	log.Println("Default admin credentials:")
-	log.Println("  Email: admin@pllm.local")
-	log.Println("  Password: admin123")
+	log.Println("Default authentication:")
+	log.Println("  Method: Dex OAuth (configure Dex for user authentication)")
+	log.Println("  Admin: Use PLLM_MASTER_KEY for bootstrap admin operations")
 	log.Println("========================================")
-	log.Println("⚠️  IMPORTANT: Change default passwords in production!")
+	log.Println("⚠️  IMPORTANT: Configure Dex OAuth provider and set master key!")
 	log.Println("========================================")
 }

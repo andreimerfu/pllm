@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	
 	"github.com/amerfu/pllm/internal/models"
@@ -24,16 +23,11 @@ func NewSeeder(db *gorm.DB) *Seeder {
 func (s *Seeder) SeedAll() error {
 	log.Println("Starting database seeding...")
 
-	if err := s.SeedUsers(); err != nil {
-		return fmt.Errorf("failed to seed users: %w", err)
-	}
-
+	// Note: Users are auto-provisioned via Dex OAuth
+	// No default users or keys are seeded
+	
 	if err := s.SeedTeams(); err != nil {
 		return fmt.Errorf("failed to seed teams: %w", err)
-	}
-
-	if err := s.SeedVirtualKeys(); err != nil {
-		return fmt.Errorf("failed to seed virtual keys: %w", err)
 	}
 
 	if err := s.SeedBudgets(); err != nil {
@@ -44,15 +38,25 @@ func (s *Seeder) SeedAll() error {
 	return nil
 }
 
-// SeedUsers creates default users
+// SeedUsers - Users are auto-provisioned via Dex OAuth, no seeding needed
 func (s *Seeder) SeedUsers() error {
-	log.Println("Seeding users...")
+	log.Println("Skipping user seeding - users auto-provisioned via Dex OAuth")
+	return nil
+}
 
+// SeedUsersLegacy - Legacy user seeding (kept for reference, not used)
+func (s *Seeder) SeedUsersLegacy() error {
+	log.Println("Legacy user seeding disabled - users auto-provisioned via Dex OAuth")
+	return nil
+
+	/*
+	// This code is commented out since we use Dex OAuth now
 	// Hash passwords
-	adminPass, _ := bcrypt.GenerateFromPassword([]byte("admin123"), 12)
-	userPass, _ := bcrypt.GenerateFromPassword([]byte("user123"), 12)
-	demoPass, _ := bcrypt.GenerateFromPassword([]byte("demo123"), 12)
+	// adminPass, _ := bcrypt.GenerateFromPassword([]byte("admin123"), 12)
+	// userPass, _ := bcrypt.GenerateFromPassword([]byte("user123"), 12)
+	// demoPass, _ := bcrypt.GenerateFromPassword([]byte("demo123"), 12)
 
+	/*
 	users := []models.User{
 		{
 			BaseModel: models.BaseModel{
@@ -142,6 +146,7 @@ func (s *Seeder) SeedUsers() error {
 	}
 
 	return nil
+	*/
 }
 
 // SeedTeams creates default teams and assigns members
@@ -259,10 +264,18 @@ func (s *Seeder) SeedTeams() error {
 	return nil
 }
 
-// SeedVirtualKeys creates sample API keys
+// SeedVirtualKeys - Keys are created by authenticated users, no seeding needed
 func (s *Seeder) SeedVirtualKeys() error {
-	log.Println("Seeding virtual keys...")
+	log.Println("Skipping key seeding - keys created by authenticated users")
+	return nil
+}
 
+// SeedVirtualKeysLegacy - Legacy key seeding (kept for reference, not used)
+func (s *Seeder) SeedVirtualKeysLegacy() error {
+	log.Println("Legacy virtual key seeding disabled")
+	return nil
+
+	/*
 	// User keys
 	userID1 := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	userID2 := uuid.MustParse("33333333-3333-3333-3333-333333333333")
@@ -283,6 +296,7 @@ func (s *Seeder) SeedVirtualKeys() error {
 	lowTPM := 100000
 	lowRPM := 100
 
+	/*
 	keys := []models.VirtualKey{
 		{
 			Key:            "sk-admin-full-access-" + generateRandomString(32),
@@ -371,6 +385,7 @@ func (s *Seeder) SeedVirtualKeys() error {
 	}
 
 	return nil
+	*/
 }
 
 // SeedBudgets creates sample budgets

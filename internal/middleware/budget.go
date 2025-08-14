@@ -55,11 +55,11 @@ func (m *BudgetMiddleware) EnforceBudget(next http.Handler) http.Handler {
 			return
 		}
 
-		// Check virtual key budget
-		if authType == AuthTypeVirtualKey {
-			key, ok := GetVirtualKey(r.Context())
+		// Check API key budget
+		if authType == AuthTypeAPIKey {
+			key, ok := GetKey(r.Context())
 			if !ok {
-				m.sendError(w, http.StatusInternalServerError, "Virtual key not found in context")
+				m.sendError(w, http.StatusInternalServerError, "API key not found in context")
 				return
 			}
 
@@ -132,9 +132,9 @@ func (m *BudgetMiddleware) ValidateTeamAccess(next http.Handler) http.Handler {
 			return
 		}
 
-		// Check virtual key team access
-		if authType == AuthTypeVirtualKey {
-			key, ok := GetVirtualKey(r.Context())
+		// Check API key team access
+		if authType == AuthTypeAPIKey {
+			key, ok := GetKey(r.Context())
 			if !ok {
 				m.sendError(w, http.StatusForbidden, "Team access denied")
 				return

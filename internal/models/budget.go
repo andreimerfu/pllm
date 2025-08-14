@@ -110,3 +110,46 @@ func (b *Budget) Reset() {
 		b.EndsAt = now.AddDate(1, 0, 0)
 	}
 }
+
+// BudgetTracking represents detailed tracking of budget spending
+type BudgetTracking struct {
+	BaseModel
+	UserID   *uuid.UUID `gorm:"type:uuid;index" json:"user_id,omitempty"`
+	TeamID   *uuid.UUID `gorm:"type:uuid;index" json:"team_id,omitempty"`
+	KeyID    *uuid.UUID `gorm:"type:uuid;index" json:"key_id,omitempty"`
+	Model    string     `gorm:"index" json:"model"`
+	Provider string     `gorm:"index" json:"provider"`
+	Tokens   int        `json:"tokens"`
+	Cost     float64    `gorm:"index" json:"cost"`
+	
+	// Request metadata
+	RequestID string                   `gorm:"index" json:"request_id,omitempty"`
+	Metadata  map[string]interface{}   `gorm:"type:jsonb" json:"metadata,omitempty"`
+	
+	// Relationships
+	User *User `gorm:"foreignKey:UserID" json:"-"`
+	Team *Team `gorm:"foreignKey:TeamID" json:"-"`
+	Key  *Key  `gorm:"foreignKey:KeyID" json:"-"`
+}
+
+// BudgetAlert represents budget alert notifications
+type BudgetAlert struct {
+	BaseModel
+	Type       string     `gorm:"not null;index" json:"type"`
+	UserID     *uuid.UUID `gorm:"type:uuid;index" json:"user_id,omitempty"`
+	TeamID     *uuid.UUID `gorm:"type:uuid;index" json:"team_id,omitempty"`
+	KeyID      *uuid.UUID `gorm:"type:uuid;index" json:"key_id,omitempty"`
+	Threshold  float64    `json:"threshold"`
+	CurrentPct float64    `json:"current_pct"`
+	Message    string     `json:"message"`
+	SentAt     time.Time  `json:"sent_at"`
+	
+	// Alert delivery status
+	WebhookSent bool `gorm:"default:false" json:"webhook_sent"`
+	EmailSent   bool `gorm:"default:false" json:"email_sent"`
+	
+	// Relationships
+	User *User `gorm:"foreignKey:UserID" json:"-"`
+	Team *Team `gorm:"foreignKey:TeamID" json:"-"`
+	Key  *Key  `gorm:"foreignKey:KeyID" json:"-"`
+}

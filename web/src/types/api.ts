@@ -43,6 +43,19 @@ export interface Model {
   owned_by: string;
 }
 
+export interface User {
+  id: string;
+  dex_id: string;
+  name?: string;
+  email?: string;
+  picture?: string;
+  groups?: string[];
+  is_admin: boolean;
+  created_at: string;
+  updated_at: string;
+  last_login?: string;
+}
+
 export interface ModelsResponse {
   object: string;
   data: Model[];

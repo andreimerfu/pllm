@@ -190,6 +190,9 @@ services:
       - DEX_ISSUER=http://dex:5556/dex
       - DEX_CLIENT_ID=pllm-backend
       - DEX_CLIENT_SECRET=pllm-backend-secret
+      # Master Key for bootstrap admin access
+      - PLLM_MASTER_KEY=${PLLM_MASTER_KEY:-sk-master-dev-key-change-in-production}
+      - AUTH_MASTER_KEY=${PLLM_MASTER_KEY:-sk-master-dev-key-change-in-production}
     volumes:
       - ./config.docker.yaml:/app/config.yaml:ro
       - ./logs:/app/logs

@@ -37,7 +37,7 @@ type Team struct {
 	
 	// Relationships
 	Members []TeamMember `gorm:"foreignKey:TeamID" json:"members,omitempty"`
-	Keys    []VirtualKey `gorm:"foreignKey:TeamID" json:"keys,omitempty"`
+	Keys    []Key        `gorm:"foreignKey:TeamID" json:"keys,omitempty"`
 }
 
 // TeamMember represents a user's membership in a team

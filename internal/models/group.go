@@ -40,8 +40,7 @@ type Group struct {
 	Settings datatypes.JSON `json:"settings,omitempty"`
 	
 	// Relationships
-	Users   []User   `gorm:"many2many:user_groups;" json:"users,omitempty"`
-	APIKeys []APIKey `gorm:"foreignKey:GroupID" json:"-"`
+	Users []User `gorm:"many2many:user_groups;" json:"users,omitempty"`
 	Budgets []Budget `gorm:"foreignKey:GroupID" json:"-"`
 	
 	// Metadata
