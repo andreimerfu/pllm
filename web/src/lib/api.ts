@@ -65,7 +65,7 @@ const teams = {
 // Virtual Keys API
 const keys = {
   list: () => axiosInstance.get("/api/admin/keys"),
-  generate: (data: any) => axiosInstance.post("/api/admin/keys/generate", data),
+  generate: (data: any) => axiosInstance.post("/api/admin/keys", data),
   get: (id: string) => axiosInstance.get(`/api/admin/keys/${id}`),
   update: (id: string, data: any) =>
     axiosInstance.put(`/api/admin/keys/${id}`, data),
@@ -75,8 +75,6 @@ const keys = {
   getStats: (id: string) => axiosInstance.get(`/api/admin/keys/${id}/stats`),
   validate: (key: string) =>
     axiosInstance.post("/api/admin/keys/validate", { key }),
-  temporaryBudgetIncrease: (id: string, data: any) =>
-    axiosInstance.post(`/api/admin/keys/${id}/budget-increase`, data),
 };
 
 // Export the main API object
@@ -133,7 +131,7 @@ export const getTeamStats = (teamId: string) =>
 // Virtual Keys (legacy exports)
 export const getKeys = () => axiosInstance.get("/api/admin/keys");
 export const generateKey = (data: any) =>
-  axiosInstance.post("/api/admin/keys/generate", data);
+  axiosInstance.post("/api/admin/keys", data);
 export const getKey = (id: string) =>
   axiosInstance.get(`/api/admin/keys/${id}`);
 export const updateKey = (id: string, data: any) =>

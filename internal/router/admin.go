@@ -44,12 +44,20 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 		"pllm-web-secret",
 	)
 	userHandler := admin.NewUserHandler(cfg.Logger, cfg.DB)
-	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService)
+	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB)
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
 	budgetHandler := admin.NewBudgetHandler(cfg.Logger)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
 	
+	// Initialize auth middleware
+	authMiddleware := middleware.NewAuthMiddleware(&middleware.AuthConfig{
+		Logger:           cfg.Logger,
+		AuthService:      cfg.AuthService,
+		MasterKeyService: cfg.MasterKeyService,
+		RequireAuth:      false, // Allow public endpoints
+	})
+
 	// Auth endpoints (public - no auth required)
 	r.Post("/auth/login", authHandler.Login)
 	r.Post("/auth/master-key", authHandler.MasterKeyLogin)  // Master key authentication
@@ -61,86 +69,92 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	r.Get("/stats", analyticsHandler.GetStats)
 	r.Get("/dashboard", analyticsHandler.GetDashboard)
 	
-	// User management
-	r.Route("/users", func(r chi.Router) {
-		r.Get("/", userHandler.ListUsers)
-		r.Post("/", userHandler.CreateUser)
-		r.Get("/{userID}", userHandler.GetUser)
-		r.Put("/{userID}", userHandler.UpdateUser)
-		r.Delete("/{userID}", userHandler.DeleteUser)
-		r.Get("/{userID}/stats", userHandler.GetUserStats)
-		r.Post("/{userID}/reset-budget", userHandler.ResetUserBudget)
-	})
-	
-	// Team management
-	r.Route("/teams", func(r chi.Router) {
-		r.Get("/", teamHandler.ListTeams)
-		r.Post("/", teamHandler.CreateTeam)
-		r.Get("/{teamID}", teamHandler.GetTeam)
-		r.Put("/{teamID}", teamHandler.UpdateTeam)
-		r.Delete("/{teamID}", teamHandler.DeleteTeam)
-		r.Post("/{teamID}/members", teamHandler.AddMember)
-		r.Put("/{teamID}/members/{memberID}", teamHandler.UpdateMember)
-		r.Delete("/{teamID}/members/{memberID}", teamHandler.RemoveMember)
-		r.Get("/{teamID}/stats", teamHandler.GetTeamStats)
-	})
-	
-	// Virtual Keys management
-	r.Route("/keys", func(r chi.Router) {
-		r.Get("/", keyHandler.ListKeys)
-		r.Post("/generate", keyHandler.GenerateKey)
-		r.Post("/validate", keyHandler.ValidateKey)
-		r.Get("/{keyID}", keyHandler.GetKey)
-		r.Put("/{keyID}", keyHandler.UpdateKey)
-		r.Delete("/{keyID}", keyHandler.DeleteKey)
-		r.Post("/{keyID}/revoke", keyHandler.RevokeKey)
-		r.Get("/{keyID}/stats", keyHandler.GetKeyStats)
-		r.Post("/{keyID}/budget-increase", keyHandler.TemporaryBudgetIncrease)
-	})
-	
-	// Budget management
-	r.Route("/budgets", func(r chi.Router) {
-		r.Get("/", budgetHandler.ListBudgets)
-		r.Post("/", budgetHandler.CreateBudget)
-		r.Get("/{budgetID}", budgetHandler.GetBudget)
-		r.Put("/{budgetID}", budgetHandler.UpdateBudget)
-		r.Delete("/{budgetID}", budgetHandler.DeleteBudget)
-		r.Post("/{budgetID}/reset", budgetHandler.ResetBudget)
-		r.Get("/alerts", budgetHandler.GetAlerts)
-	})
-	
-	// Analytics
-	r.Route("/analytics", func(r chi.Router) {
-		r.Get("/usage", analyticsHandler.GetUsage)
-		r.Get("/usage/hourly", analyticsHandler.GetHourlyUsage)
-		r.Get("/usage/daily", analyticsHandler.GetDailyUsage)
-		r.Get("/usage/monthly", analyticsHandler.GetMonthlyUsage)
-		r.Get("/costs", analyticsHandler.GetCosts)
-		r.Get("/costs/breakdown", analyticsHandler.GetCostBreakdown)
-		r.Get("/performance", analyticsHandler.GetPerformance)
-		r.Get("/errors", analyticsHandler.GetErrors)
-		r.Get("/cache", analyticsHandler.GetCacheStats)
-	})
-	
-	// System management
-	r.Route("/system", func(r chi.Router) {
-		r.Get("/config", systemHandler.GetConfig)
-		r.Put("/config", systemHandler.UpdateConfig)
-		r.Get("/health", systemHandler.GetSystemHealth)
-		r.Get("/logs", systemHandler.GetLogs)
-		r.Get("/audit", systemHandler.GetAuditLogs)
-		r.Post("/cache/clear", systemHandler.ClearCache)
-		r.Post("/maintenance", systemHandler.SetMaintenance)
-	})
-	
-	// Settings
-	r.Route("/settings", func(r chi.Router) {
-		r.Get("/", systemHandler.GetSettings)
-		r.Put("/", systemHandler.UpdateSettings)
-		r.Get("/rate-limits", systemHandler.GetRateLimits)
-		r.Put("/rate-limits", systemHandler.UpdateRateLimits)
-		r.Get("/cache", systemHandler.GetCacheSettings)
-		r.Put("/cache", systemHandler.UpdateCacheSettings)
+	// Protected admin routes - require authentication and admin role
+	r.Group(func(r chi.Router) {
+		r.Use(authMiddleware.Authenticate)
+		r.Use(authMiddleware.RequireAdmin)
+
+		// User management
+		r.Route("/users", func(r chi.Router) {
+			r.Get("/", userHandler.ListUsers)
+			r.Post("/", userHandler.CreateUser)
+			r.Get("/{userID}", userHandler.GetUser)
+			r.Put("/{userID}", userHandler.UpdateUser)
+			r.Delete("/{userID}", userHandler.DeleteUser)
+			r.Get("/{userID}/stats", userHandler.GetUserStats)
+			r.Post("/{userID}/reset-budget", userHandler.ResetUserBudget)
+		})
+		
+		// Team management
+		r.Route("/teams", func(r chi.Router) {
+			r.Get("/", teamHandler.ListTeams)
+			r.Post("/", teamHandler.CreateTeam)
+			r.Get("/{teamID}", teamHandler.GetTeam)
+			r.Put("/{teamID}", teamHandler.UpdateTeam)
+			r.Delete("/{teamID}", teamHandler.DeleteTeam)
+			r.Post("/{teamID}/members", teamHandler.AddMember)
+			r.Put("/{teamID}/members/{memberID}", teamHandler.UpdateMember)
+			r.Delete("/{teamID}/members/{memberID}", teamHandler.RemoveMember)
+			r.Get("/{teamID}/stats", teamHandler.GetTeamStats)
+		})
+		
+		// Virtual Keys management
+		r.Route("/keys", func(r chi.Router) {
+			r.Get("/", keyHandler.ListKeys)
+			r.Post("/", keyHandler.CreateKey)
+			r.Post("/validate", keyHandler.ValidateKey)
+			r.Get("/{keyID}", keyHandler.GetKey)
+			r.Put("/{keyID}", keyHandler.UpdateKey)
+			r.Delete("/{keyID}", keyHandler.DeleteKey)
+			r.Post("/{keyID}/revoke", keyHandler.RevokeKey)
+			r.Get("/{keyID}/stats", keyHandler.GetKeyStats)
+			r.Get("/{keyID}/usage", keyHandler.GetKeyUsage)
+		})
+		
+		// Budget management
+		r.Route("/budgets", func(r chi.Router) {
+			r.Get("/", budgetHandler.ListBudgets)
+			r.Post("/", budgetHandler.CreateBudget)
+			r.Get("/{budgetID}", budgetHandler.GetBudget)
+			r.Put("/{budgetID}", budgetHandler.UpdateBudget)
+			r.Delete("/{budgetID}", budgetHandler.DeleteBudget)
+			r.Post("/{budgetID}/reset", budgetHandler.ResetBudget)
+			r.Get("/alerts", budgetHandler.GetAlerts)
+		})
+		
+		// Analytics
+		r.Route("/analytics", func(r chi.Router) {
+			r.Get("/usage", analyticsHandler.GetUsage)
+			r.Get("/usage/hourly", analyticsHandler.GetHourlyUsage)
+			r.Get("/usage/daily", analyticsHandler.GetDailyUsage)
+			r.Get("/usage/monthly", analyticsHandler.GetMonthlyUsage)
+			r.Get("/costs", analyticsHandler.GetCosts)
+			r.Get("/costs/breakdown", analyticsHandler.GetCostBreakdown)
+			r.Get("/performance", analyticsHandler.GetPerformance)
+			r.Get("/errors", analyticsHandler.GetErrors)
+			r.Get("/cache", analyticsHandler.GetCacheStats)
+		})
+		
+		// System management
+		r.Route("/system", func(r chi.Router) {
+			r.Get("/config", systemHandler.GetConfig)
+			r.Put("/config", systemHandler.UpdateConfig)
+			r.Get("/health", systemHandler.GetSystemHealth)
+			r.Get("/logs", systemHandler.GetLogs)
+			r.Get("/audit", systemHandler.GetAuditLogs)
+			r.Post("/cache/clear", systemHandler.ClearCache)
+			r.Post("/maintenance", systemHandler.SetMaintenance)
+		})
+		
+		// Settings
+		r.Route("/settings", func(r chi.Router) {
+			r.Get("/", systemHandler.GetSettings)
+			r.Put("/", systemHandler.UpdateSettings)
+			r.Get("/rate-limits", systemHandler.GetRateLimits)
+			r.Put("/rate-limits", systemHandler.UpdateRateLimits)
+			r.Get("/cache", systemHandler.GetCacheSettings)
+			r.Put("/cache", systemHandler.UpdateCacheSettings)
+		})
 	})
 	
 	return r
@@ -179,7 +193,7 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 
 	// Initialize handlers
 	// authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKey) // Will be used when auth endpoints are enabled
-	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService)
+	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB)
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
 	budgetHandler := admin.NewBudgetHandler(cfg.Logger)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.ModelManager)
@@ -241,13 +255,13 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 			// Virtual Keys management
 			r.Route("/keys", func(r chi.Router) {
 				r.Get("/", keyHandler.ListKeys)
-				r.Post("/generate", keyHandler.GenerateKey)
+				r.Post("/", keyHandler.CreateKey)
 				r.Get("/{keyID}", keyHandler.GetKey)
 				r.Put("/{keyID}", keyHandler.UpdateKey)
 				r.Delete("/{keyID}", keyHandler.DeleteKey)
 				r.Post("/{keyID}/revoke", keyHandler.RevokeKey)
 				r.Get("/{keyID}/stats", keyHandler.GetKeyStats)
-				r.Post("/{keyID}/budget/increase", keyHandler.TemporaryBudgetIncrease)
+				r.Get("/{keyID}/usage", keyHandler.GetKeyUsage)
 			})
 
 			// Budget management
@@ -323,7 +337,7 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 				r.URL.Query().Add("user_id", userID.String())
 				keyHandler.ListKeys(w, r)
 			})
-			r.Post("/keys", keyHandler.GenerateKey)
+			r.Post("/keys", keyHandler.CreateKey)
 
 			// User's teams
 			r.Get("/teams", func(w http.ResponseWriter, r *http.Request) {

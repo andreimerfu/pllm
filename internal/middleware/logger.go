@@ -11,6 +11,12 @@ import (
 func Logger(logger *zap.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip logging for health and metrics endpoints to reduce noise
+			if r.URL.Path == "/health" || r.URL.Path == "/ready" || r.URL.Path == "/metrics" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			
 			start := time.Now()
 			
 			// Use streaming-aware wrapper that preserves Flusher interface

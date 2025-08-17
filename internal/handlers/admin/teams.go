@@ -8,20 +8,27 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 	
 	"github.com/amerfu/pllm/internal/middleware"
 	"github.com/amerfu/pllm/internal/services/team"
+	"github.com/amerfu/pllm/internal/services/audit"
+	"github.com/amerfu/pllm/internal/services/budget"
 )
 
 type TeamHandler struct {
 	baseHandler
-	teamService *team.TeamService
+	teamService   *team.TeamService
+	auditLogger   *audit.Logger
+	budgetTracker *budget.Tracker
 }
 
-func NewTeamHandler(logger *zap.Logger, teamService *team.TeamService) *TeamHandler {
+func NewTeamHandler(logger *zap.Logger, teamService *team.TeamService, db *gorm.DB) *TeamHandler {
 	return &TeamHandler{
-		baseHandler: baseHandler{logger: logger},
-		teamService: teamService,
+		baseHandler:   baseHandler{logger: logger},
+		teamService:   teamService,
+		auditLogger:   audit.NewLogger(db),
+		budgetTracker: budget.NewTracker(db),
 	}
 }
 
@@ -171,17 +178,36 @@ func (h *TeamHandler) ListTeams(w http.ResponseWriter, r *http.Request) {
 	offset := (page - 1) * limit
 
 	var userID *uuid.UUID
-	if !middleware.IsMasterKey(r.Context()) {
-		if uid, ok := middleware.GetUserID(r.Context()); ok {
+	isMasterKey := middleware.IsMasterKey(r.Context())
+	
+	// Check if this is a JWT token for the master key user
+	if uid, ok := middleware.GetUserID(r.Context()); ok {
+		// Special master key user ID should be treated as master key access
+		if uid.String() == "00000000-0000-0000-0000-000000000001" {
+			isMasterKey = true
+		} else {
 			userID = &uid
 		}
 	}
 
+	h.logger.Debug("ListTeams request",
+		zap.Bool("is_master_key", isMasterKey),
+		zap.Any("user_id", userID),
+		zap.Int("limit", limit),
+		zap.Int("offset", offset),
+	)
+
 	teams, total, err := h.teamService.ListTeams(r.Context(), userID, limit, offset)
 	if err != nil {
+		h.logger.Error("Failed to list teams", zap.Error(err))
 		h.sendError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	h.logger.Debug("ListTeams response",
+		zap.Int64("total", total),
+		zap.Int("teams_count", len(teams)),
+	)
 
 	h.sendJSON(w, http.StatusOK, map[string]interface{}{
 		"teams": teams,

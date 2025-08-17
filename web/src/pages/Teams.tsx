@@ -56,7 +56,7 @@ const Teams: React.FC = () => {
     try {
       const response = await fetch('/api/admin/teams', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
         },
       });
       if (response.ok) {
@@ -81,7 +81,7 @@ const Teams: React.FC = () => {
     try {
       const response = await fetch(`/api/admin/teams/${teamId}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
         },
       });
       if (response.ok) {
@@ -99,7 +99,7 @@ const Teams: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
         },
         body: JSON.stringify(teamData),
       });
@@ -160,7 +160,7 @@ const Teams: React.FC = () => {
       const response = await fetch(`/api/admin/teams/${selectedTeam.id}/members/${memberId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
         },
       });
 

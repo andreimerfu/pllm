@@ -290,7 +290,7 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
       
       // Create a User object for master key access
       const user = new User({
-        access_token: tokenResponse.access_token,
+        access_token: tokenResponse.token, // Backend returns 'token', not 'access_token'
         id_token: tokenResponse.id_token || "",
         token_type: "Bearer",
         scope: "admin",

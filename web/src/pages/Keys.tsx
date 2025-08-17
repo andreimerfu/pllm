@@ -47,7 +47,7 @@ const Keys: React.FC = () => {
     try {
       const response = await fetch('/api/admin/keys', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
         },
       });
       if (response.ok) {
@@ -71,7 +71,7 @@ const Keys: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
         },
         body: JSON.stringify(keyData),
       });
@@ -120,7 +120,7 @@ const Keys: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
         },
         body: JSON.stringify({ reason: 'Revoked by admin' }),
       });
@@ -150,7 +150,7 @@ const Keys: React.FC = () => {
       const response = await fetch(`/api/admin/keys/${keyId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
         },
       });
 

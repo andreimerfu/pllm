@@ -92,6 +92,11 @@ func (s *TeamService) CreateTeam(ctx context.Context, req *CreateTeamRequest, ow
 			return err
 		}
 
+		// Skip adding master key user as team member - master key has full access anyway
+		if ownerID.String() == "00000000-0000-0000-0000-000000000001" {
+			return nil
+		}
+
 		// Add owner as team member
 		member := &models.TeamMember{
 			TeamID:   team.ID,
@@ -258,21 +263,24 @@ func (s *TeamService) CanManageTeam(ctx context.Context, teamID, userID uuid.UUI
 
 // ListTeams lists teams for a user
 func (s *TeamService) ListTeams(ctx context.Context, userID *uuid.UUID, limit, offset int) ([]*models.Team, int64, error) {
-	query := s.db.Model(&models.Team{})
+	countQuery := s.db.Model(&models.Team{})
+	dataQuery := s.db.Model(&models.Team{})
 
 	if userID != nil {
 		// Get teams where user is a member
-		query = query.Joins("JOIN team_members ON team_members.team_id = teams.id").
+		countQuery = countQuery.Joins("JOIN team_members ON team_members.team_id = teams.id").
+			Where("team_members.user_id = ?", *userID)
+		dataQuery = dataQuery.Joins("JOIN team_members ON team_members.team_id = teams.id").
 			Where("team_members.user_id = ?", *userID)
 	}
 
 	var total int64
-	if err := query.Count(&total).Error; err != nil {
+	if err := countQuery.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	var teams []*models.Team
-	err := query.Preload("Members").
+	err := dataQuery.Preload("Members").
 		Order("created_at DESC").
 		Limit(limit).Offset(offset).
 		Find(&teams).Error

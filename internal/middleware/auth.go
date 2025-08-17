@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -64,9 +65,16 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			return
 		}
 
+		// Debug logging
+		m.logger.Debug("Authentication middleware", 
+			zap.String("path", r.URL.Path),
+			zap.String("method", r.Method),
+			zap.String("auth_header", r.Header.Get("Authorization")))
+
 		// Check for authentication
 		authType, authData, err := m.extractAuth(r)
 		if err != nil {
+			m.logger.Debug("Failed to extract auth", zap.Error(err))
 			if m.requireAuth {
 				m.sendError(w, http.StatusUnauthorized, "Invalid authentication")
 				return
@@ -76,6 +84,10 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
+
+		m.logger.Debug("Extracted auth", 
+			zap.String("type", string(authType)),
+			zap.String("data_prefix", authData[:min(20, len(authData))]))
 
 		// Process based on auth type
 		switch authType {
@@ -106,11 +118,14 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 
 		case AuthTypeJWT:
+			m.logger.Debug("Validating JWT token")
 			claims, err := m.authService.ValidateToken(authData)
 			if err != nil {
+				m.logger.Debug("JWT validation failed", zap.Error(err))
 				m.sendError(w, http.StatusUnauthorized, "Invalid token")
 				return
 			}
+			m.logger.Debug("JWT validation successful", zap.String("user_id", claims.UserID.String()))
 			ctx := context.WithValue(r.Context(), AuthTypeContextKey, AuthTypeJWT)
 			ctx = context.WithValue(ctx, UserContextKey, claims.UserID)
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -234,13 +249,14 @@ func (m *AuthMiddleware) extractAuth(r *http.Request) (AuthType, string, error) 
 	// Check Authorization header
 	authHeader := r.Header.Get("Authorization")
 	if authHeader != "" {
+		m.logger.Debug("Found Authorization header", zap.String("header", authHeader[:min(50, len(authHeader))]))
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 {
 			// Assume it's a raw API key
 			if strings.HasPrefix(authHeader, "sk-") || strings.HasPrefix(authHeader, "pllm_") {
 				return AuthTypeAPIKey, authHeader, nil
 			}
-			return "", "", nil
+			return "", "", fmt.Errorf("malformed authorization header")
 		}
 
 		scheme := strings.ToLower(parts[0])
@@ -250,11 +266,14 @@ func (m *AuthMiddleware) extractAuth(r *http.Request) (AuthType, string, error) 
 		case "bearer":
 			// Check if it's an API key or JWT
 			if strings.HasPrefix(credentials, "sk-") || strings.HasPrefix(credentials, "pllm_") {
+				m.logger.Debug("Detected API key in Bearer token")
 				return AuthTypeAPIKey, credentials, nil
 			}
+			m.logger.Debug("Detected JWT in Bearer token")
 			return AuthTypeJWT, credentials, nil
 		case "basic":
 			// Could be master key (encoded)
+			m.logger.Debug("Detected Basic auth")
 			return AuthTypeMasterKey, credentials, nil
 		}
 	}
@@ -285,7 +304,8 @@ func (m *AuthMiddleware) extractAuth(r *http.Request) (AuthType, string, error) 
 		}
 	}
 
-	return "", "", nil
+	m.logger.Debug("No authentication found in request")
+	return "", "", fmt.Errorf("no authentication found")
 }
 
 func (m *AuthMiddleware) sendError(w http.ResponseWriter, statusCode int, message string) {
