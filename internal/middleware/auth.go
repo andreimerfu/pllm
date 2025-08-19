@@ -36,6 +36,7 @@ const (
 type AuthMiddleware struct {
 	logger           *zap.Logger
 	authService      *auth.AuthService
+	cachedAuthService *auth.CachedAuthService
 	masterKeyService *auth.MasterKeyService
 	requireAuth      bool
 }
@@ -48,11 +49,15 @@ type AuthConfig struct {
 }
 
 func NewAuthMiddleware(config *AuthConfig) *AuthMiddleware {
+	// Create cached auth service wrapper
+	cachedAuth := auth.NewCachedAuthService(config.AuthService, config.Logger)
+	
 	return &AuthMiddleware{
-		logger:           config.Logger,
-		authService:      config.AuthService,
-		masterKeyService: config.MasterKeyService,
-		requireAuth:      config.RequireAuth,
+		logger:            config.Logger,
+		authService:       config.AuthService,
+		cachedAuthService: cachedAuth,
+		masterKeyService:  config.MasterKeyService,
+		requireAuth:       config.RequireAuth,
 	}
 }
 
@@ -102,7 +107,8 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 
 		case AuthTypeAPIKey:
-			key, err := m.authService.ValidateKey(r.Context(), authData)
+			// Use cached key validation for performance
+			key, err := m.cachedAuthService.ValidateKeyCached(r.Context(), authData)
 			if err != nil {
 				m.sendError(w, http.StatusUnauthorized, err.Error())
 				return
@@ -119,15 +125,18 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 
 		case AuthTypeJWT:
 			m.logger.Debug("Validating JWT token")
-			claims, err := m.authService.ValidateToken(authData)
+			// Use cached JWT validation for performance
+			cachedClaims, err := m.cachedAuthService.ValidateTokenCached(r.Context(), authData)
 			if err != nil {
 				m.logger.Debug("JWT validation failed", zap.Error(err))
 				m.sendError(w, http.StatusUnauthorized, "Invalid token")
 				return
 			}
-			m.logger.Debug("JWT validation successful", zap.String("user_id", claims.UserID.String()))
+			m.logger.Debug("JWT validation successful", zap.String("user_id", cachedClaims.UserID.String()))
 			ctx := context.WithValue(r.Context(), AuthTypeContextKey, AuthTypeJWT)
-			ctx = context.WithValue(ctx, UserContextKey, claims.UserID)
+			ctx = context.WithValue(ctx, UserContextKey, cachedClaims.UserID)
+			// Store permissions in context for RBAC
+			ctx = context.WithValue(ctx, "permissions", cachedClaims.Permissions)
 			next.ServeHTTP(w, r.WithContext(ctx))
 
 		default:

@@ -246,7 +246,7 @@ func setDefaults() {
 
 	// Rate limit defaults
 	viper.SetDefault("rate_limit.enabled", true)
-	viper.SetDefault("rate_limit.requests_per_minute", 60)
+	viper.SetDefault("rate_limit.requests_per_minute", 600)
 	viper.SetDefault("rate_limit.burst", 10)
 	viper.SetDefault("rate_limit.cleanup_interval", "1m")
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/amerfu/pllm/internal/models"
+	"github.com/amerfu/pllm/internal/services/team"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -21,6 +22,7 @@ type OAuthHandler struct {
 	dexURL       string
 	clientID     string
 	clientSecret string
+	teamService  *team.TeamService
 }
 
 // NewOAuthHandler creates a new OAuth handler
@@ -31,6 +33,7 @@ func NewOAuthHandler(logger *zap.Logger, db *gorm.DB, dexURL, clientID, clientSe
 		dexURL:       dexURL,
 		clientID:     clientID,
 		clientSecret: clientSecret,
+		teamService:  team.NewTeamService(db),
 	}
 }
 
@@ -256,6 +259,20 @@ func (h *OAuthHandler) autoProvisionUser(userInfo map[string]interface{}) error 
 		
 		if err := h.db.Create(&user).Error; err != nil {
 			return fmt.Errorf("failed to create user: %w", err)
+		}
+		
+		// Add user to default team
+		_, err := h.teamService.AddUserToDefaultTeam(context.Background(), user.ID, models.TeamRoleMember)
+		if err != nil {
+			h.logger.Warn("Failed to add new user to default team", 
+				zap.String("dex_id", sub),
+				zap.String("user_id", user.ID.String()),
+				zap.Error(err))
+			// Don't fail the user creation, just log the warning
+		} else {
+			h.logger.Info("Added new user to default team",
+				zap.String("dex_id", sub),
+				zap.String("user_id", user.ID.String()))
 		}
 		
 		h.logger.Info("Auto-provisioned new user from Dex",

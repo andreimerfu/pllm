@@ -415,3 +415,79 @@ func (s *TeamService) GetTeamMembers(ctx context.Context, teamID uuid.UUID) ([]*
 	}
 	return members, nil
 }
+
+// GetOrCreateDefaultTeam gets or creates the default team for auto-provisioning
+func (s *TeamService) GetOrCreateDefaultTeam(ctx context.Context) (*models.Team, error) {
+	const defaultTeamName = "default"
+	
+	// Try to find existing default team
+	team, err := s.GetTeamByName(ctx, defaultTeamName)
+	if err == nil {
+		return team, nil
+	}
+	if err != ErrTeamNotFound {
+		return nil, err
+	}
+	
+	// Create default team with reasonable defaults
+	req := &CreateTeamRequest{
+		Name:             defaultTeamName,
+		Description:      "Default team for auto-provisioned users",
+		MaxBudget:        100.0, // $100 per month
+		BudgetDuration:   models.BudgetPeriodMonthly,
+		TPM:              1000,  // 1000 tokens per minute
+		RPM:              100,   // 100 requests per minute
+		MaxParallelCalls: 5,
+		AllowedModels:    []string{"gpt-3.5-turbo", "gpt-4o-mini"}, // Safe, cost-effective models
+		BlockedModels:    []string{}, // No blocked models initially
+	}
+	
+	// Use master key user ID as owner (won't be added as member due to special handling)
+	masterKeyUserID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	
+	return s.CreateTeam(ctx, req, masterKeyUserID)
+}
+
+// AddUserToDefaultTeam adds a user to the default team with appropriate role
+func (s *TeamService) AddUserToDefaultTeam(ctx context.Context, userID uuid.UUID, role models.TeamRole) (*models.TeamMember, error) {
+	// Get or create default team
+	defaultTeam, err := s.GetOrCreateDefaultTeam(ctx)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Check if user is already a member
+	var count int64
+	if err := s.db.Model(&models.TeamMember{}).
+		Where("team_id = ? AND user_id = ?", defaultTeam.ID, userID).
+		Count(&count).Error; err != nil {
+		return nil, err
+	}
+	if count > 0 {
+		// User already in default team
+		var member models.TeamMember
+		err := s.db.Preload("User").Where("team_id = ? AND user_id = ?", defaultTeam.ID, userID).First(&member).Error
+		return &member, err
+	}
+	
+	// Set user budget based on role
+	var maxBudget *float64
+	switch role {
+	case models.TeamRoleMember:
+		budget := 10.0 // $10 per user
+		maxBudget = &budget
+	case models.TeamRoleAdmin:
+		budget := 50.0 // $50 for admins
+		maxBudget = &budget
+	}
+	
+	req := &AddMemberRequest{
+		UserID:    userID,
+		Role:      role,
+		MaxBudget: maxBudget,
+		CustomTPM: nil, // Use team defaults
+		CustomRPM: nil, // Use team defaults
+	}
+	
+	return s.AddMember(ctx, defaultTeam.ID, req)
+}

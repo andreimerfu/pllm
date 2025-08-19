@@ -92,6 +92,18 @@ model_list:
       api_key: ${OPENROUTER_API_KEY}
       api_base: https://openrouter.ai/api/v1
 
+# Authentication configuration
+auth:
+  master_key: sk-master-dev-key-change-in-production
+  require_auth: true
+  dex:
+    enabled: true
+    issuer: "http://localhost:5556/dex"
+    client_id: "pllm-web"
+    client_secret: "pllm-web-secret"
+    redirect_url: "http://localhost:3000/auth/callback"
+    scopes: ["openid", "profile", "email", "groups"]
+
 # Model aliases/groups (optional)
 model_aliases:
   smart: ["my-gpt-4", "azure-gpt-4", "openrouter-gpt-4"]

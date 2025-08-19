@@ -35,18 +35,17 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	teamService := team.NewTeamService(cfg.DB)
 	
 	// Initialize handlers
-	authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKeyService, cfg.DB)
+	authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKeyService, cfg.AuthService, cfg.DB)
 	oauthHandler := admin.NewOAuthHandler(
 		cfg.Logger,
 		cfg.DB,
-		"http://dex:5556/dex",
+		"http://localhost:5556/dex",
 		"pllm-web",
 		"pllm-web-secret",
 	)
 	userHandler := admin.NewUserHandler(cfg.Logger, cfg.DB)
 	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB)
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
-	budgetHandler := admin.NewBudgetHandler(cfg.Logger)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
 	
@@ -64,6 +63,12 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	r.Get("/auth/validate", authHandler.Validate)
 	r.Post("/auth/token", oauthHandler.TokenExchange)
 	r.Get("/auth/userinfo", oauthHandler.UserInfo)
+	
+	// Permission endpoint (requires authentication)
+	r.Group(func(r chi.Router) {
+		r.Use(authMiddleware.Authenticate)
+		r.Get("/auth/permissions", authHandler.GetPermissions)
+	})
 	
 	// Stats endpoint (commonly accessed by dashboard)
 	r.Get("/stats", analyticsHandler.GetStats)
@@ -111,16 +116,6 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Get("/{keyID}/usage", keyHandler.GetKeyUsage)
 		})
 		
-		// Budget management
-		r.Route("/budgets", func(r chi.Router) {
-			r.Get("/", budgetHandler.ListBudgets)
-			r.Post("/", budgetHandler.CreateBudget)
-			r.Get("/{budgetID}", budgetHandler.GetBudget)
-			r.Put("/{budgetID}", budgetHandler.UpdateBudget)
-			r.Delete("/{budgetID}", budgetHandler.DeleteBudget)
-			r.Post("/{budgetID}/reset", budgetHandler.ResetBudget)
-			r.Get("/alerts", budgetHandler.GetAlerts)
-		})
 		
 		// Analytics
 		r.Route("/analytics", func(r chi.Router) {
@@ -195,7 +190,6 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 	// authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKey) // Will be used when auth endpoints are enabled
 	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB)
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
-	budgetHandler := admin.NewBudgetHandler(cfg.Logger)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
 
@@ -264,16 +258,6 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 				r.Get("/{keyID}/usage", keyHandler.GetKeyUsage)
 			})
 
-			// Budget management
-			r.Route("/budgets", func(r chi.Router) {
-				r.Get("/", budgetHandler.ListBudgets)
-				r.Post("/", budgetHandler.CreateBudget)
-				r.Get("/{budgetID}", budgetHandler.GetBudget)
-				r.Put("/{budgetID}", budgetHandler.UpdateBudget)
-				r.Delete("/{budgetID}", budgetHandler.DeleteBudget)
-				r.Post("/{budgetID}/reset", budgetHandler.ResetBudget)
-				r.Get("/alerts", budgetHandler.GetAlerts)
-			})
 
 			// Analytics
 			r.Route("/analytics", func(r chi.Router) {

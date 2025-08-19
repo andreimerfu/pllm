@@ -32,8 +32,21 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		TokenExpiry: 24 * time.Hour,
 	})
 
+	// Prepare Dex config if enabled
+	var dexConfig *auth.DexConfig
+	if cfg.Auth.Dex.Enabled {
+		dexConfig = &auth.DexConfig{
+			Issuer:       cfg.Auth.Dex.Issuer,
+			ClientID:     cfg.Auth.Dex.ClientID,
+			ClientSecret: cfg.Auth.Dex.ClientSecret,
+			RedirectURL:  cfg.Auth.Dex.RedirectURL,
+			Scopes:       cfg.Auth.Dex.Scopes,
+		}
+	}
+
 	authService, err := auth.NewAuthService(&auth.AuthConfig{
 		DB:               db,
+		DexConfig:        dexConfig,
 		JWTSecret:        cfg.JWT.SecretKey,
 		JWTIssuer:        "pllm",
 		TokenExpiry:      cfg.JWT.AccessTokenDuration,
@@ -98,8 +111,20 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	// Protected routes
 	r.Group(func(r chi.Router) {
 		// Authentication middleware
-		// r.Use(middleware.Authenticate(cfg.JWT.SecretKey))
-		// r.Use(middleware.UsageTracking())
+		authMiddleware := middleware.NewAuthMiddleware(&middleware.AuthConfig{
+			Logger:           logger,
+			AuthService:      authService,
+			MasterKeyService: masterKeyService,
+			RequireAuth:      true,
+		})
+		r.Use(authMiddleware.Authenticate)
+		
+		// Budget middleware for LLM endpoints
+		budgetMiddleware := middleware.NewBudgetMiddleware(&middleware.BudgetConfig{
+			Logger:      logger,
+			AuthService: authService,
+		})
+		r.Use(budgetMiddleware.EnforceBudget)
 		
 		// OpenAI-compatible endpoints
 		r.Route("/v1", func(r chi.Router) {
@@ -167,8 +192,21 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	
 	// API Key authentication routes
 	r.Group(func(r chi.Router) {
-		// r.Use(middleware.APIKeyAuth())
-		// r.Use(middleware.UsageTracking())
+		// Authentication middleware
+		authMiddleware := middleware.NewAuthMiddleware(&middleware.AuthConfig{
+			Logger:           logger,
+			AuthService:      authService,
+			MasterKeyService: masterKeyService,
+			RequireAuth:      true,
+		})
+		r.Use(authMiddleware.Authenticate)
+		
+		// Budget middleware for LLM endpoints
+		budgetMiddleware := middleware.NewBudgetMiddleware(&middleware.BudgetConfig{
+			Logger:      logger,
+			AuthService: authService,
+		})
+		r.Use(budgetMiddleware.EnforceBudget)
 		
 		// OpenAI-compatible endpoints with API key
 		r.Route("/api/v1", func(r chi.Router) {

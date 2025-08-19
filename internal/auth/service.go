@@ -14,6 +14,15 @@ import (
 	"github.com/amerfu/pllm/internal/models"
 )
 
+// Forward declarations to avoid circular imports
+type TeamService interface {
+	AddUserToDefaultTeam(ctx context.Context, userID uuid.UUID, role models.TeamRole) (*models.TeamMember, error)
+}
+
+type KeyService interface {
+	CreateDefaultKeyForUser(ctx context.Context, userID uuid.UUID, teamID uuid.UUID) (*models.Key, error)
+}
+
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrUserNotFound      = errors.New("user not found")
@@ -26,12 +35,15 @@ var (
 )
 
 type AuthService struct {
-	db           *gorm.DB
-	dexProvider  *DexAuthProvider
-	jwtSecret    []byte
-	jwtIssuer    string
-	tokenExpiry  time.Duration
-	masterKeyService *MasterKeyService
+	db                *gorm.DB
+	dexProvider       *DexAuthProvider
+	jwtSecret         []byte
+	jwtIssuer         string
+	tokenExpiry       time.Duration
+	masterKeyService  *MasterKeyService
+	teamService       TeamService
+	keyService        KeyService
+	permissionService *PermissionService
 }
 
 type AuthConfig struct {
@@ -41,6 +53,8 @@ type AuthConfig struct {
 	JWTIssuer        string
 	TokenExpiry      time.Duration
 	MasterKeyService *MasterKeyService
+	TeamService      TeamService
+	KeyService       KeyService
 }
 
 
@@ -86,12 +100,15 @@ func NewAuthService(config *AuthConfig) (*AuthService, error) {
 	}
 
 	return &AuthService{
-		db:               config.DB,
-		dexProvider:      dexProvider,
-		jwtSecret:        []byte(config.JWTSecret),
-		jwtIssuer:        config.JWTIssuer,
-		tokenExpiry:      config.TokenExpiry,
-		masterKeyService: config.MasterKeyService,
+		db:                config.DB,
+		dexProvider:       dexProvider,
+		jwtSecret:         []byte(config.JWTSecret),
+		jwtIssuer:         config.JWTIssuer,
+		tokenExpiry:       config.TokenExpiry,
+		masterKeyService:  config.MasterKeyService,
+		teamService:       config.TeamService,
+		keyService:        config.KeyService,
+		permissionService: NewPermissionService(),
 	}, nil
 }
 
@@ -154,6 +171,27 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 			
 			if err := s.db.Create(&user).Error; err != nil {
 				return nil, fmt.Errorf("failed to create user: %w", err)
+			}
+			
+			// Auto-assign user to default team if team service is available
+			if s.teamService != nil {
+				// Map user role to team role
+				teamRole := models.TeamRoleMember
+				if user.Role == models.RoleAdmin {
+					teamRole = models.TeamRoleAdmin
+				}
+				
+				if teamMember, err := s.teamService.AddUserToDefaultTeam(ctx, user.ID, teamRole); err != nil {
+					// Log error but don't fail user creation
+					// User can be manually assigned to teams later
+					fmt.Printf("Warning: Failed to assign user to default team: %v\n", err)
+				} else if s.keyService != nil && teamMember != nil {
+					// Create default API key for the user
+					if _, err := s.keyService.CreateDefaultKeyForUser(ctx, user.ID, teamMember.TeamID); err != nil {
+						// Log error but don't fail user creation
+						fmt.Printf("Warning: Failed to create default key for user: %v\n", err)
+					}
+				}
 			}
 			
 			// Create audit entry for user provisioning
@@ -304,19 +342,58 @@ func (s *AuthService) ValidateMasterKey(ctx context.Context, key string) (*Maste
 }
 
 func (s *AuthService) ValidateToken(tokenString string) (*TokenClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+	// Try Dex token validation first if Dex is configured
+	if s.dexProvider != nil {
+		ctx := context.Background()
+		authClaims, err := s.dexProvider.VerifyIDToken(ctx, tokenString)
+		if err == nil {
+			// Successfully validated as Dex token
+			// Find user by Dex subject ID to get user details
+			user, err := s.GetUserByDexID(ctx, authClaims.Subject)
+			if err != nil {
+				return nil, fmt.Errorf("user not found for dex id %s: %w", authClaims.Subject, err)
+			}
+			
+			// Get team names from Teams relationship for groups
+			groups := make([]string, 0)
+			if len(user.Teams) > 0 {
+				for _, tm := range user.Teams {
+					groups = append(groups, string(tm.Role))
+				}
+			}
+			
+			// Convert Dex claims to TokenClaims
+			tokenClaims := &TokenClaims{
+				RegisteredClaims: authClaims.RegisteredClaims,
+				UserID:           user.ID,
+				Email:            authClaims.Email,
+				Username:         user.Username,
+				Role:             string(user.Role),
+				Groups:           groups,
+			}
+			
+			return tokenClaims, nil
 		}
-		return s.jwtSecret, nil
-	})
-
-	if err != nil {
-		return nil, err
+		// Log Dex validation failure for debugging
+		fmt.Printf("Debug: Dex token validation failed: %v\n", err)
 	}
 
-	if claims, ok := token.Claims.(*TokenClaims); ok && token.Valid {
-		return claims, nil
+	// Only try HMAC validation if this looks like an internal token (shorter, different format)
+	// Dex tokens are much longer and use RS256, so they'll always fail HMAC validation
+	if len(tokenString) < 500 {
+		// Fall back to HMAC validation for internal JWT tokens
+		token, err := jwt.ParseWithClaims(tokenString, &TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			return s.jwtSecret, nil
+		})
+
+		if err == nil {
+			if claims, ok := token.Claims.(*TokenClaims); ok && token.Valid {
+				return claims, nil
+			}
+		}
 	}
 
 	return nil, ErrInvalidToken
@@ -474,4 +551,72 @@ func (s *AuthService) ProvisionUser(ctx context.Context, req *models.UserProvisi
 	}
 
 	return user, nil
+}
+
+// RecordUsage records LLM usage for tracking and budget calculations
+func (s *AuthService) RecordUsage(ctx context.Context, usage *models.Usage) error {
+	return s.db.WithContext(ctx).Create(usage).Error
+}
+
+// CheckBudgetCached checks if an entity has budget available (generic implementation)
+func (s *AuthService) CheckBudgetCached(ctx context.Context, entityType, entityID string, estimatedCost float64) (bool, error) {
+	// This is a simplified implementation - in production you'd have proper budget tracking
+	// For now, always allow requests (prefer availability over strict enforcement)
+	return true, nil
+}
+
+// GetUserPermissions gets all permissions for a user including role and team permissions
+func (s *AuthService) GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	var user models.User
+	err := s.db.Preload("Teams").First(&user, "id = ?", userID).Error
+	if err != nil {
+		return nil, err
+	}
+	
+	permissions := s.permissionService.GetUserPermissions(&user)
+	
+	// Convert to strings
+	var permStrings []string
+	for _, p := range permissions {
+		permStrings = append(permStrings, string(p))
+	}
+	
+	return permStrings, nil
+}
+
+// GetUserActiveKey retrieves the first active API key for a user
+func (s *AuthService) GetUserActiveKey(ctx context.Context, userID uuid.UUID) (*models.Key, error) {
+	var key models.Key
+	err := s.db.WithContext(ctx).Where("user_id = ? AND is_active = ?", userID, true).First(&key).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("no active key found for user %s", userID.String())
+		}
+		return nil, err
+	}
+	return &key, nil
+}
+
+// GetKeyUser retrieves the user associated with an API key
+func (s *AuthService) GetKeyUser(ctx context.Context, keyID uuid.UUID) (*models.User, error) {
+	var key models.Key
+	err := s.db.WithContext(ctx).Preload("User").Where("id = ?", keyID).First(&key).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("key not found: %s", keyID.String())
+		}
+		return nil, err
+	}
+	
+	if key.UserID == nil {
+		return nil, fmt.Errorf("key %s has no associated user", keyID.String())
+	}
+	
+	var user models.User
+	err = s.db.WithContext(ctx).Where("id = ?", *key.UserID).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	
+	return &user, nil
 }

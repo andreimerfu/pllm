@@ -28,7 +28,7 @@ axiosInstance.interceptors.response.use(
       // Handle unauthorized access
       localStorage.removeItem("token");
       localStorage.removeItem("authToken");
-      window.location.href = "/login";
+      window.location.href = "/ui/login";
     }
     return Promise.reject(error);
   },
@@ -145,20 +145,7 @@ export const getKeyStats = (id: string) =>
 export const validateKey = (key: string) =>
   axiosInstance.post("/api/keys/validate", { key });
 
-// Budgets
-export const getBudgets = () => axiosInstance.get("/api/admin/budgets");
-export const createBudget = (data: any) =>
-  axiosInstance.post("/api/admin/budgets", data);
-export const getBudget = (id: string) =>
-  axiosInstance.get(`/api/admin/budgets/${id}`);
-export const updateBudget = (id: string, data: any) =>
-  axiosInstance.put(`/api/admin/budgets/${id}`, data);
-export const deleteBudget = (id: string) =>
-  axiosInstance.delete(`/api/admin/budgets/${id}`);
-export const resetBudget = (id: string) =>
-  axiosInstance.post(`/api/admin/budgets/${id}/reset`);
-export const getBudgetAlerts = () =>
-  axiosInstance.get("/api/admin/budgets/alerts");
+// Budget data is now integrated into teams and keys endpoints
 
 // Analytics
 export const getUsage = () => axiosInstance.get("/api/admin/analytics/usage");

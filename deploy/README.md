@@ -1,4 +1,22 @@
-# PLLM Deployment with Authentication
+# PLLM Deployment Guide
+
+This directory contains deployment configurations for PLLM using both Docker Compose and Kubernetes Helm charts.
+
+## Directory Structure
+
+```
+deploy/
+├── docker/              # Docker Compose deployments
+│   ├── docker-compose.yml          # Main development stack
+│   ├── docker-compose.auth.yml     # Auth-focused stack
+│   └── docker-compose.dex.yaml     # Dex identity provider
+├── helm/                # Kubernetes Helm charts
+│   └── pllm/           # PLLM Helm chart
+└── dex/                # Dex identity provider config
+    └── config.yaml
+```
+
+# Docker Compose Deployment
 
 ## Quick Start
 
@@ -146,3 +164,82 @@ docker-compose -f docker-compose.auth.yml down -v
    - Set up Prometheus/Grafana
    - Configure alerting
    - Enable distributed tracing
+
+# Kubernetes Helm Deployment
+
+The Helm chart provides a production-ready deployment with high availability, auto-scaling, security, and monitoring.
+
+## Quick Start
+
+```bash
+# Install from published chart
+helm repo add pllm https://amerfu.github.io/pllm
+helm repo update
+helm install pllm pllm/pllm
+
+# Or install from source
+cd helm
+helm dependency update pllm
+helm install pllm ./pllm
+```
+
+## Features
+
+- **High Availability**: Multi-replica deployments with pod disruption budgets
+- **Auto-scaling**: HPA based on CPU/memory usage
+- **Security**: Pod security contexts, non-root containers
+- **Dependencies**: PostgreSQL, Redis, Dex as managed subcharts  
+- **Monitoring**: ServiceMonitor for Prometheus integration
+- **Storage**: Persistent volumes for data and logs
+
+## Configuration
+
+Create a `values-prod.yaml` file:
+
+```yaml
+pllm:
+  replicaCount: 3
+  env:
+    openai:
+      apiKey: "sk-your-openai-key"
+    anthropic:
+      apiKey: "sk-ant-your-anthropic-key"
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: pllm.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: pllm-tls
+      hosts:
+        - pllm.example.com
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+```
+
+Install with custom configuration:
+
+```bash
+helm install pllm pllm/pllm -f values-prod.yaml
+```
+
+See [helm/pllm/README.md](helm/pllm/README.md) for complete configuration options.
+
+# CI/CD Integration
+
+GitHub Actions workflows are provided for automated deployment:
+
+- **ci.yml**: Test Helm charts and Go/React code
+- **docker-build.yml**: Build and push Docker images
+- **helm-release.yml**: Publish Helm charts to registries
+
+Required GitHub secrets:
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`

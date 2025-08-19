@@ -24,13 +24,20 @@ func NewAnalyticsHandler(logger *zap.Logger, modelManager interface {
 }
 
 func (h *AnalyticsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
+	// Get real statistics from the model manager first
+	modelStats := h.modelManager.GetModelStats()
+	
+	// TODO: Get real database stats - for now, use model stats plus placeholders
+	// This should be replaced with actual database queries for users, teams, keys
 	stats := map[string]interface{}{
-		"total_requests": 15234,
-		"total_tokens":   5678901,
-		"total_cost":     234.56,
-		"active_users":   42,
-		"active_teams":   8,
-		"active_keys":    156,
+		"total_requests":  modelStats["total_requests"],
+		"total_tokens":    modelStats["total_tokens"], 
+		"total_cost":      modelStats["total_cost"],
+		"active_users":    modelStats["active_users"],
+		"active_teams":    8,   // TODO: Query from database
+		"active_keys":     156, // TODO: Query from database  
+		"load_balancer":   modelStats["load_balancer"], // Pass through model load balancer stats
+		"should_shed_load": modelStats["should_shed_load"],
 	}
 	h.sendJSON(w, http.StatusOK, stats)
 }

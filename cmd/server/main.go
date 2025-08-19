@@ -132,42 +132,8 @@ func main() {
 		}
 	}
 
-	// Initialize services (only in full mode)
-	// TODO: Implement authentication and services when config is updated
-	/*
-		var authService *auth.Service
-		var budgetService *budget.Service
-		var teamService *team.Service
-		var virtualKeyService *virtualkey.Service
-
-		if !appMode.IsLiteMode {
-			// Initialize auth service with Dex if configured
-			authConfig := &auth.Config{
-				JWTSecret:     cfg.Auth.JWTSecret,
-				JWTIssuer:     cfg.Auth.JWTIssuer,
-				JWTExpiration: time.Duration(cfg.Auth.JWTExpirationHours) * time.Hour,
-			}
-
-			if cfg.Auth.Dex.Enabled {
-				authConfig.DexConfig = &auth.DexConfig{
-					Issuer:       cfg.Auth.Dex.Issuer,
-					ClientID:     cfg.Auth.Dex.ClientID,
-					ClientSecret: cfg.Auth.Dex.ClientSecret,
-					RedirectURL:  cfg.Auth.Dex.RedirectURL,
-				}
-			}
-
-			authService, err = auth.NewService(authConfig, database.GetDB())
-			if err != nil {
-				log.Fatal("Failed to initialize auth service", zap.Error(err))
-			}
-
-			// Initialize other services
-			budgetService = budget.NewService(database.GetDB())
-			teamService = team.NewService(database.GetDB())
-			virtualKeyService = virtualkey.NewService(database.GetDB())
-		}
-	*/
+	// Services are now initialized in the router
+	// All authentication and management functionality is handled by the unified auth service
 
 	// Initialize model manager (always needed)
 	modelManager := models.NewModelManager(log, cfg.Router)
@@ -186,18 +152,7 @@ func main() {
 	}
 	mainRouter := router.NewRouter(cfg, log, modelManager, db)
 
-	// Add authentication middleware in full mode
-	// TODO: Enable when auth services are implemented
-	/*
-		if !appMode.IsLiteMode && authService != nil {
-			authMiddleware := middleware.NewAuthMiddleware(
-				authService,
-				virtualKeyService,
-				cfg.Auth.MasterKey,
-			)
-			mainRouter.Use(authMiddleware.Authenticate)
-		}
-	*/
+	// Authentication middleware is now configured in the router
 
 	servers = append(servers, &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),

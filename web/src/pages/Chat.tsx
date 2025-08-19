@@ -9,6 +9,7 @@ import { ScrollArea } from '../components/ui/scroll-area'
 import { Separator } from '../components/ui/separator'
 import { Badge } from '../components/ui/badge'
 import { toast } from '../components/ui/use-toast'
+import { getModels } from '../lib/api'
 import { cn } from '../lib/utils'
 
 interface Message {
@@ -78,18 +79,27 @@ export default function Chat() {
 
   // Fetch available models
   useEffect(() => {
-    fetch('/v1/models')
-      .then(res => res.json())
-      .then(data => {
-        if (data.data && data.data.length > 0) {
-          const modelIds = data.data.map((m: any) => m.id)
+    const fetchModels = async () => {
+      try {
+        const response = await getModels()
+        if (response.data && response.data.length > 0) {
+          const modelIds = response.data.map((m: any) => m.id)
           setModels(modelIds)
           if (!settings.model && modelIds.length > 0) {
             setSettings(prev => ({ ...prev, model: modelIds[0] }))
           }
         }
-      })
-      .catch(err => console.error('Failed to fetch models:', err))
+      } catch (err) {
+        console.error('Failed to fetch models:', err)
+        toast({
+          title: "Failed to fetch models",
+          description: "Could not load available models. Please check your permissions.",
+          variant: "destructive"
+        })
+      }
+    }
+    
+    fetchModels()
   }, [])
 
   // Auto-scroll to bottom
@@ -131,10 +141,14 @@ export default function Chat() {
     try {
       abortControllerRef.current = new AbortController()
       
+      // Get auth token for API request
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      
       const response = await fetch('/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
         signal: abortControllerRef.current.signal,
         body: JSON.stringify({

@@ -42,6 +42,16 @@ const (
 	PermAnalyticsRead   Permission = "analytics:read"
 	PermAnalyticsExport Permission = "analytics:export"
 	
+	// Models
+	PermModelsRead Permission = "models:read"
+	PermModelsUse  Permission = "models:use"
+	
+	// Dashboard
+	PermDashboardRead Permission = "dashboard:read"
+	
+	// Chat
+	PermChatUse Permission = "chat:use"
+	
 	// System
 	PermSystemConfig Permission = "system:config"
 	PermSystemAudit  Permission = "system:audit"
@@ -88,6 +98,9 @@ func (ps *PermissionService) initializePermissions() {
 		PermKeysCreate, PermKeysRead, PermKeysUpdate, // Can manage their own keys
 		PermBudgetsRead, // Can view budgets
 		PermAnalyticsRead, // Can view their own analytics
+		PermModelsRead, PermModelsUse, // Can view and use models
+		PermDashboardRead, // Can access dashboard
+		PermChatUse, // Can use chat functionality
 	}
 	
 	ps.rolePermissions[models.RoleViewer] = []Permission{
@@ -96,6 +109,8 @@ func (ps *PermissionService) initializePermissions() {
 		PermKeysRead,
 		PermBudgetsRead,
 		PermAnalyticsRead,
+		PermModelsRead, // Can view models
+		PermDashboardRead, // Can access dashboard
 	}
 	
 	// Team role permissions (within team context)

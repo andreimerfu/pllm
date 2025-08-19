@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -11,6 +12,11 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+)
+
+var (
+	ErrInvalidKeyType = errors.New("invalid key type")
+	ErrKeyNotFound    = errors.New("key not found")
 )
 
 // Key represents a unified API key model

@@ -30,11 +30,17 @@ admin:
 logging:
   level: debug
 
-# Dex Authentication Configuration
-dex:
-  issuer: http://dex:5556/dex
-  client_id: pllm-backend
-  client_secret: pllm-backend-secret
+# Authentication configuration
+auth:
+  master_key: sk-master-dev-key-change-in-production
+  require_auth: true
+  dex:
+    enabled: true
+    issuer: "http://localhost:5556/dex"
+    client_id: "pllm-web"
+    client_secret: "pllm-web-secret"
+    redirect_url: "http://localhost:3000/auth/callback"
+    scopes: ["openid", "profile", "email", "groups"]
 
 # Router configuration with adaptive routing for high-load scenarios
 router:

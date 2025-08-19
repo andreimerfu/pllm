@@ -9,9 +9,11 @@ import Chat from '@/pages/Chat'
 import Login from '@/pages/Login'
 import Callback from '@/pages/Callback'
 import SilentRenew from '@/pages/SilentRenew'
+import Unauthorized from '@/pages/Unauthorized'
 import Layout from '@/components/Layout'
 import { Toaster } from '@/components/ui/toaster'
 import { OIDCAuthProvider } from '@/contexts/OIDCAuthContext'
+import { PermissionProvider } from '@/contexts/PermissionContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 
 function App() {
@@ -24,20 +26,23 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/callback" element={<Callback />} />
           <Route path="/silent-renew" element={<SilentRenew />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="/*" element={
             <ProtectedRoute>
-              <Layout>
-                <Routes>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/chat" element={<Chat />} />
-                  <Route path="/models" element={<Models />} />
-                  <Route path="/users" element={<Users />} />
-                  <Route path="/teams" element={<Teams />} />
-                  <Route path="/keys" element={<Keys />} />
-                  <Route path="/settings" element={<Settings />} />
-                </Routes>
-              </Layout>
+              <PermissionProvider>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/chat" element={<Chat />} />
+                    <Route path="/models" element={<Models />} />
+                    <Route path="/users" element={<Users />} />
+                    <Route path="/teams" element={<Teams />} />
+                    <Route path="/keys" element={<Keys />} />
+                    <Route path="/settings" element={<Settings />} />
+                  </Routes>
+                </Layout>
+              </PermissionProvider>
             </ProtectedRoute>
           } />
         </Routes>

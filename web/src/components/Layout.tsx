@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/OIDCAuthContext";
+import { CanAccess } from "@/components/CanAccess";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,13 +16,13 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: "lucide:layout-dashboard" },
-  { name: "Chat", href: "/chat", icon: "lucide:messages-square" },
-  { name: "Models", href: "/models", icon: "lucide:brain" },
-  { name: "Teams", href: "/teams", icon: "lucide:users-2" },
-  { name: "API Keys", href: "/keys", icon: "lucide:key" },
-  { name: "Users", href: "/users", icon: "lucide:users" },
-  { name: "Settings", href: "/settings", icon: "lucide:settings" },
+  { name: "Dashboard", href: "/dashboard", icon: "lucide:layout-dashboard", permission: null },
+  { name: "Chat", href: "/chat", icon: "lucide:messages-square", permission: null },
+  { name: "Models", href: "/models", icon: "lucide:brain", permission: "admin.models.read" },
+  { name: "Teams", href: "/teams", icon: "lucide:users-2", permission: "admin.teams.read" },
+  { name: "API Keys", href: "/keys", icon: "lucide:key", permission: "admin.keys.read" },
+  { name: "Users", href: "/users", icon: "lucide:users", permission: "admin.users.read" },
+  { name: "Settings", href: "/settings", icon: "lucide:settings", permission: "admin.settings.read" },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -128,7 +129,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <nav className="flex-1 px-4 py-6 space-y-2">
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
-              return (
+              
+              const NavigationItem = (
                 <Link
                   key={item.name}
                   to={item.href}
@@ -157,6 +159,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   )}
                 </Link>
               );
+              
+              // If item has a permission requirement, wrap with CanAccess
+              if (item.permission) {
+                return (
+                  <CanAccess key={item.name} permission={item.permission}>
+                    {NavigationItem}
+                  </CanAccess>
+                );
+              }
+              
+              // If no permission required, render directly
+              return NavigationItem;
             })}
           </nav>
 
