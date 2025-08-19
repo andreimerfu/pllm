@@ -4,6 +4,7 @@ import Models from '@/pages/Models'
 import Users from '@/pages/Users'
 import Teams from '@/pages/Teams'
 import Keys from '@/pages/Keys'
+import Budget from '@/pages/Budget'
 import Settings from '@/pages/Settings'
 import Chat from '@/pages/Chat'
 import Login from '@/pages/Login'
@@ -39,6 +40,7 @@ function App() {
                     <Route path="/users" element={<Users />} />
                     <Route path="/teams" element={<Teams />} />
                     <Route path="/keys" element={<Keys />} />
+                    <Route path="/budget" element={<Budget />} />
                     <Route path="/settings" element={<Settings />} />
                   </Routes>
                 </Layout>

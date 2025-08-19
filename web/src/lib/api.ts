@@ -145,7 +145,8 @@ export const getKeyStats = (id: string) =>
 export const validateKey = (key: string) =>
   axiosInstance.post("/api/keys/validate", { key });
 
-// Budget data is now integrated into teams and keys endpoints
+// Budget Analytics
+export const getBudgetSummary = () => axiosInstance.get("/api/admin/analytics/budget");
 
 // Analytics
 export const getUsage = () => axiosInstance.get("/api/admin/analytics/usage");

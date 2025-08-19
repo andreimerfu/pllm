@@ -9,6 +9,7 @@ import (
 	"github.com/amerfu/pllm/internal/docs"
 	"github.com/amerfu/pllm/internal/handlers"
 	"github.com/amerfu/pllm/internal/middleware"
+	"github.com/amerfu/pllm/internal/services/budget"
 	"github.com/amerfu/pllm/internal/services/models"
 	"github.com/amerfu/pllm/internal/ui"
 	"github.com/go-chi/chi/v5"
@@ -55,6 +56,20 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	if err != nil {
 		logger.Fatal("Failed to initialize auth service", zap.Error(err))
 	}
+
+	// Initialize budget service for usage tracking
+	budgetService := budget.NewBudgetService(&budget.BudgetConfig{
+		DB:            db,
+		Logger:        logger,
+		CheckInterval: 1 * time.Hour, // Check budgets every hour
+	})
+
+	// Initialize usage tracker
+	usageTracker := middleware.NewUsageTracker(&middleware.UsageConfig{
+		Logger:        logger,
+		DB:            db,
+		BudgetService: budgetService,
+	})
 	
 	// Basic middleware
 	r.Use(chiMiddleware.RequestID)
@@ -125,6 +140,9 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			AuthService: authService,
 		})
 		r.Use(budgetMiddleware.EnforceBudget)
+		
+		// Usage tracking middleware to record budget consumption
+		r.Use(usageTracker.TrackUsage())
 		
 		// OpenAI-compatible endpoints
 		r.Route("/v1", func(r chi.Router) {
@@ -207,6 +225,9 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			AuthService: authService,
 		})
 		r.Use(budgetMiddleware.EnforceBudget)
+		
+		// Usage tracking middleware to record budget consumption
+		r.Use(usageTracker.TrackUsage())
 		
 		// OpenAI-compatible endpoints with API key
 		r.Route("/api/v1", func(r chi.Router) {

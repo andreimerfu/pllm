@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getModelStats, getModels } from "@/lib/api";
+import { getModelStats, getModels, getBudgetSummary } from "@/lib/api";
 import type { StatsResponse, ModelsResponse } from "@/types/api";
 import {
   Card,
@@ -57,10 +57,15 @@ export default function Dashboard() {
     queryFn: getModels,
   });
 
-  // TODO: Add admin-specific data queries later
+  const { data: budgetData } = useQuery({
+    queryKey: ["budget-summary"],
+    queryFn: getBudgetSummary,
+    enabled: !!isAdmin, // Only fetch budget data for admins
+  });
 
   const stats = statsData as StatsResponse;
   const models = (modelsData as ModelsResponse)?.data || [];
+  const budget = budgetData as any; // axios interceptor extracts data
 
   // Calculate summary metrics
   const totalRequests = Object.values(stats?.load_balancer || {}).reduce(
@@ -193,7 +198,105 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* TODO: Add admin summary cards later */}
+      {/* Admin Budget Summary Cards */}
+      {isAdmin && budget?.summary && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="transition-theme border-l-4 border-l-purple-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Budget
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:wallet"
+                  width="16"
+                  height="16"
+                  className="text-purple-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                ${budget?.summary.total_budget?.toLocaleString() || '0'}
+              </div>
+              <p className="text-xs text-muted-foreground">Across all entities</p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-theme border-l-4 border-l-orange-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:trending-up"
+                  width="16"
+                  height="16"
+                  className="text-orange-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                ${budget?.summary.total_spent?.toLocaleString() || '0'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {budget?.summary.total_budget > 0 
+                  ? `${((budget?.summary.total_spent / budget?.summary.total_budget) * 100).toFixed(1)}% used`
+                  : 'No budget set'
+                }
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-theme border-l-4 border-l-emerald-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Budget Alerts
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:alert-triangle"
+                  width="16"
+                  height="16"
+                  className="text-emerald-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                {(budget?.summary.alerting_count || 0) + (budget?.summary.exceeded_count || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {budget?.summary.exceeded_count || 0} exceeded, {budget?.summary.alerting_count || 0} warning
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-theme border-l-4 border-l-cyan-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Budget Entities
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:database"
+                  width="16"
+                  height="16"
+                  className="text-cyan-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                {budget?.summary.total_entities || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Teams & API Keys
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* System Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

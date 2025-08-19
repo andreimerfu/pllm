@@ -210,6 +210,13 @@ type responseCapture struct {
 	body       *bytes.Buffer
 }
 
+// Ensure responseCapture implements http.Flusher for streaming support
+func (rc *responseCapture) Flush() {
+	if flusher, ok := rc.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
 func (rc *responseCapture) Write(b []byte) (int, error) {
 	if rc.body == nil {
 		rc.body = &bytes.Buffer{}

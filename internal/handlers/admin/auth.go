@@ -142,11 +142,12 @@ func (h *AuthHandler) GetPermissions(w http.ResponseWriter, r *http.Request) {
 	case middleware.AuthTypeMasterKey:
 		// Master key has all permissions
 		permissions = []string{
-			"admin.*", "users.*", "teams.*", "keys.*", "models.*", "settings.*",
+			"admin.*", "users.*", "teams.*", "keys.*", "models.*", "settings.*", "budget.*",
 			"admin.users.read", "admin.users.write", "admin.users.delete",
 			"admin.teams.read", "admin.teams.write", "admin.teams.delete",
 			"admin.keys.read", "admin.keys.write", "admin.keys.delete",
 			"admin.models.read", "admin.models.write",
+			"admin.budget.read", "admin.budget.write",
 			"admin.settings.read", "admin.settings.write",
 		}
 		role = "admin"
@@ -160,11 +161,12 @@ func (h *AuthHandler) GetPermissions(w http.ResponseWriter, r *http.Request) {
 		if hasUserID && userID.String() == "00000000-0000-0000-0000-000000000001" {
 			// This is a master key JWT - treat it like a master key
 			permissions = []string{
-				"admin.*", "users.*", "teams.*", "keys.*", "models.*", "settings.*",
+				"admin.*", "users.*", "teams.*", "keys.*", "models.*", "settings.*", "budget.*",
 				"admin.users.read", "admin.users.write", "admin.users.delete",
 				"admin.teams.read", "admin.teams.write", "admin.teams.delete",
 				"admin.keys.read", "admin.keys.write", "admin.keys.delete",
 				"admin.models.read", "admin.models.write",
+				"admin.budget.read", "admin.budget.write",
 				"admin.settings.read", "admin.settings.write",
 			}
 			role = "admin"

@@ -22,6 +22,7 @@ const navigation = [
   { name: "Teams", href: "/teams", icon: "lucide:users-2", permission: "admin.teams.read" },
   { name: "API Keys", href: "/keys", icon: "lucide:key", permission: "admin.keys.read" },
   { name: "Users", href: "/users", icon: "lucide:users", permission: "admin.users.read" },
+  { name: "Budget", href: "/budget", icon: "lucide:wallet", permission: "admin.budget.read" },
   { name: "Settings", href: "/settings", icon: "lucide:settings", permission: "admin.settings.read" },
 ];
 

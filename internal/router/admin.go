@@ -46,7 +46,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	userHandler := admin.NewUserHandler(cfg.Logger, cfg.DB)
 	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB)
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
-	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.ModelManager)
+	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
 	
 	// Initialize auth middleware
@@ -119,6 +119,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 		
 		// Analytics
 		r.Route("/analytics", func(r chi.Router) {
+			r.Get("/budget", analyticsHandler.GetBudgetSummary)
 			r.Get("/usage", analyticsHandler.GetUsage)
 			r.Get("/usage/hourly", analyticsHandler.GetHourlyUsage)
 			r.Get("/usage/daily", analyticsHandler.GetDailyUsage)
@@ -190,7 +191,7 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 	// authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKey) // Will be used when auth endpoints are enabled
 	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB)
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
-	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.ModelManager)
+	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
 
 	// Initialize auth middleware

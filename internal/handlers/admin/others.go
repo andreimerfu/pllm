@@ -4,21 +4,26 @@ import (
 	"net/http"
 
 	"go.uber.org/zap"
+	"gorm.io/gorm"
+
+	"github.com/amerfu/pllm/internal/models"
 )
 
 // AnalyticsHandler handles analytics endpoints
 type AnalyticsHandler struct {
 	baseHandler
+	db           *gorm.DB
 	modelManager interface {
 		GetModelStats() map[string]interface{}
 	}
 }
 
-func NewAnalyticsHandler(logger *zap.Logger, modelManager interface {
+func NewAnalyticsHandler(logger *zap.Logger, db *gorm.DB, modelManager interface {
 	GetModelStats() map[string]interface{}
 }) *AnalyticsHandler {
 	return &AnalyticsHandler{
 		baseHandler:  baseHandler{logger: logger},
+		db:           db,
 		modelManager: modelManager,
 	}
 }
@@ -135,6 +140,186 @@ func (h *AnalyticsHandler) GetErrors(w http.ResponseWriter, r *http.Request) {
 
 func (h *AnalyticsHandler) GetCacheStats(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, http.StatusOK, map[string]interface{}{"cache": map[string]interface{}{"hits": 0, "misses": 0}})
+}
+
+// GetBudgetSummary returns budget analytics from teams and keys
+func (h *AnalyticsHandler) GetBudgetSummary(w http.ResponseWriter, r *http.Request) {
+	var teams []models.Team
+	var keys []models.Key
+	
+	// Get all teams with budget data
+	if err := h.db.Find(&teams).Error; err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to fetch team budget data")
+		return
+	}
+	
+	// Get all keys with budget data
+	if err := h.db.Find(&keys).Error; err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to fetch key budget data")
+		return
+	}
+	
+	// Calculate team budget summary
+	teamBudgets := make([]map[string]interface{}, 0)
+	totalTeamBudget := 0.0
+	totalTeamSpent := 0.0
+	teamAlerting := 0
+	teamExceeded := 0
+	
+	for _, team := range teams {
+		if team.MaxBudget > 0 {
+			usagePercent := 0.0
+			if team.MaxBudget > 0 {
+				usagePercent = (team.CurrentSpend / team.MaxBudget) * 100
+			}
+			
+			teamBudgets = append(teamBudgets, map[string]interface{}{
+				"id":             team.ID,
+				"name":           team.Name,
+				"type":           "team",
+				"max_budget":     team.MaxBudget,
+				"current_spend":  team.CurrentSpend,
+				"remaining":      team.MaxBudget - team.CurrentSpend,
+				"usage_percent":  usagePercent,
+				"period":         team.BudgetDuration,
+				"alert_threshold": team.BudgetAlertAt,
+				"is_active":      team.IsActive,
+				"should_alert":   team.ShouldAlertBudget(),
+				"is_exceeded":    team.IsBudgetExceeded(),
+				"reset_at":       team.BudgetResetAt,
+			})
+			
+			totalTeamBudget += team.MaxBudget
+			totalTeamSpent += team.CurrentSpend
+			
+			if team.ShouldAlertBudget() {
+				teamAlerting++
+			}
+			if team.IsBudgetExceeded() {
+				teamExceeded++
+			}
+		}
+	}
+	
+	// Calculate key budget summary
+	keyBudgets := make([]map[string]interface{}, 0)
+	totalKeyBudget := 0.0
+	totalKeySpent := 0.0
+	keyAlerting := 0
+	keyExceeded := 0
+	
+	for _, key := range keys {
+		if key.MaxBudget != nil && *key.MaxBudget > 0 {
+			usagePercent := 0.0
+			if *key.MaxBudget > 0 {
+				usagePercent = (key.CurrentSpend / *key.MaxBudget) * 100
+			}
+			
+			keyBudgets = append(keyBudgets, map[string]interface{}{
+				"id":             key.ID,
+				"name":           key.Name,
+				"type":           "key", 
+				"max_budget":     *key.MaxBudget,
+				"current_spend":  key.CurrentSpend,
+				"remaining":      *key.MaxBudget - key.CurrentSpend,
+				"usage_percent":  usagePercent,
+				"period":         key.BudgetDuration,
+				"is_active":      key.IsActive,
+				"reset_at":       key.BudgetResetAt,
+				"total_cost":     key.TotalCost,
+				"usage_count":    key.UsageCount,
+			})
+			
+			totalKeyBudget += *key.MaxBudget
+			totalKeySpent += key.CurrentSpend
+			
+			// Keys don't have alert thresholds, but we can check if they're close to limit
+			if usagePercent >= 80 {
+				keyAlerting++
+			}
+			if key.CurrentSpend >= *key.MaxBudget {
+				keyExceeded++
+			}
+		}
+	}
+	
+	// Budget usage by period
+	periodUsage := map[string]map[string]interface{}{
+		"daily": {
+			"count": 0,
+			"budget": 0.0,
+			"spent": 0.0,
+		},
+		"weekly": {
+			"count": 0,
+			"budget": 0.0,
+			"spent": 0.0,
+		},
+		"monthly": {
+			"count": 0,
+			"budget": 0.0,
+			"spent": 0.0,
+		},
+		"yearly": {
+			"count": 0,
+			"budget": 0.0,
+			"spent": 0.0,
+		},
+	}
+	
+	for _, team := range teams {
+		if team.MaxBudget > 0 {
+			period := string(team.BudgetDuration)
+			if usage, exists := periodUsage[period]; exists {
+				usage["count"] = usage["count"].(int) + 1
+				usage["budget"] = usage["budget"].(float64) + team.MaxBudget
+				usage["spent"] = usage["spent"].(float64) + team.CurrentSpend
+			}
+		}
+	}
+	
+	// Convert period usage to array
+	periodArray := make([]map[string]interface{}, 0)
+	for period, data := range periodUsage {
+		if data["count"].(int) > 0 {
+			periodArray = append(periodArray, map[string]interface{}{
+				"period": period,
+				"count":  data["count"],
+				"budget": data["budget"],
+				"spent":  data["spent"],
+			})
+		}
+	}
+	
+	response := map[string]interface{}{
+		"summary": map[string]interface{}{
+			"total_budget":     totalTeamBudget + totalKeyBudget,
+			"total_spent":      totalTeamSpent + totalKeySpent,
+			"total_remaining":  (totalTeamBudget + totalKeyBudget) - (totalTeamSpent + totalKeySpent),
+			"team_budget":      totalTeamBudget,
+			"team_spent":       totalTeamSpent,
+			"key_budget":       totalKeyBudget,
+			"key_spent":        totalKeySpent,
+			"alerting_count":   teamAlerting + keyAlerting,
+			"exceeded_count":   teamExceeded + keyExceeded,
+			"total_entities":   len(teamBudgets) + len(keyBudgets),
+		},
+		"team_budgets":    teamBudgets,
+		"key_budgets":     keyBudgets,
+		"usage_by_period": periodArray,
+		"charts": map[string]interface{}{
+			"budget_distribution": []map[string]interface{}{
+				{"name": "Teams", "value": totalTeamBudget},
+				{"name": "Keys", "value": totalKeyBudget},
+			},
+			"spending_distribution": []map[string]interface{}{
+				{"name": "Teams", "value": totalTeamSpent},
+				{"name": "Keys", "value": totalKeySpent},
+			},
+		},
+	}
+	
+	h.sendJSON(w, http.StatusOK, response)
 }
 
 // SystemHandler handles system endpoints
