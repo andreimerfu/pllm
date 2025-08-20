@@ -1,8 +1,8 @@
 import { UserManagerSettings, WebStorageStateStore } from "oidc-client-ts";
 
 const oidcConfig: UserManagerSettings = {
-  // Dex issuer URL
-  authority: import.meta.env.VITE_DEX_AUTHORITY || "http://localhost:5556/dex",
+  // Dex public issuer URL (for browser OAuth flows)
+  authority: import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || import.meta.env.VITE_DEX_AUTHORITY || "http://dex.local/dex",
   
   // OAuth2 client configuration
   client_id: import.meta.env.VITE_DEX_CLIENT_ID || "pllm-web",
@@ -30,11 +30,11 @@ const oidcConfig: UserManagerSettings = {
   
   // Additional metadata
   metadata: {
-    issuer: "http://localhost:5556/dex",
-    authorization_endpoint: "http://localhost:5556/dex/auth",
-    token_endpoint: "http://localhost:5556/dex/token",
-    userinfo_endpoint: "http://localhost:5556/dex/userinfo",
-    jwks_uri: "http://localhost:5556/dex/keys",
+    issuer: import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex",
+    authorization_endpoint: (import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex") + "/auth",
+    token_endpoint: (import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex") + "/token",
+    userinfo_endpoint: (import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex") + "/userinfo",
+    jwks_uri: (import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex") + "/keys",
     // Note: Dex doesn't provide a logout endpoint, we handle logout client-side
   },
 };

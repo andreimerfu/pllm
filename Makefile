@@ -60,6 +60,232 @@ docker-logs: ## Show Docker logs
 docker-build: ## Build Docker image for pllm
 	docker build -t pllm:latest .
 
+##@ Kubernetes & Helm
+
+.PHONY: helm-deps
+helm-deps: ## Update Helm chart dependencies
+	@which helm > /dev/null || (echo "Helm not found. Install from https://helm.sh/docs/intro/install/" && exit 1)
+	cd deploy/helm/pllm && helm dependency update
+
+.PHONY: helm-lint
+helm-lint: helm-deps ## Lint Helm chart
+	cd deploy/helm && helm lint pllm
+
+.PHONY: helm-template
+helm-template: helm-deps ## Generate Kubernetes manifests from Helm chart
+	cd deploy/helm && helm template pllm pllm \
+		--set pllm.secrets.jwtSecret="demo-jwt-secret" \
+		--set pllm.secrets.masterKey="sk-master-demo" \
+		--set dex.config.issuer="http://pllm-dex.pllm.svc.cluster.local:5556/dex" \
+		--namespace pllm
+
+.PHONY: helm-install
+helm-install: helm-deps ## Install PLLM using Helm chart (with demo values)
+	@echo "Installing PLLM with demo configuration..."
+	@echo "⚠️  This uses demo secrets. Update values.yaml for production!"
+	cd deploy/helm && helm upgrade --install pllm pllm \
+		--set pllm.secrets.jwtSecret="demo-jwt-secret-$(shell date +%s)" \
+		--set pllm.secrets.masterKey="sk-master-demo-$(shell date +%s)" \
+		--set pllm.secrets.openaiApiKey="$$OPENAI_API_KEY" \
+		--set pllm.secrets.anthropicApiKey="$$ANTHROPIC_API_KEY" \
+		--set dex.config.issuer="http://pllm-dex.pllm.svc.cluster.local:5556/dex" \
+		--create-namespace \
+		--namespace pllm \
+		--wait \
+		--timeout 300s
+	@echo ""
+	@echo "✅ PLLM installed successfully!"
+	@echo ""
+
+.PHONY: helm-install-minikube
+helm-install-minikube: helm-deps ## Install PLLM with Minikube ingress configuration
+	@echo "Installing PLLM with Minikube ingress configuration..."
+	@echo "⚠️  Using predefined demo secrets from values-minikube.yaml"
+	cd deploy/helm && helm upgrade --install pllm pllm \
+		-f values-minikube.yaml \
+		--create-namespace \
+		--namespace pllm \
+		--wait \
+		--timeout 300s
+	@echo ""
+	@echo "✅ PLLM installed with Minikube ingress!"
+	@echo ""
+	@echo "🔗 Access PLLM:"
+	@echo "   http://pllm.local"
+	@echo ""
+	@echo "🔐 Access Dex Authentication:"
+	@echo "   http://dex.local/dex"
+	@echo ""
+	@echo "🔑 Master key for admin access:"
+	@echo "   sk-master-demo-minikube"
+	@echo ""
+	@echo "📝 Note: Make sure pllm.local and dex.local are in your /etc/hosts:"
+	@echo "   $$(minikube ip) pllm.local dex.local"
+
+	@MINIKUBE_IP=$$(minikube ip); \
+	if ! grep -q "pllm.local" /etc/hosts; then \
+		echo "🔧 Adding pllm.local and dex.local to /etc/hosts (requires sudo)..."; \
+		echo "$$MINIKUBE_IP pllm.local dex.local" | sudo tee -a /etc/hosts; \
+	else \
+		echo "🔧 Updating pllm.local and dex.local in /etc/hosts (requires sudo)..."; \
+		sudo sed -i.bak "s/.* pllm.local.*/$$MINIKUBE_IP pllm.local dex.local/" /etc/hosts; \
+	fi
+
+	@echo ""
+	@echo "✅ Ingress setup complete!"
+	@echo "🌐 Access PLLM at: http://pllm.local"
+	@echo "🔐 Access Dex at: http://dex.local/dex"
+	@echo "🔑 Get master key: kubectl get secret -n pllm pllm -o jsonpath='{.data.master-key}' | base64 -d"
+
+.PHONY: helm-install-prod
+helm-install-prod: helm-deps ## Install PLLM with production values (requires values-prod.yaml)
+	@if [ ! -f deploy/helm/values-prod.yaml ]; then \
+		echo "❌ values-prod.yaml not found. Create it first:"; \
+		echo "   cp deploy/helm/pllm/values.yaml deploy/helm/values-prod.yaml"; \
+		echo "   # Edit deploy/helm/values-prod.yaml with your production config"; \
+		exit 1; \
+	fi
+	cd deploy/helm && helm upgrade --install pllm pllm \
+		-f values-prod.yaml \
+		--create-namespace \
+		--namespace pllm \
+		--wait \
+		--timeout 600s
+	@echo "✅ PLLM installed in production mode!"
+
+.PHONY: helm-upgrade
+helm-upgrade: helm-deps ## Upgrade PLLM Helm release
+	cd deploy/helm && helm upgrade pllm pllm \
+		--namespace pllm \
+		--reuse-values \
+		--wait \
+		--timeout 300s
+	@echo "✅ PLLM upgraded successfully!"
+
+.PHONY: helm-uninstall
+helm-uninstall: ## Uninstall PLLM Helm release
+	@echo "🗑️  Uninstalling PLLM..."
+	helm uninstall pllm --namespace pllm
+	@echo ""
+	@read -p "❓ Delete persistent data? (PVCs will be removed) [y/N]: " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		kubectl delete pvc -n pllm -l app.kubernetes.io/instance=pllm; \
+		echo "💥 Persistent data deleted!"; \
+	else \
+		echo "💾 Persistent data preserved."; \
+	fi
+	@echo "✅ PLLM uninstalled!"
+
+.PHONY: helm-status
+helm-status: ## Show PLLM Helm release status
+	@helm list -n pllm
+	@echo ""
+	@kubectl get pods -n pllm -l app.kubernetes.io/name=pllm
+	@echo ""
+	@echo "📊 Helm Status:"
+	@helm status pllm -n pllm
+
+.PHONY: helm-logs
+helm-logs: ## Show PLLM pods logs
+	kubectl logs -n pllm -l app.kubernetes.io/name=pllm --tail=100 -f
+
+.PHONY: helm-shell
+helm-shell: ## Open shell in PLLM pod
+	kubectl exec -n pllm -it $$(kubectl get pod -n pllm -l app.kubernetes.io/name=pllm -o jsonpath='{.items[0].metadata.name}') -- sh
+
+.PHONY: k8s-port-forward
+k8s-port-forward: ## Forward PLLM ports to localhost
+	@echo "🔗 Port forwarding PLLM services..."
+	@echo "   Main API: http://localhost:8080"
+	@echo "   Admin API: http://localhost:8081"
+	@echo "   Metrics: http://localhost:9090"
+	@echo ""
+	@echo "Press Ctrl+C to stop port forwarding"
+	kubectl port-forward -n pllm svc/pllm 8080:8080 8081:8081 9090:9090
+
+.PHONY: minikube-url
+minikube-url: ## Get Minikube service URL for PLLM
+	@echo "🌐 Getting Minikube service URL..."
+	@minikube service pllm -n pllm --url
+	@echo ""
+	@echo "💡 Tip: Use 'make minikube-open' to open in browser"
+
+.PHONY: minikube-open
+minikube-open: ## Open PLLM in browser via Minikube service
+	@echo "🚀 Opening PLLM in browser..."
+	minikube service pllm -n pllm
+
+.PHONY: minikube-tunnel
+minikube-tunnel: ## Start Minikube tunnel for LoadBalancer services (requires sudo)
+	@echo "🚇 Starting Minikube tunnel..."
+	@echo "⚠️  This requires sudo privileges and will run until stopped with Ctrl+C"
+	@echo "💡 Use this if you have LoadBalancer services"
+	sudo minikube tunnel
+
+.PHONY: minikube-ingress-setup
+minikube-ingress-setup: helm-deps ## Setup ingress for PLLM on Minikube
+	@echo "🌐 Setting up ingress for Minikube..."
+
+	# Enable ingress addon
+	@minikube addons enable ingress
+	@echo "✅ Ingress addon enabled"
+
+	# Wait for ingress controller to be ready
+	@echo "⏳ Waiting for ingress controller..."
+	@kubectl wait --namespace ingress-nginx \
+		--for=condition=ready pod \
+		--selector=app.kubernetes.io/component=controller \
+		--timeout=120s
+
+	# Install/upgrade PLLM with ingress configuration
+	@echo "🔧 Installing PLLM with ingress configuration..."
+	@echo "⚠️  This uses demo secrets. Update values.yaml for production!"
+	cd deploy/helm && helm upgrade --install pllm pllm \
+		-f values-minikube.yaml \
+		--set pllm.secrets.jwtSecret="demo-jwt-secret-$(shell date +%s)" \
+		--set pllm.secrets.masterKey="sk-master-demo-$(shell date +%s)" \
+		--set pllm.secrets.openaiApiKey="$$OPENAI_API_KEY" \
+		--set pllm.secrets.anthropicApiKey="$$ANTHROPIC_API_KEY" \
+		--create-namespace \
+		--namespace pllm \
+		--wait \
+		--timeout 300s
+
+	# Add to hosts file
+	@MINIKUBE_IP=$$(minikube ip); \
+	if ! grep -q "pllm.local" /etc/hosts; then \
+		echo "🔧 Adding pllm.local and dex.local to /etc/hosts (requires sudo)..."; \
+		echo "$$MINIKUBE_IP pllm.local dex.local" | sudo tee -a /etc/hosts; \
+	else \
+		echo "🔧 Updating pllm.local and dex.local in /etc/hosts (requires sudo)..."; \
+		sudo sed -i.bak "s/.* pllm.local.*/$$MINIKUBE_IP pllm.local dex.local/" /etc/hosts; \
+	fi
+
+	@echo ""
+	@echo "✅ Ingress setup complete!"
+	@echo "🌐 Access PLLM at: http://pllm.local"
+	@echo "🔐 Access Dex at: http://dex.local/dex"
+	@echo "🔑 Get master key: kubectl get secret -n pllm pllm -o jsonpath='{.data.master-key}' | base64 -d"
+
+.PHONY: minikube-ingress-cleanup
+minikube-ingress-cleanup: ## Remove ingress setup for PLLM on Minikube
+	@echo "🧹 Cleaning up ingress setup..."
+
+	# Remove from hosts file
+	@if grep -q "pllm.local" /etc/hosts; then \
+		echo "🔧 Removing pllm.local and dex.local from /etc/hosts (requires sudo)..."; \
+		sudo sed -i.bak '/pllm.local\|dex.local/d' /etc/hosts; \
+	fi
+
+	# Disable ingress in PLLM
+	@cd deploy/helm && helm upgrade pllm pllm \
+		--set ingress.enabled=false \
+		--reuse-values \
+		-n pllm
+
+	@echo "✅ Ingress cleanup complete!"
+	@echo "💡 Use 'make k8s-port-forward' or 'make minikube-open' to access PLLM"
+
 ##@ Database
 
 .PHONY: db-migrate

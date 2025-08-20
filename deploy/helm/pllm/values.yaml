@@ -1,0 +1,259 @@
+# Default values for pllm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: amerfu/pllm
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 8080
+  adminPort: 8081
+  metricsPort: 9090
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Additional volumes on the output Deployment definition.
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# PLLM Configuration
+pllm:
+  config:
+    # Database configuration
+    database:
+      host: ""  # Will be auto-configured if postgresql is enabled
+      port: 5432
+      name: pllm
+      user: pllm
+      password: ""  # Use secret
+      sslMode: require
+      maxOpenConns: 10
+      maxIdleConns: 5
+
+    # Redis configuration  
+    redis:
+      host: ""  # Will be auto-configured if redis is enabled
+      port: 6379
+      password: ""  # Use secret
+      db: 0
+
+    # Authentication configuration
+    auth:
+      jwtSecret: ""  # Use secret
+      masterKey: ""  # Use secret
+      dex:
+        issuer: ""  # Will be auto-configured if dex is enabled
+        clientId: pllm
+        clientSecret: ""  # Use secret
+
+    # Provider API keys
+    providers:
+      openai:
+        apiKey: ""  # Use secret
+      anthropic:
+        apiKey: ""  # Use secret
+      azure:
+        apiKey: ""  # Use secret
+        endpoint: ""
+      bedrock:
+        accessKeyId: ""  # Use secret
+        secretAccessKey: ""  # Use secret
+        region: us-east-1
+
+    # Rate limiting
+    rateLimit:
+      enabled: true
+      rpm: 1000
+      rph: 10000
+
+    # Logging
+    logging:
+      level: info
+      format: json
+
+  # Environment variables
+  env: []
+
+  # Secrets configuration
+  secrets:
+    # Database connection URL (for external databases)
+    databaseUrl: ""  # e.g., "postgres://user:pass@host:5432/db?sslmode=require"
+    # Redis connection URL (for external Redis)  
+    redisUrl: ""     # e.g., "redis://:password@host:6379/0"
+    # JWT secret for token signing
+    jwtSecret: ""
+    # Master key for admin access
+    masterKey: ""
+    # Dex client secret
+    dexClientSecret: ""
+    # Provider API keys
+    openaiApiKey: ""
+    anthropicApiKey: ""
+    azureApiKey: ""
+    bedrockAccessKeyId: ""
+    bedrockSecretAccessKey: ""
+
+# PostgreSQL configuration (using Bitnami chart)
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "pllm-postgres"
+    username: pllm
+    password: "pllm-password"
+    database: pllm
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# Redis configuration (using Bitnami chart)
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "pllm-redis"
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# Dex configuration (using Dex chart)
+dex:
+  enabled: true
+  # This will be templated to use the correct internal service name
+  config:
+    issuer: http://pllm-dex.pllm.svc.cluster.local:5556/dex  # Will be overridden by template
+    storage:
+      type: kubernetes
+      config:
+        inCluster: true
+    web:
+      http: 0.0.0.0:5556
+      allowedOrigins: ['*']
+    staticClients:
+      - id: pllm
+        redirectURIs:
+          - 'http://localhost:3000/auth/callback'
+        name: 'PLLM'
+        secret: pllm-client-secret
+    connectors:
+      - type: mockCallback
+        id: mock
+        name: Mock
+        config:
+          username: admin
+          groups: ["admins"]
+    oauth2:
+      skipApprovalScreen: true
+    logger:
+      level: "info"
+      format: "json"
+
+  service:
+    type: ClusterIP
+    port: 5556
+
+  ingress:
+    enabled: false
+
+# ServiceMonitor for Prometheus integration
+serviceMonitor:
+  enabled: false
+  labels: {}
+  annotations: {}
+  interval: 30s
+  scrapeTimeout: 10s

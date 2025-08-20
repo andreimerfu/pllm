@@ -36,7 +36,10 @@ auth:
   require_auth: true
   dex:
     enabled: true
+    # Backend OIDC validation (accessible via extra_hosts)
     issuer: "http://localhost:5556/dex"
+    # Frontend OAuth flows (public URL for browser)
+    public_issuer: "http://localhost:5556/dex"
     client_id: "pllm-web"
     client_secret: "pllm-web-secret"
     redirect_url: "http://localhost:3000/auth/callback"

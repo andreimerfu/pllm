@@ -1,0 +1,44 @@
+# Minikube local development values
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    - host: pllm.local
+      paths:
+        - path: /
+          pathType: Prefix
+
+# Dex configuration for Minikube
+dex:
+  enabled: true
+  ingress:
+    enabled: true
+    className: "nginx"
+    hosts:
+      - host: dex.local
+        paths:
+          - path: /
+            pathType: Prefix
+  config:
+    issuer: "http://pllm-dex:5556/dex"
+    staticClients:
+      - id: pllm
+        redirectURIs:
+          - 'http://pllm.local/auth/callback'
+        name: 'PLLM'
+        secret: pllm-client-secret
+
+# PLLM configuration for Minikube  
+pllm:
+  secrets:
+    jwtSecret: "demo-jwt-secret-minikube"
+    masterKey: "sk-master-demo-minikube"
+    dexClientSecret: "pllm-client-secret"
+  config:
+    auth:
+      dex:
+        # Backend uses internal service URL for OIDC validation
+        issuer: "http://pllm-dex:5556/dex"
+        # Frontend uses external domain for OAuth flows
+        publicIssuer: "http://dex.local/dex"
+        redirectUrl: "http://pllm.local/auth/callback"

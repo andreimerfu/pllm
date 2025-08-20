@@ -1,0 +1,12 @@
+dependencies:
+- name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 15.5.23
+- name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: 20.2.0
+- name: dex
+  repository: https://charts.dexidp.io
+  version: 0.18.0
+digest: sha256:5732dcaa94c8802322710e37e3d2b96d5eaca3dc1cb9c98d58f7a5cbd1efbfb4
+generated: "2025-08-19T16:42:26.283599591+03:00"

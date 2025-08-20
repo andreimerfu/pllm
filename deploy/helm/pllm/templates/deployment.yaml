@@ -1,0 +1,187 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pllm.fullname" . }}
+  labels:
+    {{- include "pllm.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "pllm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "pllm.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "pllm.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+            - name: admin
+              containerPort: {{ .Values.service.adminPort }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.service.metricsPort }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            # Database configuration
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: database-url
+            # Redis configuration
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: redis-url
+            # Authentication configuration
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: jwt-secret
+            - name: PLLM_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: master-key
+            - name: DEX_ISSUER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: dex-issuer
+            - name: DEX_PUBLIC_ISSUER
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: dex-public-issuer
+            - name: DEX_CLIENT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: dex-client-id
+            - name: DEX_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: dex-client-secret
+            # Provider API keys
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: openai-api-key
+                  optional: true
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: anthropic-api-key
+                  optional: true
+            - name: AZURE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: azure-api-key
+                  optional: true
+            - name: BEDROCK_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: bedrock-access-key-id
+                  optional: true
+            - name: BEDROCK_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: bedrock-secret-access-key
+                  optional: true
+            - name: BEDROCK_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: bedrock-region
+            # Rate limiting
+            - name: RATE_LIMIT_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: rate-limit-enabled
+            - name: RATE_LIMIT_RPM
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: rate-limit-rpm
+            - name: RATE_LIMIT_RPH
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: rate-limit-rph
+            # Logging
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: log-level
+            - name: LOG_FORMAT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: log-format
+            # Additional environment variables
+            {{- with .Values.pllm.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -77,7 +77,8 @@ type AuthConfig struct {
 
 type DexConfig struct {
 	Enabled       bool              `mapstructure:"enabled"`
-	Issuer        string            `mapstructure:"issuer"`
+	Issuer        string            `mapstructure:"issuer"`        // Backend OIDC validation URL
+	PublicIssuer  string            `mapstructure:"public_issuer"` // Frontend OAuth URL
 	ClientID      string            `mapstructure:"client_id"`
 	ClientSecret  string            `mapstructure:"client_secret"`
 	RedirectURL   string            `mapstructure:"redirect_url"`
@@ -306,6 +307,7 @@ func bindEnvVars() {
 	// Dex OAuth
 	viper.BindEnv("auth.dex.enabled", "DEX_ENABLED")
 	viper.BindEnv("auth.dex.issuer", "DEX_ISSUER")
+	viper.BindEnv("auth.dex.public_issuer", "DEX_PUBLIC_ISSUER")
 	viper.BindEnv("auth.dex.client_id", "DEX_CLIENT_ID")
 	viper.BindEnv("auth.dex.client_secret", "DEX_CLIENT_SECRET")
 	viper.BindEnv("auth.dex.redirect_url", "DEX_REDIRECT_URL")
