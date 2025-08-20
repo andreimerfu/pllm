@@ -18,44 +18,44 @@ const (
 	PermUsersRead   Permission = "users:read"
 	PermUsersUpdate Permission = "users:update"
 	PermUsersDelete Permission = "users:delete"
-	
+
 	// Team management
 	PermTeamsCreate        Permission = "teams:create"
 	PermTeamsRead          Permission = "teams:read"
 	PermTeamsUpdate        Permission = "teams:update"
 	PermTeamsDelete        Permission = "teams:delete"
 	PermTeamsManageMembers Permission = "teams:manage_members"
-	
+
 	// Key management
 	PermKeysCreate Permission = "keys:create"
 	PermKeysRead   Permission = "keys:read"
 	PermKeysUpdate Permission = "keys:update"
 	PermKeysRevoke Permission = "keys:revoke"
-	
+
 	// Budget management
 	PermBudgetsCreate Permission = "budgets:create"
 	PermBudgetsRead   Permission = "budgets:read"
 	PermBudgetsUpdate Permission = "budgets:update"
 	PermBudgetsDelete Permission = "budgets:delete"
-	
+
 	// Analytics
 	PermAnalyticsRead   Permission = "analytics:read"
 	PermAnalyticsExport Permission = "analytics:export"
-	
+
 	// Models
 	PermModelsRead Permission = "models:read"
 	PermModelsUse  Permission = "models:use"
-	
+
 	// Dashboard
 	PermDashboardRead Permission = "dashboard:read"
-	
+
 	// Chat
 	PermChatUse Permission = "chat:use"
-	
+
 	// System
 	PermSystemConfig Permission = "system:config"
 	PermSystemAudit  Permission = "system:audit"
-	
+
 	// Special permissions
 	PermAll Permission = "*" // Super admin permission
 )
@@ -83,7 +83,7 @@ func (ps *PermissionService) initializePermissions() {
 	ps.rolePermissions[models.RoleAdmin] = []Permission{
 		PermAll, // Admins have all permissions
 	}
-	
+
 	ps.rolePermissions[models.RoleManager] = []Permission{
 		PermUsersRead, PermUsersUpdate,
 		PermTeamsCreate, PermTeamsRead, PermTeamsUpdate, PermTeamsManageMembers,
@@ -91,28 +91,28 @@ func (ps *PermissionService) initializePermissions() {
 		PermBudgetsCreate, PermBudgetsRead, PermBudgetsUpdate,
 		PermAnalyticsRead, PermAnalyticsExport,
 	}
-	
+
 	ps.rolePermissions[models.RoleUser] = []Permission{
-		PermUsersRead, // Can read their own user info
-		PermTeamsRead, // Can read teams they belong to
+		PermUsersRead,                                // Can read their own user info
+		PermTeamsRead,                                // Can read teams they belong to
 		PermKeysCreate, PermKeysRead, PermKeysUpdate, // Can manage their own keys
-		PermBudgetsRead, // Can view budgets
-		PermAnalyticsRead, // Can view their own analytics
+		PermBudgetsRead,               // Can view budgets
+		PermAnalyticsRead,             // Can view their own analytics
 		PermModelsRead, PermModelsUse, // Can view and use models
 		PermDashboardRead, // Can access dashboard
-		PermChatUse, // Can use chat functionality
+		PermChatUse,       // Can use chat functionality
 	}
-	
+
 	ps.rolePermissions[models.RoleViewer] = []Permission{
 		PermUsersRead,
 		PermTeamsRead,
 		PermKeysRead,
 		PermBudgetsRead,
 		PermAnalyticsRead,
-		PermModelsRead, // Can view models
+		PermModelsRead,    // Can view models
 		PermDashboardRead, // Can access dashboard
 	}
-	
+
 	// Team role permissions (within team context)
 	ps.teamPermissions[models.TeamRoleOwner] = []Permission{
 		PermTeamsUpdate, PermTeamsDelete, PermTeamsManageMembers,
@@ -120,21 +120,21 @@ func (ps *PermissionService) initializePermissions() {
 		PermBudgetsCreate, PermBudgetsRead, PermBudgetsUpdate, PermBudgetsDelete,
 		PermAnalyticsRead, PermAnalyticsExport,
 	}
-	
+
 	ps.teamPermissions[models.TeamRoleAdmin] = []Permission{
 		PermTeamsUpdate, PermTeamsManageMembers,
 		PermKeysCreate, PermKeysRead, PermKeysUpdate, PermKeysRevoke,
 		PermBudgetsRead, PermBudgetsUpdate,
 		PermAnalyticsRead, PermAnalyticsExport,
 	}
-	
+
 	ps.teamPermissions[models.TeamRoleMember] = []Permission{
 		PermTeamsRead,
 		PermKeysCreate, PermKeysRead, PermKeysUpdate, // Can manage their own team keys
 		PermBudgetsRead,
 		PermAnalyticsRead,
 	}
-	
+
 	ps.teamPermissions[models.TeamRoleViewer] = []Permission{
 		PermTeamsRead,
 		PermKeysRead,
@@ -147,7 +147,7 @@ func (ps *PermissionService) initializePermissions() {
 func (ps *PermissionService) HasPermission(user *models.User, permission Permission) bool {
 	ps.mu.RLock()
 	defer ps.mu.RUnlock()
-	
+
 	// Check global role permissions
 	if perms, ok := ps.rolePermissions[user.Role]; ok {
 		for _, p := range perms {
@@ -156,7 +156,7 @@ func (ps *PermissionService) HasPermission(user *models.User, permission Permiss
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -166,14 +166,14 @@ func (ps *PermissionService) HasTeamPermission(user *models.User, teamID uuid.UU
 	if ps.HasPermission(user, permission) {
 		return true
 	}
-	
+
 	// Then check team-specific permissions
 	for _, membership := range user.Teams {
 		if membership.TeamID == teamID {
 			ps.mu.RLock()
 			perms, ok := ps.teamPermissions[membership.Role]
 			ps.mu.RUnlock()
-			
+
 			if ok {
 				for _, p := range perms {
 					if p == permission {
@@ -183,7 +183,7 @@ func (ps *PermissionService) HasTeamPermission(user *models.User, teamID uuid.UU
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -191,16 +191,16 @@ func (ps *PermissionService) HasTeamPermission(user *models.User, teamID uuid.UU
 func (ps *PermissionService) GetUserPermissions(user *models.User) []Permission {
 	ps.mu.RLock()
 	defer ps.mu.RUnlock()
-	
+
 	permSet := make(map[Permission]bool)
-	
+
 	// Add global role permissions
 	if perms, ok := ps.rolePermissions[user.Role]; ok {
 		for _, p := range perms {
 			permSet[p] = true
 		}
 	}
-	
+
 	// Add team permissions
 	for _, membership := range user.Teams {
 		if perms, ok := ps.teamPermissions[membership.Role]; ok {
@@ -209,13 +209,13 @@ func (ps *PermissionService) GetUserPermissions(user *models.User) []Permission 
 			}
 		}
 	}
-	
+
 	// Convert to slice
 	var permissions []Permission
 	for p := range permSet {
 		permissions = append(permissions, p)
 	}
-	
+
 	return permissions
 }
 
@@ -225,18 +225,18 @@ func (ps *PermissionService) CanManageUser(user1, user2 *models.User) bool {
 	if ps.HasPermission(user1, PermUsersUpdate) {
 		return true
 	}
-	
+
 	// Managers can manage users and viewers
-	if user1.Role == models.RoleManager && 
+	if user1.Role == models.RoleManager &&
 		(user2.Role == models.RoleUser || user2.Role == models.RoleViewer) {
 		return true
 	}
-	
+
 	// Users can only manage themselves
 	if user1.ID == user2.ID {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -246,15 +246,15 @@ func (ps *PermissionService) CanManageTeam(user *models.User, teamID uuid.UUID) 
 	if ps.HasPermission(user, PermTeamsUpdate) {
 		return true
 	}
-	
+
 	// Check if user is team owner or admin
 	for _, membership := range user.Teams {
 		if membership.TeamID == teamID {
-			return membership.Role == models.TeamRoleOwner || 
-			       membership.Role == models.TeamRoleAdmin
+			return membership.Role == models.TeamRoleOwner ||
+				membership.Role == models.TeamRoleAdmin
 		}
 	}
-	
+
 	return false
 }
 
@@ -264,17 +264,17 @@ func (ps *PermissionService) CanManageKey(user *models.User, key *models.Key) bo
 	if ps.HasPermission(user, PermKeysUpdate) {
 		return true
 	}
-	
+
 	// Users can manage their own keys
 	if key.UserID != nil && *key.UserID == user.ID {
 		return true
 	}
-	
+
 	// Team members can manage team keys based on their role
 	if key.TeamID != nil {
 		return ps.HasTeamPermission(user, *key.TeamID, PermKeysUpdate)
 	}
-	
+
 	return false
 }
 

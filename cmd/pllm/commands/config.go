@@ -98,7 +98,7 @@ func OutputTable(headers []string, rows [][]string) {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	
+
 	// Print headers
 	for i, header := range headers {
 		if i > 0 {
@@ -163,10 +163,10 @@ func NewConfigCommand() *cobra.Command {
 		Short: "Show current configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			config := map[string]interface{}{
-				"database_access":   IsDirectDBAccess(),
-				"api_access":       IsAPIAccess(),
-				"output_json":      outputJSON,
-				"verbose":          verbose,
+				"database_access": IsDirectDBAccess(),
+				"api_access":      IsAPIAccess(),
+				"output_json":     outputJSON,
+				"verbose":         verbose,
 			}
 
 			if IsAPIAccess() {

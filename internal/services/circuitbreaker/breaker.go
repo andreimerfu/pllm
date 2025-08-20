@@ -11,7 +11,7 @@ type SimpleBreaker struct {
 	failures        int
 	lastFailureTime time.Time
 	isOpen          bool
-	
+
 	// Configuration
 	threshold int
 	cooldown  time.Duration
@@ -25,7 +25,7 @@ func New(threshold int, cooldown time.Duration) *SimpleBreaker {
 	if cooldown <= 0 {
 		cooldown = 30 * time.Second // Default: 30 seconds
 	}
-	
+
 	return &SimpleBreaker{
 		threshold: threshold,
 		cooldown:  cooldown,
@@ -36,11 +36,11 @@ func New(threshold int, cooldown time.Duration) *SimpleBreaker {
 func (b *SimpleBreaker) IsOpen() bool {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	
+
 	if !b.isOpen {
 		return false
 	}
-	
+
 	// Check if cooldown period has passed
 	if time.Since(b.lastFailureTime) > b.cooldown {
 		// Reset the circuit breaker
@@ -52,7 +52,7 @@ func (b *SimpleBreaker) IsOpen() bool {
 		b.mu.RLock()
 		return false
 	}
-	
+
 	return true
 }
 
@@ -60,7 +60,7 @@ func (b *SimpleBreaker) IsOpen() bool {
 func (b *SimpleBreaker) RecordSuccess() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	b.failures = 0
 	b.isOpen = false
 }
@@ -69,10 +69,10 @@ func (b *SimpleBreaker) RecordSuccess() {
 func (b *SimpleBreaker) RecordFailure() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	b.failures++
 	b.lastFailureTime = time.Now()
-	
+
 	if b.failures >= b.threshold {
 		b.isOpen = true
 	}
@@ -82,7 +82,7 @@ func (b *SimpleBreaker) RecordFailure() {
 func (b *SimpleBreaker) Reset() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	b.failures = 0
 	b.isOpen = false
 }
@@ -91,7 +91,7 @@ func (b *SimpleBreaker) Reset() {
 func (b *SimpleBreaker) GetState() (isOpen bool, failures int) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	
+
 	return b.isOpen, b.failures
 }
 
@@ -99,7 +99,7 @@ func (b *SimpleBreaker) GetState() (isOpen bool, failures int) {
 type Manager struct {
 	mu       sync.RWMutex
 	breakers map[string]*SimpleBreaker
-	
+
 	// Default configuration
 	defaultThreshold int
 	defaultCooldown  time.Duration
@@ -119,20 +119,20 @@ func (m *Manager) GetBreaker(model string) *SimpleBreaker {
 	m.mu.RLock()
 	breaker, exists := m.breakers[model]
 	m.mu.RUnlock()
-	
+
 	if exists {
 		return breaker
 	}
-	
+
 	// Create new breaker
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	if breaker, exists = m.breakers[model]; exists {
 		return breaker
 	}
-	
+
 	breaker = New(m.defaultThreshold, m.defaultCooldown)
 	m.breakers[model] = breaker
 	return breaker
@@ -162,7 +162,7 @@ func (m *Manager) Reset(model string) {
 func (m *Manager) ResetAll() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	for _, breaker := range m.breakers {
 		breaker.Reset()
 	}
@@ -172,7 +172,7 @@ func (m *Manager) ResetAll() {
 func (m *Manager) GetAllStates() map[string]map[string]interface{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	states := make(map[string]map[string]interface{})
 	for model, breaker := range m.breakers {
 		isOpen, failures := breaker.GetState()
@@ -181,6 +181,6 @@ func (m *Manager) GetAllStates() map[string]map[string]interface{} {
 			"failures": failures,
 		}
 	}
-	
+
 	return states
 }

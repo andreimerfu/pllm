@@ -30,10 +30,10 @@ type AdminRouterConfig struct {
 // This doesn't include middleware as it will inherit from the parent router
 func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	r := chi.NewRouter()
-	
+
 	// Initialize services
 	teamService := team.NewTeamService(cfg.DB)
-	
+
 	// Initialize handlers
 	authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKeyService, cfg.AuthService, cfg.DB)
 	oauthHandler := admin.NewOAuthHandler(
@@ -48,7 +48,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
-	
+
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(&middleware.AuthConfig{
 		Logger:           cfg.Logger,
@@ -59,21 +59,21 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 
 	// Auth endpoints (public - no auth required)
 	r.Post("/auth/login", authHandler.Login)
-	r.Post("/auth/master-key", authHandler.MasterKeyLogin)  // Master key authentication
+	r.Post("/auth/master-key", authHandler.MasterKeyLogin) // Master key authentication
 	r.Get("/auth/validate", authHandler.Validate)
 	r.Post("/auth/token", oauthHandler.TokenExchange)
 	r.Get("/auth/userinfo", oauthHandler.UserInfo)
-	
+
 	// Permission endpoint (requires authentication)
 	r.Group(func(r chi.Router) {
 		r.Use(authMiddleware.Authenticate)
 		r.Get("/auth/permissions", authHandler.GetPermissions)
 	})
-	
+
 	// Stats endpoint (commonly accessed by dashboard)
 	r.Get("/stats", analyticsHandler.GetStats)
 	r.Get("/dashboard", analyticsHandler.GetDashboard)
-	
+
 	// Protected admin routes - require authentication and admin role
 	r.Group(func(r chi.Router) {
 		r.Use(authMiddleware.Authenticate)
@@ -89,7 +89,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Get("/{userID}/stats", userHandler.GetUserStats)
 			r.Post("/{userID}/reset-budget", userHandler.ResetUserBudget)
 		})
-		
+
 		// Team management
 		r.Route("/teams", func(r chi.Router) {
 			r.Get("/", teamHandler.ListTeams)
@@ -102,7 +102,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Delete("/{teamID}/members/{memberID}", teamHandler.RemoveMember)
 			r.Get("/{teamID}/stats", teamHandler.GetTeamStats)
 		})
-		
+
 		// Virtual Keys management
 		r.Route("/keys", func(r chi.Router) {
 			r.Get("/", keyHandler.ListKeys)
@@ -115,8 +115,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Get("/{keyID}/stats", keyHandler.GetKeyStats)
 			r.Get("/{keyID}/usage", keyHandler.GetKeyUsage)
 		})
-		
-		
+
 		// Analytics
 		r.Route("/analytics", func(r chi.Router) {
 			r.Get("/budget", analyticsHandler.GetBudgetSummary)
@@ -130,7 +129,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Get("/errors", analyticsHandler.GetErrors)
 			r.Get("/cache", analyticsHandler.GetCacheStats)
 		})
-		
+
 		// System management
 		r.Route("/system", func(r chi.Router) {
 			r.Get("/config", systemHandler.GetConfig)
@@ -141,7 +140,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Post("/cache/clear", systemHandler.ClearCache)
 			r.Post("/maintenance", systemHandler.SetMaintenance)
 		})
-		
+
 		// Settings
 		r.Route("/settings", func(r chi.Router) {
 			r.Get("/", systemHandler.GetSettings)
@@ -152,7 +151,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Put("/cache", systemHandler.UpdateCacheSettings)
 		})
 	})
-	
+
 	return r
 }
 
@@ -258,7 +257,6 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 				r.Get("/{keyID}/stats", keyHandler.GetKeyStats)
 				r.Get("/{keyID}/usage", keyHandler.GetKeyUsage)
 			})
-
 
 			// Analytics
 			r.Route("/analytics", func(r chi.Router) {

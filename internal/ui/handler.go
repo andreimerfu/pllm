@@ -11,16 +11,16 @@ import (
 
 // Handler handles UI routes
 type Handler struct {
-	logger       *zap.Logger
-	fileSystem   http.FileSystem
-	enabled      bool
+	logger     *zap.Logger
+	fileSystem http.FileSystem
+	enabled    bool
 }
 
 // NewHandler creates a new UI handler
 func NewHandler(cfg *config.Config, logger *zap.Logger) (*Handler, error) {
 	// Check if database is configured
 	dbConfigured := cfg.Database.URL != ""
-	
+
 	// Only enable UI if database is configured
 	if !dbConfigured {
 		logger.Info("UI disabled - database not configured")
@@ -65,7 +65,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Check if it's a static asset (has file extension) or a route
 	hasExtension := strings.Contains(path.Base(uiPath), ".")
-	
+
 	// If it's not a static asset, serve index.html for client-side routing
 	if !hasExtension && uiPath != "/index.html" {
 		uiPath = "/index.html"
@@ -106,7 +106,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer file.Close()
-		
+
 		stat, err = file.Stat()
 		if err != nil {
 			http.NotFound(w, r)
@@ -140,4 +140,3 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Serve the file using http.ServeContent for proper handling
 	http.ServeContent(w, r, uiPath, stat.ModTime(), file.(http.File))
 }
-

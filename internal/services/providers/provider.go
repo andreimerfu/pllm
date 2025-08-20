@@ -10,14 +10,14 @@ type Provider interface {
 	// Chat completions
 	ChatCompletion(ctx context.Context, request *ChatRequest) (*ChatResponse, error)
 	ChatCompletionStream(ctx context.Context, request *ChatRequest) (<-chan StreamResponse, error)
-	
+
 	// Completions (legacy)
 	Completion(ctx context.Context, request *CompletionRequest) (*CompletionResponse, error)
 	CompletionStream(ctx context.Context, request *CompletionRequest) (<-chan StreamResponse, error)
-	
+
 	// Embeddings
 	Embeddings(ctx context.Context, request *EmbeddingsRequest) (*EmbeddingsResponse, error)
-	
+
 	// Provider info
 	GetType() string
 	GetName() string
@@ -25,7 +25,7 @@ type Provider interface {
 	IsHealthy() bool
 	SupportsModel(model string) bool
 	ListModels() []string
-	
+
 	// Health check
 	HealthCheck(ctx context.Context) error
 }
@@ -33,22 +33,22 @@ type Provider interface {
 // Request/Response types matching OpenAI format
 
 type ChatRequest struct {
-	Model            string         `json:"model"`
-	Messages         []Message      `json:"messages"`
-	Temperature      *float32       `json:"temperature,omitempty"`
-	TopP             *float32       `json:"top_p,omitempty"`
-	N                *int           `json:"n,omitempty"`
-	Stream           bool           `json:"stream,omitempty"`
-	Stop             []string       `json:"stop,omitempty"`
-	MaxTokens        *int           `json:"max_tokens,omitempty"`
-	PresencePenalty  *float32       `json:"presence_penalty,omitempty"`
-	FrequencyPenalty *float32       `json:"frequency_penalty,omitempty"`
-	LogitBias        map[string]int `json:"logit_bias,omitempty"`
-	User             string         `json:"user,omitempty"`
+	Model            string          `json:"model"`
+	Messages         []Message       `json:"messages"`
+	Temperature      *float32        `json:"temperature,omitempty"`
+	TopP             *float32        `json:"top_p,omitempty"`
+	N                *int            `json:"n,omitempty"`
+	Stream           bool            `json:"stream,omitempty"`
+	Stop             []string        `json:"stop,omitempty"`
+	MaxTokens        *int            `json:"max_tokens,omitempty"`
+	PresencePenalty  *float32        `json:"presence_penalty,omitempty"`
+	FrequencyPenalty *float32        `json:"frequency_penalty,omitempty"`
+	LogitBias        map[string]int  `json:"logit_bias,omitempty"`
+	User             string          `json:"user,omitempty"`
 	ResponseFormat   *ResponseFormat `json:"response_format,omitempty"`
-	Seed             *int           `json:"seed,omitempty"`
-	Tools            []Tool         `json:"tools,omitempty"`
-	ToolChoice       interface{}    `json:"tool_choice,omitempty"`
+	Seed             *int            `json:"seed,omitempty"`
+	Tools            []Tool          `json:"tools,omitempty"`
+	ToolChoice       interface{}     `json:"tool_choice,omitempty"`
 }
 
 type Message struct {
@@ -75,8 +75,8 @@ type Function struct {
 }
 
 type ToolCall struct {
-	ID       string   `json:"id"`
-	Type     string   `json:"type"`
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
 	Function FunctionCall `json:"function"`
 }
 
@@ -181,14 +181,14 @@ type Embedding struct {
 // Image generation types
 
 type ImageRequest struct {
-	Prompt         string  `json:"prompt"`
-	Model          string  `json:"model,omitempty"`
-	N              *int    `json:"n,omitempty"`
-	Quality        string  `json:"quality,omitempty"`
-	ResponseFormat string  `json:"response_format,omitempty"`
-	Size           string  `json:"size,omitempty"`
-	Style          string  `json:"style,omitempty"`
-	User           string  `json:"user,omitempty"`
+	Prompt         string `json:"prompt"`
+	Model          string `json:"model,omitempty"`
+	N              *int   `json:"n,omitempty"`
+	Quality        string `json:"quality,omitempty"`
+	ResponseFormat string `json:"response_format,omitempty"`
+	Size           string `json:"size,omitempty"`
+	Style          string `json:"style,omitempty"`
+	User           string `json:"user,omitempty"`
 }
 
 type ImageResponse struct {
@@ -239,9 +239,9 @@ type ModerationResponse struct {
 }
 
 type ModerationResult struct {
-	Flagged    bool                   `json:"flagged"`
-	Categories map[string]bool        `json:"categories"`
-	Scores     map[string]float32     `json:"category_scores"`
+	Flagged    bool               `json:"flagged"`
+	Categories map[string]bool    `json:"categories"`
+	Scores     map[string]float32 `json:"category_scores"`
 }
 
 // Error types

@@ -16,12 +16,12 @@ func Logger(logger *zap.Logger) func(next http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
-			
+
 			start := time.Now()
-			
+
 			// Use streaming-aware wrapper that preserves Flusher interface
 			ww := NewStreamingResponseWriter(w)
-			
+
 			defer func() {
 				logger.Info("request",
 					zap.String("method", r.Method),
@@ -32,7 +32,7 @@ func Logger(logger *zap.Logger) func(next http.Handler) http.Handler {
 					zap.String("request_id", middleware.GetReqID(r.Context())),
 				)
 			}()
-			
+
 			next.ServeHTTP(ww, r)
 		})
 	}

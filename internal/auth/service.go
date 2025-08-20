@@ -10,7 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	
+
 	"github.com/amerfu/pllm/internal/models"
 )
 
@@ -25,13 +25,13 @@ type KeyService interface {
 
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrUserNotFound      = errors.New("user not found")
-	ErrUserInactive      = errors.New("user is inactive")
-	ErrInvalidToken      = errors.New("invalid token")
-	ErrTokenExpired      = errors.New("token expired")
-	ErrInvalidAPIKey     = errors.New("invalid API key")
-	ErrInvalidKey        = errors.New("invalid key")
-	ErrMasterKeyRequired = errors.New("master key required")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrUserInactive       = errors.New("user is inactive")
+	ErrInvalidToken       = errors.New("invalid token")
+	ErrTokenExpired       = errors.New("token expired")
+	ErrInvalidAPIKey      = errors.New("invalid API key")
+	ErrInvalidKey         = errors.New("invalid key")
+	ErrMasterKeyRequired  = errors.New("master key required")
 )
 
 type AuthService struct {
@@ -56,7 +56,6 @@ type AuthConfig struct {
 	TeamService      TeamService
 	KeyService       KeyService
 }
-
 
 type LoginResponse struct {
 	Token        string    `json:"token"`
@@ -112,7 +111,6 @@ func NewAuthService(config *AuthConfig) (*AuthService, error) {
 	}, nil
 }
 
-
 // LoginWithDex handles Dex OAuth authentication and auto-provision users
 func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResponse, error) {
 	if s.dexProvider == nil {
@@ -144,7 +142,7 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 			if username == "" {
 				username = claims.Email
 			}
-			
+
 			// Determine role from groups
 			role := models.RoleUser
 			for _, group := range claims.Groups {
@@ -155,7 +153,7 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 					role = models.RoleManager
 				}
 			}
-			
+
 			user = models.User{
 				Email:         claims.Email,
 				Username:      username,
@@ -165,14 +163,14 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 				IsActive:      true,
 				Role:          role,
 			}
-			
+
 			// Mark as provisioned from Dex
 			user.MarkAsProvisioned("dex", claims.Subject, claims.Groups)
-			
+
 			if err := s.db.Create(&user).Error; err != nil {
 				return nil, fmt.Errorf("failed to create user: %w", err)
 			}
-			
+
 			// Auto-assign user to default team if team service is available
 			if s.teamService != nil {
 				// Map user role to team role
@@ -180,7 +178,7 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 				if user.Role == models.RoleAdmin {
 					teamRole = models.TeamRoleAdmin
 				}
-				
+
 				if teamMember, err := s.teamService.AddUserToDefaultTeam(ctx, user.ID, teamRole); err != nil {
 					// Log error but don't fail user creation
 					// User can be manually assigned to teams later
@@ -193,7 +191,7 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 					}
 				}
 			}
-			
+
 			// Create audit entry for user provisioning
 			auditEntry := &models.Audit{
 				EventType:    models.AuditEventUserProvision,
@@ -208,7 +206,7 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 				Timestamp:    time.Now(),
 			}
 			s.db.Create(auditEntry)
-			
+
 		} else {
 			return nil, err
 		}
@@ -286,10 +284,10 @@ func (s *AuthService) ValidateKey(ctx context.Context, key string) (*models.Key,
 			}, nil
 		}
 	}
-	
+
 	// Hash the key for lookup
 	keyHash := models.HashKey(key)
-	
+
 	var dbKey models.Key
 	err := s.db.Preload("User").Preload("Team").Where("key_hash = ? AND is_active = ?", keyHash, true).First(&dbKey).Error
 	if err != nil {
@@ -353,7 +351,7 @@ func (s *AuthService) ValidateToken(tokenString string) (*TokenClaims, error) {
 			if err != nil {
 				return nil, fmt.Errorf("user not found for dex id %s: %w", authClaims.Subject, err)
 			}
-			
+
 			// Get team names from Teams relationship for groups
 			groups := make([]string, 0)
 			if len(user.Teams) > 0 {
@@ -361,7 +359,7 @@ func (s *AuthService) ValidateToken(tokenString string) (*TokenClaims, error) {
 					groups = append(groups, string(tm.Role))
 				}
 			}
-			
+
 			// Convert Dex claims to TokenClaims
 			tokenClaims := &TokenClaims{
 				RegisteredClaims: authClaims.RegisteredClaims,
@@ -371,7 +369,7 @@ func (s *AuthService) ValidateToken(tokenString string) (*TokenClaims, error) {
 				Role:             string(user.Role),
 				Groups:           groups,
 			}
-			
+
 			return tokenClaims, nil
 		}
 		// Log Dex validation failure for debugging
@@ -572,15 +570,15 @@ func (s *AuthService) GetUserPermissions(ctx context.Context, userID uuid.UUID) 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	permissions := s.permissionService.GetUserPermissions(&user)
-	
+
 	// Convert to strings
 	var permStrings []string
 	for _, p := range permissions {
 		permStrings = append(permStrings, string(p))
 	}
-	
+
 	return permStrings, nil
 }
 
@@ -607,16 +605,16 @@ func (s *AuthService) GetKeyUser(ctx context.Context, keyID uuid.UUID) (*models.
 		}
 		return nil, err
 	}
-	
+
 	if key.UserID == nil {
 		return nil, fmt.Errorf("key %s has no associated user", keyID.String())
 	}
-	
+
 	var user models.User
 	err = s.db.WithContext(ctx).Where("id = ?", *key.UserID).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &user, nil
 }

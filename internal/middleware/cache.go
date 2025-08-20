@@ -24,12 +24,12 @@ type CacheMiddleware struct {
 }
 
 type CachedResponse struct {
-	Body       json.RawMessage    `json:"body"`
-	Headers    map[string]string  `json:"headers"`
-	StatusCode int                `json:"status_code"`
-	CachedAt   time.Time          `json:"cached_at"`
-	Model      string             `json:"model"`
-	Provider   string             `json:"provider"`
+	Body       json.RawMessage   `json:"body"`
+	Headers    map[string]string `json:"headers"`
+	StatusCode int               `json:"status_code"`
+	CachedAt   time.Time         `json:"cached_at"`
+	Model      string            `json:"model"`
+	Provider   string            `json:"provider"`
 }
 
 // cacheResponseWriter captures response for caching
@@ -41,7 +41,7 @@ type cacheResponseWriter struct {
 func newCacheResponseWriter(w http.ResponseWriter) *cacheResponseWriter {
 	return &cacheResponseWriter{
 		StreamingResponseWriter: NewStreamingResponseWriter(w),
-		body:                   &bytes.Buffer{},
+		body:                    &bytes.Buffer{},
 	}
 }
 
@@ -53,7 +53,7 @@ func (rw *cacheResponseWriter) Write(b []byte) (int, error) {
 
 func NewCacheMiddleware(cfg *config.Config, log *zap.Logger) *CacheMiddleware {
 	var cacheImpl cache.Cache
-	
+
 	if cfg.Cache.Enabled {
 		if cache.IsHealthy() {
 			// Use Redis cache if available
@@ -65,7 +65,7 @@ func NewCacheMiddleware(cfg *config.Config, log *zap.Logger) *CacheMiddleware {
 			log.Info("Using in-memory cache for LLM responses")
 		}
 	}
-	
+
 	return &CacheMiddleware{
 		cache:   cacheImpl,
 		config:  &cfg.Cache,
@@ -81,7 +81,7 @@ func (m *CacheMiddleware) Handler(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		
+
 		// Check if this is a streaming request early
 		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/chat/completions") {
 			// Quick check for streaming without consuming body
@@ -91,13 +91,13 @@ func (m *CacheMiddleware) Handler(next http.Handler) http.Handler {
 				return
 			}
 		}
-		
+
 		// Only cache GET requests and specific POST endpoints
 		if !m.shouldCache(r) {
 			next.ServeHTTP(w, r)
 			return
 		}
-		
+
 		// Generate cache key
 		cacheKey, err := m.generateCacheKey(r)
 		if err != nil {
@@ -105,7 +105,7 @@ func (m *CacheMiddleware) Handler(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		
+
 		// Check cache
 		cachedData, err := m.cache.Get(cacheKey)
 		if err == nil && cachedData != nil {
@@ -114,22 +114,22 @@ func (m *CacheMiddleware) Handler(next http.Handler) http.Handler {
 			if err := json.Unmarshal(cachedData, &cached); err == nil {
 				RecordCacheHit(r.URL.Path)
 				m.serveCachedResponse(w, &cached)
-				m.log.Debug("Cache hit", 
+				m.log.Debug("Cache hit",
 					zap.String("key", cacheKey),
 					zap.String("model", cached.Model),
 					zap.Time("cached_at", cached.CachedAt))
 				return
 			}
 		}
-		
+
 		// Cache miss
 		RecordCacheMiss(r.URL.Path)
-		
+
 		// Cache miss - capture response
 		captureWriter := newCacheResponseWriter(w)
-		
+
 		next.ServeHTTP(captureWriter, r)
-		
+
 		// Response has already been written through the StreamingResponseWriter
 		// Just cache the response if it was successful
 		bodyBytes := captureWriter.body.Bytes()
@@ -145,20 +145,20 @@ func (m *CacheMiddleware) shouldCache(r *http.Request) bool {
 		path := r.URL.Path
 		// Skip caching for dynamic/config endpoints
 		if strings.Contains(path, "/models") ||
-		   strings.Contains(path, "/health") ||
-		   strings.Contains(path, "/metrics") ||
-		   strings.Contains(path, "/admin") ||
-		   strings.Contains(path, "/config") {
+			strings.Contains(path, "/health") ||
+			strings.Contains(path, "/metrics") ||
+			strings.Contains(path, "/admin") ||
+			strings.Contains(path, "/config") {
 			return false
 		}
 	}
-	
+
 	// Cache POST requests to completion endpoints (if not streaming)
 	if r.Method == http.MethodPost {
 		path := r.URL.Path
-		if strings.Contains(path, "/chat/completions") || 
-		   strings.Contains(path, "/completions") ||
-		   strings.Contains(path, "/embeddings") {
+		if strings.Contains(path, "/chat/completions") ||
+			strings.Contains(path, "/completions") ||
+			strings.Contains(path, "/embeddings") {
 			// Check if streaming is requested
 			var body map[string]interface{}
 			bodyBytes, err := io.ReadAll(r.Body)
@@ -166,25 +166,25 @@ func (m *CacheMiddleware) shouldCache(r *http.Request) bool {
 				return false
 			}
 			r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-			
+
 			if err := json.Unmarshal(bodyBytes, &body); err != nil {
 				return false
 			}
-			
+
 			// Don't cache streaming responses
 			if stream, ok := body["stream"].(bool); ok && stream {
 				return false
 			}
-			
+
 			// Don't cache if temperature > 0 (non-deterministic)
 			if temp, ok := body["temperature"].(float64); ok && temp > 0 {
 				return false
 			}
-			
+
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -193,12 +193,12 @@ func (m *CacheMiddleware) shouldCacheResponse(statusCode int, body []byte) bool 
 	if statusCode != http.StatusOK {
 		return false
 	}
-	
+
 	// Don't cache empty responses
 	if len(body) == 0 {
 		return false
 	}
-	
+
 	// Don't cache error responses
 	var response map[string]interface{}
 	if err := json.Unmarshal(body, &response); err == nil {
@@ -206,7 +206,7 @@ func (m *CacheMiddleware) shouldCacheResponse(statusCode int, body []byte) bool 
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -217,7 +217,7 @@ func (m *CacheMiddleware) generateCacheKey(r *http.Request) (string, error) {
 		"path":   r.URL.Path,
 		"query":  r.URL.Query().Encode(),
 	}
-	
+
 	// Include body for POST requests
 	if r.Method == http.MethodPost {
 		bodyBytes, err := io.ReadAll(r.Body)
@@ -225,7 +225,7 @@ func (m *CacheMiddleware) generateCacheKey(r *http.Request) (string, error) {
 			return "", err
 		}
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-		
+
 		// Parse body to normalize it
 		var body map[string]interface{}
 		if err := json.Unmarshal(bodyBytes, &body); err == nil {
@@ -237,7 +237,7 @@ func (m *CacheMiddleware) generateCacheKey(r *http.Request) (string, error) {
 			keyData["body"] = string(bodyBytes)
 		}
 	}
-	
+
 	// Include API key or user ID if available
 	if apiKey := r.Header.Get("Authorization"); apiKey != "" {
 		// Hash the API key for privacy
@@ -245,13 +245,13 @@ func (m *CacheMiddleware) generateCacheKey(r *http.Request) (string, error) {
 		h.Write([]byte(apiKey))
 		keyData["auth"] = hex.EncodeToString(h.Sum(nil))[:16]
 	}
-	
+
 	// Generate hash of key data
 	jsonData, err := json.Marshal(keyData)
 	if err != nil {
 		return "", err
 	}
-	
+
 	h := sha256.New()
 	h.Write(jsonData)
 	return fmt.Sprintf("llm:cache:%s", hex.EncodeToString(h.Sum(nil))), nil
@@ -262,7 +262,7 @@ func (m *CacheMiddleware) cacheResponse(key string, rw *cacheResponseWriter, r *
 	var responseBody map[string]interface{}
 	model := ""
 	provider := ""
-	
+
 	if err := json.Unmarshal(rw.body.Bytes(), &responseBody); err == nil {
 		if m, ok := responseBody["model"].(string); ok {
 			model = m
@@ -271,7 +271,7 @@ func (m *CacheMiddleware) cacheResponse(key string, rw *cacheResponseWriter, r *
 			provider = obj
 		}
 	}
-	
+
 	// Prepare cached response
 	cached := CachedResponse{
 		Body:       json.RawMessage(rw.body.Bytes()),
@@ -281,33 +281,33 @@ func (m *CacheMiddleware) cacheResponse(key string, rw *cacheResponseWriter, r *
 		Model:      model,
 		Provider:   provider,
 	}
-	
+
 	// Copy relevant headers
 	for k, v := range rw.Header() {
 		if len(v) > 0 && m.shouldCacheHeader(k) {
 			cached.Headers[k] = v[0]
 		}
 	}
-	
+
 	// Marshal and cache
 	data, err := json.Marshal(cached)
 	if err != nil {
 		m.log.Error("Failed to marshal cached response", zap.Error(err))
 		return
 	}
-	
+
 	// Use configured TTL or default
 	ttl := m.config.TTL
 	if ttl == 0 {
 		ttl = 5 * time.Minute
 	}
-	
+
 	if err := m.cache.Set(key, data, ttl); err != nil {
-		m.log.Error("Failed to cache response", 
+		m.log.Error("Failed to cache response",
 			zap.String("key", key),
 			zap.Error(err))
 	} else {
-		m.log.Debug("Response cached", 
+		m.log.Debug("Response cached",
 			zap.String("key", key),
 			zap.String("model", model),
 			zap.Duration("ttl", ttl))
@@ -319,13 +319,13 @@ func (m *CacheMiddleware) serveCachedResponse(w http.ResponseWriter, cached *Cac
 	for k, v := range cached.Headers {
 		w.Header().Set(k, v)
 	}
-	
+
 	// Add cache headers
 	w.Header().Set("X-Cache", "HIT")
 	w.Header().Set("X-Cache-Time", cached.CachedAt.Format(time.RFC3339))
 	age := time.Since(cached.CachedAt).Seconds()
 	w.Header().Set("Age", fmt.Sprintf("%.0f", age))
-	
+
 	// Write status and body
 	w.WriteHeader(cached.StatusCode)
 	w.Write(cached.Body)
@@ -340,14 +340,14 @@ func (m *CacheMiddleware) shouldCacheHeader(name string) bool {
 		"X-Model",
 		"X-Provider",
 	}
-	
+
 	name = strings.ToLower(name)
 	for _, h := range cacheHeaders {
 		if strings.ToLower(h) == name {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -356,7 +356,7 @@ func (m *CacheMiddleware) InvalidateCache(pattern string) error {
 	if !m.enabled {
 		return nil
 	}
-	
+
 	// For Redis cache, we could use SCAN to find and delete keys
 	// For in-memory cache, we'd need to implement pattern matching
 	// For now, we'll just clear all cache
@@ -370,12 +370,12 @@ func (m *CacheMiddleware) GetCacheStats() map[string]interface{} {
 			"enabled": false,
 		}
 	}
-	
+
 	stats := map[string]interface{}{
 		"enabled": true,
 		"type":    "unknown",
 	}
-	
+
 	// Determine cache type
 	if cache.IsHealthy() {
 		stats["type"] = "redis"
@@ -388,6 +388,6 @@ func (m *CacheMiddleware) GetCacheStats() map[string]interface{} {
 	} else {
 		stats["type"] = "in-memory"
 	}
-	
+
 	return stats
 }

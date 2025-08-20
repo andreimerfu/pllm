@@ -38,7 +38,7 @@ func (m *RBACMiddleware) RequirePermission(permission auth.Permission) func(http
 				m.unauthorized(w, "User not authenticated")
 				return
 			}
-			
+
 			// Load user with teams
 			var user models.User
 			if err := m.db.Preload("Teams").First(&user, "id = ?", userID).Error; err != nil {
@@ -46,7 +46,7 @@ func (m *RBACMiddleware) RequirePermission(permission auth.Permission) func(http
 				m.unauthorized(w, "User not found")
 				return
 			}
-			
+
 			// Check permission
 			if !m.permService.HasPermission(&user, permission) {
 				m.logger.Warn("Permission denied",
@@ -55,11 +55,11 @@ func (m *RBACMiddleware) RequirePermission(permission auth.Permission) func(http
 				m.forbidden(w, "Insufficient permissions")
 				return
 			}
-			
+
 			// Add permission service to context
 			ctx := auth.WithPermissionService(r.Context(), m.permService)
 			ctx = auth.WithUserPermissions(ctx, m.permService.GetUserPermissions(&user))
-			
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -75,25 +75,25 @@ func (m *RBACMiddleware) RequireTeamPermission(permission auth.Permission) func(
 				m.unauthorized(w, "User not authenticated")
 				return
 			}
-			
+
 			// Get team ID from URL
 			teamIDStr := chi.URLParam(r, "teamID")
 			if teamIDStr == "" {
 				// Try to get from query params
 				teamIDStr = r.URL.Query().Get("team_id")
 			}
-			
+
 			if teamIDStr == "" {
 				m.badRequest(w, "Team ID required")
 				return
 			}
-			
+
 			teamID, err := uuid.Parse(teamIDStr)
 			if err != nil {
 				m.badRequest(w, "Invalid team ID")
 				return
 			}
-			
+
 			// Load user with teams
 			var user models.User
 			if err := m.db.Preload("Teams").First(&user, "id = ?", userID).Error; err != nil {
@@ -101,7 +101,7 @@ func (m *RBACMiddleware) RequireTeamPermission(permission auth.Permission) func(
 				m.unauthorized(w, "User not found")
 				return
 			}
-			
+
 			// Check team permission
 			if !m.permService.HasTeamPermission(&user, teamID, permission) {
 				m.logger.Warn("Team permission denied",
@@ -111,11 +111,11 @@ func (m *RBACMiddleware) RequireTeamPermission(permission auth.Permission) func(
 				m.forbidden(w, "Insufficient team permissions")
 				return
 			}
-			
+
 			// Add permission service to context
 			ctx := auth.WithPermissionService(r.Context(), m.permService)
 			ctx = auth.WithUserPermissions(ctx, m.permService.GetUserPermissions(&user))
-			
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -131,7 +131,7 @@ func (m *RBACMiddleware) RequireRole(roles ...models.UserRole) func(http.Handler
 				m.unauthorized(w, "User not authenticated")
 				return
 			}
-			
+
 			// Load user
 			var user models.User
 			if err := m.db.First(&user, "id = ?", userID).Error; err != nil {
@@ -139,7 +139,7 @@ func (m *RBACMiddleware) RequireRole(roles ...models.UserRole) func(http.Handler
 				m.unauthorized(w, "User not found")
 				return
 			}
-			
+
 			// Check if user has one of the required roles
 			hasRole := false
 			for _, role := range roles {
@@ -148,7 +148,7 @@ func (m *RBACMiddleware) RequireRole(roles ...models.UserRole) func(http.Handler
 					break
 				}
 			}
-			
+
 			if !hasRole {
 				m.logger.Warn("Role requirement not met",
 					zap.String("user_id", userID.String()),
@@ -156,7 +156,7 @@ func (m *RBACMiddleware) RequireRole(roles ...models.UserRole) func(http.Handler
 				m.forbidden(w, "Insufficient role privileges")
 				return
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -172,24 +172,24 @@ func (m *RBACMiddleware) RequireTeamRole(roles ...models.TeamRole) func(http.Han
 				m.unauthorized(w, "User not authenticated")
 				return
 			}
-			
+
 			// Get team ID from URL
 			teamIDStr := chi.URLParam(r, "teamID")
 			if teamIDStr == "" {
 				teamIDStr = r.URL.Query().Get("team_id")
 			}
-			
+
 			if teamIDStr == "" {
 				m.badRequest(w, "Team ID required")
 				return
 			}
-			
+
 			teamID, err := uuid.Parse(teamIDStr)
 			if err != nil {
 				m.badRequest(w, "Invalid team ID")
 				return
 			}
-			
+
 			// Check team membership and role
 			var member models.TeamMember
 			err = m.db.Where("user_id = ? AND team_id = ?", userID, teamID).First(&member).Error
@@ -202,7 +202,7 @@ func (m *RBACMiddleware) RequireTeamRole(roles ...models.TeamRole) func(http.Han
 				}
 				return
 			}
-			
+
 			// Check if user has one of the required roles
 			hasRole := false
 			for _, role := range roles {
@@ -211,7 +211,7 @@ func (m *RBACMiddleware) RequireTeamRole(roles ...models.TeamRole) func(http.Han
 					break
 				}
 			}
-			
+
 			if !hasRole {
 				m.logger.Warn("Team role requirement not met",
 					zap.String("user_id", userID.String()),
@@ -220,7 +220,7 @@ func (m *RBACMiddleware) RequireTeamRole(roles ...models.TeamRole) func(http.Han
 				m.forbidden(w, "Insufficient team role privileges")
 				return
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -236,27 +236,27 @@ func (m *RBACMiddleware) RequireSelfOrAdmin() func(http.Handler) http.Handler {
 				m.unauthorized(w, "User not authenticated")
 				return
 			}
-			
+
 			// Get target user ID from URL
 			targetUserIDStr := chi.URLParam(r, "userID")
 			if targetUserIDStr == "" {
 				targetUserIDStr = chi.URLParam(r, "id")
 			}
-			
+
 			if targetUserIDStr != "" {
 				targetUserID, err := uuid.Parse(targetUserIDStr)
 				if err != nil {
 					m.badRequest(w, "Invalid user ID")
 					return
 				}
-				
+
 				// Check if same user
 				if authUserID == targetUserID {
 					next.ServeHTTP(w, r)
 					return
 				}
 			}
-			
+
 			// Check if admin
 			var user models.User
 			if err := m.db.First(&user, "id = ?", authUserID).Error; err != nil {
@@ -264,12 +264,12 @@ func (m *RBACMiddleware) RequireSelfOrAdmin() func(http.Handler) http.Handler {
 				m.unauthorized(w, "User not found")
 				return
 			}
-			
+
 			if user.Role != models.RoleAdmin {
 				m.forbidden(w, "Can only access your own resources")
 				return
 			}
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -285,7 +285,7 @@ func (m *RBACMiddleware) EnforceBudget() func(http.Handler) http.Handler {
 				m.unauthorized(w, "User not authenticated")
 				return
 			}
-			
+
 			// Load user with budget info
 			var user models.User
 			if err := m.db.First(&user, "id = ?", userID).Error; err != nil {
@@ -293,7 +293,7 @@ func (m *RBACMiddleware) EnforceBudget() func(http.Handler) http.Handler {
 				m.unauthorized(w, "User not found")
 				return
 			}
-			
+
 			// Check user budget
 			if user.MaxBudget > 0 && user.CurrentSpend >= user.MaxBudget {
 				m.logger.Warn("User budget exceeded",
@@ -303,10 +303,10 @@ func (m *RBACMiddleware) EnforceBudget() func(http.Handler) http.Handler {
 				m.paymentRequired(w, "Budget limit exceeded")
 				return
 			}
-			
+
 			// TODO: Check team budgets if applicable
 			// TODO: Check key budgets if applicable
-			
+
 			next.ServeHTTP(w, r)
 		})
 	}

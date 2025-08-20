@@ -277,22 +277,22 @@ func (s *Service) CreateDefaultKeyForUser(ctx context.Context, userID uuid.UUID,
 		TeamID: &teamID,
 		Scopes: []string{"*"}, // Full access for default key
 	}
-	
+
 	return s.CreateKey(ctx, req)
 }
 
 // Request and response types
 type CreateKeyRequest struct {
-	Name      string              `json:"name" binding:"required"`
-	Type      models.KeyType      `json:"type"`
-	UserID    *uuid.UUID          `json:"user_id"`
-	TeamID    *uuid.UUID          `json:"team_id"`
-	Duration  *int                `json:"duration"` // in seconds
-	MaxBudget *float64            `json:"max_budget"`
-	TPM       *int                `json:"tpm"`
-	RPM       *int                `json:"rpm"`
-	Scopes    []string            `json:"scopes"`
-	ExpiresAt *time.Time          `json:"expires_at"`
+	Name      string         `json:"name" binding:"required"`
+	Type      models.KeyType `json:"type"`
+	UserID    *uuid.UUID     `json:"user_id"`
+	TeamID    *uuid.UUID     `json:"team_id"`
+	Duration  *int           `json:"duration"` // in seconds
+	MaxBudget *float64       `json:"max_budget"`
+	TPM       *int           `json:"tpm"`
+	RPM       *int           `json:"rpm"`
+	Scopes    []string       `json:"scopes"`
+	ExpiresAt *time.Time     `json:"expires_at"`
 }
 
 type UpdateKeyRequest struct {

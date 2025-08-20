@@ -21,13 +21,13 @@ func NewTracker(db *gorm.DB) *Tracker {
 
 // BudgetCheck represents the result of a budget validation
 type BudgetCheck struct {
-	Allowed        bool    `json:"allowed"`
-	RemainingBudget float64 `json:"remaining_budget"`
-	UsedBudget     float64 `json:"used_budget"`
-	TotalBudget    float64 `json:"total_budget"`
-	Period         string  `json:"period"`
-	ResetDate      *time.Time `json:"reset_date,omitempty"`
-	Message        string  `json:"message,omitempty"`
+	Allowed         bool       `json:"allowed"`
+	RemainingBudget float64    `json:"remaining_budget"`
+	UsedBudget      float64    `json:"used_budget"`
+	TotalBudget     float64    `json:"total_budget"`
+	Period          string     `json:"period"`
+	ResetDate       *time.Time `json:"reset_date,omitempty"`
+	Message         string     `json:"message,omitempty"`
 }
 
 // CheckBudget validates if a request can be made within budget limits
@@ -51,7 +51,7 @@ func (t *Tracker) CheckBudget(ctx context.Context, keyID uuid.UUID, estimatedCos
 		entityType = "team"
 	} else if key.UserID != nil {
 		// For users, we need to look up their budget or use defaults
-		maxBudget = 100.0 // Default user budget
+		maxBudget = 100.0  // Default user budget
 		currentSpend = 0.0 // TODO: Track user spend
 		budgetPeriod = models.BudgetPeriodMonthly
 		entityType = "user"
@@ -72,10 +72,10 @@ func (t *Tracker) CheckBudget(ctx context.Context, keyID uuid.UUID, estimatedCos
 
 	// Calculate remaining budget
 	remaining := maxBudget - currentSpend
-	
+
 	// Check if the estimated cost would exceed the budget
 	allowed := remaining >= estimatedCost
-	
+
 	result := &BudgetCheck{
 		Allowed:         allowed,
 		RemainingBudget: remaining,
@@ -85,7 +85,7 @@ func (t *Tracker) CheckBudget(ctx context.Context, keyID uuid.UUID, estimatedCos
 	}
 
 	if !allowed {
-		result.Message = fmt.Sprintf("Request would exceed %s budget limit. Remaining: $%.4f, Required: $%.4f", 
+		result.Message = fmt.Sprintf("Request would exceed %s budget limit. Remaining: $%.4f, Required: $%.4f",
 			entityType, remaining, estimatedCost)
 	}
 
@@ -97,9 +97,9 @@ func (t *Tracker) CheckBudget(ctx context.Context, keyID uuid.UUID, estimatedCos
 }
 
 // RecordUsage records actual usage after a request completes
-func (t *Tracker) RecordUsage(ctx context.Context, keyID uuid.UUID, cost float64, model string, 
+func (t *Tracker) RecordUsage(ctx context.Context, keyID uuid.UUID, cost float64, model string,
 	inputTokens, outputTokens int) error {
-	
+
 	var key models.Key
 	if err := t.db.WithContext(ctx).First(&key, keyID).Error; err != nil {
 		return fmt.Errorf("failed to find key: %w", err)
@@ -116,8 +116,8 @@ func (t *Tracker) RecordUsage(ctx context.Context, keyID uuid.UUID, cost float64
 		OutputTokens: outputTokens,
 		TotalTokens:  inputTokens + outputTokens,
 		TotalCost:    cost,
-		InputCost:    cost * 0.7,  // Approximate split
-		OutputCost:   cost * 0.3,  // Approximate split
+		InputCost:    cost * 0.7, // Approximate split
+		OutputCost:   cost * 0.3, // Approximate split
 	}
 
 	if key.UserID != nil {
@@ -146,9 +146,9 @@ func (t *Tracker) RecordUsage(ctx context.Context, keyID uuid.UUID, cost float64
 // getCurrentUsage calculates usage for the current budget period
 func (t *Tracker) getCurrentUsage(ctx context.Context, entityID uuid.UUID, entityType string, period models.BudgetPeriod) (float64, error) {
 	var totalCost float64
-	
+
 	query := t.db.WithContext(ctx).Model(&models.Usage{})
-	
+
 	// Filter by entity type
 	switch entityType {
 	case "user":
@@ -181,7 +181,7 @@ func (t *Tracker) getCurrentUsage(ctx context.Context, entityID uuid.UUID, entit
 // getNextResetDate calculates when the budget period resets
 func (t *Tracker) getNextResetDate(period models.BudgetPeriod) time.Time {
 	now := time.Now()
-	
+
 	switch period {
 	case models.BudgetPeriodDaily:
 		return time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
@@ -201,9 +201,9 @@ func (t *Tracker) getNextResetDate(period models.BudgetPeriod) time.Time {
 func (t *Tracker) checkBudgetAlerts(keyID uuid.UUID, newCost float64) {
 	// This would integrate with a notification system
 	// For now, we'll just log the alert conditions
-	
+
 	ctx := context.Background()
-	
+
 	var key models.Key
 	if err := t.db.WithContext(ctx).Preload("User").Preload("Team").First(&key, keyID).Error; err != nil {
 		return
@@ -222,50 +222,50 @@ func (t *Tracker) checkBudgetAlerts(keyID uuid.UUID, newCost float64) {
 func (t *Tracker) ResetAlertFlags(ctx context.Context) error {
 	// This should be called by a periodic job to reset team budgets that are due
 	now := time.Now()
-	
+
 	// Find teams that need budget reset
 	var teams []models.Team
 	if err := t.db.WithContext(ctx).Where("budget_reset_at <= ?", now).Find(&teams).Error; err != nil {
 		return err
 	}
-	
+
 	for _, team := range teams {
 		team.ResetBudget()
 		if err := t.db.WithContext(ctx).Save(&team).Error; err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
 // GetUsageStats returns detailed usage statistics
 func (t *Tracker) GetUsageStats(ctx context.Context, entityID uuid.UUID, entityType string, period models.BudgetPeriod) (map[string]interface{}, error) {
 	stats := make(map[string]interface{})
-	
+
 	// Get total usage for period
 	totalUsage, err := t.getCurrentUsage(ctx, entityID, entityType, period)
 	if err != nil {
 		return nil, err
 	}
 	stats["total_usage"] = totalUsage
-	
+
 	// Get usage breakdown by model
 	var modelUsage []struct {
 		Model string  `json:"model"`
 		Cost  float64 `json:"cost"`
 		Count int64   `json:"count"`
 	}
-	
+
 	query := t.db.WithContext(ctx).Model(&models.Usage{})
-	
+
 	switch entityType {
 	case "user":
 		query = query.Where("user_id = ?", entityID)
 	case "team":
 		query = query.Where("group_id = ?", entityID) // Usage model uses group_id for teams
 	}
-	
+
 	// Apply time filtering
 	now := time.Now()
 	switch period {
@@ -280,15 +280,15 @@ func (t *Tracker) GetUsageStats(ctx context.Context, entityID uuid.UUID, entityT
 		startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 		query = query.Where("timestamp >= ?", startOfMonth)
 	}
-	
+
 	err = query.Select("model, SUM(total_cost) as cost, COUNT(*) as count").
 		Group("model").
 		Scan(&modelUsage).Error
 	if err != nil {
 		return nil, err
 	}
-	
+
 	stats["model_breakdown"] = modelUsage
-	
+
 	return stats, nil
 }

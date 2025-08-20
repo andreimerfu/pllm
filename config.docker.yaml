@@ -36,8 +36,8 @@ auth:
   require_auth: true
   dex:
     enabled: true
-    # Backend OIDC validation (accessible via extra_hosts)
-    issuer: "http://localhost:5556/dex"
+    # Backend OIDC validation (internal service URL)
+    issuer: "http://dex:5556/dex"
     # Frontend OAuth flows (public URL for browser)
     public_issuer: "http://localhost:5556/dex"
     client_id: "pllm-web"
@@ -103,6 +103,14 @@ model_list:
   - model_name: gpt-oss-20b-free
     params:
       model: openai/gpt-oss-20b:free # OpenRouter format: provider/model
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+    rpm: 60
+    tpm: 50000
+
+  - model_name: claude-3-haiku
+    params:
+      model: anthropic/claude-3-haiku
       api_key: ${OPENROUTER_API_KEY}
       api_base: https://openrouter.ai/api/v1
     rpm: 60

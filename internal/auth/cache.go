@@ -135,7 +135,7 @@ func (c *Cache) buildKey(key string) string {
 	// Create a hash of the key to ensure consistent key format
 	hash := sha256.Sum256([]byte(key))
 	hashStr := hex.EncodeToString(hash[:])[:16] // Use first 16 chars of hash
-	
+
 	return fmt.Sprintf("auth:%s:%s", hashStr, key)
 }
 
@@ -180,8 +180,8 @@ func (c *Cache) InvalidateUserCache(ctx context.Context, userID uint) error {
 
 	for _, key := range keys {
 		if err := c.Delete(ctx, key); err != nil {
-			c.logger.Warn("Failed to delete cache entry", 
-				zap.String("key", key), 
+			c.logger.Warn("Failed to delete cache entry",
+				zap.String("key", key),
 				zap.Error(err))
 		}
 	}

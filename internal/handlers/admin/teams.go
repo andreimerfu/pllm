@@ -9,11 +9,11 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	
+
 	"github.com/amerfu/pllm/internal/middleware"
-	"github.com/amerfu/pllm/internal/services/team"
 	"github.com/amerfu/pllm/internal/services/audit"
 	"github.com/amerfu/pllm/internal/services/budget"
+	"github.com/amerfu/pllm/internal/services/team"
 )
 
 type TeamHandler struct {
@@ -167,19 +167,19 @@ func (h *TeamHandler) DeleteTeam(w http.ResponseWriter, r *http.Request) {
 func (h *TeamHandler) ListTeams(w http.ResponseWriter, r *http.Request) {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	
+
 	if page < 1 {
 		page = 1
 	}
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
-	
+
 	offset := (page - 1) * limit
 
 	var userID *uuid.UUID
 	isMasterKey := middleware.IsMasterKey(r.Context())
-	
+
 	// Check if this is a JWT token for the master key user
 	if uid, ok := middleware.GetUserID(r.Context()); ok {
 		// Special master key user ID should be treated as master key access

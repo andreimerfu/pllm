@@ -133,11 +133,11 @@ func (h *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) GetPermissions(w http.ResponseWriter, r *http.Request) {
 	// Get authentication context
 	authType := middleware.GetAuthType(r.Context())
-	
+
 	var permissions []string
 	var role string
 	var groups []string
-	
+
 	switch authType {
 	case middleware.AuthTypeMasterKey:
 		// Master key has all permissions
@@ -152,11 +152,11 @@ func (h *AuthHandler) GetPermissions(w http.ResponseWriter, r *http.Request) {
 		}
 		role = "admin"
 		groups = []string{"admin"}
-		
+
 	case middleware.AuthTypeJWT:
 		// Get user info from JWT
 		userID, hasUserID := middleware.GetUserID(r.Context())
-		
+
 		// Check if this is a master key JWT (user ID is the special master key UUID)
 		if hasUserID && userID.String() == "00000000-0000-0000-0000-000000000001" {
 			// This is a master key JWT - treat it like a master key
@@ -179,7 +179,7 @@ func (h *AuthHandler) GetPermissions(w http.ResponseWriter, r *http.Request) {
 					permissions = userPerms
 				}
 			}
-			
+
 			var user models.User
 			if err := h.db.First(&user, "id = ?", userID).Error; err == nil {
 				role = string(user.Role)
@@ -192,7 +192,7 @@ func (h *AuthHandler) GetPermissions(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		
+
 	case middleware.AuthTypeAPIKey:
 		// API keys have limited permissions based on key configuration
 		key, _ := middleware.GetKey(r.Context())
@@ -207,21 +207,21 @@ func (h *AuthHandler) GetPermissions(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		
+
 	default:
 		// No auth or unknown auth type
 		permissions = []string{}
 		role = "anonymous"
 		groups = []string{}
 	}
-	
+
 	response := map[string]interface{}{
 		"permissions": permissions,
 		"role":        role,
 		"groups":      groups,
 		"auth_type":   string(authType),
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }

@@ -168,7 +168,7 @@ func TestSimpleBreaker_ConcurrentAccess(t *testing.T) {
 	const operationsPerGoroutine = 20
 
 	var wg sync.WaitGroup
-	
+
 	// Test concurrent failures
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
@@ -217,7 +217,7 @@ func TestSimpleBreaker_ConcurrentSuccessAndFailure(t *testing.T) {
 	// The exact state depends on the order of operations
 	// but the breaker should handle concurrent access safely
 	isOpen, failures := breaker.GetState()
-	assert.True(t, failures >= 0) // Should never be negative
+	assert.True(t, failures >= 0)     // Should never be negative
 	assert.True(t, isOpen || !isOpen) // Should be in a valid state
 }
 
@@ -226,7 +226,7 @@ func TestManager(t *testing.T) {
 		manager := NewManager(3, 100*time.Millisecond)
 		breaker1 := manager.GetBreaker("model1")
 		breaker2 := manager.GetBreaker("model2")
-		
+
 		assert.NotNil(t, breaker1)
 		assert.NotNil(t, breaker2)
 		// Different models should have different breakers (different memory addresses)
@@ -237,19 +237,19 @@ func TestManager(t *testing.T) {
 		manager := NewManager(3, 100*time.Millisecond)
 		breaker1 := manager.GetBreaker("model1")
 		breaker2 := manager.GetBreaker("model1")
-		
+
 		assert.Equal(t, breaker1, breaker2)
 	})
 
 	t.Run("IsOpen delegates to breaker", func(t *testing.T) {
 		manager := NewManager(3, 100*time.Millisecond)
 		assert.False(t, manager.IsOpen("model1"))
-		
+
 		// Trip the breaker
 		for i := 0; i < 3; i++ {
 			manager.RecordFailure("model1")
 		}
-		
+
 		assert.True(t, manager.IsOpen("model1"))
 	})
 
@@ -257,11 +257,11 @@ func TestManager(t *testing.T) {
 		manager := NewManager(3, 100*time.Millisecond)
 		manager.RecordFailure("model2")
 		manager.RecordFailure("model2")
-		
+
 		breaker := manager.GetBreaker("model2")
 		_, failures := breaker.GetState()
 		assert.Equal(t, 2, failures)
-		
+
 		manager.RecordSuccess("model2")
 		_, failures = breaker.GetState()
 		assert.Equal(t, 0, failures)
@@ -270,7 +270,7 @@ func TestManager(t *testing.T) {
 	t.Run("RecordFailure delegates to breaker", func(t *testing.T) {
 		manager := NewManager(3, 100*time.Millisecond)
 		manager.RecordFailure("model3")
-		
+
 		breaker := manager.GetBreaker("model3")
 		_, failures := breaker.GetState()
 		assert.Equal(t, 1, failures)
@@ -283,7 +283,7 @@ func TestManager(t *testing.T) {
 			manager.RecordFailure("model4")
 		}
 		assert.True(t, manager.IsOpen("model4"))
-		
+
 		manager.Reset("model4")
 		assert.False(t, manager.IsOpen("model4"))
 	})
@@ -295,12 +295,12 @@ func TestManager(t *testing.T) {
 			manager.RecordFailure("model5")
 			manager.RecordFailure("model6")
 		}
-		
+
 		assert.True(t, manager.IsOpen("model5"))
 		assert.True(t, manager.IsOpen("model6"))
-		
+
 		manager.ResetAll()
-		
+
 		assert.False(t, manager.IsOpen("model5"))
 		assert.False(t, manager.IsOpen("model6"))
 	})
@@ -311,16 +311,16 @@ func TestManager(t *testing.T) {
 		manager.RecordFailure("model7")
 		manager.RecordFailure("model8")
 		manager.RecordFailure("model8")
-		
+
 		states := manager.GetAllStates()
-		
+
 		require.Contains(t, states, "model7")
 		require.Contains(t, states, "model8")
-		
+
 		model7State := states["model7"]
 		assert.False(t, model7State["is_open"].(bool))
 		assert.Equal(t, 1, model7State["failures"].(int))
-		
+
 		model8State := states["model8"]
 		assert.False(t, model8State["is_open"].(bool))
 		assert.Equal(t, 2, model8State["failures"].(int))
@@ -340,7 +340,7 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			modelName := fmt.Sprintf("model-%d", id%numModels)
-			
+
 			// Mix of operations
 			for j := 0; j < 10; j++ {
 				switch j % 4 {
@@ -362,11 +362,11 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 	// Verify all models were created and are in valid states
 	states := manager.GetAllStates()
 	assert.Equal(t, numModels, len(states))
-	
+
 	for modelName, state := range states {
 		isOpen := state["is_open"].(bool)
 		failures := state["failures"].(int)
-		
+
 		assert.True(t, failures >= 0, "Model %s should not have negative failures", modelName)
 		assert.True(t, isOpen || !isOpen, "Model %s should be in valid state", modelName)
 	}
@@ -375,7 +375,7 @@ func TestManager_ConcurrentAccess(t *testing.T) {
 // Benchmark tests
 func BenchmarkSimpleBreaker_IsOpen(b *testing.B) {
 	breaker := New(5, 30*time.Second)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		breaker.IsOpen()
@@ -384,7 +384,7 @@ func BenchmarkSimpleBreaker_IsOpen(b *testing.B) {
 
 func BenchmarkSimpleBreaker_RecordSuccess(b *testing.B) {
 	breaker := New(5, 30*time.Second)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		breaker.RecordSuccess()
@@ -393,7 +393,7 @@ func BenchmarkSimpleBreaker_RecordSuccess(b *testing.B) {
 
 func BenchmarkSimpleBreaker_RecordFailure(b *testing.B) {
 	breaker := New(5, 30*time.Second)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		breaker.RecordFailure()
@@ -406,7 +406,7 @@ func BenchmarkSimpleBreaker_RecordFailure(b *testing.B) {
 func BenchmarkManager_GetBreaker(b *testing.B) {
 	manager := NewManager(5, 30*time.Second)
 	models := []string{"model1", "model2", "model3", "model4", "model5"}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		model := models[i%len(models)]
@@ -417,7 +417,7 @@ func BenchmarkManager_GetBreaker(b *testing.B) {
 func BenchmarkManager_ConcurrentAccess(b *testing.B) {
 	manager := NewManager(5, 30*time.Second)
 	models := []string{"model1", "model2", "model3", "model4", "model5"}
-	
+
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		i := 0
@@ -441,20 +441,20 @@ func TestSimpleBreaker_EdgeCases(t *testing.T) {
 	t.Run("very short cooldown", func(t *testing.T) {
 		breaker := New(1, 1*time.Millisecond)
 		breaker.RecordFailure()
-		
+
 		assert.True(t, breaker.IsOpen())
-		
+
 		// Wait for cooldown
 		time.Sleep(5 * time.Millisecond)
-		
+
 		assert.False(t, breaker.IsOpen())
 	})
 
 	t.Run("threshold of 1", func(t *testing.T) {
 		breaker := New(1, 100*time.Millisecond)
-		
+
 		assert.False(t, breaker.IsOpen())
-		
+
 		breaker.RecordFailure()
 		assert.True(t, breaker.IsOpen())
 	})
@@ -462,9 +462,9 @@ func TestSimpleBreaker_EdgeCases(t *testing.T) {
 	t.Run("very long cooldown", func(t *testing.T) {
 		breaker := New(1, 24*time.Hour)
 		breaker.RecordFailure()
-		
+
 		assert.True(t, breaker.IsOpen())
-		
+
 		// Should still be open after short wait
 		time.Sleep(1 * time.Millisecond)
 		assert.True(t, breaker.IsOpen())
@@ -474,10 +474,10 @@ func TestSimpleBreaker_EdgeCases(t *testing.T) {
 func TestManager_EdgeCases(t *testing.T) {
 	t.Run("empty model name", func(t *testing.T) {
 		manager := NewManager(3, 100*time.Millisecond)
-		
+
 		breaker := manager.GetBreaker("")
 		assert.NotNil(t, breaker)
-		
+
 		// Should work normally
 		manager.RecordFailure("")
 		assert.False(t, manager.IsOpen(""))
@@ -485,26 +485,26 @@ func TestManager_EdgeCases(t *testing.T) {
 
 	t.Run("unicode model names", func(t *testing.T) {
 		manager := NewManager(3, 100*time.Millisecond)
-		
+
 		unicodeModel := "模型-测试-🤖"
 		breaker := manager.GetBreaker(unicodeModel)
 		assert.NotNil(t, breaker)
-		
+
 		manager.RecordFailure(unicodeModel)
 		assert.False(t, manager.IsOpen(unicodeModel))
-		
+
 		states := manager.GetAllStates()
 		assert.Contains(t, states, unicodeModel)
 	})
 
 	t.Run("very long model names", func(t *testing.T) {
 		manager := NewManager(3, 100*time.Millisecond)
-		
+
 		longModel := string(make([]byte, 1000))
 		for i := range longModel {
 			longModel = longModel[:i] + "a" + longModel[i+1:]
 		}
-		
+
 		breaker := manager.GetBreaker(longModel)
 		assert.NotNil(t, breaker)
 	})
@@ -519,7 +519,7 @@ func TestSimpleBreaker_RapidStateChanges(t *testing.T) {
 		breaker.RecordFailure()
 		breaker.RecordFailure()
 		assert.True(t, breaker.IsOpen())
-		
+
 		breaker.RecordSuccess()
 		assert.False(t, breaker.IsOpen())
 	}
@@ -529,15 +529,15 @@ func TestSimpleBreaker_RapidStateChanges(t *testing.T) {
 func TestSimpleBreaker_CooldownTiming(t *testing.T) {
 	cooldown := 50 * time.Millisecond
 	breaker := New(1, cooldown)
-	
+
 	// Open the circuit
 	breaker.RecordFailure()
 	assert.True(t, breaker.IsOpen())
-	
+
 	// Check exactly at cooldown time
 	time.Sleep(cooldown)
 	assert.False(t, breaker.IsOpen())
-	
+
 	// Should be able to record success
 	breaker.RecordSuccess()
 	assert.False(t, breaker.IsOpen())

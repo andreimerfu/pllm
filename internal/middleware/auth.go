@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	
+
 	"github.com/amerfu/pllm/internal/auth"
 	"github.com/amerfu/pllm/internal/models"
 )
@@ -17,28 +17,28 @@ import (
 type contextKey string
 
 const (
-	UserContextKey        contextKey = "user"
-	KeyContextKey         contextKey = "key"
-	TeamContextKey        contextKey = "team"
-	AuthTypeContextKey    contextKey = "auth_type"
-	MasterKeyContextKey   contextKey = "master_key_context"
+	UserContextKey      contextKey = "user"
+	KeyContextKey       contextKey = "key"
+	TeamContextKey      contextKey = "team"
+	AuthTypeContextKey  contextKey = "auth_type"
+	MasterKeyContextKey contextKey = "master_key_context"
 )
 
 type AuthType string
 
 const (
-	AuthTypeMasterKey   AuthType = "master_key"
-	AuthTypeAPIKey      AuthType = "api_key"
-	AuthTypeJWT         AuthType = "jwt"
-	AuthTypeNone        AuthType = "none"
+	AuthTypeMasterKey AuthType = "master_key"
+	AuthTypeAPIKey    AuthType = "api_key"
+	AuthTypeJWT       AuthType = "jwt"
+	AuthTypeNone      AuthType = "none"
 )
 
 type AuthMiddleware struct {
-	logger           *zap.Logger
-	authService      *auth.AuthService
+	logger            *zap.Logger
+	authService       *auth.AuthService
 	cachedAuthService *auth.CachedAuthService
-	masterKeyService *auth.MasterKeyService
-	requireAuth      bool
+	masterKeyService  *auth.MasterKeyService
+	requireAuth       bool
 }
 
 type AuthConfig struct {
@@ -51,7 +51,7 @@ type AuthConfig struct {
 func NewAuthMiddleware(config *AuthConfig) *AuthMiddleware {
 	// Create cached auth service wrapper
 	cachedAuth := auth.NewCachedAuthService(config.AuthService, config.Logger)
-	
+
 	return &AuthMiddleware{
 		logger:            config.Logger,
 		authService:       config.AuthService,
@@ -71,7 +71,7 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 		}
 
 		// Debug logging
-		m.logger.Debug("Authentication middleware", 
+		m.logger.Debug("Authentication middleware",
 			zap.String("path", r.URL.Path),
 			zap.String("method", r.Method),
 			zap.String("auth_header", r.Header.Get("Authorization")))
@@ -90,7 +90,7 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			return
 		}
 
-		m.logger.Debug("Extracted auth", 
+		m.logger.Debug("Extracted auth",
 			zap.String("type", string(authType)),
 			zap.String("data_prefix", authData[:min(20, len(authData))]))
 
@@ -154,7 +154,7 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 func (m *AuthMiddleware) RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authType := r.Context().Value(AuthTypeContextKey).(AuthType)
-		
+
 		// Master key always has admin access
 		if authType == AuthTypeMasterKey {
 			next.ServeHTTP(w, r)
@@ -183,7 +183,7 @@ func (m *AuthMiddleware) RequireAdmin(next http.Handler) http.Handler {
 func (m *AuthMiddleware) RequireTeamAccess(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authType := r.Context().Value(AuthTypeContextKey).(AuthType)
-		
+
 		// Master key always has access
 		if authType == AuthTypeMasterKey {
 			next.ServeHTTP(w, r)
@@ -226,7 +226,7 @@ func (m *AuthMiddleware) RequireModelAccess(modelExtractor func(*http.Request) s
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authType := r.Context().Value(AuthTypeContextKey).(AuthType)
-			
+
 			// Master key always has access
 			if authType == AuthTypeMasterKey {
 				next.ServeHTTP(w, r)

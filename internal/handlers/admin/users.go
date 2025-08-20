@@ -35,16 +35,16 @@ type UserResponse struct {
 // ListUsers returns all users
 func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	var users []models.User
-	
+
 	query := h.db.Model(&models.User{}).
 		Preload("Teams").
 		Preload("Keys")
-	
+
 	// Filter by role if provided
 	if role := r.URL.Query().Get("role"); role != "" {
 		query = query.Where("role = ?", role)
 	}
-	
+
 	// Filter by active status
 	if active := r.URL.Query().Get("active"); active != "" {
 		if active == "true" {
@@ -53,19 +53,19 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 			query = query.Where("is_active = ?", false)
 		}
 	}
-	
+
 	// Filter by team if provided
 	if teamID := r.URL.Query().Get("team_id"); teamID != "" {
 		query = query.Joins("JOIN team_members ON team_members.user_id = users.id").
 			Where("team_members.team_id = ?", teamID)
 	}
-	
+
 	if err := query.Find(&users).Error; err != nil {
 		h.logger.Error("Failed to list users", zap.Error(err))
 		http.Error(w, "Failed to list users", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Transform users to include provider icons
 	var userResponses []UserResponse
 	for _, user := range users {
@@ -74,7 +74,7 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 			ProviderIcon: getProviderIcon(user.ExternalProvider),
 		})
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(userResponses)
 }
@@ -82,7 +82,7 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 // GetUser returns a specific user
 func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "userID")
-	
+
 	var user models.User
 	if err := h.db.Preload("Teams.Team").
 		Preload("Keys").
@@ -95,7 +95,7 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
 }
@@ -110,23 +110,23 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		Role      string   `json:"role"`
 		TeamIDs   []string `json:"team_ids"`
 	}
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Validate required fields
 	if req.Email == "" || req.Username == "" {
 		http.Error(w, "Email and username are required", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Set default role if not provided
 	if req.Role == "" {
 		req.Role = string(models.RoleUser)
 	}
-	
+
 	user := &models.User{
 		Email:     req.Email,
 		Username:  req.Username,
@@ -135,43 +135,43 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		Role:      models.UserRole(req.Role),
 		IsActive:  true,
 	}
-	
+
 	// Start transaction
 	tx := h.db.Begin()
-	
+
 	if err := tx.Create(user).Error; err != nil {
 		tx.Rollback()
 		h.logger.Error("Failed to create user", zap.Error(err))
 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Add to teams if specified
 	for _, teamIDStr := range req.TeamIDs {
 		teamID, err := uuid.Parse(teamIDStr)
 		if err != nil {
 			continue
 		}
-		
+
 		member := &models.TeamMember{
 			TeamID: teamID,
 			UserID: user.ID,
 			Role:   models.TeamRoleMember,
 		}
-		
+
 		if err := tx.Create(member).Error; err != nil {
-			h.logger.Warn("Failed to add user to team", 
+			h.logger.Warn("Failed to add user to team",
 				zap.String("team_id", teamIDStr),
 				zap.Error(err))
 		}
 	}
-	
+
 	if err := tx.Commit().Error; err != nil {
 		h.logger.Error("Failed to commit transaction", zap.Error(err))
 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(user)
@@ -180,7 +180,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 // UpdateUser updates a user
 func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "userID")
-	
+
 	var user models.User
 	if err := h.db.First(&user, "id = ?", userID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -191,26 +191,26 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	
+
 	var req struct {
-		FirstName        *string   `json:"first_name"`
-		LastName         *string   `json:"last_name"`
-		Role             *string   `json:"role"`
-		IsActive         *bool     `json:"is_active"`
-		MaxBudget        *float64  `json:"max_budget"`
-		BudgetDuration   *string   `json:"budget_duration"`
-		AllowedModels    []string  `json:"allowed_models"`
-		BlockedModels    []string  `json:"blocked_models"`
-		TPM              *int      `json:"tpm"`
-		RPM              *int      `json:"rpm"`
-		MaxParallelCalls *int      `json:"max_parallel_calls"`
+		FirstName        *string  `json:"first_name"`
+		LastName         *string  `json:"last_name"`
+		Role             *string  `json:"role"`
+		IsActive         *bool    `json:"is_active"`
+		MaxBudget        *float64 `json:"max_budget"`
+		BudgetDuration   *string  `json:"budget_duration"`
+		AllowedModels    []string `json:"allowed_models"`
+		BlockedModels    []string `json:"blocked_models"`
+		TPM              *int     `json:"tpm"`
+		RPM              *int     `json:"rpm"`
+		MaxParallelCalls *int     `json:"max_parallel_calls"`
 	}
-	
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Update fields if provided
 	if req.FirstName != nil {
 		user.FirstName = *req.FirstName
@@ -247,13 +247,13 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	if req.MaxParallelCalls != nil {
 		user.MaxParallelCalls = *req.MaxParallelCalls
 	}
-	
+
 	if err := h.db.Save(&user).Error; err != nil {
 		h.logger.Error("Failed to update user", zap.Error(err))
 		http.Error(w, "Failed to update user", http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
 }
@@ -261,30 +261,30 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 // DeleteUser deletes a user
 func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "userID")
-	
+
 	// Soft delete by setting is_active to false
 	result := h.db.Model(&models.User{}).
 		Where("id = ?", userID).
 		Update("is_active", false)
-	
+
 	if result.Error != nil {
 		h.logger.Error("Failed to delete user", zap.Error(result.Error))
 		http.Error(w, "Failed to delete user", http.StatusInternalServerError)
 		return
 	}
-	
+
 	if result.RowsAffected == 0 {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
 // GetUserStats returns usage statistics for a user
 func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "userID")
-	
+
 	// Get user to ensure they exist
 	var user models.User
 	if err := h.db.First(&user, "id = ?", userID).Error; err != nil {
@@ -296,27 +296,27 @@ func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	
+
 	// Calculate usage statistics
 	var stats struct {
-		TotalRequests   int64   `json:"total_requests"`
-		TotalTokens     int64   `json:"total_tokens"`
-		TotalCost       float64 `json:"total_cost"`
-		CurrentSpend    float64 `json:"current_spend"`
-		MaxBudget       float64 `json:"max_budget"`
-		BudgetRemaining float64 `json:"budget_remaining"`
-		BudgetResetAt   time.Time `json:"budget_reset_at"`
+		TotalRequests   int64      `json:"total_requests"`
+		TotalTokens     int64      `json:"total_tokens"`
+		TotalCost       float64    `json:"total_cost"`
+		CurrentSpend    float64    `json:"current_spend"`
+		MaxBudget       float64    `json:"max_budget"`
+		BudgetRemaining float64    `json:"budget_remaining"`
+		BudgetResetAt   time.Time  `json:"budget_reset_at"`
 		LastUsedAt      *time.Time `json:"last_used_at"`
-		ActiveKeys      int64   `json:"active_keys"`
-		Teams           int64   `json:"teams"`
+		ActiveKeys      int64      `json:"active_keys"`
+		Teams           int64      `json:"teams"`
 	}
-	
+
 	// Get usage stats
 	h.db.Model(&models.Usage{}).
 		Where("user_id = ?", userID).
 		Select("COUNT(*) as total_requests, SUM(total_tokens) as total_tokens, SUM(cost) as total_cost").
 		Scan(&stats)
-	
+
 	// Get last usage time
 	var lastUsage models.Usage
 	if err := h.db.Where("user_id = ?", userID).
@@ -324,23 +324,23 @@ func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
 		First(&lastUsage).Error; err == nil {
 		stats.LastUsedAt = &lastUsage.CreatedAt
 	}
-	
+
 	// Get active keys count
 	h.db.Model(&models.Key{}).
 		Where("user_id = ? AND is_active = ?", userID, true).
 		Count(&stats.ActiveKeys)
-	
+
 	// Get teams count
 	h.db.Model(&models.TeamMember{}).
 		Where("user_id = ?", userID).
 		Count(&stats.Teams)
-	
+
 	// Set budget info
 	stats.CurrentSpend = user.CurrentSpend
 	stats.MaxBudget = user.MaxBudget
 	stats.BudgetRemaining = user.MaxBudget - user.CurrentSpend
 	stats.BudgetResetAt = user.BudgetResetAt
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
 }
@@ -348,7 +348,7 @@ func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
 // ResetUserBudget resets a user's budget
 func (h *UserHandler) ResetUserBudget(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "userID")
-	
+
 	var user models.User
 	if err := h.db.First(&user, "id = ?", userID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -359,21 +359,21 @@ func (h *UserHandler) ResetUserBudget(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	
+
 	// Reset budget
 	user.CurrentSpend = 0
 	user.BudgetResetAt = calculateNextReset(user.BudgetDuration)
-	
+
 	if err := h.db.Save(&user).Error; err != nil {
 		h.logger.Error("Failed to reset user budget", zap.Error(err))
 		http.Error(w, "Failed to reset budget", http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message": "Budget reset successfully",
-		"user_id": userID,
+		"message":    "Budget reset successfully",
+		"user_id":    userID,
 		"next_reset": user.BudgetResetAt,
 	})
 }

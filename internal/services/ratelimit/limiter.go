@@ -36,30 +36,30 @@ func (r *RedisLimiter) Allow(ctx context.Context, key string, limit int, window 
 func (r *RedisLimiter) AllowN(ctx context.Context, key string, n int, limit int, window time.Duration) (bool, error) {
 	now := time.Now().UnixNano()
 	windowStart := now - window.Nanoseconds()
-	
+
 	pipe := r.client.Pipeline()
-	
+
 	// Remove old entries outside the window
 	pipe.ZRemRangeByScore(ctx, key, "0", fmt.Sprintf("%d", windowStart))
-	
+
 	// Count current entries in window
 	count := pipe.ZCount(ctx, key, fmt.Sprintf("%d", windowStart), "+inf")
-	
+
 	// Execute pipeline
 	if _, err := pipe.Exec(ctx); err != nil {
 		return false, fmt.Errorf("failed to check rate limit: %w", err)
 	}
-	
+
 	// Check if adding n requests would exceed limit
 	currentCount, err := count.Result()
 	if err != nil {
 		return false, fmt.Errorf("failed to get count: %w", err)
 	}
-	
+
 	if currentCount+int64(n) > int64(limit) {
 		return false, nil
 	}
-	
+
 	// Add new entries
 	members := make([]redis.Z, n)
 	for i := 0; i < n; i++ {
@@ -68,14 +68,14 @@ func (r *RedisLimiter) AllowN(ctx context.Context, key string, n int, limit int,
 			Member: fmt.Sprintf("%d-%d", now, i),
 		}
 	}
-	
+
 	if err := r.client.ZAdd(ctx, key, members...).Err(); err != nil {
 		return false, fmt.Errorf("failed to add rate limit entry: %w", err)
 	}
-	
+
 	// Set expiry
 	r.client.Expire(ctx, key, window)
-	
+
 	return true, nil
 }
 
@@ -86,26 +86,26 @@ func (r *RedisLimiter) Reset(ctx context.Context, key string) error {
 func (r *RedisLimiter) GetRemaining(ctx context.Context, key string, limit int, window time.Duration) (int, error) {
 	now := time.Now().UnixNano()
 	windowStart := now - window.Nanoseconds()
-	
+
 	// Remove old entries and count current
 	pipe := r.client.Pipeline()
 	pipe.ZRemRangeByScore(ctx, key, "0", fmt.Sprintf("%d", windowStart))
 	count := pipe.ZCount(ctx, key, fmt.Sprintf("%d", windowStart), "+inf")
-	
+
 	if _, err := pipe.Exec(ctx); err != nil {
 		return 0, fmt.Errorf("failed to get remaining: %w", err)
 	}
-	
+
 	currentCount, err := count.Result()
 	if err != nil {
 		return 0, err
 	}
-	
+
 	remaining := limit - int(currentCount)
 	if remaining < 0 {
 		remaining = 0
 	}
-	
+
 	return remaining, nil
 }
 
@@ -117,9 +117,9 @@ type InMemoryLimiter struct {
 }
 
 type bucket struct {
-	tokens    float64
+	tokens     float64
 	lastRefill time.Time
-	mu        sync.Mutex
+	mu         sync.Mutex
 }
 
 func NewInMemoryLimiter(log *zap.Logger) *InMemoryLimiter {
@@ -127,10 +127,10 @@ func NewInMemoryLimiter(log *zap.Logger) *InMemoryLimiter {
 		buckets: make(map[string]*bucket),
 		log:     log,
 	}
-	
+
 	// Start cleanup goroutine
 	go limiter.cleanup()
-	
+
 	return limiter
 }
 
@@ -149,24 +149,24 @@ func (l *InMemoryLimiter) AllowN(ctx context.Context, key string, n int, limit i
 		l.buckets[key] = b
 	}
 	l.mu.Unlock()
-	
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	// Token bucket algorithm
 	now := time.Now()
 	elapsed := now.Sub(b.lastRefill)
 	refillRate := float64(limit) / window.Seconds()
 	tokensToAdd := elapsed.Seconds() * refillRate
-	
+
 	b.tokens = min(float64(limit), b.tokens+tokensToAdd)
 	b.lastRefill = now
-	
+
 	if b.tokens >= float64(n) {
 		b.tokens -= float64(n)
 		return true, nil
 	}
-	
+
 	return false, nil
 }
 
@@ -185,26 +185,26 @@ func (l *InMemoryLimiter) GetRemaining(ctx context.Context, key string, limit in
 		return limit, nil
 	}
 	l.mu.RUnlock()
-	
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	
+
 	// Update tokens
 	now := time.Now()
 	elapsed := now.Sub(b.lastRefill)
 	refillRate := float64(limit) / window.Seconds()
 	tokensToAdd := elapsed.Seconds() * refillRate
-	
+
 	b.tokens = min(float64(limit), b.tokens+tokensToAdd)
 	b.lastRefill = now
-	
+
 	return int(b.tokens), nil
 }
 
 func (l *InMemoryLimiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		l.mu.Lock()
 		now := time.Now()
@@ -246,25 +246,25 @@ func (f *FixedWindowLimiter) Allow(ctx context.Context, key string, limit int, w
 func (f *FixedWindowLimiter) AllowN(ctx context.Context, key string, n int, limit int, window time.Duration) (bool, error) {
 	// Create window key based on current time
 	windowKey := f.getWindowKey(key, window)
-	
+
 	// Increment counter
 	count, err := f.client.IncrBy(ctx, windowKey, int64(n)).Result()
 	if err != nil {
 		return false, fmt.Errorf("failed to increment counter: %w", err)
 	}
-	
+
 	// Set expiry on first increment
 	if count == int64(n) {
 		f.client.Expire(ctx, windowKey, window)
 	}
-	
+
 	// Check if limit exceeded
 	if count > int64(limit) {
 		// Rollback the increment
 		f.client.DecrBy(ctx, windowKey, int64(n))
 		return false, nil
 	}
-	
+
 	return true, nil
 }
 
@@ -274,17 +274,17 @@ func (f *FixedWindowLimiter) Reset(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if len(keys) > 0 {
 		return f.client.Del(ctx, keys...).Err()
 	}
-	
+
 	return nil
 }
 
 func (f *FixedWindowLimiter) GetRemaining(ctx context.Context, key string, limit int, window time.Duration) (int, error) {
 	windowKey := f.getWindowKey(key, window)
-	
+
 	count, err := f.client.Get(ctx, windowKey).Int()
 	if err == redis.Nil {
 		return limit, nil
@@ -292,12 +292,12 @@ func (f *FixedWindowLimiter) GetRemaining(ctx context.Context, key string, limit
 	if err != nil {
 		return 0, err
 	}
-	
+
 	remaining := limit - count
 	if remaining < 0 {
 		remaining = 0
 	}
-	
+
 	return remaining, nil
 }
 

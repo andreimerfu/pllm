@@ -22,57 +22,57 @@ var (
 // Key represents a unified API key model
 type Key struct {
 	BaseModel
-	
+
 	// Key identification
-	Key         string     `gorm:"uniqueIndex;not null" json:"-"`
-	KeyHash     string     `gorm:"uniqueIndex;not null" json:"-"`
-	KeyPrefix   string     `gorm:"index;not null" json:"key_prefix"`
-	Name        string     `json:"name"`
-	Type        KeyType    `gorm:"type:varchar(20);default:'api'" json:"type"`
-	
+	Key       string  `gorm:"uniqueIndex;not null" json:"-"`
+	KeyHash   string  `gorm:"uniqueIndex;not null" json:"-"`
+	KeyPrefix string  `gorm:"index;not null" json:"key_prefix"`
+	Name      string  `json:"name"`
+	Type      KeyType `gorm:"type:varchar(20);default:'api'" json:"type"`
+
 	// Ownership (can belong to user OR team)
-	UserID      *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
-	User        *User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	TeamID      *uuid.UUID `gorm:"type:uuid" json:"team_id,omitempty"`
-	Team        *Team      `gorm:"foreignKey:TeamID" json:"team,omitempty"`
-	
+	UserID *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
+	User   *User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	TeamID *uuid.UUID `gorm:"type:uuid" json:"team_id,omitempty"`
+	Team   *Team      `gorm:"foreignKey:TeamID" json:"team,omitempty"`
+
 	// Status and lifecycle
-	IsActive    bool       `gorm:"default:true" json:"is_active"`
-	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
-	LastUsedAt  *time.Time `json:"last_used_at,omitempty"`
-	
+	IsActive   bool       `gorm:"default:true" json:"is_active"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+
 	// Budget Control
-	MaxBudget       *float64      `json:"max_budget,omitempty"`
-	BudgetDuration  *BudgetPeriod `json:"budget_duration,omitempty"`
-	CurrentSpend    float64       `json:"current_spend"`
-	BudgetResetAt   *time.Time    `json:"budget_reset_at,omitempty"`
-	
+	MaxBudget      *float64      `json:"max_budget,omitempty"`
+	BudgetDuration *BudgetPeriod `json:"budget_duration,omitempty"`
+	CurrentSpend   float64       `json:"current_spend"`
+	BudgetResetAt  *time.Time    `json:"budget_reset_at,omitempty"`
+
 	// Rate Limiting (overrides team/user defaults)
 	TPM              *int `json:"tpm,omitempty"`
 	RPM              *int `json:"rpm,omitempty"`
 	MaxParallelCalls *int `json:"max_parallel_calls,omitempty"`
-	
+
 	// Model Access Control
-	AllowedModels    []string `gorm:"type:text[]" json:"allowed_models,omitempty"`
-	BlockedModels    []string `gorm:"type:text[]" json:"blocked_models,omitempty"`
-	
+	AllowedModels []string `gorm:"type:text[]" json:"allowed_models,omitempty"`
+	BlockedModels []string `gorm:"type:text[]" json:"blocked_models,omitempty"`
+
 	// Usage Tracking
-	UsageCount   int64   `json:"usage_count"`
-	TotalTokens  int64   `json:"total_tokens"`
-	TotalCost    float64 `json:"total_cost"`
-	
+	UsageCount  int64   `json:"usage_count"`
+	TotalTokens int64   `json:"total_tokens"`
+	TotalCost   float64 `json:"total_cost"`
+
 	// Permissions and scopes
-	Scopes       []string `gorm:"type:text[]" json:"scopes,omitempty"`
-	
+	Scopes []string `gorm:"type:text[]" json:"scopes,omitempty"`
+
 	// Metadata
-	Metadata     datatypes.JSON `json:"metadata,omitempty"`
-	Tags         []string       `gorm:"type:text[]" json:"tags,omitempty"`
-	
+	Metadata datatypes.JSON `json:"metadata,omitempty"`
+	Tags     []string       `gorm:"type:text[]" json:"tags,omitempty"`
+
 	// Audit
-	CreatedBy         *uuid.UUID `gorm:"type:uuid" json:"created_by,omitempty"`
-	RevokedAt         *time.Time `json:"revoked_at,omitempty"`
-	RevokedBy         *uuid.UUID `gorm:"type:uuid" json:"revoked_by,omitempty"`
-	RevocationReason  string     `json:"revocation_reason,omitempty"`
+	CreatedBy        *uuid.UUID `gorm:"type:uuid" json:"created_by,omitempty"`
+	RevokedAt        *time.Time `json:"revoked_at,omitempty"`
+	RevokedBy        *uuid.UUID `gorm:"type:uuid" json:"revoked_by,omitempty"`
+	RevocationReason string     `json:"revocation_reason,omitempty"`
 }
 
 type KeyType string
@@ -114,7 +114,7 @@ func GenerateKey(keyType KeyType) (string, string, error) {
 	if _, err := rand.Read(b); err != nil {
 		return "", "", err
 	}
-	
+
 	var key string
 	switch keyType {
 	case KeyTypeAPI:
@@ -126,11 +126,11 @@ func GenerateKey(keyType KeyType) (string, string, error) {
 	default:
 		key = fmt.Sprintf("pllm_uk_%s", hex.EncodeToString(b))
 	}
-	
+
 	// Generate hash for storage
 	hash := sha256.Sum256([]byte(key))
 	keyHash := hex.EncodeToString(hash[:])
-	
+
 	return key, keyHash, nil
 }
 
@@ -159,17 +159,17 @@ func (k *Key) BeforeCreate(tx *gorm.DB) error {
 	if err := k.BaseModel.BeforeCreate(tx); err != nil {
 		return err
 	}
-	
+
 	// Set key prefix from hash if not set
 	if k.KeyPrefix == "" && k.KeyHash != "" {
 		k.KeyPrefix = k.KeyHash[:8]
 	}
-	
+
 	// Set default type if not specified
 	if k.Type == "" {
 		k.Type = KeyTypeAPI
 	}
-	
+
 	return nil
 }
 
@@ -210,11 +210,11 @@ func (k *Key) ShouldResetBudget() bool {
 // ResetBudget resets the current spend and budget reset time
 func (k *Key) ResetBudget() {
 	k.CurrentSpend = 0
-	
+
 	if k.BudgetDuration == nil {
 		return
 	}
-	
+
 	now := time.Now()
 	switch *k.BudgetDuration {
 	case BudgetPeriodDaily:
@@ -240,19 +240,19 @@ func (k *Key) IsModelAllowed(model string) bool {
 			return false
 		}
 	}
-	
+
 	// If no allowed models specified, allow all (except blocked)
 	if len(k.AllowedModels) == 0 {
 		return true
 	}
-	
+
 	// Check if model is in allowed list
 	for _, allowed := range k.AllowedModels {
 		if allowed == model || allowed == "*" {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -261,13 +261,13 @@ func (k *Key) HasScope(scope string) bool {
 	if len(k.Scopes) == 0 {
 		return true // No scopes means all access
 	}
-	
+
 	for _, s := range k.Scopes {
 		if s == scope || s == "*" {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -295,7 +295,7 @@ func (k *Key) GetEffectiveRateLimits(defaultTPM, defaultRPM, defaultParallel int
 	tpm = defaultTPM
 	rpm = defaultRPM
 	parallel = defaultParallel
-	
+
 	if k.TPM != nil {
 		tpm = *k.TPM
 	}
@@ -305,7 +305,7 @@ func (k *Key) GetEffectiveRateLimits(defaultTPM, defaultRPM, defaultParallel int
 	if k.MaxParallelCalls != nil {
 		parallel = *k.MaxParallelCalls
 	}
-	
+
 	return
 }
 
@@ -314,7 +314,7 @@ func (k *Key) GetType() KeyType {
 	if k.Type != "" {
 		return k.Type
 	}
-	
+
 	// Infer from key prefix
 	switch {
 	case strings.HasPrefix(k.Key, "sk-"):
@@ -333,10 +333,10 @@ func (k *Key) IsValid() bool {
 	if !k.CanUse() {
 		return false
 	}
-	
+
 	if k.IsBudgetExceeded() {
 		return false
 	}
-	
+
 	return true
 }

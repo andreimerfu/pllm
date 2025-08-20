@@ -77,7 +77,7 @@ type AuthConfig struct {
 
 type DexConfig struct {
 	Enabled       bool              `mapstructure:"enabled"`
-	Issuer        string            `mapstructure:"issuer"`        // Backend OIDC validation URL
+	Issuer        string            `mapstructure:"issuer"`        // Backend connection URL
 	PublicIssuer  string            `mapstructure:"public_issuer"` // Frontend OAuth URL
 	ClientID      string            `mapstructure:"client_id"`
 	ClientSecret  string            `mapstructure:"client_secret"`

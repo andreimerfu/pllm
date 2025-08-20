@@ -63,10 +63,10 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--path.rootfs=/rootfs'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
     networks:
       - pllm-network
     restart: unless-stopped
@@ -161,10 +161,6 @@ services:
       - "8080:8080" # Main API
       - "8081:8081" # Admin API
       - "9090:9090" # Metrics
-    extra_hosts:
-      - "localhost:host-gateway"
-    dns:
-      - "127.0.0.1"
     environment:
       - DATABASE_URL=postgres://pllm:pllm@postgres:5432/pllm?sslmode=disable
       - REDIS_URL=redis://redis:6379
@@ -190,7 +186,7 @@ services:
       - AZURE_API_KEY_EAST=${AZURE_API_KEY_EAST:-}
       - GROQ_API_KEY_1=${GROQ_API_KEY:-}
       - MISTRAL_API_KEY_1=${MISTRAL_API_KEY:-}
-      # Dex Authentication (Both use localhost via extra_hosts)
+      # Dex Authentication - Both use localhost (custom resolver in backend)
       - DEX_ISSUER=http://localhost:5556/dex
       - DEX_PUBLIC_ISSUER=http://localhost:5556/dex
       - DEX_CLIENT_ID=pllm-web

@@ -146,7 +146,7 @@ func newTeamUpdateCommand(ctx context.Context) *cobra.Command {
 			}
 
 			updates := make(map[string]interface{})
-			
+
 			if cmd.Flags().Changed("name") {
 				updates["name"] = name
 			}
@@ -405,7 +405,7 @@ func getTeamDB(ctx context.Context, teamID uuid.UUID) error {
 		fmt.Printf("Max Parallel: %d\n", team.MaxParallelCalls)
 		fmt.Printf("Created: %s\n", team.CreatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("Members: %d\n", len(team.Members))
-		
+
 		if len(team.Members) > 0 {
 			fmt.Printf("\nTeam Members:\n")
 			for _, member := range team.Members {

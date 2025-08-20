@@ -31,17 +31,17 @@ func NewAnalyticsHandler(logger *zap.Logger, db *gorm.DB, modelManager interface
 func (h *AnalyticsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	// Get real statistics from the model manager first
 	modelStats := h.modelManager.GetModelStats()
-	
+
 	// TODO: Get real database stats - for now, use model stats plus placeholders
 	// This should be replaced with actual database queries for users, teams, keys
 	stats := map[string]interface{}{
-		"total_requests":  modelStats["total_requests"],
-		"total_tokens":    modelStats["total_tokens"], 
-		"total_cost":      modelStats["total_cost"],
-		"active_users":    modelStats["active_users"],
-		"active_teams":    8,   // TODO: Query from database
-		"active_keys":     156, // TODO: Query from database  
-		"load_balancer":   modelStats["load_balancer"], // Pass through model load balancer stats
+		"total_requests":   modelStats["total_requests"],
+		"total_tokens":     modelStats["total_tokens"],
+		"total_cost":       modelStats["total_cost"],
+		"active_users":     modelStats["active_users"],
+		"active_teams":     8,                           // TODO: Query from database
+		"active_keys":      156,                         // TODO: Query from database
+		"load_balancer":    modelStats["load_balancer"], // Pass through model load balancer stats
 		"should_shed_load": modelStats["should_shed_load"],
 	}
 	h.sendJSON(w, http.StatusOK, stats)
@@ -66,10 +66,10 @@ func (h *AnalyticsHandler) GetDashboard(w http.ResponseWriter, r *http.Request) 
 		},
 		"top_users": []map[string]interface{}{
 			{
-				"id":       "user_001",
-				"email":    "john.doe@example.com",
-				"usage":    45678,
-				"cost":     45.67,
+				"id":    "user_001",
+				"email": "john.doe@example.com",
+				"usage": 45678,
+				"cost":  45.67,
 			},
 		},
 		"top_models": []map[string]interface{}{
@@ -146,52 +146,52 @@ func (h *AnalyticsHandler) GetCacheStats(w http.ResponseWriter, r *http.Request)
 func (h *AnalyticsHandler) GetBudgetSummary(w http.ResponseWriter, r *http.Request) {
 	var teams []models.Team
 	var keys []models.Key
-	
+
 	// Get all teams with budget data
 	if err := h.db.Find(&teams).Error; err != nil {
 		h.sendError(w, http.StatusInternalServerError, "Failed to fetch team budget data")
 		return
 	}
-	
+
 	// Get all keys with budget data
 	if err := h.db.Find(&keys).Error; err != nil {
 		h.sendError(w, http.StatusInternalServerError, "Failed to fetch key budget data")
 		return
 	}
-	
+
 	// Calculate team budget summary
 	teamBudgets := make([]map[string]interface{}, 0)
 	totalTeamBudget := 0.0
 	totalTeamSpent := 0.0
 	teamAlerting := 0
 	teamExceeded := 0
-	
+
 	for _, team := range teams {
 		if team.MaxBudget > 0 {
 			usagePercent := 0.0
 			if team.MaxBudget > 0 {
 				usagePercent = (team.CurrentSpend / team.MaxBudget) * 100
 			}
-			
+
 			teamBudgets = append(teamBudgets, map[string]interface{}{
-				"id":             team.ID,
-				"name":           team.Name,
-				"type":           "team",
-				"max_budget":     team.MaxBudget,
-				"current_spend":  team.CurrentSpend,
-				"remaining":      team.MaxBudget - team.CurrentSpend,
-				"usage_percent":  usagePercent,
-				"period":         team.BudgetDuration,
+				"id":              team.ID,
+				"name":            team.Name,
+				"type":            "team",
+				"max_budget":      team.MaxBudget,
+				"current_spend":   team.CurrentSpend,
+				"remaining":       team.MaxBudget - team.CurrentSpend,
+				"usage_percent":   usagePercent,
+				"period":          team.BudgetDuration,
 				"alert_threshold": team.BudgetAlertAt,
-				"is_active":      team.IsActive,
-				"should_alert":   team.ShouldAlertBudget(),
-				"is_exceeded":    team.IsBudgetExceeded(),
-				"reset_at":       team.BudgetResetAt,
+				"is_active":       team.IsActive,
+				"should_alert":    team.ShouldAlertBudget(),
+				"is_exceeded":     team.IsBudgetExceeded(),
+				"reset_at":        team.BudgetResetAt,
 			})
-			
+
 			totalTeamBudget += team.MaxBudget
 			totalTeamSpent += team.CurrentSpend
-			
+
 			if team.ShouldAlertBudget() {
 				teamAlerting++
 			}
@@ -200,39 +200,39 @@ func (h *AnalyticsHandler) GetBudgetSummary(w http.ResponseWriter, r *http.Reque
 			}
 		}
 	}
-	
+
 	// Calculate key budget summary
 	keyBudgets := make([]map[string]interface{}, 0)
 	totalKeyBudget := 0.0
 	totalKeySpent := 0.0
 	keyAlerting := 0
 	keyExceeded := 0
-	
+
 	for _, key := range keys {
 		if key.MaxBudget != nil && *key.MaxBudget > 0 {
 			usagePercent := 0.0
 			if *key.MaxBudget > 0 {
 				usagePercent = (key.CurrentSpend / *key.MaxBudget) * 100
 			}
-			
+
 			keyBudgets = append(keyBudgets, map[string]interface{}{
-				"id":             key.ID,
-				"name":           key.Name,
-				"type":           "key", 
-				"max_budget":     *key.MaxBudget,
-				"current_spend":  key.CurrentSpend,
-				"remaining":      *key.MaxBudget - key.CurrentSpend,
-				"usage_percent":  usagePercent,
-				"period":         key.BudgetDuration,
-				"is_active":      key.IsActive,
-				"reset_at":       key.BudgetResetAt,
-				"total_cost":     key.TotalCost,
-				"usage_count":    key.UsageCount,
+				"id":            key.ID,
+				"name":          key.Name,
+				"type":          "key",
+				"max_budget":    *key.MaxBudget,
+				"current_spend": key.CurrentSpend,
+				"remaining":     *key.MaxBudget - key.CurrentSpend,
+				"usage_percent": usagePercent,
+				"period":        key.BudgetDuration,
+				"is_active":     key.IsActive,
+				"reset_at":      key.BudgetResetAt,
+				"total_cost":    key.TotalCost,
+				"usage_count":   key.UsageCount,
 			})
-			
+
 			totalKeyBudget += *key.MaxBudget
 			totalKeySpent += key.CurrentSpend
-			
+
 			// Keys don't have alert thresholds, but we can check if they're close to limit
 			if usagePercent >= 80 {
 				keyAlerting++
@@ -242,31 +242,31 @@ func (h *AnalyticsHandler) GetBudgetSummary(w http.ResponseWriter, r *http.Reque
 			}
 		}
 	}
-	
+
 	// Budget usage by period
 	periodUsage := map[string]map[string]interface{}{
 		"daily": {
-			"count": 0,
+			"count":  0,
 			"budget": 0.0,
-			"spent": 0.0,
+			"spent":  0.0,
 		},
 		"weekly": {
-			"count": 0,
+			"count":  0,
 			"budget": 0.0,
-			"spent": 0.0,
+			"spent":  0.0,
 		},
 		"monthly": {
-			"count": 0,
+			"count":  0,
 			"budget": 0.0,
-			"spent": 0.0,
+			"spent":  0.0,
 		},
 		"yearly": {
-			"count": 0,
+			"count":  0,
 			"budget": 0.0,
-			"spent": 0.0,
+			"spent":  0.0,
 		},
 	}
-	
+
 	for _, team := range teams {
 		if team.MaxBudget > 0 {
 			period := string(team.BudgetDuration)
@@ -277,7 +277,7 @@ func (h *AnalyticsHandler) GetBudgetSummary(w http.ResponseWriter, r *http.Reque
 			}
 		}
 	}
-	
+
 	// Convert period usage to array
 	periodArray := make([]map[string]interface{}, 0)
 	for period, data := range periodUsage {
@@ -290,19 +290,19 @@ func (h *AnalyticsHandler) GetBudgetSummary(w http.ResponseWriter, r *http.Reque
 			})
 		}
 	}
-	
+
 	response := map[string]interface{}{
 		"summary": map[string]interface{}{
-			"total_budget":     totalTeamBudget + totalKeyBudget,
-			"total_spent":      totalTeamSpent + totalKeySpent,
-			"total_remaining":  (totalTeamBudget + totalKeyBudget) - (totalTeamSpent + totalKeySpent),
-			"team_budget":      totalTeamBudget,
-			"team_spent":       totalTeamSpent,
-			"key_budget":       totalKeyBudget,
-			"key_spent":        totalKeySpent,
-			"alerting_count":   teamAlerting + keyAlerting,
-			"exceeded_count":   teamExceeded + keyExceeded,
-			"total_entities":   len(teamBudgets) + len(keyBudgets),
+			"total_budget":    totalTeamBudget + totalKeyBudget,
+			"total_spent":     totalTeamSpent + totalKeySpent,
+			"total_remaining": (totalTeamBudget + totalKeyBudget) - (totalTeamSpent + totalKeySpent),
+			"team_budget":     totalTeamBudget,
+			"team_spent":      totalTeamSpent,
+			"key_budget":      totalKeyBudget,
+			"key_spent":       totalKeySpent,
+			"alerting_count":  teamAlerting + keyAlerting,
+			"exceeded_count":  teamExceeded + keyExceeded,
+			"total_entities":  len(teamBudgets) + len(keyBudgets),
 		},
 		"team_budgets":    teamBudgets,
 		"key_budgets":     keyBudgets,
@@ -318,7 +318,7 @@ func (h *AnalyticsHandler) GetBudgetSummary(w http.ResponseWriter, r *http.Reque
 			},
 		},
 	}
-	
+
 	h.sendJSON(w, http.StatusOK, response)
 }
 
@@ -335,12 +335,12 @@ func NewSystemHandler(logger *zap.Logger) *SystemHandler {
 
 func (h *SystemHandler) GetSystemInfo(w http.ResponseWriter, r *http.Request) {
 	info := map[string]interface{}{
-		"version":    "1.0.0",
-		"build":      "2024.01.15",
-		"uptime":     "15d 6h 30m",
-		"database":   "connected",
-		"dex":        "connected",
-		"status":     "healthy",
+		"version":  "1.0.0",
+		"build":    "2024.01.15",
+		"uptime":   "15d 6h 30m",
+		"database": "connected",
+		"dex":      "connected",
+		"status":   "healthy",
 	}
 	h.sendJSON(w, http.StatusOK, info)
 }
@@ -360,8 +360,8 @@ func (h *SystemHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, http.StatusOK, map[string]interface{}{
 		"config": map[string]interface{}{
 			"master_key_configured": true,
-			"dex_enabled":          true,
-			"database_connected":   true,
+			"dex_enabled":           true,
+			"database_connected":    true,
 		},
 	})
 }
@@ -426,7 +426,7 @@ func (h *SystemHandler) UpdateCacheSettings(w http.ResponseWriter, r *http.Reque
 
 func (h *SystemHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "Backup created",
+		"message":   "Backup created",
 		"backup_id": "backup-20240115-123456",
 	})
 }

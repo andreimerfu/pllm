@@ -47,7 +47,7 @@ func NewMasterKeyService(config *MasterKeyConfig) *MasterKeyService {
 	if len(config.JWTSecret) == 0 {
 		config.JWTSecret = []byte("default-secret-change-in-production")
 	}
-	
+
 	return &MasterKeyService{
 		db:          config.DB,
 		masterKey:   config.MasterKey,

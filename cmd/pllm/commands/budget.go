@@ -211,13 +211,13 @@ func showGlobalBudgetStatusDB(ctx context.Context) error {
 	db.Model(&models.User{}).Select("COALESCE(SUM(current_spend), 0)").Scan(&totalUserSpend)
 	db.Model(&models.Team{}).Select("COALESCE(SUM(max_budget), 0)").Scan(&totalTeamBudget)
 	db.Model(&models.Team{}).Select("COALESCE(SUM(current_spend), 0)").Scan(&totalTeamSpend)
-	
+
 	// For keys, we need to handle nullable max_budget
 	var keyBudgetSum sql.NullFloat64
 	var keySpendSum sql.NullFloat64
 	db.Model(&models.Key{}).Select("SUM(max_budget)").Scan(&keyBudgetSum)
 	db.Model(&models.Key{}).Select("SUM(current_spend)").Scan(&keySpendSum)
-	
+
 	if keyBudgetSum.Valid {
 		totalKeyBudget = keyBudgetSum.Float64
 	}
@@ -252,41 +252,40 @@ func showGlobalBudgetStatusDB(ctx context.Context) error {
 	} else {
 		fmt.Printf("Global Budget Status:\n")
 		fmt.Printf("==================\n\n")
-		
+
 		fmt.Printf("Users:\n")
 		fmt.Printf("  Count: %d\n", userCount)
 		fmt.Printf("  Total Budget: $%.2f\n", totalUserBudget)
 		fmt.Printf("  Total Spend: $%.2f\n", totalUserSpend)
-		fmt.Printf("  Utilization: %.1f%%\n\n", 
+		fmt.Printf("  Utilization: %.1f%%\n\n",
 			calculateUtilization(totalUserSpend, totalUserBudget))
-		
+
 		fmt.Printf("Teams:\n")
 		fmt.Printf("  Count: %d\n", teamCount)
 		fmt.Printf("  Total Budget: $%.2f\n", totalTeamBudget)
 		fmt.Printf("  Total Spend: $%.2f\n", totalTeamSpend)
-		fmt.Printf("  Utilization: %.1f%%\n\n", 
+		fmt.Printf("  Utilization: %.1f%%\n\n",
 			calculateUtilization(totalTeamSpend, totalTeamBudget))
-		
+
 		fmt.Printf("Keys:\n")
 		fmt.Printf("  Count: %d\n", keyCount)
 		fmt.Printf("  Total Budget: $%.2f\n", totalKeyBudget)
 		fmt.Printf("  Total Spend: $%.2f\n", totalKeySpend)
-		fmt.Printf("  Utilization: %.1f%%\n\n", 
+		fmt.Printf("  Utilization: %.1f%%\n\n",
 			calculateUtilization(totalKeySpend, totalKeyBudget))
-		
+
 		totalBudget := totalUserBudget + totalTeamBudget + totalKeyBudget
 		totalSpend := totalUserSpend + totalTeamSpend + totalKeySpend
-		
+
 		fmt.Printf("Overall:\n")
 		fmt.Printf("  Total Budget: $%.2f\n", totalBudget)
 		fmt.Printf("  Total Spend: $%.2f\n", totalSpend)
-		fmt.Printf("  Total Utilization: %.1f%%\n", 
+		fmt.Printf("  Total Utilization: %.1f%%\n",
 			calculateUtilization(totalSpend, totalBudget))
 	}
 
 	return nil
 }
-
 
 func calculateUtilization(spend, budget float64) float64 {
 	if budget == 0 {
@@ -330,15 +329,15 @@ func showUserBudgetDB(ctx context.Context, userID uuid.UUID) error {
 	}
 
 	status := map[string]interface{}{
-		"id":               user.ID,
-		"email":            user.Email,
-		"max_budget":       user.MaxBudget,
-		"current_spend":    user.CurrentSpend,
-		"remaining":        user.MaxBudget - user.CurrentSpend,
-		"utilization":      calculateUtilization(user.CurrentSpend, user.MaxBudget),
-		"budget_duration":  user.BudgetDuration,
-		"budget_reset_at":  user.BudgetResetAt,
-		"is_exceeded":      user.IsBudgetExceeded(),
+		"id":              user.ID,
+		"email":           user.Email,
+		"max_budget":      user.MaxBudget,
+		"current_spend":   user.CurrentSpend,
+		"remaining":       user.MaxBudget - user.CurrentSpend,
+		"utilization":     calculateUtilization(user.CurrentSpend, user.MaxBudget),
+		"budget_duration": user.BudgetDuration,
+		"budget_reset_at": user.BudgetResetAt,
+		"is_exceeded":     user.IsBudgetExceeded(),
 	}
 
 	if outputJSON {
@@ -366,15 +365,15 @@ func showTeamBudgetDB(ctx context.Context, teamID uuid.UUID) error {
 	}
 
 	status := map[string]interface{}{
-		"id":               team.ID,
-		"name":             team.Name,
-		"max_budget":       team.MaxBudget,
-		"current_spend":    team.CurrentSpend,
-		"remaining":        team.MaxBudget - team.CurrentSpend,
-		"utilization":      calculateUtilization(team.CurrentSpend, team.MaxBudget),
-		"budget_duration":  team.BudgetDuration,
-		"budget_reset_at":  team.BudgetResetAt,
-		"is_exceeded":      team.IsBudgetExceeded(),
+		"id":              team.ID,
+		"name":            team.Name,
+		"max_budget":      team.MaxBudget,
+		"current_spend":   team.CurrentSpend,
+		"remaining":       team.MaxBudget - team.CurrentSpend,
+		"utilization":     calculateUtilization(team.CurrentSpend, team.MaxBudget),
+		"budget_duration": team.BudgetDuration,
+		"budget_reset_at": team.BudgetResetAt,
+		"is_exceeded":     team.IsBudgetExceeded(),
 	}
 
 	if outputJSON {
@@ -407,13 +406,13 @@ func showKeyBudgetDB(ctx context.Context, keyID uuid.UUID) error {
 	}
 
 	status := map[string]interface{}{
-		"id":               key.ID,
-		"name":             key.Name,
-		"max_budget":       maxBudget,
-		"current_spend":    key.CurrentSpend,
-		"remaining":        maxBudget - key.CurrentSpend,
-		"utilization":      calculateUtilization(key.CurrentSpend, maxBudget),
-		"is_exceeded":      key.IsBudgetExceeded(),
+		"id":            key.ID,
+		"name":          key.Name,
+		"max_budget":    maxBudget,
+		"current_spend": key.CurrentSpend,
+		"remaining":     maxBudget - key.CurrentSpend,
+		"utilization":   calculateUtilization(key.CurrentSpend, maxBudget),
+		"is_exceeded":   key.IsBudgetExceeded(),
 	}
 
 	if outputJSON {
@@ -556,7 +555,7 @@ func showBudgetUsageDB(ctx context.Context, userID, teamID, keyID string, days i
 		}
 
 		OutputTable(headers, rows)
-		
+
 		fmt.Printf("\nSummary (last %d days):\n", days)
 		fmt.Printf("Total Entries: %d\n", len(tracking))
 		fmt.Printf("Total Tokens: %d\n", totalTokens)
@@ -611,10 +610,10 @@ func showBudgetStatusAPI(ctx context.Context, userID, teamID, keyID string) erro
 
 func setBudgetAPI(ctx context.Context, entityType string, entityID uuid.UUID, amount float64, duration string) error {
 	body := map[string]interface{}{
-		"entity_type":     entityType,
-		"entity_id":       entityID,
-		"amount":          amount,
-		"duration":        duration,
+		"entity_type": entityType,
+		"entity_id":   entityID,
+		"amount":      amount,
+		"duration":    duration,
 	}
 
 	resp, err := APIRequest("POST", "/api/budget/set", body)

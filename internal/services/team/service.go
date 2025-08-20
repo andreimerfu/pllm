@@ -7,16 +7,16 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	
+
 	"github.com/amerfu/pllm/internal/models"
 )
 
 var (
-	ErrTeamNotFound      = errors.New("team not found")
-	ErrTeamNameExists    = errors.New("team name already exists")
-	ErrUserNotInTeam     = errors.New("user not in team")
-	ErrInsufficientRole  = errors.New("insufficient role permissions")
-	ErrBudgetExceeded    = errors.New("team budget exceeded")
+	ErrTeamNotFound     = errors.New("team not found")
+	ErrTeamNameExists   = errors.New("team name already exists")
+	ErrUserNotInTeam    = errors.New("user not in team")
+	ErrInsufficientRole = errors.New("insufficient role permissions")
+	ErrBudgetExceeded   = errors.New("team budget exceeded")
 )
 
 type TeamService struct {
@@ -28,23 +28,23 @@ func NewTeamService(db *gorm.DB) *TeamService {
 }
 
 type CreateTeamRequest struct {
-	Name             string                `json:"name"`
-	Description      string                `json:"description"`
-	MaxBudget        float64               `json:"max_budget"`
-	BudgetDuration   models.BudgetPeriod   `json:"budget_duration"`
-	TPM              int                   `json:"tpm"`
-	RPM              int                   `json:"rpm"`
-	MaxParallelCalls int                   `json:"max_parallel_calls"`
-	AllowedModels    []string              `json:"allowed_models"`
-	BlockedModels    []string              `json:"blocked_models"`
+	Name             string              `json:"name"`
+	Description      string              `json:"description"`
+	MaxBudget        float64             `json:"max_budget"`
+	BudgetDuration   models.BudgetPeriod `json:"budget_duration"`
+	TPM              int                 `json:"tpm"`
+	RPM              int                 `json:"rpm"`
+	MaxParallelCalls int                 `json:"max_parallel_calls"`
+	AllowedModels    []string            `json:"allowed_models"`
+	BlockedModels    []string            `json:"blocked_models"`
 }
 
 type AddMemberRequest struct {
-	UserID    uuid.UUID        `json:"user_id"`
-	Role      models.TeamRole  `json:"role"`
-	MaxBudget *float64         `json:"max_budget,omitempty"`
-	CustomTPM *int             `json:"custom_tpm,omitempty"`
-	CustomRPM *int             `json:"custom_rpm,omitempty"`
+	UserID    uuid.UUID       `json:"user_id"`
+	Role      models.TeamRole `json:"role"`
+	MaxBudget *float64        `json:"max_budget,omitempty"`
+	CustomTPM *int            `json:"custom_tpm,omitempty"`
+	CustomRPM *int            `json:"custom_rpm,omitempty"`
 }
 
 // CreateTeam creates a new team
@@ -151,7 +151,7 @@ func (s *TeamService) DeleteTeam(ctx context.Context, teamID uuid.UUID) error {
 		if err := tx.Delete(&models.TeamMember{}, "team_id = ?", teamID).Error; err != nil {
 			return err
 		}
-		
+
 		// Delete team
 		result := tx.Delete(&models.Team{}, "id = ?", teamID)
 		if result.Error != nil {
@@ -160,7 +160,7 @@ func (s *TeamService) DeleteTeam(ctx context.Context, teamID uuid.UUID) error {
 		if result.RowsAffected == 0 {
 			return ErrTeamNotFound
 		}
-		
+
 		return nil
 	})
 }
@@ -335,17 +335,17 @@ func (s *TeamService) GetTeamStats(ctx context.Context, teamID uuid.UUID) (map[s
 	s.db.Model(&models.Key{}).Where("team_id = ?", teamID).Count(&keyCount)
 
 	stats := map[string]interface{}{
-		"team_id":          team.ID,
-		"name":             team.Name,
-		"member_count":     memberCount,
-		"key_count":        keyCount,
-		"current_spend":    team.CurrentSpend,
-		"max_budget":       team.MaxBudget,
-		"budget_remaining": team.MaxBudget - team.CurrentSpend,
+		"team_id":           team.ID,
+		"name":              team.Name,
+		"member_count":      memberCount,
+		"key_count":         keyCount,
+		"current_spend":     team.CurrentSpend,
+		"max_budget":        team.MaxBudget,
+		"budget_remaining":  team.MaxBudget - team.CurrentSpend,
 		"budget_percentage": 0.0,
-		"budget_reset_at":  team.BudgetResetAt,
-		"is_active":        team.IsActive,
-		"created_at":       team.CreatedAt,
+		"budget_reset_at":   team.BudgetResetAt,
+		"is_active":         team.IsActive,
+		"created_at":        team.CreatedAt,
 	}
 
 	if team.MaxBudget > 0 {
@@ -419,7 +419,7 @@ func (s *TeamService) GetTeamMembers(ctx context.Context, teamID uuid.UUID) ([]*
 // GetOrCreateDefaultTeam gets or creates the default team for auto-provisioning
 func (s *TeamService) GetOrCreateDefaultTeam(ctx context.Context) (*models.Team, error) {
 	const defaultTeamName = "default"
-	
+
 	// Try to find existing default team
 	team, err := s.GetTeamByName(ctx, defaultTeamName)
 	if err == nil {
@@ -428,23 +428,23 @@ func (s *TeamService) GetOrCreateDefaultTeam(ctx context.Context) (*models.Team,
 	if err != ErrTeamNotFound {
 		return nil, err
 	}
-	
+
 	// Create default team with reasonable defaults
 	req := &CreateTeamRequest{
 		Name:             defaultTeamName,
 		Description:      "Default team for auto-provisioned users",
 		MaxBudget:        100.0, // $100 per month
 		BudgetDuration:   models.BudgetPeriodMonthly,
-		TPM:              1000,  // 1000 tokens per minute
-		RPM:              100,   // 100 requests per minute
+		TPM:              1000, // 1000 tokens per minute
+		RPM:              100,  // 100 requests per minute
 		MaxParallelCalls: 5,
 		AllowedModels:    []string{"gpt-3.5-turbo", "gpt-4o-mini"}, // Safe, cost-effective models
-		BlockedModels:    []string{}, // No blocked models initially
+		BlockedModels:    []string{},                               // No blocked models initially
 	}
-	
+
 	// Use master key user ID as owner (won't be added as member due to special handling)
 	masterKeyUserID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
-	
+
 	return s.CreateTeam(ctx, req, masterKeyUserID)
 }
 
@@ -455,7 +455,7 @@ func (s *TeamService) AddUserToDefaultTeam(ctx context.Context, userID uuid.UUID
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Check if user is already a member
 	var count int64
 	if err := s.db.Model(&models.TeamMember{}).
@@ -469,7 +469,7 @@ func (s *TeamService) AddUserToDefaultTeam(ctx context.Context, userID uuid.UUID
 		err := s.db.Preload("User").Where("team_id = ? AND user_id = ?", defaultTeam.ID, userID).First(&member).Error
 		return &member, err
 	}
-	
+
 	// Set user budget based on role
 	var maxBudget *float64
 	switch role {
@@ -480,7 +480,7 @@ func (s *TeamService) AddUserToDefaultTeam(ctx context.Context, userID uuid.UUID
 		budget := 50.0 // $50 for admins
 		maxBudget = &budget
 	}
-	
+
 	req := &AddMemberRequest{
 		UserID:    userID,
 		Role:      role,
@@ -488,6 +488,6 @@ func (s *TeamService) AddUserToDefaultTeam(ctx context.Context, userID uuid.UUID
 		CustomTPM: nil, // Use team defaults
 		CustomRPM: nil, // Use team defaults
 	}
-	
+
 	return s.AddMember(ctx, defaultTeam.ID, req)
 }

@@ -63,7 +63,7 @@ func (h *OAuthHandler) TokenExchange(w http.ResponseWriter, r *http.Request) {
 
 	// Exchange the authorization code for tokens
 	tokenURL := fmt.Sprintf("%s/token", strings.TrimSuffix(h.dexURL, "/"))
-	
+
 	data := url.Values{}
 	data.Set("grant_type", "authorization_code")
 	data.Set("code", req.Code)
@@ -92,12 +92,12 @@ func (h *OAuthHandler) TokenExchange(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		h.logger.Error("Token exchange failed", 
+		h.logger.Error("Token exchange failed",
 			zap.Int("status", resp.StatusCode),
 			zap.Any("response", responseBody),
 			zap.String("code", req.Code),
 			zap.String("redirect_uri", req.RedirectURI))
-		
+
 		// Return the error from Dex to the frontend
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -137,7 +137,7 @@ func (h *OAuthHandler) UserInfo(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch user info from Dex
 	userInfoURL := fmt.Sprintf("%s/userinfo", strings.TrimSuffix(h.dexURL, "/"))
-	
+
 	req, err := http.NewRequestWithContext(context.Background(), "GET", userInfoURL, nil)
 	if err != nil {
 		h.logger.Error("Failed to create userinfo request", zap.Error(err))
@@ -189,11 +189,11 @@ func (h *OAuthHandler) autoProvisionUser(userInfo map[string]interface{}) error 
 	name, _ := userInfo["name"].(string)
 	preferredUsername, _ := userInfo["preferred_username"].(string)
 	emailVerified, _ := userInfo["email_verified"].(bool)
-	
+
 	// Extract connector_id to determine the provider
 	connectorID, _ := userInfo["connector_id"].(string)
 	provider := h.getProviderFromConnectorID(connectorID)
-	
+
 	// Extract groups if present
 	var groups []string
 	if groupsInterface, ok := userInfo["groups"].([]interface{}); ok {
@@ -203,13 +203,13 @@ func (h *OAuthHandler) autoProvisionUser(userInfo map[string]interface{}) error 
 			}
 		}
 	}
-	
+
 	// Generate username if not provided
 	username := preferredUsername
 	if username == "" {
 		username = strings.Split(email, "@")[0]
 	}
-	
+
 	// Split name into first and last
 	firstName := ""
 	lastName := ""
@@ -220,16 +220,16 @@ func (h *OAuthHandler) autoProvisionUser(userInfo map[string]interface{}) error 
 			lastName = parts[1]
 		}
 	}
-	
+
 	// Extract avatar URL if available
 	avatarURL, _ := userInfo["picture"].(string)
-	
+
 	// Check if user exists
 	var user models.User
 	err := h.db.Where("dex_id = ?", sub).First(&user).Error
-	
+
 	now := time.Now()
-	
+
 	if err == gorm.ErrRecordNotFound {
 		// Create new user
 		user = models.User{
@@ -256,15 +256,15 @@ func (h *OAuthHandler) autoProvisionUser(userInfo map[string]interface{}) error 
 			RPM:              60,
 			MaxParallelCalls: 5,
 		}
-		
+
 		if err := h.db.Create(&user).Error; err != nil {
 			return fmt.Errorf("failed to create user: %w", err)
 		}
-		
+
 		// Add user to default team
 		_, err := h.teamService.AddUserToDefaultTeam(context.Background(), user.ID, models.TeamRoleMember)
 		if err != nil {
-			h.logger.Warn("Failed to add new user to default team", 
+			h.logger.Warn("Failed to add new user to default team",
 				zap.String("dex_id", sub),
 				zap.String("user_id", user.ID.String()),
 				zap.Error(err))
@@ -274,7 +274,7 @@ func (h *OAuthHandler) autoProvisionUser(userInfo map[string]interface{}) error 
 				zap.String("dex_id", sub),
 				zap.String("user_id", user.ID.String()))
 		}
-		
+
 		h.logger.Info("Auto-provisioned new user from Dex",
 			zap.String("dex_id", sub),
 			zap.String("email", email),
@@ -294,11 +294,11 @@ func (h *OAuthHandler) autoProvisionUser(userInfo map[string]interface{}) error 
 		if lastName != "" {
 			user.LastName = lastName
 		}
-		
+
 		if err := h.db.Save(&user).Error; err != nil {
 			return fmt.Errorf("failed to update user: %w", err)
 		}
-		
+
 		h.logger.Info("Updated existing user from Dex",
 			zap.String("dex_id", sub),
 			zap.String("email", email),
@@ -306,7 +306,7 @@ func (h *OAuthHandler) autoProvisionUser(userInfo map[string]interface{}) error 
 	} else {
 		return fmt.Errorf("database error: %w", err)
 	}
-	
+
 	return nil
 }
 

@@ -72,7 +72,7 @@ func initConfig() error {
 		if err != nil {
 			return fmt.Errorf("failed to connect to database: %w", err)
 		}
-		
+
 		// Auto-migrate models
 		if err := db.AutoMigrate(
 			&models.User{},

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -33,11 +34,11 @@ type DexAuthProvider struct {
 
 type AuthClaims struct {
 	jwt.RegisteredClaims
-	Email         string   `json:"email"`
-	EmailVerified bool     `json:"email_verified"`
-	Name          string   `json:"name"`
-	Groups        []string `json:"groups"`
-	PreferredUsername string `json:"preferred_username"`
+	Email             string   `json:"email"`
+	EmailVerified     bool     `json:"email_verified"`
+	Name              string   `json:"name"`
+	Groups            []string `json:"groups"`
+	PreferredUsername string   `json:"preferred_username"`
 }
 
 type Session struct {
@@ -55,6 +56,24 @@ type Session struct {
 
 func NewDexAuthProvider(config *DexConfig) (*DexAuthProvider, error) {
 	ctx := context.Background()
+
+	// Create a custom HTTP client that resolves localhost:5556 to dex:5556 for Docker environments
+	// This allows Dex to advertise localhost:5556 (for browsers) while backend connects to dex:5556
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				// Replace localhost:5556 with dex:5556 for internal Docker communication
+				if addr == "localhost:5556" {
+					addr = "dex:5556"
+				}
+				dialer := &net.Dialer{}
+				return dialer.DialContext(ctx, network, addr)
+			},
+		},
+	}
+	
+	// Create context with custom HTTP client
+	ctx = oidc.ClientContext(ctx, httpClient)
 
 	provider, err := oidc.NewProvider(ctx, config.Issuer)
 	if err != nil {
@@ -120,60 +139,60 @@ func (d *DexAuthProvider) RefreshToken(ctx context.Context, refreshToken string)
 	tokenSource := d.oauth2Config.TokenSource(ctx, &oauth2.Token{
 		RefreshToken: refreshToken,
 	})
-	
+
 	return tokenSource.Token()
 }
 
 func (d *DexAuthProvider) GetUserInfo(ctx context.Context, accessToken string) (map[string]interface{}, error) {
 	userInfoURL := strings.TrimSuffix(d.config.Issuer, "/") + "/userinfo"
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", userInfoURL, nil)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("userinfo request failed with status: %d", resp.StatusCode)
 	}
-	
+
 	var userInfo map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
 		return nil, err
 	}
-	
+
 	return userInfo, nil
 }
 
 func (d *DexAuthProvider) RevokeToken(ctx context.Context, token string) error {
 	revokeURL := strings.TrimSuffix(d.config.Issuer, "/") + "/token/revoke"
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", revokeURL, strings.NewReader("token="+token))
 	if err != nil {
 		return err
 	}
-	
+
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.SetBasicAuth(d.config.ClientID, d.config.ClientSecret)
-	
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("revoke request failed with status: %d", resp.StatusCode)
 	}
-	
+
 	return nil
 }

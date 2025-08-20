@@ -308,7 +308,7 @@ func (l *Logger) GetAuditLogs(ctx context.Context, filters AuditLogFilters) ([]m
 	// Apply pagination and ordering
 	var logs []models.Audit
 	query = query.Order("timestamp DESC")
-	
+
 	if filters.Offset > 0 {
 		query = query.Offset(filters.Offset)
 	}
@@ -343,12 +343,12 @@ func getClientIP(r *http.Request) string {
 		// Take the first IP in the chain
 		return forwarded
 	}
-	
+
 	// Check X-Real-IP header
 	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
 		return realIP
 	}
-	
+
 	// Fall back to RemoteAddr
 	return r.RemoteAddr
 }

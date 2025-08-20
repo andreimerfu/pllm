@@ -8,31 +8,31 @@ import (
 // AdaptiveBreaker is a circuit breaker that considers both failures and latency
 type AdaptiveBreaker struct {
 	mu sync.RWMutex
-	
+
 	// Failure tracking
 	failures        int
 	lastFailureTime time.Time
-	
+
 	// Latency tracking
-	latencyWindow   []time.Duration
-	windowSize      int
-	slowRequests    int
-	
+	latencyWindow []time.Duration
+	windowSize    int
+	slowRequests  int
+
 	// Circuit state
 	state State // CLOSED, OPEN, HALF_OPEN
-	
+
 	// Configuration
-	failureThreshold   int
-	latencyThreshold   time.Duration  // Requests slower than this count as "slow"
-	slowRequestLimit   int             // Number of slow requests before opening
-	cooldownPeriod     time.Duration
-	halfOpenRequests   int             // Requests allowed in half-open state
-	halfOpenSuccesses  int             // Successes needed to close circuit
-	
+	failureThreshold  int
+	latencyThreshold  time.Duration // Requests slower than this count as "slow"
+	slowRequestLimit  int           // Number of slow requests before opening
+	cooldownPeriod    time.Duration
+	halfOpenRequests  int // Requests allowed in half-open state
+	halfOpenSuccesses int // Successes needed to close circuit
+
 	// Metrics
-	totalRequests      int64
-	currentConcurrent  int32
-	maxConcurrent      int32
+	totalRequests     int64
+	currentConcurrent int32
+	maxConcurrent     int32
 }
 
 type State int
@@ -54,7 +54,7 @@ func NewAdaptiveBreaker(failureThreshold int, latencyThreshold time.Duration, sl
 		latencyWindow:     make([]time.Duration, 0, 100),
 		halfOpenRequests:  3,
 		halfOpenSuccesses: 2,
-		state:            StateClosed,
+		state:             StateClosed,
 	}
 }
 
@@ -62,11 +62,11 @@ func NewAdaptiveBreaker(failureThreshold int, latencyThreshold time.Duration, sl
 func (ab *AdaptiveBreaker) CanRequest() bool {
 	ab.mu.Lock()
 	defer ab.mu.Unlock()
-	
+
 	switch ab.state {
 	case StateClosed:
 		return true
-		
+
 	case StateOpen:
 		// Check if cooldown has passed
 		if time.Since(ab.lastFailureTime) > ab.cooldownPeriod {
@@ -76,7 +76,7 @@ func (ab *AdaptiveBreaker) CanRequest() bool {
 			return true
 		}
 		return false
-		
+
 	case StateHalfOpen:
 		// Allow limited requests in half-open state
 		if ab.halfOpenRequests > 0 {
@@ -84,7 +84,7 @@ func (ab *AdaptiveBreaker) CanRequest() bool {
 			return true
 		}
 		return false
-		
+
 	default:
 		return false
 	}
@@ -94,16 +94,16 @@ func (ab *AdaptiveBreaker) CanRequest() bool {
 func (ab *AdaptiveBreaker) RecordSuccess(latency time.Duration) {
 	ab.mu.Lock()
 	defer ab.mu.Unlock()
-	
+
 	ab.totalRequests++
-	
+
 	// Track latency
 	ab.addLatency(latency)
-	
+
 	// Check if this was a slow request
 	if latency > ab.latencyThreshold {
 		ab.slowRequests++
-		
+
 		// Check if we should open due to slow requests
 		if ab.slowRequests >= ab.slowRequestLimit && ab.state == StateClosed {
 			ab.openCircuit("too many slow requests")
@@ -115,7 +115,7 @@ func (ab *AdaptiveBreaker) RecordSuccess(latency time.Duration) {
 			ab.slowRequests--
 		}
 	}
-	
+
 	// Handle state transitions
 	switch ab.state {
 	case StateHalfOpen:
@@ -126,7 +126,7 @@ func (ab *AdaptiveBreaker) RecordSuccess(latency time.Duration) {
 			ab.failures = 0
 			ab.slowRequests = 0
 		}
-		
+
 	case StateClosed:
 		// Reset failure counter on success
 		if ab.failures > 0 {
@@ -139,17 +139,17 @@ func (ab *AdaptiveBreaker) RecordSuccess(latency time.Duration) {
 func (ab *AdaptiveBreaker) RecordFailure() {
 	ab.mu.Lock()
 	defer ab.mu.Unlock()
-	
+
 	ab.totalRequests++
 	ab.failures++
 	ab.lastFailureTime = time.Now()
-	
+
 	switch ab.state {
 	case StateClosed:
 		if ab.failures >= ab.failureThreshold {
 			ab.openCircuit("too many failures")
 		}
-		
+
 	case StateHalfOpen:
 		// Failed during recovery, reopen
 		ab.openCircuit("failed in half-open state")
@@ -160,12 +160,12 @@ func (ab *AdaptiveBreaker) RecordFailure() {
 func (ab *AdaptiveBreaker) RecordTimeout() {
 	ab.mu.Lock()
 	defer ab.mu.Unlock()
-	
+
 	ab.totalRequests++
 	ab.failures++
 	ab.slowRequests++
 	ab.lastFailureTime = time.Now()
-	
+
 	// Timeouts are critical - open immediately in any state
 	ab.openCircuit("timeout detected")
 }
@@ -174,7 +174,7 @@ func (ab *AdaptiveBreaker) RecordTimeout() {
 func (ab *AdaptiveBreaker) StartRequest() {
 	ab.mu.Lock()
 	defer ab.mu.Unlock()
-	
+
 	ab.currentConcurrent++
 	if ab.currentConcurrent > ab.maxConcurrent {
 		ab.maxConcurrent = ab.currentConcurrent
@@ -185,7 +185,7 @@ func (ab *AdaptiveBreaker) StartRequest() {
 func (ab *AdaptiveBreaker) EndRequest() {
 	ab.mu.Lock()
 	defer ab.mu.Unlock()
-	
+
 	if ab.currentConcurrent > 0 {
 		ab.currentConcurrent--
 	}
@@ -202,16 +202,16 @@ func (ab *AdaptiveBreaker) GetConcurrent() int32 {
 func (ab *AdaptiveBreaker) GetAverageLatency() time.Duration {
 	ab.mu.RLock()
 	defer ab.mu.RUnlock()
-	
+
 	if len(ab.latencyWindow) == 0 {
 		return 0
 	}
-	
+
 	var total time.Duration
 	for _, lat := range ab.latencyWindow {
 		total += lat
 	}
-	
+
 	return total / time.Duration(len(ab.latencyWindow))
 }
 
@@ -219,17 +219,17 @@ func (ab *AdaptiveBreaker) GetAverageLatency() time.Duration {
 func (ab *AdaptiveBreaker) GetP95Latency() time.Duration {
 	ab.mu.RLock()
 	defer ab.mu.RUnlock()
-	
+
 	if len(ab.latencyWindow) == 0 {
 		return 0
 	}
-	
+
 	// Simple P95 calculation (not perfectly accurate but fast)
 	index := int(float64(len(ab.latencyWindow)) * 0.95)
 	if index >= len(ab.latencyWindow) {
 		index = len(ab.latencyWindow) - 1
 	}
-	
+
 	return ab.latencyWindow[index]
 }
 
@@ -237,16 +237,16 @@ func (ab *AdaptiveBreaker) GetP95Latency() time.Duration {
 func (ab *AdaptiveBreaker) GetState() map[string]interface{} {
 	ab.mu.RLock()
 	defer ab.mu.RUnlock()
-	
+
 	return map[string]interface{}{
-		"state":             ab.state.String(),
-		"failures":          ab.failures,
-		"slow_requests":     ab.slowRequests,
-		"avg_latency":       ab.GetAverageLatency().String(),
-		"p95_latency":       ab.GetP95Latency().String(),
-		"concurrent":        ab.currentConcurrent,
-		"max_concurrent":    ab.maxConcurrent,
-		"total_requests":    ab.totalRequests,
+		"state":          ab.state.String(),
+		"failures":       ab.failures,
+		"slow_requests":  ab.slowRequests,
+		"avg_latency":    ab.GetAverageLatency().String(),
+		"p95_latency":    ab.GetP95Latency().String(),
+		"concurrent":     ab.currentConcurrent,
+		"max_concurrent": ab.maxConcurrent,
+		"total_requests": ab.totalRequests,
 	}
 }
 
@@ -254,7 +254,7 @@ func (ab *AdaptiveBreaker) GetState() map[string]interface{} {
 func (ab *AdaptiveBreaker) Reset() {
 	ab.mu.Lock()
 	defer ab.mu.Unlock()
-	
+
 	ab.state = StateClosed
 	ab.failures = 0
 	ab.slowRequests = 0

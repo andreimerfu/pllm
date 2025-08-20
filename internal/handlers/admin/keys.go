@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	
+
 	"github.com/amerfu/pllm/internal/models"
 	"github.com/amerfu/pllm/internal/services/audit"
 	"github.com/amerfu/pllm/internal/services/budget"
@@ -20,19 +20,19 @@ import (
 // KeyHandler handles admin key management operations
 type KeyHandler struct {
 	baseHandler
-	db           *gorm.DB
-	auditLogger  *audit.Logger
+	db            *gorm.DB
+	auditLogger   *audit.Logger
 	budgetTracker *budget.Tracker
-	keyGenerator *key.KeyGenerator
+	keyGenerator  *key.KeyGenerator
 }
 
 func NewKeyHandler(logger *zap.Logger, db *gorm.DB) *KeyHandler {
 	return &KeyHandler{
 		baseHandler:   baseHandler{logger: logger},
-		db:           db,
-		auditLogger:  audit.NewLogger(db),
+		db:            db,
+		auditLogger:   audit.NewLogger(db),
 		budgetTracker: budget.NewTracker(db),
-		keyGenerator: key.NewKeyGenerator(),
+		keyGenerator:  key.NewKeyGenerator(),
 	}
 }
 
@@ -47,8 +47,8 @@ type KeyResponse struct {
 	models.Key
 	PlaintextKey string `json:"plaintext_key,omitempty"` // Only returned on creation
 	Usage        struct {
-		TotalRequests int64     `json:"total_requests"`
-		TotalCost     float64   `json:"total_cost"`
+		TotalRequests int64      `json:"total_requests"`
+		TotalCost     float64    `json:"total_cost"`
 		LastUsed      *time.Time `json:"last_used"`
 	} `json:"usage"`
 }
@@ -60,11 +60,11 @@ func (h *KeyHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	
+
 	// Generate the key
 	var plaintextKey, hashedKey string
 	var err error
-	
+
 	switch req.KeyType {
 	case "api":
 		plaintextKey, hashedKey, err = h.keyGenerator.GenerateAPIKey()
@@ -74,12 +74,12 @@ func (h *KeyHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusBadRequest, "Invalid key type")
 		return
 	}
-	
+
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, "Failed to generate key")
 		return
 	}
-	
+
 	// Create key record
 	k := models.Key{
 		BaseModel: models.BaseModel{ID: uuid.New()},
@@ -90,21 +90,21 @@ func (h *KeyHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 		IsActive:  true,
 		TeamID:    req.TeamID,
 	}
-	
+
 	if err := h.db.Create(&k).Error; err != nil {
 		h.sendError(w, http.StatusInternalServerError, "Failed to create key")
 		return
 	}
-	
+
 	// Log audit event - use system user for admin actions
 	systemUserID := uuid.New()
 	h.auditLogger.LogKeyCreated(r.Context(), systemUserID, req.TeamID, k.ID, req.KeyType)
-	
+
 	response := KeyResponse{
 		Key:          k,
 		PlaintextKey: plaintextKey,
 	}
-	
+
 	h.sendJSON(w, http.StatusCreated, response)
 }
 
@@ -114,42 +114,42 @@ func (h *KeyHandler) ListKeys(w http.ResponseWriter, r *http.Request) {
 	if page < 1 {
 		page = 1
 	}
-	
+
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit < 1 || limit > 100 {
 		limit = 20
 	}
-	
+
 	offset := (page - 1) * limit
-	
+
 	// Build query with filters
 	query := h.db.Model(&models.Key{})
-	
+
 	if teamID := r.URL.Query().Get("team_id"); teamID != "" {
 		if id, err := uuid.Parse(teamID); err == nil {
 			query = query.Where("team_id = ?", id)
 		}
 	}
-	
+
 	if keyType := r.URL.Query().Get("key_type"); keyType != "" {
 		query = query.Where("key_type = ?", keyType)
 	}
-	
+
 	if isActive := r.URL.Query().Get("is_active"); isActive != "" {
 		if active, err := strconv.ParseBool(isActive); err == nil {
 			query = query.Where("is_active = ?", active)
 		}
 	}
-	
+
 	var keys []models.Key
 	var total int64
-	
+
 	// Get total count
 	if err := query.Count(&total).Error; err != nil {
 		h.sendError(w, http.StatusInternalServerError, "Failed to count keys")
 		return
 	}
-	
+
 	// Get keys with usage data
 	if err := query.Preload("User").Preload("Team").
 		Offset(offset).Limit(limit).
@@ -158,28 +158,28 @@ func (h *KeyHandler) ListKeys(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusInternalServerError, "Failed to fetch keys")
 		return
 	}
-	
+
 	// Build response with usage statistics
 	var keyResponses []KeyResponse
 	for _, k := range keys {
 		response := KeyResponse{Key: k}
-		
+
 		// Get usage statistics
 		var usageStats struct {
-			TotalRequests int64     `gorm:"column:total_requests"`
-			TotalCost     float64   `gorm:"column:total_cost"`
+			TotalRequests int64      `gorm:"column:total_requests"`
+			TotalCost     float64    `gorm:"column:total_cost"`
 			LastUsed      *time.Time `gorm:"column:last_used"`
 		}
-		
+
 		h.db.Model(&models.Usage{}).
 			Select("COUNT(*) as total_requests, COALESCE(SUM(cost), 0) as total_cost, MAX(created_at) as last_used").
 			Where("key_id = ?", k.ID).
 			Scan(&usageStats)
-		
+
 		response.Usage.TotalRequests = usageStats.TotalRequests
 		response.Usage.TotalCost = usageStats.TotalCost
 		response.Usage.LastUsed = usageStats.LastUsed
-		
+
 		keyResponses = append(keyResponses, response)
 	}
 
@@ -201,7 +201,7 @@ func (h *KeyHandler) GetKey(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusBadRequest, "Invalid key ID")
 		return
 	}
-	
+
 	var k models.Key
 	if err := h.db.Preload("User").Preload("Team").First(&k, keyID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -211,25 +211,25 @@ func (h *KeyHandler) GetKey(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusInternalServerError, "Failed to fetch key")
 		return
 	}
-	
+
 	response := KeyResponse{Key: k}
-	
+
 	// Get usage statistics
 	var usageStats struct {
-		TotalRequests int64     `gorm:"column:total_requests"`
-		TotalCost     float64   `gorm:"column:total_cost"`
+		TotalRequests int64      `gorm:"column:total_requests"`
+		TotalCost     float64    `gorm:"column:total_cost"`
 		LastUsed      *time.Time `gorm:"column:last_used"`
 	}
-	
+
 	h.db.Model(&models.Usage{}).
 		Select("COUNT(*) as total_requests, COALESCE(SUM(cost), 0) as total_cost, MAX(created_at) as last_used").
 		Where("key_id = ?", k.ID).
 		Scan(&usageStats)
-	
+
 	response.Usage.TotalRequests = usageStats.TotalRequests
 	response.Usage.TotalCost = usageStats.TotalCost
 	response.Usage.LastUsed = usageStats.LastUsed
-	
+
 	h.sendJSON(w, http.StatusOK, response)
 }
 
@@ -246,13 +246,13 @@ func (h *KeyHandler) UpdateKey(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusBadRequest, "Invalid key ID")
 		return
 	}
-	
+
 	var req UpdateKeyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.sendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	
+
 	var k models.Key
 	if err := h.db.First(&k, keyID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -262,15 +262,15 @@ func (h *KeyHandler) UpdateKey(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusInternalServerError, "Failed to fetch key")
 		return
 	}
-	
+
 	// Track changes for audit log
 	changes := make(map[string]interface{})
-	
+
 	if req.Name != nil && *req.Name != k.Name {
 		changes["name"] = map[string]string{"from": k.Name, "to": *req.Name}
 		k.Name = *req.Name
 	}
-	
+
 	if req.ExpiresAt != nil {
 		var fromStr, toStr string
 		if k.ExpiresAt != nil {
@@ -282,17 +282,17 @@ func (h *KeyHandler) UpdateKey(w http.ResponseWriter, r *http.Request) {
 		changes["expires_at"] = map[string]string{"from": fromStr, "to": toStr}
 		k.ExpiresAt = req.ExpiresAt
 	}
-	
+
 	if req.IsActive != nil && *req.IsActive != k.IsActive {
 		changes["is_active"] = map[string]bool{"from": k.IsActive, "to": *req.IsActive}
 		k.IsActive = *req.IsActive
 	}
-	
+
 	if err := h.db.Save(&k).Error; err != nil {
 		h.sendError(w, http.StatusInternalServerError, "Failed to update key")
 		return
 	}
-	
+
 	// Log audit event if there were changes
 	if len(changes) > 0 {
 		systemUserID := uuid.New()
@@ -303,7 +303,7 @@ func (h *KeyHandler) UpdateKey(w http.ResponseWriter, r *http.Request) {
 			Details:    changes,
 		})
 	}
-	
+
 	h.sendJSON(w, http.StatusOK, k)
 }
 
@@ -314,7 +314,7 @@ func (h *KeyHandler) DeleteKey(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusBadRequest, "Invalid key ID")
 		return
 	}
-	
+
 	var k models.Key
 	if err := h.db.First(&k, keyID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -324,18 +324,18 @@ func (h *KeyHandler) DeleteKey(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusInternalServerError, "Failed to fetch key")
 		return
 	}
-	
+
 	// Soft delete by setting is_active to false
 	k.IsActive = false
 	if err := h.db.Save(&k).Error; err != nil {
 		h.sendError(w, http.StatusInternalServerError, "Failed to delete key")
 		return
 	}
-	
+
 	// Log audit event
 	systemUserID := uuid.New()
 	h.auditLogger.LogKeyDeleted(r.Context(), systemUserID, k.TeamID, k.ID, string(k.Type))
-	
+
 	h.sendJSON(w, http.StatusOK, map[string]string{"message": "Key deleted successfully"})
 }
 
@@ -351,7 +351,7 @@ func (h *KeyHandler) GetKeyUsage(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusBadRequest, "Invalid key ID")
 		return
 	}
-	
+
 	// Check if key exists
 	var k models.Key
 	if err := h.db.First(&k, keyID).Error; err != nil {
@@ -362,48 +362,48 @@ func (h *KeyHandler) GetKeyUsage(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusInternalServerError, "Failed to fetch key")
 		return
 	}
-	
+
 	// Get usage statistics by model
 	var usageStats []struct {
-		Model        string    `json:"model"`
-		TotalRequests int64    `json:"total_requests"`
-		TotalCost    float64   `json:"total_cost"`
-		InputTokens  int64     `json:"input_tokens"`
-		OutputTokens int64     `json:"output_tokens"`
-		LastUsed     time.Time `json:"last_used"`
+		Model         string    `json:"model"`
+		TotalRequests int64     `json:"total_requests"`
+		TotalCost     float64   `json:"total_cost"`
+		InputTokens   int64     `json:"input_tokens"`
+		OutputTokens  int64     `json:"output_tokens"`
+		LastUsed      time.Time `json:"last_used"`
 	}
-	
+
 	err = h.db.Model(&models.Usage{}).
 		Select("model, COUNT(*) as total_requests, COALESCE(SUM(cost), 0) as total_cost, COALESCE(SUM(input_tokens), 0) as input_tokens, COALESCE(SUM(output_tokens), 0) as output_tokens, MAX(created_at) as last_used").
 		Where("key_id = ?", keyID).
 		Group("model").
 		Order("total_cost DESC").
 		Scan(&usageStats).Error
-	
+
 	if err != nil {
 		h.sendError(w, http.StatusInternalServerError, "Failed to fetch usage statistics")
 		return
 	}
-	
+
 	// Get total statistics
 	var totalStats struct {
-		TotalRequests int64   `gorm:"column:total_requests"`
-		TotalCost     float64 `gorm:"column:total_cost"`
-		TotalInputTokens  int64 `gorm:"column:total_input_tokens"`
-		TotalOutputTokens int64 `gorm:"column:total_output_tokens"`
+		TotalRequests     int64   `gorm:"column:total_requests"`
+		TotalCost         float64 `gorm:"column:total_cost"`
+		TotalInputTokens  int64   `gorm:"column:total_input_tokens"`
+		TotalOutputTokens int64   `gorm:"column:total_output_tokens"`
 	}
-	
+
 	h.db.Model(&models.Usage{}).
 		Select("COUNT(*) as total_requests, COALESCE(SUM(cost), 0) as total_cost, COALESCE(SUM(input_tokens), 0) as total_input_tokens, COALESCE(SUM(output_tokens), 0) as total_output_tokens").
 		Where("key_id = ?", keyID).
 		Scan(&totalStats)
-	
+
 	response := map[string]interface{}{
 		"key_id":      keyID,
 		"by_model":    usageStats,
 		"total_stats": totalStats,
 	}
-	
+
 	h.sendJSON(w, http.StatusOK, response)
 }
 
@@ -417,13 +417,13 @@ func (h *KeyHandler) ValidateKey(w http.ResponseWriter, r *http.Request) {
 	type ValidateKeyRequest struct {
 		Key string `json:"key" validate:"required"`
 	}
-	
+
 	var req ValidateKeyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.sendError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	
+
 	// Validate key format
 	if err := h.keyGenerator.ValidateKeyFormat(req.Key); err != nil {
 		h.sendJSON(w, http.StatusOK, map[string]interface{}{
@@ -432,10 +432,10 @@ func (h *KeyHandler) ValidateKey(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	
+
 	// Hash the key to check database
 	hashedKey := h.keyGenerator.HashKey(req.Key)
-	
+
 	// Check if key exists and is active
 	var k models.Key
 	err := h.db.Where("key_hash = ? AND is_active = ?", hashedKey, true).First(&k).Error
@@ -450,7 +450,7 @@ func (h *KeyHandler) ValidateKey(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusInternalServerError, "Failed to validate key")
 		return
 	}
-	
+
 	// Check if key is expired
 	if k.ExpiresAt != nil && k.ExpiresAt.Before(time.Now()) {
 		h.sendJSON(w, http.StatusOK, map[string]interface{}{
@@ -459,7 +459,7 @@ func (h *KeyHandler) ValidateKey(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	
+
 	h.sendJSON(w, http.StatusOK, map[string]interface{}{
 		"valid":    true,
 		"key_id":   k.ID,

@@ -156,7 +156,7 @@ func newUserUpdateCommand(ctx context.Context) *cobra.Command {
 			}
 
 			updates := make(map[string]interface{})
-			
+
 			if cmd.Flags().Changed("role") {
 				updates["role"] = role
 			}

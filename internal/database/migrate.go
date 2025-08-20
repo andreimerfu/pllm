@@ -5,29 +5,29 @@ import (
 	"log"
 
 	"gorm.io/gorm"
-	
+
 	"github.com/amerfu/pllm/internal/models"
 )
 
 // AutoMigrate runs database migrations
 func AutoMigrate(db *gorm.DB) error {
 	log.Println("Running database migrations...")
-	
+
 	// Auto-migrate all models
 	err := db.AutoMigrate(
 		&models.User{},
 		&models.Team{},
 		&models.TeamMember{},
-		&models.Key{},      // Unified key model
+		&models.Key{}, // Unified key model
 		&models.Budget{},
 		&models.Usage{},
-		&models.Audit{},    // Audit logging
+		&models.Audit{}, // Audit logging
 	)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
-	
+
 	log.Println("Database migrations completed successfully")
 	return nil
 }
@@ -45,7 +45,7 @@ func InitializeDatabase(db *gorm.DB, runSeeder bool) error {
 	if err := AutoMigrate(db); err != nil {
 		return err
 	}
-	
+
 	// Check if database needs seeding
 	if runSeeder && IsEmpty(db) {
 		log.Println("Database is empty, running initial seed...")
@@ -53,11 +53,11 @@ func InitializeDatabase(db *gorm.DB, runSeeder bool) error {
 		if err := seeder.SeedAll(); err != nil {
 			return fmt.Errorf("failed to seed database: %w", err)
 		}
-		
+
 		// Print summary
 		printInitialSeedSummary(db)
 	}
-	
+
 	return nil
 }
 
@@ -66,7 +66,7 @@ func printInitialSeedSummary(db *gorm.DB) {
 	db.Model(&models.User{}).Count(&userCount)
 	db.Model(&models.Team{}).Count(&teamCount)
 	db.Model(&models.Key{}).Count(&keyCount)
-	
+
 	log.Println("========================================")
 	log.Println("Database initialized with seed data:")
 	log.Printf("  • Users: %d", userCount)

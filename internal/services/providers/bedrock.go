@@ -18,12 +18,12 @@ import (
 
 // BedrockProvider implements AWS Bedrock LLM provider
 type BedrockProvider struct {
-	mu       sync.RWMutex
-	name     string
-	config   ProviderConfig
-	client   *http.Client
-	healthy  bool
-	models   []string
+	mu      sync.RWMutex
+	name    string
+	config  ProviderConfig
+	client  *http.Client
+	healthy bool
+	models  []string
 }
 
 // BedrockAuth contains AWS authentication details
@@ -39,24 +39,24 @@ func NewBedrockProvider(name string, config ProviderConfig) (*BedrockProvider, e
 	if config.APIKey == "" || config.APISecret == "" {
 		return nil, fmt.Errorf("AWS access key and secret key are required")
 	}
-	
+
 	region := config.Region
 	if region == "" {
 		region = "us-east-1"
 	}
-	
+
 	baseURL := config.BaseURL
 	if baseURL == "" {
 		baseURL = fmt.Sprintf("https://bedrock-runtime.%s.amazonaws.com", region)
 	}
-	
+
 	config.BaseURL = baseURL
 	config.Region = region
-	
+
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
-	
+
 	p := &BedrockProvider{
 		name:    name,
 		config:  config,
@@ -76,7 +76,7 @@ func NewBedrockProvider(name string, config ProviderConfig) (*BedrockProvider, e
 			"mistral.mixtral-8x7b-instruct-v0:1",
 		},
 	}
-	
+
 	return p, nil
 }
 
@@ -86,7 +86,7 @@ func (p *BedrockProvider) ChatCompletion(ctx context.Context, request *ChatReque
 	var body []byte
 	var err error
 	var endpoint string
-	
+
 	if strings.HasPrefix(request.Model, "anthropic.") {
 		body, err = p.transformClaudeRequest(request)
 		endpoint = fmt.Sprintf("/model/%s/invoke", request.Model)
@@ -99,34 +99,34 @@ func (p *BedrockProvider) ChatCompletion(ctx context.Context, request *ChatReque
 	} else {
 		return nil, fmt.Errorf("unsupported model: %s", request.Model)
 	}
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform request: %w", err)
 	}
-	
+
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, "POST", p.config.BaseURL+endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Sign request with AWS Signature V4
 	if err := p.signRequest(req, body); err != nil {
 		return nil, fmt.Errorf("failed to sign request: %w", err)
 	}
-	
+
 	// Send request
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("bedrock API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
-	
+
 	// Parse response based on model type
 	if strings.HasPrefix(request.Model, "anthropic.") {
 		return p.parseClaudeResponse(resp.Body, request.Model)
@@ -135,7 +135,7 @@ func (p *BedrockProvider) ChatCompletion(ctx context.Context, request *ChatReque
 	} else if strings.HasPrefix(request.Model, "mistral.") {
 		return p.parseMistralResponse(resp.Body, request.Model)
 	}
-	
+
 	return nil, fmt.Errorf("unsupported model: %s", request.Model)
 }
 
@@ -145,50 +145,50 @@ func (p *BedrockProvider) ChatCompletionStream(ctx context.Context, request *Cha
 	if !strings.HasPrefix(request.Model, "anthropic.") {
 		return nil, fmt.Errorf("streaming not supported for model: %s", request.Model)
 	}
-	
+
 	streamChan := make(chan StreamResponse, 100)
-	
+
 	go func() {
 		defer close(streamChan)
-		
+
 		// Transform request based on model type
 		var body []byte
 		var err error
 		var endpoint string
-		
+
 		body, err = p.transformClaudeRequest(request)
 		endpoint = fmt.Sprintf("/model/%s/invoke-with-response-stream", request.Model)
-		
+
 		if err != nil {
 			return // Just close channel on error
 		}
-		
+
 		// Create HTTP request
 		req, err := http.NewRequestWithContext(ctx, "POST", p.config.BaseURL+endpoint, bytes.NewReader(body))
 		if err != nil {
 			return // Just close channel on error
 		}
-		
+
 		// Sign request
 		if err := p.signRequest(req, body); err != nil {
 			return // Just close channel on error
 		}
-		
+
 		// Send request
 		resp, err := p.client.Do(req)
 		if err != nil {
 			return // Just close channel on error
 		}
 		defer resp.Body.Close()
-		
+
 		if resp.StatusCode != http.StatusOK {
 			return // Just close channel on error
 		}
-		
+
 		// Parse streaming response
 		p.parseStreamResponse(resp.Body, streamChan)
 	}()
-	
+
 	return streamChan, nil
 }
 
@@ -197,36 +197,36 @@ func (p *BedrockProvider) signRequest(req *http.Request, body []byte) error {
 	// Set required headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	
+
 	// Calculate body hash
 	bodyHash := sha256.Sum256(body)
 	req.Header.Set("X-Amz-Content-Sha256", hex.EncodeToString(bodyHash[:]))
-	
+
 	// Set date
 	now := time.Now().UTC()
 	dateTime := now.Format("20060102T150405Z")
 	date := now.Format("20060102")
 	req.Header.Set("X-Amz-Date", dateTime)
-	
+
 	// Add session token if present
 	if p.config.OrgID != "" { // Using OrgID to store session token
 		req.Header.Set("X-Amz-Security-Token", p.config.OrgID)
 	}
-	
+
 	// Create canonical request
 	canonicalRequest := p.createCanonicalRequest(req, hex.EncodeToString(bodyHash[:]))
-	
+
 	// Create string to sign
 	stringToSign := p.createStringToSign(dateTime, date, canonicalRequest)
-	
+
 	// Calculate signature
 	signature := p.calculateSignature(date, stringToSign)
-	
+
 	// Add authorization header
 	authHeader := fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s/%s/bedrock/aws4_request, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date, Signature=%s",
 		p.config.APIKey, date, p.config.Region, signature)
 	req.Header.Set("Authorization", authHeader)
-	
+
 	return nil
 }
 
@@ -236,7 +236,7 @@ func (p *BedrockProvider) createCanonicalRequest(req *http.Request, bodyHash str
 		req.Host,
 		bodyHash,
 		req.Header.Get("X-Amz-Date"))
-	
+
 	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s",
 		req.Method,
 		req.URL.Path,
@@ -277,11 +277,11 @@ func (p *BedrockProvider) transformClaudeRequest(request *ChatRequest) ([]byte, 
 		"anthropic_version": "bedrock-2023-05-31",
 		"messages":          []map[string]interface{}{},
 	}
-	
+
 	// Extract system message if present
 	var systemMsg string
 	messages := []map[string]interface{}{}
-	
+
 	for _, msg := range request.Messages {
 		if msg.Role == "system" {
 			if content, ok := msg.Content.(string); ok {
@@ -289,45 +289,45 @@ func (p *BedrockProvider) transformClaudeRequest(request *ChatRequest) ([]byte, 
 			}
 			continue
 		}
-		
+
 		claudeMsg := map[string]interface{}{
 			"role": msg.Role,
 		}
-		
+
 		// Handle content
 		if content, ok := msg.Content.(string); ok {
 			claudeMsg["content"] = content
 		} else if contentArray, ok := msg.Content.([]interface{}); ok {
 			claudeMsg["content"] = contentArray
 		}
-		
+
 		messages = append(messages, claudeMsg)
 	}
-	
+
 	if systemMsg != "" {
 		claudeReq["system"] = systemMsg
 	}
 	claudeReq["messages"] = messages
-	
+
 	// Add optional parameters
 	if request.MaxTokens != nil {
 		claudeReq["max_tokens"] = *request.MaxTokens
 	} else {
 		claudeReq["max_tokens"] = 2000 // Default for Claude
 	}
-	
+
 	if request.Temperature != nil {
 		claudeReq["temperature"] = *request.Temperature
 	}
-	
+
 	if request.TopP != nil {
 		claudeReq["top_p"] = *request.TopP
 	}
-	
+
 	if len(request.Stop) > 0 {
 		claudeReq["stop_sequences"] = request.Stop
 	}
-	
+
 	return json.Marshal(claudeReq)
 }
 
@@ -335,13 +335,13 @@ func (p *BedrockProvider) transformClaudeRequest(request *ChatRequest) ([]byte, 
 func (p *BedrockProvider) transformLlamaRequest(request *ChatRequest) ([]byte, error) {
 	// Build prompt in Llama format
 	var prompt strings.Builder
-	
+
 	for _, msg := range request.Messages {
 		content := ""
 		if str, ok := msg.Content.(string); ok {
 			content = str
 		}
-		
+
 		switch msg.Role {
 		case "system":
 			prompt.WriteString(fmt.Sprintf("<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n%s<|eot_id|>", content))
@@ -352,24 +352,24 @@ func (p *BedrockProvider) transformLlamaRequest(request *ChatRequest) ([]byte, e
 		}
 	}
 	prompt.WriteString("<|start_header_id|>assistant<|end_header_id|>\n\n")
-	
+
 	llamaReq := map[string]interface{}{
 		"prompt": prompt.String(),
 	}
-	
+
 	// Add optional parameters
 	if request.MaxTokens != nil {
 		llamaReq["max_gen_len"] = *request.MaxTokens
 	}
-	
+
 	if request.Temperature != nil {
 		llamaReq["temperature"] = *request.Temperature
 	}
-	
+
 	if request.TopP != nil {
 		llamaReq["top_p"] = *request.TopP
 	}
-	
+
 	return json.Marshal(llamaReq)
 }
 
@@ -377,13 +377,13 @@ func (p *BedrockProvider) transformLlamaRequest(request *ChatRequest) ([]byte, e
 func (p *BedrockProvider) transformMistralRequest(request *ChatRequest) ([]byte, error) {
 	// Build prompt in Mistral format
 	var prompt strings.Builder
-	
+
 	for _, msg := range request.Messages {
 		content := ""
 		if str, ok := msg.Content.(string); ok {
 			content = str
 		}
-		
+
 		switch msg.Role {
 		case "system":
 			prompt.WriteString(fmt.Sprintf("<s>[INST] %s [/INST]", content))
@@ -393,24 +393,24 @@ func (p *BedrockProvider) transformMistralRequest(request *ChatRequest) ([]byte,
 			prompt.WriteString(fmt.Sprintf(" %s </s>", content))
 		}
 	}
-	
+
 	mistralReq := map[string]interface{}{
 		"prompt": prompt.String(),
 	}
-	
+
 	// Add optional parameters
 	if request.MaxTokens != nil {
 		mistralReq["max_tokens"] = *request.MaxTokens
 	}
-	
+
 	if request.Temperature != nil {
 		mistralReq["temperature"] = *request.Temperature
 	}
-	
+
 	if request.TopP != nil {
 		mistralReq["top_p"] = *request.TopP
 	}
-	
+
 	return json.Marshal(mistralReq)
 }
 
@@ -427,11 +427,11 @@ func (p *BedrockProvider) parseClaudeResponse(body io.Reader, model string) (*Ch
 			OutputTokens int `json:"output_tokens"`
 		} `json:"usage"`
 	}
-	
+
 	if err := json.NewDecoder(body).Decode(&claudeResp); err != nil {
 		return nil, err
 	}
-	
+
 	// Build response text
 	var responseText strings.Builder
 	for _, content := range claudeResp.Content {
@@ -439,7 +439,7 @@ func (p *BedrockProvider) parseClaudeResponse(body io.Reader, model string) (*Ch
 			responseText.WriteString(content.Text)
 		}
 	}
-	
+
 	return &ChatResponse{
 		ID:      fmt.Sprintf("bedrock-%d", time.Now().Unix()),
 		Object:  "chat.completion",
@@ -466,16 +466,16 @@ func (p *BedrockProvider) parseClaudeResponse(body io.Reader, model string) (*Ch
 // Parse Llama response
 func (p *BedrockProvider) parseLlamaResponse(body io.Reader, model string) (*ChatResponse, error) {
 	var llamaResp struct {
-		Generation       string `json:"generation"`
-		PromptTokenCount int    `json:"prompt_token_count"`
-		GenerationTokenCount int `json:"generation_token_count"`
-		StopReason       string `json:"stop_reason"`
+		Generation           string `json:"generation"`
+		PromptTokenCount     int    `json:"prompt_token_count"`
+		GenerationTokenCount int    `json:"generation_token_count"`
+		StopReason           string `json:"stop_reason"`
 	}
-	
+
 	if err := json.NewDecoder(body).Decode(&llamaResp); err != nil {
 		return nil, err
 	}
-	
+
 	return &ChatResponse{
 		ID:      fmt.Sprintf("bedrock-%d", time.Now().Unix()),
 		Object:  "chat.completion",
@@ -503,22 +503,22 @@ func (p *BedrockProvider) parseLlamaResponse(body io.Reader, model string) (*Cha
 func (p *BedrockProvider) parseMistralResponse(body io.Reader, model string) (*ChatResponse, error) {
 	var mistralResp struct {
 		Outputs []struct {
-			Text string `json:"text"`
+			Text       string `json:"text"`
 			StopReason string `json:"stop_reason"`
 		} `json:"outputs"`
 	}
-	
+
 	if err := json.NewDecoder(body).Decode(&mistralResp); err != nil {
 		return nil, err
 	}
-	
+
 	responseText := ""
 	stopReason := ""
 	if len(mistralResp.Outputs) > 0 {
 		responseText = mistralResp.Outputs[0].Text
 		stopReason = mistralResp.Outputs[0].StopReason
 	}
-	
+
 	return &ChatResponse{
 		ID:      fmt.Sprintf("bedrock-%d", time.Now().Unix()),
 		Object:  "chat.completion",
@@ -540,23 +540,23 @@ func (p *BedrockProvider) parseMistralResponse(body io.Reader, model string) (*C
 // Parse streaming response
 func (p *BedrockProvider) parseStreamResponse(body io.Reader, streamChan chan<- StreamResponse) {
 	scanner := bufio.NewScanner(body)
-	
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		// AWS event stream format
 		if strings.HasPrefix(line, ":event-type:") {
 			// Skip metadata lines
 			continue
 		}
-		
+
 		// Parse JSON payload
 		if strings.HasPrefix(line, "{") {
 			var event map[string]interface{}
 			if err := json.Unmarshal([]byte(line), &event); err != nil {
 				continue
 			}
-			
+
 			// Extract content delta
 			if delta, ok := event["delta"].(map[string]interface{}); ok {
 				if text, ok := delta["text"].(string); ok {
@@ -640,12 +640,12 @@ func (p *BedrockProvider) HealthCheck(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Sign the request
 	if err := p.signRequest(req, []byte{}); err != nil {
 		return err
 	}
-	
+
 	resp, err := p.client.Do(req)
 	if err != nil {
 		p.mu.Lock()
@@ -654,10 +654,10 @@ func (p *BedrockProvider) HealthCheck(ctx context.Context) error {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	p.mu.Lock()
 	p.healthy = resp.StatusCode < 500
 	p.mu.Unlock()
-	
+
 	return nil
 }

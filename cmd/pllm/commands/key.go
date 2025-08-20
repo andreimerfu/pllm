@@ -236,17 +236,17 @@ func generateKeyDB(ctx context.Context, keyRequest *models.KeyRequest) error {
 	}
 
 	key := &models.Key{
-		Name:       keyRequest.Name,
-		Type:       keyRequest.Type,
-		Key:        keyValue,
-		KeyHash:    keyHash,
-		KeyPrefix:  keyHash[:8],
-		UserID:     keyRequest.UserID,
-		TeamID:     keyRequest.TeamID,
-		IsActive:   true,
-		MaxBudget:  keyRequest.MaxBudget,
-		TPM:        keyRequest.TPM,
-		RPM:        keyRequest.RPM,
+		Name:             keyRequest.Name,
+		Type:             keyRequest.Type,
+		Key:              keyValue,
+		KeyHash:          keyHash,
+		KeyPrefix:        keyHash[:8],
+		UserID:           keyRequest.UserID,
+		TeamID:           keyRequest.TeamID,
+		IsActive:         true,
+		MaxBudget:        keyRequest.MaxBudget,
+		TPM:              keyRequest.TPM,
+		RPM:              keyRequest.RPM,
 		MaxParallelCalls: keyRequest.MaxParallelCalls,
 	}
 
@@ -387,7 +387,7 @@ func getKeyDB(ctx context.Context, keyID uuid.UUID) error {
 		fmt.Printf("Name: %s\n", key.Name)
 		fmt.Printf("Type: %s\n", key.Type)
 		fmt.Printf("Prefix: %s\n", key.KeyPrefix)
-		
+
 		if key.User != nil {
 			fmt.Printf("User: %s (%s)\n", key.User.Email, key.User.ID)
 		}
@@ -398,14 +398,14 @@ func getKeyDB(ctx context.Context, keyID uuid.UUID) error {
 		fmt.Printf("Active: %v\n", key.IsActive)
 		fmt.Printf("Revoked: %v\n", key.IsRevoked())
 		fmt.Printf("Expired: %v\n", key.IsExpired())
-		
+
 		if key.MaxBudget != nil {
 			fmt.Printf("Budget: $%.2f / $%.2f\n", key.CurrentSpend, *key.MaxBudget)
 		}
-		
-		fmt.Printf("Usage: %d requests, %d tokens, $%.4f\n", 
+
+		fmt.Printf("Usage: %d requests, %d tokens, $%.4f\n",
 			key.UsageCount, key.TotalTokens, key.TotalCost)
-		
+
 		if key.ExpiresAt != nil {
 			fmt.Printf("Expires: %s\n", key.ExpiresAt.Format("2006-01-02 15:04:05"))
 		}
@@ -413,7 +413,7 @@ func getKeyDB(ctx context.Context, keyID uuid.UUID) error {
 			fmt.Printf("Last Used: %s\n", key.LastUsedAt.Format("2006-01-02 15:04:05"))
 		}
 		fmt.Printf("Created: %s\n", key.CreatedAt.Format("2006-01-02 15:04:05"))
-		
+
 		if key.IsRevoked() {
 			fmt.Printf("Revoked: %s\n", key.RevokedAt.Format("2006-01-02 15:04:05"))
 			if key.RevocationReason != "" {
@@ -488,7 +488,7 @@ func generateKeyAPI(ctx context.Context, keyRequest *models.KeyRequest) error {
 
 func listKeysAPI(ctx context.Context, userID, teamID string, limit, offset int, showRevoked bool) error {
 	endpoint := fmt.Sprintf("/api/keys?limit=%d&offset=%d", limit, offset)
-	
+
 	if userID != "" {
 		endpoint += "&user_id=" + userID
 	}

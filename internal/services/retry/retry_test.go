@@ -15,7 +15,7 @@ import (
 
 func TestDefaultConfig(t *testing.T) {
 	config := DefaultConfig()
-	
+
 	assert.Equal(t, 3, config.MaxAttempts)
 	assert.Equal(t, 1*time.Second, config.InitialDelay)
 	assert.Equal(t, 30*time.Second, config.MaxDelay)
@@ -68,7 +68,7 @@ func TestDo_Success(t *testing.T) {
 	}
 
 	err := Do(ctx, config, fn, DefaultIsRetryable)
-	
+
 	assert.NoError(t, err)
 	assert.Equal(t, 1, callCount)
 }
@@ -93,7 +93,7 @@ func TestDo_EventualSuccess(t *testing.T) {
 	}
 
 	err := Do(ctx, config, fn, DefaultIsRetryable)
-	
+
 	assert.NoError(t, err)
 	assert.Equal(t, 2, callCount)
 }
@@ -116,7 +116,7 @@ func TestDo_MaxAttemptsReached(t *testing.T) {
 	}
 
 	err := Do(ctx, config, fn, DefaultIsRetryable)
-	
+
 	assert.Error(t, err)
 	assert.Equal(t, expectedErr, err)
 	assert.Equal(t, 3, callCount)
@@ -140,7 +140,7 @@ func TestDo_NonRetryableError(t *testing.T) {
 	}
 
 	err := Do(ctx, config, fn, DefaultIsRetryable)
-	
+
 	assert.Error(t, err)
 	assert.Equal(t, expectedErr, err)
 	assert.Equal(t, 1, callCount) // Should not retry
@@ -170,7 +170,7 @@ func TestDo_ContextCancellation(t *testing.T) {
 	}
 
 	err := Do(ctx, config, fn, DefaultIsRetryable)
-	
+
 	assert.Error(t, err)
 	assert.Equal(t, context.Canceled, err)
 	assert.Equal(t, 1, callCount) // Should only call once before cancellation
@@ -178,7 +178,7 @@ func TestDo_ContextCancellation(t *testing.T) {
 
 func TestDo_WithNilConfig(t *testing.T) {
 	ctx := context.Background()
-	
+
 	callCount := 0
 	fn := func(ctx context.Context) error {
 		callCount++
@@ -186,7 +186,7 @@ func TestDo_WithNilConfig(t *testing.T) {
 	}
 
 	err := Do(ctx, nil, fn, DefaultIsRetryable)
-	
+
 	assert.NoError(t, err)
 	assert.Equal(t, 1, callCount)
 }
@@ -194,7 +194,7 @@ func TestDo_WithNilConfig(t *testing.T) {
 func TestDo_WithNilIsRetryable(t *testing.T) {
 	ctx := context.Background()
 	config := DefaultConfig()
-	
+
 	callCount := 0
 	fn := func(ctx context.Context) error {
 		callCount++
@@ -205,14 +205,14 @@ func TestDo_WithNilIsRetryable(t *testing.T) {
 	}
 
 	err := Do(ctx, config, fn, nil)
-	
+
 	assert.NoError(t, err)
 	assert.Equal(t, 2, callCount)
 }
 
 func TestDoWithBackoff(t *testing.T) {
 	ctx := context.Background()
-	
+
 	callCount := 0
 	fn := func(ctx context.Context) error {
 		callCount++
@@ -223,14 +223,14 @@ func TestDoWithBackoff(t *testing.T) {
 	}
 
 	err := DoWithBackoff(ctx, 3, fn)
-	
+
 	assert.NoError(t, err)
 	assert.Equal(t, 2, callCount)
 }
 
 func TestSimple(t *testing.T) {
 	ctx := context.Background()
-	
+
 	callCount := 0
 	fn := func(ctx context.Context) error {
 		callCount++
@@ -241,7 +241,7 @@ func TestSimple(t *testing.T) {
 	}
 
 	err := Simple(ctx, 3, 10*time.Millisecond, fn)
-	
+
 	assert.NoError(t, err)
 	assert.Equal(t, 3, callCount)
 }
@@ -263,7 +263,7 @@ func TestCalculateBackoff(t *testing.T) {
 		{3, 4 * time.Second},
 		{4, 8 * time.Second},
 		{5, 16 * time.Second},
-		{6, 30 * time.Second}, // Capped at MaxDelay
+		{6, 30 * time.Second},  // Capped at MaxDelay
 		{10, 30 * time.Second}, // Still capped
 	}
 
@@ -298,19 +298,19 @@ func TestDo_ExponentialBackoff(t *testing.T) {
 
 	start := time.Now()
 	err := Do(ctx, config, fn, DefaultIsRetryable)
-	
+
 	assert.Error(t, err)
 	assert.Len(t, callTimes, 4)
 
 	// Check that delays are approximately exponential
 	// First call is immediate
 	assert.WithinDuration(t, start, callTimes[0], 5*time.Millisecond)
-	
+
 	// Second call should be after InitialDelay (10ms)
 	expectedDelay1 := 10 * time.Millisecond
 	actualDelay1 := callTimes[1].Sub(callTimes[0])
 	assert.InDelta(t, expectedDelay1.Nanoseconds(), actualDelay1.Nanoseconds(), float64(5*time.Millisecond.Nanoseconds()))
-	
+
 	// Third call should be after 20ms (10ms * 2.0)
 	expectedDelay2 := 20 * time.Millisecond
 	actualDelay2 := callTimes[2].Sub(callTimes[1])
@@ -329,14 +329,14 @@ func TestDo_JitterEffect(t *testing.T) {
 
 	var delays []time.Duration
 	callTimes := make([]time.Time, 0)
-	
+
 	fn := func(ctx context.Context) error {
 		callTimes = append(callTimes, time.Now())
 		return errors.New("timeout error")
 	}
 
 	Do(ctx, config, fn, DefaultIsRetryable)
-	
+
 	// Calculate actual delays
 	for i := 1; i < len(callTimes); i++ {
 		delays = append(delays, callTimes[i].Sub(callTimes[i-1]))
@@ -349,11 +349,11 @@ func TestDo_JitterEffect(t *testing.T) {
 		if expectedBase > config.MaxDelay {
 			expectedBase = config.MaxDelay
 		}
-		
+
 		// Jitter adds up to 30% of the delay
 		minExpected := expectedBase
 		maxExpected := expectedBase + time.Duration(float64(expectedBase)*0.3)
-		
+
 		assert.True(t, delay >= minExpected, "Delay %v should be at least %v", delay, minExpected)
 		assert.True(t, delay <= maxExpected+10*time.Millisecond, "Delay %v should be at most %v", delay, maxExpected)
 	}
@@ -446,7 +446,7 @@ func BenchmarkDo_WithRetries(b *testing.B) {
 
 func BenchmarkDefaultIsRetryable(b *testing.B) {
 	err := errors.New("connection timeout error")
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		DefaultIsRetryable(err)
@@ -455,7 +455,7 @@ func BenchmarkDefaultIsRetryable(b *testing.B) {
 
 func BenchmarkCalculateBackoff(b *testing.B) {
 	config := DefaultConfig()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		CalculateBackoff(5, config)
@@ -538,7 +538,7 @@ func TestDo_EdgeCases(t *testing.T) {
 			MaxDelay:     1 * time.Second,
 			Multiplier:   2.0,
 		}
-		
+
 		callTimes := make([]time.Time, 0)
 		fn := func(ctx context.Context) error {
 			callTimes = append(callTimes, time.Now())
@@ -546,7 +546,7 @@ func TestDo_EdgeCases(t *testing.T) {
 		}
 
 		Do(ctx, config, fn, DefaultIsRetryable)
-		
+
 		require.Len(t, callTimes, 2)
 		// Should have minimal delay between calls
 		delay := callTimes[1].Sub(callTimes[0])
@@ -576,7 +576,7 @@ func TestDo_ConcurrentSafety(t *testing.T) {
 				}
 				return errors.New("timeout") // Half fail
 			}
-			
+
 			err := Do(ctx, config, fn, DefaultIsRetryable)
 			results <- err
 		}(i)

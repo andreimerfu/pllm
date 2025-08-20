@@ -16,14 +16,14 @@ var (
 
 func Initialize(cfg config.LoggingConfig) (*zap.Logger, error) {
 	var zapConfig zap.Config
-	
+
 	if cfg.Format == "json" {
 		zapConfig = zap.NewProductionConfig()
 	} else {
 		zapConfig = zap.NewDevelopmentConfig()
 		zapConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	}
-	
+
 	// Set log level
 	switch strings.ToLower(cfg.Level) {
 	case "debug":
@@ -39,7 +39,7 @@ func Initialize(cfg config.LoggingConfig) (*zap.Logger, error) {
 	default:
 		zapConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
 	}
-	
+
 	// Set output paths
 	if cfg.OutputPath != "" && cfg.OutputPath != "stdout" {
 		if cfg.OutputPath == "stderr" {
@@ -50,16 +50,16 @@ func Initialize(cfg config.LoggingConfig) (*zap.Logger, error) {
 			zapConfig.ErrorOutputPaths = []string{cfg.OutputPath}
 		}
 	}
-	
+
 	// Build logger
 	logger, err := zapConfig.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		return nil, err
 	}
-	
+
 	Logger = logger
 	Sugar = logger.Sugar()
-	
+
 	return logger, nil
 }
 
@@ -150,7 +150,7 @@ func SetLogLevel(level string) {
 	default:
 		zapLevel = zap.InfoLevel
 	}
-	
+
 	if Logger != nil {
 		Logger.Core().Enabled(zapLevel)
 	}

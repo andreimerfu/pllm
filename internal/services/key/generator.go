@@ -16,7 +16,7 @@ const (
 	KeyPrefixAPI     = "sk-api"
 	KeyPrefixVirtual = "sk-vrt"
 	KeyPrefixMaster  = "sk-mst"
-	
+
 	// Key lengths (before encoding)
 	KeyLengthBytes = 32
 )
@@ -50,19 +50,19 @@ func (kg *KeyGenerator) generateKey(prefix string) (string, string, error) {
 	if _, err := rand.Read(keyBytes); err != nil {
 		return "", "", fmt.Errorf("failed to generate random key: %w", err)
 	}
-	
+
 	// Encode to base64
 	keyData := base64.URLEncoding.EncodeToString(keyBytes)
-	
+
 	// Remove padding for cleaner keys
 	keyData = strings.TrimRight(keyData, "=")
-	
+
 	// Create full key with prefix
 	fullKey := fmt.Sprintf("%s-%s", prefix, keyData)
-	
+
 	// Hash the key for storage
 	hashedKey := kg.HashKey(fullKey)
-	
+
 	return fullKey, hashedKey, nil
 }
 
@@ -78,7 +78,7 @@ func (kg *KeyGenerator) ValidateKeyFormat(key string) error {
 	if len(parts) < 2 {
 		return fmt.Errorf("invalid key format: missing prefix")
 	}
-	
+
 	prefix := strings.Join(parts[:2], "-")
 	switch prefix {
 	case KeyPrefixAPI, KeyPrefixVirtual, KeyPrefixMaster:
@@ -86,16 +86,16 @@ func (kg *KeyGenerator) ValidateKeyFormat(key string) error {
 	default:
 		return fmt.Errorf("invalid key prefix: %s", prefix)
 	}
-	
+
 	if len(parts) < 3 {
 		return fmt.Errorf("invalid key format: missing key data")
 	}
-	
+
 	keyData := parts[2]
 	if len(keyData) < 32 {
 		return fmt.Errorf("invalid key format: key too short")
 	}
-	
+
 	return nil
 }
 

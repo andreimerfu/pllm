@@ -10,11 +10,11 @@ import (
 
 // Config defines retry behavior
 type Config struct {
-	MaxAttempts int           // Maximum number of attempts (including initial)
+	MaxAttempts  int           // Maximum number of attempts (including initial)
 	InitialDelay time.Duration // Initial delay between retries
-	MaxDelay    time.Duration  // Maximum delay between retries
-	Multiplier  float64        // Backoff multiplier
-	Jitter      bool          // Add jitter to delays
+	MaxDelay     time.Duration // Maximum delay between retries
+	Multiplier   float64       // Backoff multiplier
+	Jitter       bool          // Add jitter to delays
 }
 
 // DefaultConfig returns a sensible default configuration
@@ -39,7 +39,7 @@ func DefaultIsRetryable(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Check for common retryable error patterns
 	errStr := err.Error()
 	retryablePatterns := []string{
@@ -52,18 +52,18 @@ func DefaultIsRetryable(err error) bool {
 		"503", // Service unavailable
 		"504", // Gateway timeout
 	}
-	
+
 	for _, pattern := range retryablePatterns {
 		if containsString(errStr, pattern) {
 			return true
 		}
 	}
-	
+
 	// Check if error is context.DeadlineExceeded
 	if errors.Is(err, context.DeadlineExceeded) {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -72,35 +72,35 @@ func Do(ctx context.Context, config *Config, fn RetryableFunc, isRetryable IsRet
 	if config == nil {
 		config = DefaultConfig()
 	}
-	
+
 	if isRetryable == nil {
 		isRetryable = DefaultIsRetryable
 	}
-	
+
 	var lastErr error
 	delay := config.InitialDelay
-	
+
 	for attempt := 0; attempt < config.MaxAttempts; attempt++ {
 		// Execute the function
 		err := fn(ctx)
-		
+
 		// Success!
 		if err == nil {
 			return nil
 		}
-		
+
 		lastErr = err
-		
+
 		// Check if we should retry
 		if !isRetryable(err) {
 			return err // Non-retryable error
 		}
-		
+
 		// Check if this was the last attempt
 		if attempt == config.MaxAttempts-1 {
 			break
 		}
-		
+
 		// Calculate delay with exponential backoff
 		if attempt > 0 {
 			delay = time.Duration(float64(delay) * config.Multiplier)
@@ -108,14 +108,14 @@ func Do(ctx context.Context, config *Config, fn RetryableFunc, isRetryable IsRet
 				delay = config.MaxDelay
 			}
 		}
-		
+
 		// Add jitter if enabled
 		actualDelay := delay
 		if config.Jitter {
 			jitter := time.Duration(rand.Float64() * float64(delay) * 0.3)
 			actualDelay = delay + jitter
 		}
-		
+
 		// Wait before next attempt
 		select {
 		case <-time.After(actualDelay):
@@ -124,7 +124,7 @@ func Do(ctx context.Context, config *Config, fn RetryableFunc, isRetryable IsRet
 			return ctx.Err()
 		}
 	}
-	
+
 	return lastErr
 }
 
@@ -137,7 +137,7 @@ func DoWithBackoff(ctx context.Context, maxAttempts int, fn RetryableFunc) error
 		Multiplier:   2.0,
 		Jitter:       true,
 	}
-	
+
 	return Do(ctx, config, fn, DefaultIsRetryable)
 }
 
@@ -150,7 +150,7 @@ func Simple(ctx context.Context, attempts int, delay time.Duration, fn Retryable
 		Multiplier:   1.0,
 		Jitter:       false,
 	}
-	
+
 	return Do(ctx, config, fn, DefaultIsRetryable)
 }
 
@@ -159,16 +159,16 @@ func CalculateBackoff(attempt int, config *Config) time.Duration {
 	if config == nil {
 		config = DefaultConfig()
 	}
-	
+
 	if attempt <= 0 {
 		return config.InitialDelay
 	}
-	
+
 	delay := config.InitialDelay * time.Duration(math.Pow(config.Multiplier, float64(attempt-1)))
 	if delay > config.MaxDelay {
 		delay = config.MaxDelay
 	}
-	
+
 	return delay
 }
 

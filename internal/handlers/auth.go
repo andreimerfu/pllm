@@ -2,16 +2,16 @@ package handlers
 
 import (
 	"encoding/json"
-	"net/http"
 	"fmt"
+	"net/http"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"github.com/amerfu/pllm/internal/auth"
-	"github.com/amerfu/pllm/internal/models"
 	"github.com/amerfu/pllm/internal/middleware"
+	"github.com/amerfu/pllm/internal/models"
 )
 
 type AuthHandler struct {

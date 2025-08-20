@@ -13,28 +13,28 @@ type Team struct {
 	Name        string `gorm:"uniqueIndex;not null" json:"name"`
 	Description string `json:"description"`
 	IsActive    bool   `gorm:"default:true" json:"is_active"`
-	
+
 	// Budget Control
-	MaxBudget       float64       `json:"max_budget"`
-	BudgetDuration  BudgetPeriod  `json:"budget_duration"`
-	CurrentSpend    float64       `json:"current_spend"`
-	BudgetResetAt   time.Time     `json:"budget_reset_at"`
-	BudgetAlertAt   float64       `gorm:"default:80" json:"budget_alert_at"`
-	
+	MaxBudget      float64      `json:"max_budget"`
+	BudgetDuration BudgetPeriod `json:"budget_duration"`
+	CurrentSpend   float64      `json:"current_spend"`
+	BudgetResetAt  time.Time    `json:"budget_reset_at"`
+	BudgetAlertAt  float64      `gorm:"default:80" json:"budget_alert_at"`
+
 	// Rate Limiting
-	TPM              int `json:"tpm"`  // Tokens per minute
-	RPM              int `json:"rpm"`  // Requests per minute
+	TPM              int `json:"tpm"` // Tokens per minute
+	RPM              int `json:"rpm"` // Requests per minute
 	MaxParallelCalls int `json:"max_parallel_calls"`
-	
+
 	// Model Access Control
-	AllowedModels    []string `gorm:"type:text[]" json:"allowed_models"`
-	BlockedModels    []string `gorm:"type:text[]" json:"blocked_models"`
-	ModelAliases     datatypes.JSON `json:"model_aliases,omitempty"`
-	
+	AllowedModels []string       `gorm:"type:text[]" json:"allowed_models"`
+	BlockedModels []string       `gorm:"type:text[]" json:"blocked_models"`
+	ModelAliases  datatypes.JSON `json:"model_aliases,omitempty"`
+
 	// Configuration
 	Settings datatypes.JSON `json:"settings,omitempty"`
 	Metadata datatypes.JSON `json:"metadata,omitempty"`
-	
+
 	// Relationships
 	Members []TeamMember `gorm:"foreignKey:TeamID" json:"members,omitempty"`
 	Keys    []Key        `gorm:"foreignKey:TeamID" json:"keys,omitempty"`
@@ -42,19 +42,19 @@ type Team struct {
 
 // TeamMember represents a user's membership in a team
 type TeamMember struct {
-	ID        uuid.UUID     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	TeamID    uuid.UUID     `gorm:"type:uuid;not null" json:"team_id"`
-	Team      *Team         `gorm:"foreignKey:TeamID" json:"team,omitempty"`
-	UserID    uuid.UUID     `gorm:"type:uuid;not null" json:"user_id"`
-	User      *User         `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Role      TeamRole      `gorm:"type:varchar(20);default:'member'" json:"role"`
-	
+	ID     uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	TeamID uuid.UUID `gorm:"type:uuid;not null" json:"team_id"`
+	Team   *Team     `gorm:"foreignKey:TeamID" json:"team,omitempty"`
+	UserID uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
+	User   *User     `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Role   TeamRole  `gorm:"type:varchar(20);default:'member'" json:"role"`
+
 	// Member-specific limits (optional, overrides team defaults)
-	MaxBudget        *float64      `json:"max_budget,omitempty"`
-	CurrentSpend     float64       `json:"current_spend"`
-	CustomTPM        *int          `json:"custom_tpm,omitempty"`
-	CustomRPM        *int          `json:"custom_rpm,omitempty"`
-	
+	MaxBudget    *float64 `json:"max_budget,omitempty"`
+	CurrentSpend float64  `json:"current_spend"`
+	CustomTPM    *int     `json:"custom_tpm,omitempty"`
+	CustomRPM    *int     `json:"custom_rpm,omitempty"`
+
 	JoinedAt  time.Time  `json:"joined_at"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
@@ -62,10 +62,10 @@ type TeamMember struct {
 type TeamRole string
 
 const (
-	TeamRoleOwner   TeamRole = "owner"
-	TeamRoleAdmin   TeamRole = "admin"
-	TeamRoleMember  TeamRole = "member"
-	TeamRoleViewer  TeamRole = "viewer"
+	TeamRoleOwner  TeamRole = "owner"
+	TeamRoleAdmin  TeamRole = "admin"
+	TeamRoleMember TeamRole = "member"
+	TeamRoleViewer TeamRole = "viewer"
 )
 
 type TeamSettings struct {
@@ -74,16 +74,16 @@ type TeamSettings struct {
 	NotificationEmails []string `json:"notification_emails"`
 	AlertOnBudget      bool     `json:"alert_on_budget"`
 	AlertOnRateLimit   bool     `json:"alert_on_rate_limit"`
-	
+
 	// Advanced settings
-	EnableCaching      bool     `json:"enable_caching"`
-	CacheTTL           int      `json:"cache_ttl"`
-	EnableLogging      bool     `json:"enable_logging"`
-	LogLevel           string   `json:"log_level"`
-	
+	EnableCaching bool   `json:"enable_caching"`
+	CacheTTL      int    `json:"cache_ttl"`
+	EnableLogging bool   `json:"enable_logging"`
+	LogLevel      string `json:"log_level"`
+
 	// Cost settings
-	CostMultiplier     float64  `json:"cost_multiplier"`
-	PriorityLevel      int      `json:"priority_level"`
+	CostMultiplier float64 `json:"cost_multiplier"`
+	PriorityLevel  int     `json:"priority_level"`
 }
 
 func (t *Team) IsModelAllowed(model string) bool {
@@ -93,19 +93,19 @@ func (t *Team) IsModelAllowed(model string) bool {
 			return false
 		}
 	}
-	
+
 	// If no allowed models specified, allow all (except blocked)
 	if len(t.AllowedModels) == 0 {
 		return true
 	}
-	
+
 	// Check if model is in allowed list
 	for _, allowed := range t.AllowedModels {
 		if allowed == model || allowed == "*" {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -117,7 +117,7 @@ func (t *Team) ShouldAlertBudget() bool {
 	if t.MaxBudget <= 0 {
 		return false
 	}
-	
+
 	percentUsed := (t.CurrentSpend / t.MaxBudget) * 100
 	return percentUsed >= t.BudgetAlertAt
 }
@@ -128,7 +128,7 @@ func (t *Team) ShouldResetBudget() bool {
 
 func (t *Team) ResetBudget() {
 	t.CurrentSpend = 0
-	
+
 	now := time.Now()
 	switch t.BudgetDuration {
 	case BudgetPeriodDaily:

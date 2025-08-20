@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -15,7 +16,10 @@ import (
 	"github.com/amerfu/pllm/internal/router"
 	"github.com/amerfu/pllm/internal/services/cache"
 	"github.com/amerfu/pllm/internal/services/models"
+	redisService "github.com/amerfu/pllm/internal/services/redis"
+	"github.com/amerfu/pllm/internal/services/worker"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -152,6 +156,61 @@ func main() {
 	}
 	mainRouter := router.NewRouter(cfg, log, modelManager, db)
 
+	// Initialize background worker for async usage processing (if Redis available)
+	var usageProcessor *worker.UsageProcessor
+	var workerCtx context.Context
+	var workerCancel context.CancelFunc
+	
+	if !appMode.IsLiteMode && appMode.RedisAvailable && db != nil {
+		// Initialize Redis client for worker
+		redisAddr := cfg.Redis.URL
+		if strings.HasPrefix(redisAddr, "redis://") {
+			redisAddr = strings.TrimPrefix(redisAddr, "redis://")
+		}
+		
+		redisClient := redis.NewClient(&redis.Options{
+			Addr:     redisAddr,
+			Password: cfg.Redis.Password,
+			DB:       cfg.Redis.DB,
+		})
+
+		// Test Redis connection for worker
+		if err := redisClient.Ping(context.Background()).Err(); err != nil {
+			log.Warn("Redis not available for background worker", zap.Error(err))
+		} else {
+			// Initialize Redis services for worker
+			usageQueue := redisService.NewUsageQueue(&redisService.UsageQueueConfig{
+				Client:     redisClient,
+				Logger:     log,
+				QueueName:  "usage_processing_queue",
+				BatchSize:  50,
+				MaxRetries: 3,
+			})
+			budgetCache := redisService.NewBudgetCache(redisClient, log, 5*time.Minute)
+			lockManager := redisService.NewLockManager(redisClient, log)
+
+			// Create usage processor
+			usageProcessor = worker.NewUsageProcessor(&worker.UsageProcessorConfig{
+				DB:                 db,
+				Logger:             log,
+				UsageQueue:         usageQueue,
+				BudgetCache:        budgetCache,
+				LockManager:        lockManager,
+				BatchSize:          100,
+				ProcessingInterval: 30 * time.Second,
+			})
+
+			// Start background worker
+			workerCtx, workerCancel = context.WithCancel(context.Background())
+			go func() {
+				log.Info("Starting background usage processor")
+				if err := usageProcessor.Start(workerCtx); err != nil {
+					log.Error("Background usage processor failed", zap.Error(err))
+				}
+			}()
+		}
+	}
+
 	// Authentication middleware is now configured in the router
 
 	servers = append(servers, &http.Server{
@@ -166,7 +225,7 @@ func main() {
 	if !appMode.IsLiteMode {
 		// Admin routes are now mounted on the main router at /api/admin
 		// This simplifies deployment and frontend access
-		
+
 		// Create metrics router
 		metricsRouter := router.NewMetricsRouter(cfg, log)
 		servers = append(servers, &http.Server{
@@ -210,10 +269,15 @@ func main() {
 			zap.Bool("database", appMode.DatabaseAvailable),
 			zap.Bool("redis", appMode.RedisAvailable))
 	} else {
+		workerStatus := "disabled"
+		if usageProcessor != nil {
+			workerStatus = "running"
+		}
 		log.Info("pllm Gateway started successfully in FULL MODE",
 			zap.Int("api_port", cfg.Server.Port),
 			zap.Int("admin_port", cfg.Server.AdminPort),
-			zap.Int("metrics_port", cfg.Server.MetricsPort))
+			zap.Int("metrics_port", cfg.Server.MetricsPort),
+			zap.String("background_worker", workerStatus))
 	}
 
 	// Wait for interrupt signal to gracefully shutdown
@@ -222,6 +286,16 @@ func main() {
 	<-quit
 
 	log.Info("Shutting down servers...")
+
+	// Stop background worker first
+	if workerCancel != nil {
+		log.Info("Stopping background usage processor...")
+		workerCancel()
+		if usageProcessor != nil {
+			// Give worker time to finish current batch
+			time.Sleep(2 * time.Second)
+		}
+	}
 
 	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Server.GracefulShutdown)

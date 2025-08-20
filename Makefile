@@ -21,14 +21,30 @@ deps-update: ## Update Go dependencies
 build: docs-build ## Build the binary with embedded docs
 	go build -o bin/pllm cmd/server/main.go
 
+.PHONY: build-worker
+build-worker: ## Build the worker binary for background processing
+	go build -o bin/pllm-worker cmd/worker/main.go
+
+.PHONY: build-all
+build-all: build build-worker ## Build both server and worker binaries
+
 .PHONY: run
 run: ## Run the server locally
 	go run cmd/server/main.go
+
+.PHONY: run-worker
+run-worker: ## Run the worker locally
+	go run cmd/worker/main.go
 
 .PHONY: dev
 dev: ## Run with hot reload (requires air)
 	@which air > /dev/null || go install github.com/cosmtrek/air@latest
 	air
+
+.PHONY: dev-worker
+dev-worker: ## Run worker with hot reload (requires air)
+	@which air > /dev/null || go install github.com/cosmtrek/air@latest
+	air -c .air-worker.toml
 
 ##@ Docker
 
