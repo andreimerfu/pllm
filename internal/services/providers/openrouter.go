@@ -15,12 +15,12 @@ import (
 // OpenRouterProvider implements OpenRouter API provider
 type OpenRouterProvider struct {
 	*BaseProvider
-	apiKey         string
-	baseURL        string
-	client         *http.Client
-	httpReferer    string // Required by OpenRouter
-	xTitle         string // Optional title for OpenRouter dashboard
-	appName        string // App name for tracking
+	apiKey      string
+	baseURL     string
+	client      *http.Client
+	httpReferer string // Required by OpenRouter
+	xTitle      string // Optional title for OpenRouter dashboard
+	appName     string // App name for tracking
 }
 
 // OpenRouterError represents OpenRouter-specific error response
@@ -38,14 +38,14 @@ type OpenRouterModelsResponse struct {
 }
 
 type OpenRouterModel struct {
-	ID           string                 `json:"id"`
-	Name         string                 `json:"name"`
-	Description  string                 `json:"description"`
-	Pricing      OpenRouterPricing      `json:"pricing"`
-	ContextLength int                   `json:"context_length"`
-	Architecture OpenRouterArchitecture `json:"architecture"`
-	TopProvider  OpenRouterTopProvider  `json:"top_provider"`
-	PerRequestLimits map[string]int      `json:"per_request_limits"`
+	ID               string                 `json:"id"`
+	Name             string                 `json:"name"`
+	Description      string                 `json:"description"`
+	Pricing          OpenRouterPricing      `json:"pricing"`
+	ContextLength    int                    `json:"context_length"`
+	Architecture     OpenRouterArchitecture `json:"architecture"`
+	TopProvider      OpenRouterTopProvider  `json:"top_provider"`
+	PerRequestLimits map[string]int         `json:"per_request_limits"`
 }
 
 type OpenRouterPricing struct {
@@ -56,14 +56,14 @@ type OpenRouterPricing struct {
 }
 
 type OpenRouterArchitecture struct {
-	Modality    string   `json:"modality"`
-	Tokenizer   string   `json:"tokenizer"`
-	InstructType string  `json:"instruct_type"`
+	Modality     string `json:"modality"`
+	Tokenizer    string `json:"tokenizer"`
+	InstructType string `json:"instruct_type"`
 }
 
 type OpenRouterTopProvider struct {
-	MaxCompletionTokens int     `json:"max_completion_tokens"`
-	IsFree             bool     `json:"is_free"`
+	MaxCompletionTokens int  `json:"max_completion_tokens"`
+	IsFree              bool `json:"is_free"`
 }
 
 // NewOpenRouterProvider creates a new OpenRouter provider
@@ -121,12 +121,12 @@ func NewOpenRouterProvider(name string, cfg ProviderConfig) (*OpenRouterProvider
 
 	return &OpenRouterProvider{
 		BaseProvider: NewBaseProvider(name, "openrouter", cfg.Priority, models),
-		apiKey:      cfg.APIKey,
-		baseURL:     baseURL,
-		client:      client,
-		httpReferer: httpReferer,
-		xTitle:      xTitle,
-		appName:     appName,
+		apiKey:       cfg.APIKey,
+		baseURL:      baseURL,
+		client:       client,
+		httpReferer:  httpReferer,
+		xTitle:       xTitle,
+		appName:      appName,
 	}, nil
 }
 
@@ -199,13 +199,24 @@ func (p *OpenRouterProvider) ChatCompletionStream(ctx context.Context, request *
 		// Prepare the request body
 		reqBody, err := json.Marshal(request)
 		if err != nil {
-			return // Just close channel on error
+			// Send error to channel before closing
+			streamChan <- StreamResponse{
+				ID:      "error",
+				Object:  "error",
+				Choices: []StreamChoice{{Index: 0, Delta: Message{Role: "assistant", Content: fmt.Sprintf("Error marshaling request: %v", err)}}},
+			}
+			return
 		}
 
 		// Create HTTP request
 		req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/chat/completions", bytes.NewBuffer(reqBody))
 		if err != nil {
-			return // Just close channel on error
+			streamChan <- StreamResponse{
+				ID:      "error",
+				Object:  "error",
+				Choices: []StreamChoice{{Index: 0, Delta: Message{Role: "assistant", Content: fmt.Sprintf("Error creating request: %v", err)}}},
+			}
+			return
 		}
 
 		// Set headers
@@ -215,13 +226,25 @@ func (p *OpenRouterProvider) ChatCompletionStream(ctx context.Context, request *
 		// Make the request
 		resp, err := p.client.Do(req)
 		if err != nil {
-			return // Just close channel on error
+			streamChan <- StreamResponse{
+				ID:      "error",
+				Object:  "error",
+				Choices: []StreamChoice{{Index: 0, Delta: Message{Role: "assistant", Content: fmt.Sprintf("Error making request: %v", err)}}},
+			}
+			return
 		}
 		defer resp.Body.Close()
 
 		// Check for errors
 		if resp.StatusCode != http.StatusOK {
-			return // Just close channel on error
+			// Read error body
+			body, _ := io.ReadAll(resp.Body)
+			streamChan <- StreamResponse{
+				ID:      "error",
+				Object:  "error",
+				Choices: []StreamChoice{{Index: 0, Delta: Message{Role: "assistant", Content: fmt.Sprintf("OpenRouter API error %d: %s", resp.StatusCode, string(body))}}},
+			}
+			return
 		}
 
 		// Parse SSE stream
@@ -251,13 +274,17 @@ func (p *OpenRouterProvider) setHeaders(req *http.Request) {
 // parseStreamResponse parses the SSE stream response from OpenRouter
 func (p *OpenRouterProvider) parseStreamResponse(body io.Reader, streamChan chan<- StreamResponse) {
 	bufReader := bufio.NewReader(body)
+	chunkCount := 0
 
 	for {
 		line, err := bufReader.ReadString('\n')
 		if err != nil {
-			if err != io.EOF {
-				// Log error but continue
+			if err == io.EOF {
+				// Normal end of stream
+				return
 			}
+			// Log error but don't send to client
+			fmt.Printf("OpenRouter stream read error after %d chunks: %v\n", chunkCount, err)
 			return
 		}
 
@@ -268,7 +295,12 @@ func (p *OpenRouterProvider) parseStreamResponse(body io.Reader, streamChan chan
 			continue
 		}
 
-		// Check for SSE data prefix
+		// Skip SSE comment lines (starting with :)
+		if strings.HasPrefix(line, ":") {
+			continue
+		}
+
+		// Only process data lines
 		if !strings.HasPrefix(line, "data: ") {
 			continue
 		}
@@ -284,11 +316,12 @@ func (p *OpenRouterProvider) parseStreamResponse(body io.Reader, streamChan chan
 		// Parse JSON data
 		var streamResp StreamResponse
 		if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
-			// Skip malformed data
+			fmt.Printf("OpenRouter parse error for data '%s': %v\n", data, err)
 			continue
 		}
 
-		// Send to channel
+		chunkCount++
+		// Send valid response to channel
 		streamChan <- streamResp
 	}
 }

@@ -15,12 +15,12 @@ func NewAnthropicProvider(name string, cfg ProviderConfig) (*AnthropicProvider, 
 	if cfg.APIKey == "" {
 		return nil, fmt.Errorf("Anthropic API key is required")
 	}
-	
+
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.anthropic.com"
 	}
-	
+
 	models := cfg.Models
 	if len(models) == 0 {
 		models = []string{
@@ -29,7 +29,7 @@ func NewAnthropicProvider(name string, cfg ProviderConfig) (*AnthropicProvider, 
 			"claude-3-haiku-20240307",
 		}
 	}
-	
+
 	return &AnthropicProvider{
 		BaseProvider: NewBaseProvider(name, "anthropic", cfg.Priority, models),
 		apiKey:       cfg.APIKey,

@@ -71,7 +71,7 @@ type JWTClaims struct {
 func NewVertexProvider(name string, config ProviderConfig) (*VertexProvider, error) {
 	// Parse service account from config
 	var serviceAcc *ServiceAccount
-	
+
 	// Check if service account JSON is provided in APIKey
 	if config.APIKey != "" {
 		serviceAcc = &ServiceAccount{}
@@ -90,7 +90,7 @@ func NewVertexProvider(name string, config ProviderConfig) (*VertexProvider, err
 					}
 				}
 			}
-			
+
 			if serviceAcc.ProjectID == "" {
 				return nil, fmt.Errorf("invalid service account configuration")
 			}
@@ -98,7 +98,7 @@ func NewVertexProvider(name string, config ProviderConfig) (*VertexProvider, err
 	} else {
 		return nil, fmt.Errorf("service account credentials required for Vertex AI")
 	}
-	
+
 	// Get project ID and region
 	projectID := serviceAcc.ProjectID
 	if config.Extra != nil {
@@ -106,16 +106,16 @@ func NewVertexProvider(name string, config ProviderConfig) (*VertexProvider, err
 			projectID = pid
 		}
 	}
-	
+
 	region := config.Region
 	if region == "" {
 		region = "us-central1" // Default region
 	}
-	
+
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
-	
+
 	p := &VertexProvider{
 		name:       name,
 		config:     config,
@@ -125,7 +125,7 @@ func NewVertexProvider(name string, config ProviderConfig) (*VertexProvider, err
 		region:     region,
 		serviceAcc: serviceAcc,
 	}
-	
+
 	return p, nil
 }
 
@@ -133,40 +133,40 @@ func NewVertexProvider(name string, config ProviderConfig) (*VertexProvider, err
 func (p *VertexProvider) getAccessToken(ctx context.Context) (string, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	
+
 	// Check if token is still valid
 	if p.token != "" && time.Now().Before(p.tokenExp.Add(-5*time.Minute)) {
 		return p.token, nil
 	}
-	
+
 	// Generate JWT
 	jwt, err := p.generateJWT()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate JWT: %w", err)
 	}
-	
+
 	// Exchange JWT for access token
 	token, expiry, err := p.exchangeJWT(ctx, jwt)
 	if err != nil {
 		return "", fmt.Errorf("failed to exchange JWT: %w", err)
 	}
-	
+
 	p.token = token
 	p.tokenExp = expiry
-	
+
 	return token, nil
 }
 
 // generateJWT generates a JWT for service account authentication
 func (p *VertexProvider) generateJWT() (string, error) {
 	now := time.Now()
-	
+
 	header := JWTHeader{
 		Algorithm: "RS256",
 		Type:      "JWT",
 		KeyID:     p.serviceAcc.PrivateKeyID,
 	}
-	
+
 	claims := JWTClaims{
 		Issuer:   p.serviceAcc.ClientEmail,
 		Scope:    "https://www.googleapis.com/auth/cloud-platform",
@@ -174,81 +174,81 @@ func (p *VertexProvider) generateJWT() (string, error) {
 		IssuedAt: now.Unix(),
 		Expiry:   now.Add(1 * time.Hour).Unix(),
 	}
-	
+
 	// Encode header and claims
 	headerJSON, _ := json.Marshal(header)
 	claimsJSON, _ := json.Marshal(claims)
-	
+
 	headerB64 := base64.RawURLEncoding.EncodeToString(headerJSON)
 	claimsB64 := base64.RawURLEncoding.EncodeToString(claimsJSON)
-	
+
 	// Create signature
 	signatureInput := headerB64 + "." + claimsB64
-	
+
 	// Parse private key
 	block, _ := pem.Decode([]byte(p.serviceAcc.PrivateKey))
 	if block == nil {
 		return "", fmt.Errorf("failed to parse private key")
 	}
-	
+
 	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
 		return "", err
 	}
-	
+
 	rsaKey, ok := key.(*rsa.PrivateKey)
 	if !ok {
 		return "", fmt.Errorf("private key is not RSA")
 	}
-	
+
 	// Sign the input
 	hash := sha256.Sum256([]byte(signatureInput))
 	signature, err := rsa.SignPKCS1v15(nil, rsaKey, crypto.SHA256, hash[:])
 	if err != nil {
 		return "", err
 	}
-	
+
 	signatureB64 := base64.RawURLEncoding.EncodeToString(signature)
-	
+
 	return signatureInput + "." + signatureB64, nil
 }
 
 // exchangeJWT exchanges a JWT for an access token
 func (p *VertexProvider) exchangeJWT(ctx context.Context, jwt string) (string, time.Time, error) {
 	reqBody := fmt.Sprintf("grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=%s", jwt)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://oauth2.googleapis.com/token",
 		strings.NewReader(reqBody))
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	
+
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	
+
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return "", time.Time{}, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", time.Time{}, fmt.Errorf("token exchange failed: status %d, body: %s", 
+		return "", time.Time{}, fmt.Errorf("token exchange failed: status %d, body: %s",
 			resp.StatusCode, string(bodyBytes))
 	}
-	
+
 	var tokenResp struct {
 		AccessToken string `json:"access_token"`
 		ExpiresIn   int    `json:"expires_in"`
 		TokenType   string `json:"token_type"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
 		return "", time.Time{}, err
 	}
-	
+
 	expiry := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
-	
+
 	return tokenResp.AccessToken, expiry, nil
 }
 
@@ -259,11 +259,11 @@ func (p *VertexProvider) ChatCompletion(ctx context.Context, request *ChatReques
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Determine endpoint based on model
 	var url string
 	var body []byte
-	
+
 	if strings.Contains(request.Model, "claude") {
 		// Anthropic Claude models via Vertex
 		url = fmt.Sprintf("https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/anthropic/models/%s:streamRawPredict",
@@ -280,46 +280,46 @@ func (p *VertexProvider) ChatCompletion(ctx context.Context, request *ChatReques
 			p.region, p.projectID, p.region)
 		body, err = json.Marshal(request)
 	}
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
-	
+
 	// Send request
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("Vertex AI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
-	
+
 	// Parse response based on model type
 	if strings.Contains(request.Model, "claude") {
 		return p.parseClaudeResponse(resp.Body, request.Model)
 	} else if strings.Contains(request.Model, "gemini") {
 		return p.parseGeminiResponse(resp.Body, request.Model)
 	}
-	
+
 	// Default OpenAI-compatible response
 	var vertexResp ChatResponse
 	if err := json.NewDecoder(resp.Body).Decode(&vertexResp); err != nil {
 		return nil, err
 	}
-	
+
 	return &vertexResp, nil
 }
 
@@ -329,11 +329,11 @@ func (p *VertexProvider) transformClaudeRequest(request *ChatRequest) ([]byte, e
 		"anthropic_version": "vertex-2023-10-16",
 		"messages":          []map[string]interface{}{},
 	}
-	
+
 	// Extract system message if present
 	var systemMsg string
 	messages := []map[string]interface{}{}
-	
+
 	for _, msg := range request.Messages {
 		if msg.Role == "system" {
 			if content, ok := msg.Content.(string); ok {
@@ -341,45 +341,45 @@ func (p *VertexProvider) transformClaudeRequest(request *ChatRequest) ([]byte, e
 			}
 			continue
 		}
-		
+
 		claudeMsg := map[string]interface{}{
 			"role": msg.Role,
 		}
-		
+
 		// Handle content
 		if content, ok := msg.Content.(string); ok {
 			claudeMsg["content"] = content
 		} else if contentArray, ok := msg.Content.([]interface{}); ok {
 			claudeMsg["content"] = contentArray
 		}
-		
+
 		messages = append(messages, claudeMsg)
 	}
-	
+
 	if systemMsg != "" {
 		claudeReq["system"] = systemMsg
 	}
 	claudeReq["messages"] = messages
-	
+
 	// Add optional parameters
 	if request.MaxTokens != nil {
 		claudeReq["max_tokens"] = *request.MaxTokens
 	} else {
 		claudeReq["max_tokens"] = 2000 // Default for Claude
 	}
-	
+
 	if request.Temperature != nil {
 		claudeReq["temperature"] = *request.Temperature
 	}
-	
+
 	if request.TopP != nil {
 		claudeReq["top_p"] = *request.TopP
 	}
-	
+
 	if len(request.Stop) > 0 {
 		claudeReq["stop_sequences"] = request.Stop
 	}
-	
+
 	return json.Marshal(claudeReq)
 }
 
@@ -389,30 +389,30 @@ func (p *VertexProvider) transformGeminiRequest(request *ChatRequest) ([]byte, e
 		"model":    request.Model,
 		"messages": request.Messages,
 	}
-	
+
 	// Add generation config
 	genConfig := map[string]interface{}{}
-	
+
 	if request.Temperature != nil {
 		genConfig["temperature"] = *request.Temperature
 	}
-	
+
 	if request.TopP != nil {
 		genConfig["topP"] = *request.TopP
 	}
-	
+
 	if request.MaxTokens != nil {
 		genConfig["maxOutputTokens"] = *request.MaxTokens
 	}
-	
+
 	if len(request.Stop) > 0 {
 		genConfig["stopSequences"] = request.Stop
 	}
-	
+
 	if len(genConfig) > 0 {
 		geminiReq["generationConfig"] = genConfig
 	}
-	
+
 	return json.Marshal(geminiReq)
 }
 
@@ -429,11 +429,11 @@ func (p *VertexProvider) parseClaudeResponse(body io.Reader, model string) (*Cha
 			OutputTokens int `json:"output_tokens"`
 		} `json:"usage"`
 	}
-	
+
 	if err := json.NewDecoder(body).Decode(&claudeResp); err != nil {
 		return nil, err
 	}
-	
+
 	// Build response text
 	var responseText strings.Builder
 	for _, content := range claudeResp.Content {
@@ -441,7 +441,7 @@ func (p *VertexProvider) parseClaudeResponse(body io.Reader, model string) (*Cha
 			responseText.WriteString(content.Text)
 		}
 	}
-	
+
 	return &ChatResponse{
 		ID:      fmt.Sprintf("vertex-%d", time.Now().Unix()),
 		Object:  "chat.completion",
@@ -482,11 +482,11 @@ func (p *VertexProvider) parseGeminiResponse(body io.Reader, model string) (*Cha
 			TotalTokenCount      int `json:"totalTokenCount"`
 		} `json:"usageMetadata"`
 	}
-	
+
 	if err := json.NewDecoder(body).Decode(&geminiResp); err != nil {
 		return nil, err
 	}
-	
+
 	// Build response text
 	var responseText strings.Builder
 	if len(geminiResp.Candidates) > 0 && len(geminiResp.Candidates[0].Content.Parts) > 0 {
@@ -494,12 +494,12 @@ func (p *VertexProvider) parseGeminiResponse(body io.Reader, model string) (*Cha
 			responseText.WriteString(part.Text)
 		}
 	}
-	
+
 	finishReason := ""
 	if len(geminiResp.Candidates) > 0 {
 		finishReason = p.mapGeminiFinishReason(geminiResp.Candidates[0].FinishReason)
 	}
-	
+
 	return &ChatResponse{
 		ID:      fmt.Sprintf("vertex-%d", time.Now().Unix()),
 		Object:  "chat.completion",
@@ -571,44 +571,44 @@ func (p *VertexProvider) Embeddings(ctx context.Context, request *EmbeddingsRequ
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Build URL for embeddings
 	url := fmt.Sprintf("https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/endpoints/openapi/embeddings",
 		p.region, p.projectID, p.region)
-	
+
 	body, err := json.Marshal(request)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+token)
-	
+
 	// Send request
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("Vertex AI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
-	
+
 	// Parse response
 	var vertexResp EmbeddingsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&vertexResp); err != nil {
 		return nil, err
 	}
-	
+
 	return &vertexResp, nil
 }
 
@@ -647,13 +647,13 @@ func (p *VertexProvider) SupportsModel(model string) bool {
 		"chat-bison",
 		"code-bison",
 	}
-	
+
 	for _, m := range supportedModels {
 		if strings.Contains(model, m) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -678,10 +678,10 @@ func (p *VertexProvider) HealthCheck(ctx context.Context) error {
 		p.mu.Unlock()
 		return err
 	}
-	
+
 	p.mu.Lock()
 	p.healthy = true
 	p.mu.Unlock()
-	
+
 	return nil
 }

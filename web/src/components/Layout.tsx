@@ -3,19 +3,46 @@ import { cn } from "@/lib/utils";
 import { Icon } from "@iconify/react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/OIDCAuthContext";
+import { CanAccess } from "@/components/CanAccess";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: "lucide:layout-dashboard" },
-  { name: "Chat", href: "/chat", icon: "lucide:messages-square" },
-  { name: "Models", href: "/models", icon: "lucide:brain" },
-  { name: "Users", href: "/users", icon: "lucide:users" },
-  { name: "Settings", href: "/settings", icon: "lucide:settings" },
+  { name: "Dashboard", href: "/dashboard", icon: "lucide:layout-dashboard", permission: null },
+  { name: "Chat", href: "/chat", icon: "lucide:messages-square", permission: null },
+  { name: "Models", href: "/models", icon: "lucide:brain", permission: "admin.models.read" },
+  { name: "Teams", href: "/teams", icon: "lucide:users-2", permission: "admin.teams.read" },
+  { name: "API Keys", href: "/keys", icon: "lucide:key", permission: "admin.keys.read" },
+  { name: "Users", href: "/users", icon: "lucide:users", permission: "admin.users.read" },
+  { name: "Budget", href: "/budget", icon: "lucide:wallet", permission: "admin.budget.read" },
+  { name: "Settings", href: "/settings", icon: "lucide:settings", permission: "admin.settings.read" },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const { logout, user } = useAuth();
   const [isDark, setIsDark] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // Extract user info from JWT
+  const userEmail = user?.profile?.email || user?.profile?.preferred_username || "user@pllm.local";
+  const userName = user?.profile?.name || user?.profile?.preferred_username || userEmail.split("@")[0];
+  const userInitials = userName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) || "U";
+  
+  // Debug logging
+  useEffect(() => {
+    if (user) {
+      console.log("User profile in Layout:", user.profile);
+    }
+  }, [user]);
 
   useEffect(() => {
     // Check for saved theme preference or default to light
@@ -103,7 +130,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <nav className="flex-1 px-4 py-6 space-y-2">
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
-              return (
+              
+              const NavigationItem = (
                 <Link
                   key={item.name}
                   to={item.href}
@@ -132,11 +160,63 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   )}
                 </Link>
               );
+              
+              // If item has a permission requirement, wrap with CanAccess
+              if (item.permission) {
+                return (
+                  <CanAccess key={item.name} permission={item.permission}>
+                    {NavigationItem}
+                  </CanAccess>
+                );
+              }
+              
+              // If no permission required, render directly
+              return NavigationItem;
             })}
           </nav>
 
           {/* Footer */}
           <div className="p-4 border-t border-border/50 space-y-4">
+            {/* User Profile */}
+            <div className="px-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start px-2 py-2 h-auto hover:bg-muted rounded-xl"
+                  >
+                    <Avatar className="h-8 w-8 mr-2">
+                      <AvatarImage src={user?.profile?.picture} />
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                        {userInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start text-left">
+                      <span className="text-sm font-medium">{userName}</span>
+                      <span className="text-xs text-muted-foreground">{userEmail}</span>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <Icon icon="lucide:user" className="mr-2 h-4 w-4" />
+                    Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Icon icon="lucide:settings" className="mr-2 h-4 w-4" />
+                    Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="text-destructive">
+                    <Icon icon="lucide:log-out" className="mr-2 h-4 w-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            
             <div className="flex items-center justify-between">
               <Button
                 variant="ghost"

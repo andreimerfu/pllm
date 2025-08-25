@@ -93,7 +93,7 @@ func TestStreamingSupport(t *testing.T) {
 
 			// Test that streaming method exists and returns a channel
 			streamChan, err := provider.ChatCompletionStream(ctx, request)
-			
+
 			// For Bedrock non-Claude models, we expect an error
 			if tt.name == "Bedrock Streaming" && tt.model != "anthropic.claude-3-haiku-20240307" {
 				if err == nil || streamChan != nil {
@@ -187,15 +187,15 @@ func TestStreamingChannelBehavior(t *testing.T) {
 
 			// Get streaming channel
 			streamChan, _ := p.provider.ChatCompletionStream(ctx, request)
-			
+
 			if streamChan != nil {
 				// Cancel context to trigger cleanup
 				cancel()
-				
+
 				// Verify channel behavior after context cancellation
 				timer := time.NewTimer(500 * time.Millisecond)
 				defer timer.Stop()
-				
+
 				select {
 				case <-streamChan:
 					// Good - channel closed or returned

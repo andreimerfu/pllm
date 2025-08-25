@@ -26,3 +26,11 @@ func (h *baseHandler) sendError(w http.ResponseWriter, status int, message strin
 func (h *baseHandler) notImplemented(w http.ResponseWriter, endpoint string) {
 	h.sendError(w, http.StatusNotImplemented, endpoint+" not yet implemented")
 }
+
+func (h *baseHandler) sendJSON(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		h.logger.Error("Failed to encode response", zap.Error(err))
+	}
+}

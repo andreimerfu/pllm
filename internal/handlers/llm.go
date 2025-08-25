@@ -43,13 +43,13 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	var request providers.ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		h.logger.Error("Failed to decode request body", zap.Error(err))
-		h.sendError(w, http.StatusBadRequest, "Invalid request body: " + err.Error())
+		h.sendError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
 	// Track request start for adaptive routing
 	h.modelManager.RecordRequestStart(request.Model)
-	
+
 	// Get best instance for the model
 	// Use adaptive routing for better high-load handling
 	startTime := time.Now()
@@ -57,13 +57,13 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Record failure for adaptive components
 		h.modelManager.RecordRequestEnd(request.Model, time.Since(startTime), false, err)
-		h.logger.Error("Failed to get model instance", 
+		h.logger.Error("Failed to get model instance",
 			zap.String("model", request.Model),
 			zap.Error(err))
 		h.sendError(w, http.StatusServiceUnavailable, "No instance available for model: "+request.Model)
 		return
 	}
-	
+
 	h.logger.Info("Selected instance for request",
 		zap.String("requested_model", request.Model),
 		zap.String("instance_id", instance.Config.ID),
@@ -87,7 +87,7 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	response, err := instance.Provider.ChatCompletion(r.Context(), &providerRequest)
 	latency := time.Since(startTime)
 	latencyMs := latency.Milliseconds()
-	
+
 	if err != nil {
 		instance.RecordError(err)
 		// Record failure for adaptive components
@@ -96,7 +96,7 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusInternalServerError, "Provider request failed")
 		return
 	}
-	
+
 	// Record successful request
 	totalTokens := int32(response.Usage.TotalTokens)
 	instance.RecordRequest(totalTokens, latencyMs)
@@ -128,12 +128,12 @@ func (h *LLMHandler) Embeddings(w http.ResponseWriter, r *http.Request) {
 // @Router /models [get]
 func (h *LLMHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 	models := h.modelManager.ListModels()
-	
+
 	response := map[string]interface{}{
 		"object": "list",
 		"data":   models,
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -196,7 +196,7 @@ func (h *LLMHandler) CreateModeration(w http.ResponseWriter, r *http.Request) {
 // @Router /admin/models/stats [get]
 func (h *LLMHandler) ModelStats(w http.ResponseWriter, r *http.Request) {
 	stats := h.modelManager.GetModelStats()
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
 }
@@ -205,18 +205,18 @@ func (h *LLMHandler) ModelStats(w http.ResponseWriter, r *http.Request) {
 func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request, request *providers.ChatRequest, instance *models.ModelInstance, startTime time.Time) {
 	// Debug: write type to header
 	w.Header().Set("X-Debug-Writer-Type", fmt.Sprintf("%T", w))
-	
+
 	h.logger.Info("Starting streaming request",
 		zap.String("model", request.Model),
 		zap.String("provider_model", instance.Config.Provider.Model),
 		zap.String("writer_type", fmt.Sprintf("%T", w)))
-	
+
 	// Set headers for SSE
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no") // Disable Nginx buffering
-	
+
 	// Our middleware ensures w is a StreamingResponseWriter which implements Flusher
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -229,17 +229,17 @@ func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request,
 		h.sendError(w, http.StatusInternalServerError, errMsg)
 		return
 	}
-	
+
 	// Create a copy of the request with the provider's actual model name
 	providerRequest := *request
 	providerRequest.Model = instance.Config.Provider.Model
-	
+
 	// Get streaming response from provider
 	streamChan, err := instance.Provider.ChatCompletionStream(r.Context(), &providerRequest)
 	if err != nil {
 		instance.RecordError(err)
 		h.modelManager.RecordRequestEnd(request.Model, time.Since(startTime), false, err)
-		h.logger.Error("Failed to start streaming", 
+		h.logger.Error("Failed to start streaming",
 			zap.String("model", request.Model),
 			zap.Error(err))
 		// Send error in SSE format
@@ -247,12 +247,12 @@ func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request,
 		flusher.Flush()
 		return
 	}
-	
+
 	// Stream responses to client
 	tokenCount := 0
 	chunkCount := 0
 	h.logger.Debug("Starting to read from stream channel")
-	
+
 	for chunk := range streamChan {
 		chunkCount++
 		// Count tokens (approximate)
@@ -265,41 +265,41 @@ func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request,
 				}
 			}
 		}
-		
+
 		// Convert chunk to JSON
 		data, err := json.Marshal(chunk)
 		if err != nil {
 			h.logger.Error("Failed to marshal streaming chunk", zap.Error(err))
 			continue
 		}
-		
+
 		// Write SSE formatted data
 		_, err = fmt.Fprintf(w, "data: %s\n\n", data)
 		if err != nil {
 			// Client disconnected
-			h.logger.Debug("Client disconnected during streaming", 
+			h.logger.Debug("Client disconnected during streaming",
 				zap.String("model", request.Model))
 			break
 		}
-		
+
 		// Flush immediately for real-time streaming
 		flusher.Flush()
-		
+
 		if chunkCount == 1 {
 			h.logger.Debug("First chunk sent successfully")
 		}
 	}
-	
+
 	// Send final [DONE] marker
 	fmt.Fprintf(w, "data: [DONE]\n\n")
 	flusher.Flush()
-	
+
 	// Record successful streaming request
 	latency := time.Since(startTime)
 	latencyMs := latency.Milliseconds()
 	instance.RecordRequest(int32(tokenCount), latencyMs)
 	h.modelManager.RecordRequestEnd(request.Model, latency, true, nil)
-	
+
 	h.logger.Info("Streaming request completed",
 		zap.String("model", request.Model),
 		zap.Int("chunks_sent", chunkCount),
@@ -310,17 +310,17 @@ func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request,
 // handleNonStreamingFallback handles streaming requests when flusher is not available
 func (h *LLMHandler) handleNonStreamingFallback(w http.ResponseWriter, r *http.Request, request *providers.ChatRequest, instance *models.ModelInstance, startTime time.Time) {
 	h.logger.Warn("Falling back to non-streaming response due to missing flusher")
-	
+
 	// Create a copy of the request with streaming disabled
 	providerRequest := *request
 	providerRequest.Model = instance.Config.Provider.Model
 	providerRequest.Stream = false
-	
+
 	// Forward request to provider as non-streaming
 	response, err := instance.Provider.ChatCompletion(r.Context(), &providerRequest)
 	latency := time.Since(startTime)
 	latencyMs := latency.Milliseconds()
-	
+
 	if err != nil {
 		instance.RecordError(err)
 		h.modelManager.RecordRequestEnd(request.Model, latency, false, err)
@@ -328,12 +328,12 @@ func (h *LLMHandler) handleNonStreamingFallback(w http.ResponseWriter, r *http.R
 		h.sendError(w, http.StatusInternalServerError, "Provider request failed")
 		return
 	}
-	
+
 	// Record successful request
 	totalTokens := int32(response.Usage.TotalTokens)
 	instance.RecordRequest(totalTokens, latencyMs)
 	h.modelManager.RecordRequestEnd(request.Model, latency, true, nil)
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }

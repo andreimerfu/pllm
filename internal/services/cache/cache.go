@@ -42,21 +42,21 @@ func Initialize(cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse redis URL: %w", err)
 	}
-	
+
 	if cfg.Password != "" {
 		opt.Password = cfg.Password
 	}
 	if cfg.DB != 0 {
 		opt.DB = cfg.DB
 	}
-	
+
 	client = redis.NewClient(opt)
-	
+
 	// Test connection
 	if err := client.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("failed to connect to redis: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -148,11 +148,11 @@ func IsHealthy() bool {
 	if client == nil {
 		return false
 	}
-	
+
 	if err := client.Ping(ctx).Err(); err != nil {
 		return false
 	}
-	
+
 	return true
 }
 
@@ -161,49 +161,49 @@ func TestConnection(ctx context.Context, cfg *Config) error {
 	if cfg.RedisURL == "" {
 		return fmt.Errorf("redis URL is required")
 	}
-	
+
 	opt, err := redis.ParseURL(cfg.RedisURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse redis URL: %w", err)
 	}
-	
+
 	if cfg.Password != "" {
 		opt.Password = cfg.Password
 	}
 	if cfg.DB != 0 {
 		opt.DB = cfg.DB
 	}
-	
+
 	testClient := redis.NewClient(opt)
 	defer testClient.Close()
-	
+
 	// Test connection with context
 	if err := testClient.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("failed to ping redis: %w", err)
 	}
-	
+
 	return nil
 }
 
 type CacheStats struct {
-	Hits   int64   `json:"hits"`
-	Misses int64   `json:"misses"`
+	Hits    int64   `json:"hits"`
+	Misses  int64   `json:"misses"`
 	HitRate float64 `json:"hit_rate"`
-	Size   int64   `json:"size"`
-	Keys   int64   `json:"keys"`
+	Size    int64   `json:"size"`
+	Keys    int64   `json:"keys"`
 }
 
 func GetStats() (*CacheStats, error) {
 	if client == nil {
 		return nil, fmt.Errorf("cache not initialized")
 	}
-	
+
 	// TODO: Parse Redis INFO stats
 	// info := client.Info(ctx, "stats")
 	// This is simplified, actual implementation would parse the INFO response
-	
+
 	keys, _ := client.DBSize(ctx).Result()
-	
+
 	return &CacheStats{
 		Keys: keys,
 	}, nil
@@ -224,10 +224,10 @@ func NewInMemoryCache(ttl time.Duration) *InMemoryCache {
 		data: make(map[string]cacheItem),
 		ttl:  ttl,
 	}
-	
+
 	// Start cleanup goroutine
 	go cache.cleanup()
-	
+
 	return cache
 }
 
@@ -236,12 +236,12 @@ func (c *InMemoryCache) Get(key string) ([]byte, error) {
 	if !exists {
 		return nil, nil
 	}
-	
+
 	if time.Now().After(item.expiresAt) {
 		delete(c.data, key)
 		return nil, nil
 	}
-	
+
 	return item.value, nil
 }
 
@@ -249,12 +249,12 @@ func (c *InMemoryCache) Set(key string, value []byte, ttl time.Duration) error {
 	if ttl == 0 {
 		ttl = c.ttl
 	}
-	
+
 	c.data[key] = cacheItem{
 		value:     value,
 		expiresAt: time.Now().Add(ttl),
 	}
-	
+
 	return nil
 }
 
@@ -276,7 +276,7 @@ func (c *InMemoryCache) Clear() error {
 func (c *InMemoryCache) cleanup() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		now := time.Now()
 		for key, item := range c.data {

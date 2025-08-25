@@ -14,10 +14,10 @@ import (
 
 type OpenAIProvider struct {
 	*BaseProvider
-	apiKey     string
-	baseURL    string
-	orgID      string
-	client     *http.Client
+	apiKey  string
+	baseURL string
+	orgID   string
+	client  *http.Client
 }
 
 func NewOpenAIProvider(name string, cfg ProviderConfig) (*OpenAIProvider, error) {
@@ -25,17 +25,17 @@ func NewOpenAIProvider(name string, cfg ProviderConfig) (*OpenAIProvider, error)
 	if baseURL == "" {
 		baseURL = "https://api.openai.com/v1"
 	}
-	
+
 	models := cfg.Models
 	if len(models) == 0 {
 		models = []string{"gpt-4", "gpt-4-turbo", "gpt-3.5-turbo", "gpt-3.5-turbo-16k"}
 	}
-	
+
 	return &OpenAIProvider{
 		BaseProvider: NewBaseProvider(name, "openai", cfg.Priority, models),
-		apiKey:      cfg.APIKey,
-		baseURL:     baseURL,
-		orgID:       cfg.OrgID,
+		apiKey:       cfg.APIKey,
+		baseURL:      baseURL,
+		orgID:        cfg.OrgID,
 		client: &http.Client{
 			Timeout: 60 * time.Second,
 		},
@@ -98,51 +98,51 @@ func (p *OpenAIProvider) ChatCompletion(ctx context.Context, request *ChatReques
 func (p *OpenAIProvider) ChatCompletionStream(ctx context.Context, request *ChatRequest) (<-chan StreamResponse, error) {
 	// Create the stream channel
 	streamChan := make(chan StreamResponse, 100)
-	
+
 	go func() {
 		defer close(streamChan)
-		
+
 		// Enable streaming in request
 		request.Stream = true
-		
+
 		// Prepare the request body
 		reqBody, err := json.Marshal(request)
 		if err != nil {
 			return // Just close channel on error
 		}
-		
+
 		// Create HTTP request
 		req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/chat/completions", bytes.NewBuffer(reqBody))
 		if err != nil {
 			return // Just close channel on error
 		}
-		
+
 		// Set headers
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", "Bearer "+p.apiKey)
 		req.Header.Set("Accept", "text/event-stream")
-		
+
 		// Only set organization header if it's explicitly provided and not empty
 		if p.orgID != "" && p.orgID != "0" && p.orgID != "null" {
 			req.Header.Set("OpenAI-Organization", p.orgID)
 		}
-		
+
 		// Make the request
 		resp, err := p.client.Do(req)
 		if err != nil {
 			return // Just close channel on error
 		}
 		defer resp.Body.Close()
-		
+
 		// Check for errors
 		if resp.StatusCode != http.StatusOK {
 			return // Just close channel on error
 		}
-		
+
 		// Parse SSE stream
 		p.parseStreamResponse(resp.Body, streamChan)
 	}()
-	
+
 	return streamChan, nil
 }
 
@@ -164,7 +164,7 @@ func (p *OpenAIProvider) Embeddings(ctx context.Context, request *EmbeddingsRequ
 // parseStreamResponse parses the SSE stream response from OpenAI
 func (p *OpenAIProvider) parseStreamResponse(body io.Reader, streamChan chan<- StreamResponse) {
 	bufReader := bufio.NewReader(body)
-	
+
 	for {
 		line, err := bufReader.ReadString('\n')
 		if err != nil {
@@ -173,34 +173,34 @@ func (p *OpenAIProvider) parseStreamResponse(body io.Reader, streamChan chan<- S
 			}
 			return
 		}
-		
+
 		line = strings.TrimSpace(line)
-		
+
 		// Skip empty lines
 		if line == "" {
 			continue
 		}
-		
+
 		// Check for SSE data prefix
 		if !strings.HasPrefix(line, "data: ") {
 			continue
 		}
-		
+
 		// Extract data
 		data := strings.TrimPrefix(line, "data: ")
-		
+
 		// Check for end of stream
 		if data == "[DONE]" {
 			return
 		}
-		
+
 		// Parse JSON data
 		var streamResp StreamResponse
 		if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
 			// Skip malformed data
 			continue
 		}
-		
+
 		// Send to channel
 		streamChan <- streamResp
 	}
