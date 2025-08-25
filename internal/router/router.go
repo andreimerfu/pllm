@@ -212,10 +212,6 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			r.Get("/usage/daily", authHandler.GetDailyUsage)
 			r.Get("/usage/monthly", authHandler.GetMonthlyUsage)
 
-			// Groups
-			r.Get("/groups", authHandler.ListGroups)
-			r.Post("/groups/join", authHandler.JoinGroup)
-			r.Post("/groups/leave", authHandler.LeaveGroup)
 		})
 
 		// Admin routes for monitoring

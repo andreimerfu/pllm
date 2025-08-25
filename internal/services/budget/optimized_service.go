@@ -130,7 +130,7 @@ func (s *OptimizedBudgetService) loadActiveBudgetsForEntity(ctx context.Context,
 		subQuery := s.db.Model(&models.Key{}).Select("user_id, team_id").Where("id = ?", keyUUID)
 		query = query.Where(`
 			user_id IN (SELECT user_id FROM (?) AS key_info WHERE user_id IS NOT NULL)
-			OR group_id IN (SELECT team_id FROM (?) AS key_info WHERE team_id IS NOT NULL)
+			OR team_id IN (SELECT team_id FROM (?) AS key_info WHERE team_id IS NOT NULL)
 			OR type = ?
 		`, subQuery, subQuery, models.BudgetTypeGlobal)
 
@@ -139,7 +139,7 @@ func (s *OptimizedBudgetService) loadActiveBudgetsForEntity(ctx context.Context,
 		if err != nil {
 			return nil, fmt.Errorf("invalid team ID: %w", err)
 		}
-		query = query.Where("group_id = ? OR type = ?", teamUUID, models.BudgetTypeGlobal)
+		query = query.Where("team_id = ? OR type = ?", teamUUID, models.BudgetTypeGlobal)
 
 	default:
 		// Global or unknown type
@@ -259,9 +259,9 @@ func (s *OptimizedBudgetService) refreshBudgetCachesAfterUpdate(ctx context.Cont
 		if budget.UserID != nil {
 			entityType = "user"
 			entityID = budget.UserID.String()
-		} else if budget.GroupID != nil {
+		} else if budget.TeamID != nil {
 			entityType = "team"
-			entityID = budget.GroupID.String()
+			entityID = budget.TeamID.String()
 		} else {
 			entityType = "global"
 			entityID = "global"
@@ -300,9 +300,9 @@ func (s *OptimizedBudgetService) RefreshAllBudgetCaches(ctx context.Context) err
 		if budget.UserID != nil {
 			entityType = "user"
 			entityID = budget.UserID.String()
-		} else if budget.GroupID != nil {
+		} else if budget.TeamID != nil {
 			entityType = "team"
-			entityID = budget.GroupID.String()
+			entityID = budget.TeamID.String()
 		} else {
 			entityType = "global"
 			entityID = "global"

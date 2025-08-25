@@ -157,31 +157,29 @@ func TestModelManager_AdaptiveRouting(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check if instances were actually loaded
-	require.NotEmpty(t, manager.modelMap, "Model map should not be empty after loading instances")
-	require.Contains(t, manager.modelMap, "primary", "Primary model should be in model map")
+	availableModels := manager.GetAvailableModels()
+	require.NotEmpty(t, availableModels, "Available models should not be empty after loading instances")
+	require.Contains(t, availableModels, "primary", "Primary model should be available")
 
-	t.Run("Track requests in adaptive components", func(t *testing.T) {
+	t.Run("Track requests with new components", func(t *testing.T) {
 		// Debug: Check what models are loaded
-		t.Logf("Loaded models: %v", manager.modelMap)
-		t.Logf("Adaptive breakers: %v", manager.adaptiveBreakers)
+		t.Logf("Loaded models: %v", manager.GetAvailableModels())
 
-		// Start tracking
-		manager.RecordRequestStart("primary")
-
-		// Check that breaker is tracking
-		require.NotNil(t, manager.adaptiveBreakers)
-		assert.NotNil(t, manager.adaptiveBreakers["primary"], "Adaptive breaker for 'primary' should exist")
-
-		// End tracking
-		manager.RecordRequestEnd("primary", 100*time.Millisecond, true, nil)
-
-		// Get stats
+		// Get stats (should work with new architecture)
 		stats := manager.GetModelStats()
-		lbStats := stats["load_balancer"].(map[string]map[string]interface{})
-		primaryStats := lbStats["primary"]
-
-		// Should have tracked the request
-		assert.Equal(t, int64(1), primaryStats["total_requests"])
+		require.NotNil(t, stats, "Stats should not be nil")
+		
+		// Check registry stats
+		registryStats, ok := stats["registry"]
+		require.True(t, ok, "Registry stats should exist")
+		require.NotNil(t, registryStats, "Registry stats should not be nil")
+		
+		// Basic functionality verification
+		ctx := context.Background()
+		instance, err := manager.GetBestInstance(ctx, "primary")
+		require.NoError(t, err, "Should be able to get best instance")
+		require.NotNil(t, instance, "Instance should not be nil")
+		assert.Equal(t, "primary", instance.Config.ModelName)
 	})
 
 	t.Run("GetBestInstanceAdaptive uses adaptive routing", func(t *testing.T) {

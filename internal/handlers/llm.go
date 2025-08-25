@@ -127,7 +127,7 @@ func (h *LLMHandler) Embeddings(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} providers.ErrorResponse
 // @Router /models [get]
 func (h *LLMHandler) ListModels(w http.ResponseWriter, r *http.Request) {
-	models := h.modelManager.ListModels()
+	models := h.modelManager.GetDetailedModelInfo()
 
 	response := map[string]interface{}{
 		"object": "list",

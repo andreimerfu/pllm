@@ -124,7 +124,7 @@ func (t *Tracker) RecordUsage(ctx context.Context, keyID uuid.UUID, cost float64
 		usage.UserID = *key.UserID
 	}
 	if key.TeamID != nil {
-		usage.GroupID = key.TeamID // Usage model uses GroupID for teams
+		usage.TeamID = key.TeamID // Usage model uses GroupID for teams
 	}
 
 	if err := t.db.WithContext(ctx).Create(&usage).Error; err != nil {

@@ -39,7 +39,7 @@ export default function Models() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
         {models.map((model: any) => {
           const getProviderInfo = (modelId: string, ownedBy: string) => {
-            const id = modelId.toLowerCase();
+            const id = modelId?.toLowerCase() || "";
             const owner = ownedBy?.toLowerCase() || "";
 
             if (

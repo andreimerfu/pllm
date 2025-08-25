@@ -20,10 +20,10 @@ type Budget struct {
 	AlertSent bool         `gorm:"default:false" json:"alert_sent"`
 
 	// Relationships
-	UserID  *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
-	User    *User      `gorm:"foreignKey:UserID" json:"-"`
-	GroupID *uuid.UUID `gorm:"type:uuid" json:"group_id,omitempty"`
-	Group   *Group     `gorm:"foreignKey:GroupID" json:"-"`
+	UserID *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
+	User   *User      `gorm:"foreignKey:UserID" json:"-"`
+	TeamID *uuid.UUID `gorm:"type:uuid" json:"team_id,omitempty"`
+	Team   *Team      `gorm:"foreignKey:TeamID" json:"-"`
 
 	// Actions
 	Actions []BudgetAction `gorm:"type:jsonb" json:"actions,omitempty"`
@@ -36,7 +36,7 @@ type BudgetType string
 
 const (
 	BudgetTypeUser   BudgetType = "user"
-	BudgetTypeGroup  BudgetType = "group"
+	BudgetTypeTeam   BudgetType = "team"
 	BudgetTypeGlobal BudgetType = "global"
 )
 

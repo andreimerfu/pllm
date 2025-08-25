@@ -110,7 +110,7 @@ export default function Dashboard() {
 
   // Enhanced provider detection function
   const getProviderInfo = (modelName: string) => {
-    const name = modelName.toLowerCase();
+    const name = modelName?.toLowerCase() || "";
 
     if (name.includes("gpt") || name.includes("openai")) {
       return {

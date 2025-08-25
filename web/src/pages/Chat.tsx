@@ -32,7 +32,7 @@ interface ChatSettings {
 
 // Helper function to get provider info from model ID
 const getProviderInfo = (modelId: string) => {
-  const id = modelId.toLowerCase()
+  const id = modelId?.toLowerCase() || ""
   
   if (id.includes('gpt') || id.includes('openai')) {
     return { icon: 'logos:openai-icon', name: 'OpenAI' }

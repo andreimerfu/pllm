@@ -12,13 +12,13 @@ type Usage struct {
 	RequestID string    `gorm:"uniqueIndex;not null" json:"request_id"`
 	Timestamp time.Time `gorm:"index" json:"timestamp"`
 
-	// User/Group/API Key
-	UserID  uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"`
-	User    User       `gorm:"foreignKey:UserID" json:"-"`
-	GroupID *uuid.UUID `gorm:"type:uuid;index" json:"group_id,omitempty"`
-	Group   *Group     `gorm:"foreignKey:GroupID" json:"-"`
-	KeyID   uuid.UUID  `gorm:"type:uuid;not null;index" json:"key_id"`
-	Key     Key        `gorm:"foreignKey:KeyID" json:"-"`
+	// User/Team/API Key
+	UserID uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"`
+	User   User       `gorm:"foreignKey:UserID" json:"-"`
+	TeamID *uuid.UUID `gorm:"type:uuid;index" json:"team_id,omitempty"`
+	Team   *Team      `gorm:"foreignKey:TeamID" json:"-"`
+	KeyID  uuid.UUID  `gorm:"type:uuid;not null;index" json:"key_id"`
+	Key    Key        `gorm:"foreignKey:KeyID" json:"-"`
 
 	// Provider/Model
 	Provider string `gorm:"index" json:"provider"`
@@ -69,7 +69,7 @@ type UsageStats struct {
 	ByProvider map[string]*ProviderStats `json:"by_provider,omitempty"`
 	ByModel    map[string]*ModelStats    `json:"by_model,omitempty"`
 	ByUser     map[string]*UserStats     `json:"by_user,omitempty"`
-	ByGroup    map[string]*GroupStats    `json:"by_group,omitempty"`
+	ByTeam     map[string]*TeamStats     `json:"by_team,omitempty"`
 }
 
 type ProviderStats struct {
@@ -95,7 +95,7 @@ type UserStats struct {
 	CacheHits int64   `json:"cache_hits"`
 }
 
-type GroupStats struct {
+type TeamStats struct {
 	Requests   int64   `json:"requests"`
 	Tokens     int64   `json:"tokens"`
 	Cost       float64 `json:"cost"`

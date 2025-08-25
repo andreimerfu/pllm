@@ -236,23 +236,6 @@ func (h *AuthHandler) GetMonthlyUsage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *AuthHandler) ListGroups(w http.ResponseWriter, r *http.Request) {
-	h.sendResponse(w, http.StatusNotImplemented, map[string]string{
-		"message": "List groups not yet implemented",
-	})
-}
-
-func (h *AuthHandler) JoinGroup(w http.ResponseWriter, r *http.Request) {
-	h.sendResponse(w, http.StatusNotImplemented, map[string]string{
-		"message": "Join group not yet implemented",
-	})
-}
-
-func (h *AuthHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
-	h.sendResponse(w, http.StatusNotImplemented, map[string]string{
-		"message": "Leave group not yet implemented",
-	})
-}
 
 func (h *AuthHandler) sendResponse(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")

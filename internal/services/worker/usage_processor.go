@@ -341,9 +341,9 @@ func (up *UsageProcessor) refreshBudgetCaches(ctx context.Context, budgetUpdates
 		if budget.UserID != nil {
 			entityType = "user"
 			entityID = budget.UserID.String()
-		} else if budget.GroupID != nil {
+		} else if budget.TeamID != nil {
 			entityType = "team"
-			entityID = budget.GroupID.String()
+			entityID = budget.TeamID.String()
 		} else {
 			entityType = "global"
 			entityID = "global"
