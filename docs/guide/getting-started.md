@@ -179,8 +179,7 @@ curl http://localhost:8080/metrics
 
 ## Next Steps
 
-- [Configure Multiple Providers](/features/providers)
-- [Set Up Load Balancing](/features/load-balancing)
-- [Enable Caching](/features/caching)
-- [Configure Rate Limiting](/features/rate-limiting)
-- [Deploy to Production](/deployment/production)
+- [Configure Multiple Providers](/providers)
+- [Set Up Authentication](/auth)
+- [Understand the Architecture](/guide/architecture)
+- [Deploy to Production](/deployment)

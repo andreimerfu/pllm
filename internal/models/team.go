@@ -1,11 +1,48 @@
 package models
 
 import (
+	"database/sql/driver"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 )
+
+// StringArray is a custom type that handles PostgreSQL text[] arrays
+type StringArray []string
+
+// Value implements driver.Valuer interface for database storage
+func (s StringArray) Value() (driver.Value, error) {
+	if len(s) == 0 {
+		return "{}", nil
+	}
+	return "{" + strings.Join(s, ",") + "}", nil
+}
+
+// Scan implements sql.Scanner interface for database retrieval
+func (s *StringArray) Scan(value interface{}) error {
+	if value == nil {
+		*s = StringArray{}
+		return nil
+	}
+	
+	str, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("cannot scan %T into StringArray", value)
+	}
+	
+	// Handle PostgreSQL array format: {item1,item2,item3}
+	str = strings.Trim(str, "{}")
+	if str == "" {
+		*s = StringArray{}
+		return nil
+	}
+	
+	*s = StringArray(strings.Split(str, ","))
+	return nil
+}
 
 // Team represents an organizational unit with shared resources and permissions
 type Team struct {
@@ -27,8 +64,8 @@ type Team struct {
 	MaxParallelCalls int `json:"max_parallel_calls"`
 
 	// Model Access Control
-	AllowedModels []string       `gorm:"type:text[]" json:"allowed_models"`
-	BlockedModels []string       `gorm:"type:text[]" json:"blocked_models"`
+	AllowedModels StringArray `gorm:"type:text[]" json:"allowed_models"`
+	BlockedModels StringArray `gorm:"type:text[]" json:"blocked_models"`
 	ModelAliases  datatypes.JSON `json:"model_aliases,omitempty"`
 
 	// Configuration

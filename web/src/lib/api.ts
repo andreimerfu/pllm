@@ -62,8 +62,8 @@ const teams = {
     axiosInstance.get(`/api/admin/teams/${teamId}/stats`),
 };
 
-// Virtual Keys API
-const keys = {
+// Virtual Keys API (Admin)
+const adminKeys = {
   list: () => axiosInstance.get("/api/admin/keys"),
   generate: (data: any) => axiosInstance.post("/api/admin/keys", data),
   get: (id: string) => axiosInstance.get(`/api/admin/keys/${id}`),
@@ -77,11 +77,47 @@ const keys = {
     axiosInstance.post("/api/admin/keys/validate", { key }),
 };
 
+// User Keys API
+const userKeys = {
+  list: () => axiosInstance.get("/v1/user/keys"),
+  create: (data: any) => axiosInstance.post("/v1/user/keys", data),
+  delete: (id: string) => axiosInstance.delete(`/v1/user/keys/${id}`),
+  getUsage: () => axiosInstance.get("/v1/user/usage"),
+  getDailyUsage: () => axiosInstance.get("/v1/user/usage/daily"),
+  getMonthlyUsage: () => axiosInstance.get("/v1/user/usage/monthly"),
+};
+
+// User Profile API
+const userProfile = {
+  get: () => axiosInstance.get("/v1/user/profile"),
+  getBudgetStatus: () => axiosInstance.get("/v1/user/budget"),
+  getTeams: () => axiosInstance.get("/v1/user/teams"),
+};
+
+// Unified Keys API (switches based on role)
+const keys = {
+  list: (useUserEndpoint?: boolean) => 
+    useUserEndpoint ? userKeys.list() : adminKeys.list(),
+  generate: (data: any, useUserEndpoint?: boolean) =>
+    useUserEndpoint ? userKeys.create(data) : adminKeys.generate(data),
+  create: (data: any) => userKeys.create(data),
+  get: (id: string) => adminKeys.get(id),
+  update: (id: string, data: any) => adminKeys.update(id, data),
+  delete: (id: string, useUserEndpoint?: boolean) =>
+    useUserEndpoint ? userKeys.delete(id) : adminKeys.delete(id),
+  revoke: (id: string, data?: any) => adminKeys.revoke(id, data),
+  getStats: (id: string) => adminKeys.getStats(id),
+  validate: (key: string) => adminKeys.validate(key),
+};
+
 // Export the main API object
 const api = {
   users,
   teams,
   keys,
+  userKeys,
+  userProfile,
+  adminKeys,
   // Legacy exports for backward compatibility
   axios: axiosInstance,
 };

@@ -12,8 +12,10 @@ import (
 	"github.com/amerfu/pllm/internal/handlers"
 	"github.com/amerfu/pllm/internal/middleware"
 	"github.com/amerfu/pllm/internal/services/budget"
+	"github.com/amerfu/pllm/internal/services/key"
 	"github.com/amerfu/pllm/internal/services/models"
 	redisService "github.com/amerfu/pllm/internal/services/redis"
+	"github.com/amerfu/pllm/internal/services/team"
 	"github.com/amerfu/pllm/internal/ui"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
@@ -68,6 +70,10 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		}
 	}
 
+	// Initialize team and key services for auth auto-provisioning
+	teamService := team.NewTeamService(db)
+	keyService := key.NewService(db, logger)
+
 	authService, err := auth.NewAuthService(&auth.AuthConfig{
 		DB:               db,
 		DexConfig:        dexConfig,
@@ -75,6 +81,8 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		JWTIssuer:        "pllm",
 		TokenExpiry:      cfg.JWT.AccessTokenDuration,
 		MasterKeyService: masterKeyService,
+		TeamService:      teamService,
+		KeyService:       keyService,
 	})
 	if err != nil {
 		logger.Fatal("Failed to initialize auth service", zap.Error(err))

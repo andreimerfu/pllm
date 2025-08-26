@@ -1,48 +1,243 @@
-/* Custom styles for PLLM docs */
+/* PLLM Docs - Nuxt Green Theme */
 
+/* CSS Variables for Nuxt Green Color Palette */
+:root {
+  --nuxt-green-50: #ecfdf5;
+  --nuxt-green-100: #d1fae5;
+  --nuxt-green-200: #a7f3d0;
+  --nuxt-green-300: #6ee7b7;
+  --nuxt-green-400: #34d399;
+  --nuxt-green-500: #10b981;
+  --nuxt-green-600: #059669;
+  --nuxt-green-700: #047857;
+  --nuxt-green-800: #065f46;
+  --nuxt-green-900: #064e3b;
+  
+  /* Override VitePress default green with Nuxt green */
+  --vp-c-brand-1: var(--nuxt-green-500);
+  --vp-c-brand-2: var(--nuxt-green-600);  
+  --vp-c-brand-3: var(--nuxt-green-700);
+  --vp-c-brand-soft: var(--nuxt-green-100);
+  
+  /* Accent colors for interactions */
+  --vp-c-green-1: var(--nuxt-green-500);
+  --vp-c-green-2: var(--nuxt-green-600);
+  --vp-c-green-3: var(--nuxt-green-700);
+  --vp-c-green-soft: var(--nuxt-green-100);
+}
+
+/* Dark theme overrides */
+.dark {
+  --vp-c-brand-1: var(--nuxt-green-400);
+  --vp-c-brand-2: var(--nuxt-green-500);
+  --vp-c-brand-3: var(--nuxt-green-600);
+  --vp-c-brand-soft: rgba(16, 185, 129, 0.16);
+  
+  --vp-c-green-1: var(--nuxt-green-400);
+  --vp-c-green-2: var(--nuxt-green-500);
+  --vp-c-green-3: var(--nuxt-green-600);
+  --vp-c-green-soft: rgba(16, 185, 129, 0.16);
+}
+
+/* Hero section enhancements */
+.VPHero .name {
+  background: linear-gradient(135deg, var(--nuxt-green-600) 0%, var(--nuxt-green-400) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dark .VPHero .name {
+  background: linear-gradient(135deg, var(--nuxt-green-400) 0%, var(--nuxt-green-200) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Feature cards with Nuxt green accents */
+.VPFeature {
+  border: 1px solid var(--nuxt-green-100);
+  transition: all 0.3s ease;
+}
+
+.VPFeature:hover {
+  border-color: var(--nuxt-green-300);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.1);
+}
+
+.dark .VPFeature {
+  border-color: var(--nuxt-green-900);
+}
+
+.dark .VPFeature:hover {
+  border-color: var(--nuxt-green-700);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
+}
+
+/* Custom badges */
+.nuxt-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--nuxt-green-100);
+  color: var(--nuxt-green-800);
+  border-radius: 9999px;
+  margin: 0.25rem;
+}
+
+.dark .nuxt-badge {
+  background: var(--nuxt-green-900);
+  color: var(--nuxt-green-200);
+}
+
+/* Mermaid diagrams */
 .mermaid {
   text-align: center;
   margin: 1rem 0;
+  background: var(--nuxt-green-50);
+  border: 1px solid var(--nuxt-green-100);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
 }
 
-/* Dark theme support for mermaid */
+.mermaid:hover {
+  border-color: var(--nuxt-green-300);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
+}
+
 .dark .mermaid {
-  filter: invert(1) hue-rotate(180deg);
+  background: var(--nuxt-green-950);
+  border-color: var(--nuxt-green-800);
+  filter: invert(0.9) hue-rotate(180deg) saturate(0.8);
 }
 
-/* Code blocks */
+.dark .mermaid:hover {
+  border-color: var(--nuxt-green-600);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.25);
+}
+
+/* Code blocks with Nuxt green accents */
 div[class*="language-"] {
   margin: 16px 0;
-}
-
-/* Better spacing for diagrams */
-.vp-doc div[class*="mermaid"] {
-  margin: 24px 0;
-  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--nuxt-green-100);
   border-radius: 8px;
-  padding: 16px;
+  overflow: hidden;
 }
 
-/* Zoom styles */
+div[class*="language-"]:before {
+  background: var(--nuxt-green-600);
+  color: white;
+}
+
+.dark div[class*="language-"] {
+  border-color: var(--nuxt-green-800);
+}
+
+.dark div[class*="language-"]:before {
+  background: var(--nuxt-green-500);
+}
+
+/* Enhanced tables */
+.vp-doc table {
+  border: 1px solid var(--nuxt-green-200);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.vp-doc th {
+  background: var(--nuxt-green-50);
+  color: var(--nuxt-green-900);
+  font-weight: 600;
+}
+
+.dark .vp-doc table {
+  border-color: var(--nuxt-green-800);
+}
+
+.dark .vp-doc th {
+  background: var(--nuxt-green-900);
+  color: var(--nuxt-green-100);
+}
+
+/* Navigation enhancements */
+.VPNavBar {
+  backdrop-filter: blur(8px);
+}
+
+.VPSidebar {
+  border-right: 1px solid var(--nuxt-green-100);
+}
+
+.dark .VPSidebar {
+  border-right-color: var(--nuxt-green-800);
+}
+
+/* Links with Nuxt green hover */
+.vp-doc a {
+  color: var(--nuxt-green-600);
+  transition: color 0.2s ease;
+}
+
+.vp-doc a:hover {
+  color: var(--nuxt-green-700);
+  text-decoration: underline;
+  text-decoration-color: var(--nuxt-green-400);
+}
+
+.dark .vp-doc a {
+  color: var(--nuxt-green-400);
+}
+
+.dark .vp-doc a:hover {
+  color: var(--nuxt-green-300);
+  text-decoration-color: var(--nuxt-green-500);
+}
+
+/* Custom alerts/callouts */
+.custom-block.tip {
+  border-color: var(--nuxt-green-400);
+  background: var(--nuxt-green-50);
+}
+
+.custom-block.tip .custom-block-title {
+  color: var(--nuxt-green-800);
+}
+
+.dark .custom-block.tip {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: var(--nuxt-green-600);
+}
+
+.dark .custom-block.tip .custom-block-title {
+  color: var(--nuxt-green-300);
+}
+
+/* Zoom functionality */
 .medium-zoom-overlay {
   z-index: 999;
+  background: rgba(16, 185, 129, 0.9);
 }
 
 .medium-zoom-image--opened {
   z-index: 1000;
 }
 
-/* Make diagrams zoomable by adding cursor pointer */
+/* Interactive elements */
 .mermaid svg,
 .main img,
 .diagram img {
   cursor: zoom-in;
-  transition: transform 0.2s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 8px;
 }
 
 .mermaid svg:hover,
 .main img:hover {
   transform: scale(1.02);
+  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.2);
 }
 
 /* Responsive diagrams */
@@ -51,14 +246,43 @@ div[class*="language-"] {
   height: auto;
 }
 
-/* Add a subtle shadow to zoomable elements */
-.main img,
-.mermaid {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
+/* Better spacing for doc elements */
+.vp-doc div[class*="mermaid"] {
+  margin: 24px 0;
 }
 
-.dark .main img,
-.dark .mermaid {
-  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar (webkit) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--nuxt-green-50);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--nuxt-green-300);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--nuxt-green-400);
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: var(--nuxt-green-900);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--nuxt-green-600);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--nuxt-green-500);
 }

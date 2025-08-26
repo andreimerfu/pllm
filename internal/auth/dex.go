@@ -66,7 +66,8 @@ func NewDexAuthProvider(config *DexConfig) (*DexAuthProvider, error) {
 				if addr == "localhost:5556" {
 					addr = "dex:5556"
 				}
-				dialer := &t(ctx, network, addr)
+				dialer := &net.Dialer{}
+				return dialer.DialContext(ctx, network, addr)
 			},
 		},
 	}

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getModelStats, getModels, getBudgetSummary } from "@/lib/api";
+import api from "@/lib/api";
 import type { StatsResponse, ModelsResponse } from "@/types/api";
 import {
   Card,
@@ -63,9 +64,16 @@ export default function Dashboard() {
     enabled: !!isAdmin, // Only fetch budget data for admins
   });
 
+  const { data: userBudgetData } = useQuery({
+    queryKey: ["user-budget"],
+    queryFn: () => api.userProfile.getBudgetStatus(),
+    enabled: !isAdmin, // Only fetch for non-admin users
+  });
+
   const stats = statsData as StatsResponse;
   const models = (modelsData as ModelsResponse)?.data || [];
   const budget = budgetData as any; // axios interceptor extracts data
+  const userBudget = userBudgetData as any; // axios interceptor extracts data
 
   // Calculate summary metrics
   const totalRequests = Object.values(stats?.load_balancer || {}).reduce(
@@ -197,6 +205,106 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* User Budget Summary Cards */}
+      {!isAdmin && userBudget && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="transition-theme border-l-4 border-l-blue-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Personal Budget
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:wallet"
+                  width="16"
+                  height="16"
+                  className="text-blue-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                ${userBudget.user?.max_budget?.toLocaleString() || '∞'}
+              </div>
+              <p className="text-xs text-muted-foreground">Monthly limit</p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-theme border-l-4 border-l-orange-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Current Spend</CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:trending-up"
+                  width="16"
+                  height="16"
+                  className="text-orange-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                ${userBudget.user?.current_spend?.toLocaleString() || '0'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {userBudget.user?.max_budget > 0 
+                  ? `${((userBudget.user?.current_spend / userBudget.user?.max_budget) * 100).toFixed(1)}% used`
+                  : 'No limit set'
+                }
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-theme border-l-4 border-l-purple-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Team Budgets
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:users"
+                  width="16"
+                  height="16"
+                  className="text-purple-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                {userBudget.teams?.length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Teams with budgets
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-theme border-l-4 border-l-emerald-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                API Keys
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:key"
+                  width="16"
+                  height="16"
+                  className="text-emerald-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                {userBudget.keys?.length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Active keys
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Admin Budget Summary Cards */}
       {isAdmin && budget?.summary && (

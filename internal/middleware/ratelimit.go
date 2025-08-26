@@ -60,6 +60,12 @@ func (m *RateLimitMiddleware) Handler(next http.Handler) http.Handler {
 			return
 		}
 
+		// Skip rate limiting for static content and documentation
+		if m.shouldSkipRateLimit(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Extract rate limit key
 		key := m.keyExtractor(r)
 
@@ -107,6 +113,38 @@ func (m *RateLimitMiddleware) Handler(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// shouldSkipRateLimit determines if rate limiting should be skipped for a given path
+func (m *RateLimitMiddleware) shouldSkipRateLimit(path string) bool {
+	// Skip rate limiting for documentation and UI routes
+	if strings.HasPrefix(path, "/docs") ||
+		strings.HasPrefix(path, "/ui") ||
+		strings.HasPrefix(path, "/swagger") ||
+		path == "/health" ||
+		path == "/ready" ||
+		path == "/metrics" {
+		return true
+	}
+	
+	// Skip for static assets that might be served under docs/ui
+	if strings.Contains(path, "/assets/") ||
+		strings.Contains(path, "/css/") ||
+		strings.Contains(path, "/js/") ||
+		strings.Contains(path, "/images/") ||
+		strings.HasSuffix(path, ".css") ||
+		strings.HasSuffix(path, ".js") ||
+		strings.HasSuffix(path, ".png") ||
+		strings.HasSuffix(path, ".jpg") ||
+		strings.HasSuffix(path, ".ico") ||
+		strings.HasSuffix(path, ".svg") ||
+		strings.HasSuffix(path, ".woff") ||
+		strings.HasSuffix(path, ".woff2") ||
+		strings.HasSuffix(path, ".ttf") {
+		return true
+	}
+	
+	return false
 }
 
 func (m *RateLimitMiddleware) getRateLimits(r *http.Request) (int, time.Duration) {
