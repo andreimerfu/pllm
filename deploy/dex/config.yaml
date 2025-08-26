@@ -1,4 +1,4 @@
-# Dex configuration for pLLM authentication
+# Dex configuration for pLLM authentication  
 issuer: http://localhost:5556/dex
 
 storage:
@@ -14,7 +14,7 @@ storage:
 
 web:
   http: 0.0.0.0:5556
-  allowedOrigins: ['*']
+  allowedOrigins: ["*"]
 
 grpc:
   addr: 0.0.0.0:5557

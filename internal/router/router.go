@@ -11,6 +11,7 @@ import (
 	"github.com/amerfu/pllm/internal/docs"
 	"github.com/amerfu/pllm/internal/handlers"
 	"github.com/amerfu/pllm/internal/middleware"
+	"github.com/amerfu/pllm/internal/services/budget"
 	"github.com/amerfu/pllm/internal/services/models"
 	redisService "github.com/amerfu/pllm/internal/services/redis"
 	"github.com/amerfu/pllm/internal/ui"
@@ -59,6 +60,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	if cfg.Auth.Dex.Enabled {
 		dexConfig = &auth.DexConfig{
 			Issuer:       cfg.Auth.Dex.Issuer,
+			PublicIssuer: cfg.Auth.Dex.PublicIssuer,
 			ClientID:     cfg.Auth.Dex.ClientID,
 			ClientSecret: cfg.Auth.Dex.ClientSecret,
 			RedirectURL:  cfg.Auth.Dex.RedirectURL,
@@ -280,6 +282,21 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 
 	// Admin routes - mount if database is available
 	if db != nil {
+		// Create unified budget service using the existing Redis components
+		budgetService := budget.NewUnifiedService(&budget.UnifiedServiceConfig{
+			DB:          db,
+			Logger:      logger,
+			BudgetCache: redisService.NewBudgetCache(redisClient, logger, 5*time.Minute),
+			UsageQueue: redisService.NewUsageQueue(&redisService.UsageQueueConfig{
+				Client:     redisClient,
+				Logger:     logger,
+				QueueName:  "usage_processing_queue",
+				BatchSize:  50,
+				MaxRetries: 3,
+			}),
+			EventPub: redisService.NewEventPublisher(redisClient, logger),
+		})
+
 		// Create admin sub-router configuration
 		adminConfig := &AdminRouterConfig{
 			Config:           cfg,
@@ -288,6 +305,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			AuthService:      authService,
 			MasterKeyService: masterKeyService,
 			ModelManager:     modelManager,
+			BudgetService:    budgetService,
 		}
 
 		// Mount admin routes at /api/admin

@@ -448,6 +448,32 @@ Access real-time metrics at `http://localhost:9090/metrics`
 - Minimal memory footprint (50-80MB)
 - Kubernetes-ready with health checks and metrics
 
+### 🏭 **Enterprise Performance Scaling**
+> **⚠️ Critical for High-Volume Deployments**
+> 
+> For **massive performance and ultra-low latency**, the bottleneck is often the LLM providers themselves, not the gateway. To achieve true enterprise scale:
+>
+> - **Multiple LLM Deployments**: Deploy several instances of the same model (e.g., 5-10 GPT-4 Azure OpenAI deployments)
+> - **Multi-Provider Redundancy**: Use multiple AWS Bedrock accounts, Azure regions, or provider accounts
+> - **Geographic Distribution**: Deploy models across regions for latency optimization
+>
+> **Example Enterprise Setup:**
+> ```yaml
+> # High-Performance Configuration
+> model_list:
+>   - model_name: gpt-4
+>     deployments:
+>       - azure_deployment_1_east
+>       - azure_deployment_2_east  
+>       - azure_deployment_3_west
+>       - bedrock_account_1
+>       - bedrock_account_2
+> ```
+>
+> **Why This Matters**: A single LLM deployment typically handles 60-100 RPM. For 10,000+ concurrent users, you need **multiple deployments of the same model** to prevent provider-side bottlenecks. PLLM's adaptive routing automatically distributes load across all deployments.
+>
+> Most companies ignore this critical scaling requirement and hit provider limits rather than gateway limits.
+
 ## 🤝 Community & Support
 
 ### Get Help

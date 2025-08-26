@@ -22,16 +22,16 @@ type KeyHandler struct {
 	baseHandler
 	db            *gorm.DB
 	auditLogger   *audit.Logger
-	budgetTracker *budget.Tracker
+	budgetService budget.Service
 	keyGenerator  *key.KeyGenerator
 }
 
-func NewKeyHandler(logger *zap.Logger, db *gorm.DB) *KeyHandler {
+func NewKeyHandler(logger *zap.Logger, db *gorm.DB, budgetService budget.Service) *KeyHandler {
 	return &KeyHandler{
 		baseHandler:   baseHandler{logger: logger},
 		db:            db,
 		auditLogger:   audit.NewLogger(db),
-		budgetTracker: budget.NewTracker(db),
+		budgetService: budgetService,
 		keyGenerator:  key.NewKeyGenerator(),
 	}
 }

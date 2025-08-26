@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default defineConfig({
+export default withMermaid(defineConfig({
   title: 'pllm',
   description: 'Blazing Fast LLM Gateway - Documentation',
   base: '/docs/',
@@ -19,6 +20,17 @@ export default defineConfig({
           { text: 'What is pllm?', link: '/' },
           { text: 'Getting Started', link: '/guide/getting-started' },
           { text: 'Quick Start', link: '/guide/quickstart' }
+        ]
+      },
+      {
+        text: 'Architecture',
+        items: [
+          { text: 'System Overview', link: '/guide/architecture' },
+          { text: 'Circuit Breakers', link: '/guide/architecture#circuit-breaker' },
+          { text: 'Load Balancing', link: '/guide/architecture#load-balancing' },
+          { text: 'Rate Limiting', link: '/guide/architecture#rate-limiting' },
+          { text: 'Caching Strategy', link: '/guide/architecture#caching-strategy' },
+          { text: 'Streaming', link: '/guide/architecture#streaming-implementation' }
         ]
       },
       {
@@ -67,4 +79,4 @@ export default defineConfig({
       provider: 'local'
     }
   }
-})
+}))

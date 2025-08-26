@@ -1,0 +1,64 @@
+/* Custom styles for PLLM docs */
+
+.mermaid {
+  text-align: center;
+  margin: 1rem 0;
+}
+
+/* Dark theme support for mermaid */
+.dark .mermaid {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Code blocks */
+div[class*="language-"] {
+  margin: 16px 0;
+}
+
+/* Better spacing for diagrams */
+.vp-doc div[class*="mermaid"] {
+  margin: 24px 0;
+  background: var(--vp-c-bg-soft);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+/* Zoom styles */
+.medium-zoom-overlay {
+  z-index: 999;
+}
+
+.medium-zoom-image--opened {
+  z-index: 1000;
+}
+
+/* Make diagrams zoomable by adding cursor pointer */
+.mermaid svg,
+.main img,
+.diagram img {
+  cursor: zoom-in;
+  transition: transform 0.2s ease;
+}
+
+.mermaid svg:hover,
+.main img:hover {
+  transform: scale(1.02);
+}
+
+/* Responsive diagrams */
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Add a subtle shadow to zoomable elements */
+.main img,
+.mermaid {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.dark .main img,
+.dark .mermaid {
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}

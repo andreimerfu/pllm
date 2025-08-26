@@ -7,6 +7,7 @@ import (
 	"github.com/amerfu/pllm/internal/config"
 	"github.com/amerfu/pllm/internal/handlers/admin"
 	"github.com/amerfu/pllm/internal/middleware"
+	"github.com/amerfu/pllm/internal/services/budget"
 	"github.com/amerfu/pllm/internal/services/team"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
@@ -21,6 +22,7 @@ type AdminRouterConfig struct {
 	DB               *gorm.DB
 	AuthService      *auth.AuthService
 	MasterKeyService *auth.MasterKeyService
+	BudgetService    budget.Service
 	ModelManager     interface {
 		GetModelStats() map[string]interface{}
 	}
@@ -39,13 +41,13 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	oauthHandler := admin.NewOAuthHandler(
 		cfg.Logger,
 		cfg.DB,
-		"http://localhost:5556/dex",
+		"http://dex:5556/dex",
 		"pllm-web",
 		"pllm-web-secret",
 	)
 	userHandler := admin.NewUserHandler(cfg.Logger, cfg.DB)
-	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB)
-	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
+	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB, cfg.BudgetService)
+	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB, cfg.BudgetService)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
 
@@ -188,8 +190,8 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 
 	// Initialize handlers
 	// authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKey) // Will be used when auth endpoints are enabled
-	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB)
-	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
+	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB, cfg.BudgetService)
+	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB, cfg.BudgetService)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
 

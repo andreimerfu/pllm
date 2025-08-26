@@ -20,15 +20,15 @@ type TeamHandler struct {
 	baseHandler
 	teamService   *team.TeamService
 	auditLogger   *audit.Logger
-	budgetTracker *budget.Tracker
+	budgetService budget.Service
 }
 
-func NewTeamHandler(logger *zap.Logger, teamService *team.TeamService, db *gorm.DB) *TeamHandler {
+func NewTeamHandler(logger *zap.Logger, teamService *team.TeamService, db *gorm.DB, budgetService budget.Service) *TeamHandler {
 	return &TeamHandler{
 		baseHandler:   baseHandler{logger: logger},
 		teamService:   teamService,
 		auditLogger:   audit.NewLogger(db),
-		budgetTracker: budget.NewTracker(db),
+		budgetService: budgetService,
 	}
 }
 
