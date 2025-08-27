@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -114,7 +115,7 @@ func NewAuthService(config *AuthConfig) (*AuthService, error) {
 // LoginWithDex handles Dex OAuth authentication and auto-provision users
 func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResponse, error) {
 	if s.dexProvider == nil {
-		return nil, errors.New("Dex not configured")
+		return nil, errors.New("dex not configured")
 	}
 
 	token, err := s.dexProvider.ExchangeCode(ctx, code)
@@ -223,6 +224,7 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 		user.UpdateExternalGroups(claims.Groups)
 		if err := s.db.Save(&user).Error; err != nil {
 			// Log error but don't fail login
+			log.Printf("Failed to update user from Dex claims: %v", err)
 		}
 	}
 
@@ -500,17 +502,6 @@ func (s *AuthService) generateJWT(user *models.User) (string, error) {
 	return token.SignedString(s.jwtSecret)
 }
 
-func (s *AuthService) generateRefreshToken(user *models.User) (string, error) {
-	claims := &jwt.RegisteredClaims{
-		Issuer:    s.jwtIssuer,
-		Subject:   user.DexID, // Use Dex ID as subject
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(s.jwtSecret)
-}
 
 // GetUserByDexID retrieves a user by their Dex subject ID
 func (s *AuthService) GetUserByDexID(ctx context.Context, dexID string) (*models.User, error) {

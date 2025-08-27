@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -130,13 +131,15 @@ func (m *AsyncBudgetMiddleware) EnforceBudgetAsync(next http.Handler) http.Handl
 
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
-			json.NewEncoder(w).Encode(providers.ErrorResponse{
+			if err := json.NewEncoder(w).Encode(providers.ErrorResponse{
 				Error: providers.APIError{
 					Message: "Budget limit exceeded. Please contact your administrator or upgrade your plan.",
 					Type:    "insufficient_quota",
 					Code:    "budget_exceeded",
 				},
-			})
+			}); err != nil {
+				log.Printf("Failed to encode budget error response: %v", err)
+			}
 			return
 		}
 
@@ -198,7 +201,8 @@ func (m *AsyncBudgetMiddleware) trackUsageAsync(ctx context.Context, request pro
 	}
 
 	// Set entity IDs and ownership information
-	if entityType == "key" {
+	switch entityType {
+	case "key":
 		if keyUUID, err := uuid.Parse(entityID); err == nil {
 			usageRecord.KeyID = keyUUID.String()
 			// Get key ownership details
@@ -216,7 +220,7 @@ func (m *AsyncBudgetMiddleware) trackUsageAsync(ctx context.Context, request pro
 				}
 			}
 		}
-	} else if entityType == "user" {
+	case "user":
 		usageRecord.UserID = entityID
 		// For direct user requests, ActualUserID is the same as UserID
 		usageRecord.ActualUserID = entityID
@@ -234,14 +238,18 @@ func (m *AsyncBudgetMiddleware) trackUsageAsync(ctx context.Context, request pro
 	go m.updateBudgetCacheAsync(entityType, entityID, actualCost)
 
 	// Publish usage event for real-time monitoring (optional)
-	go m.eventPub.PublishUsageEvent(context.Background(),
-		usageRecord.UserID,
-		usageRecord.KeyID,
-		request.Model,
-		inputTokens,
-		outputTokens,
-		actualCost,
-		latency)
+	go func() {
+		if err := m.eventPub.PublishUsageEvent(context.Background(),
+			usageRecord.UserID,
+			usageRecord.KeyID,
+			request.Model,
+			inputTokens,
+			outputTokens,
+			actualCost,
+			latency); err != nil {
+			log.Printf("Failed to publish usage event: %v", err)
+		}
+	}()
 
 	m.logger.Debug("Usage tracked asynchronously",
 		zap.String("entity", fmt.Sprintf("%s:%s", entityType, entityID)),
@@ -299,14 +307,3 @@ func (m *AsyncBudgetMiddleware) estimateInputTokens(messages []providers.Message
 	return tokens
 }
 
-func (m *AsyncBudgetMiddleware) calculateActualCost(model string, inputTokens, outputTokens int) float64 {
-	pricing, exists := ModelPricing[model]
-	if !exists {
-		pricing = ModelPricing["gpt-4"]
-	}
-
-	inputCost := float64(inputTokens) / pricing.InputTokensPerDollar
-	outputCost := float64(outputTokens) / pricing.OutputTokensPerDollar
-
-	return inputCost + outputCost
-}

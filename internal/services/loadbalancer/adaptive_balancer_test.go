@@ -492,7 +492,7 @@ func TestAdaptiveLoadBalancer_ConcurrentAccess(t *testing.T) {
 
 				switch j % 6 {
 				case 0:
-					alb.SelectModel(ctx, model)
+					_, _ = alb.SelectModel(ctx, model)
 				case 1:
 					alb.RecordRequestStart(model)
 				case 2:
@@ -544,7 +544,7 @@ func BenchmarkAdaptiveLoadBalancer_SelectModel(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		alb.SelectModel(ctx, "primary")
+		_, _ = alb.SelectModel(ctx, "primary")
 	}
 }
 
@@ -590,7 +590,7 @@ func BenchmarkAdaptiveLoadBalancer_ConcurrentOperations(b *testing.B) {
 			model := models[i%len(models)]
 			switch i % 4 {
 			case 0:
-				alb.SelectModel(ctx, model)
+				_, _ = alb.SelectModel(ctx, model)
 			case 1:
 				alb.RecordRequestStart(model)
 			case 2:

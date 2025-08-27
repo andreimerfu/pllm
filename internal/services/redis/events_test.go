@@ -22,7 +22,7 @@ func TestEventPublisher(t *testing.T) {
 	client := redis.NewClient(&redis.Options{
 		Addr: mr.Addr(),
 	})
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	ctx := context.Background()
 

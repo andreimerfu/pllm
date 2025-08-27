@@ -75,7 +75,7 @@ func newTeamCreateCommand(ctx context.Context) *cobra.Command {
 	cmd.Flags().IntVar(&rpm, "rpm", 0, "Requests per minute limit")
 	cmd.Flags().IntVar(&maxParallel, "max-parallel", 0, "Maximum parallel calls")
 
-	cmd.MarkFlagRequired("name")
+	_ = cmd.MarkFlagRequired("name")
 
 	return cmd
 }
@@ -254,7 +254,7 @@ func newTeamAddUserCommand(ctx context.Context) *cobra.Command {
 	cmd.Flags().StringVarP(&role, "role", "r", "member", "Team role (owner, admin, member, viewer)")
 	cmd.Flags().Float64Var(&maxBudget, "max-budget", 0, "Maximum budget for user")
 
-	cmd.MarkFlagRequired("user-id")
+	_ = cmd.MarkFlagRequired("user-id")
 
 	return cmd
 }
@@ -292,7 +292,7 @@ func newTeamRemoveUserCommand(ctx context.Context) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&userID, "user-id", "", "User ID to remove (required)")
-	cmd.MarkFlagRequired("user-id")
+	_ = cmd.MarkFlagRequired("user-id")
 
 	return cmd
 }
@@ -329,7 +329,7 @@ func newTeamSetBudgetCommand(ctx context.Context) *cobra.Command {
 	}
 
 	cmd.Flags().Float64VarP(&amount, "amount", "a", 0, "Budget amount (required)")
-	cmd.MarkFlagRequired("amount")
+	_ = cmd.MarkFlagRequired("amount")
 
 	return cmd
 }
@@ -473,7 +473,7 @@ func createTeamAPI(ctx context.Context, team *models.Team) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 201 {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)
@@ -502,7 +502,7 @@ func listTeamsAPI(ctx context.Context, limit, offset int) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var teams []models.Team
 	if err := json.NewDecoder(resp.Body).Decode(&teams); err != nil {
@@ -533,7 +533,7 @@ func getTeamAPI(ctx context.Context, teamID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var team models.Team
 	if err := json.NewDecoder(resp.Body).Decode(&team); err != nil {
@@ -558,7 +558,7 @@ func updateTeamAPI(ctx context.Context, teamID uuid.UUID, updates map[string]int
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)
@@ -573,7 +573,7 @@ func deleteTeamAPI(ctx context.Context, teamID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 && resp.StatusCode != 204 {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)
@@ -589,7 +589,7 @@ func addTeamMemberAPI(ctx context.Context, member *models.TeamMember) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 201 {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)
@@ -605,7 +605,7 @@ func removeTeamMemberAPI(ctx context.Context, teamID, userID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 && resp.StatusCode != 204 {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)

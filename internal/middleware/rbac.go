@@ -317,44 +317,54 @@ func (m *RBACMiddleware) EnforceBudget() func(http.Handler) http.Handler {
 func (m *RBACMiddleware) unauthorized(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"error": message,
 		"code":  "unauthorized",
-	})
+	}); err != nil {
+		m.logger.Error("Failed to encode RBAC error response", zap.Error(err))
+	}
 }
 
 func (m *RBACMiddleware) forbidden(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusForbidden)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"error": message,
 		"code":  "forbidden",
-	})
+	}); err != nil {
+		m.logger.Error("Failed to encode forbidden response", zap.Error(err))
+	}
 }
 
 func (m *RBACMiddleware) badRequest(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusBadRequest)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"error": message,
 		"code":  "bad_request",
-	})
+	}); err != nil {
+		m.logger.Error("Failed to encode bad request response", zap.Error(err))
+	}
 }
 
 func (m *RBACMiddleware) internalError(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusInternalServerError)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"error": message,
 		"code":  "internal_error",
-	})
+	}); err != nil {
+		m.logger.Error("Failed to encode internal error response", zap.Error(err))
+	}
 }
 
 func (m *RBACMiddleware) paymentRequired(w http.ResponseWriter, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusPaymentRequired)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"error": message,
 		"code":  "payment_required",
-	})
+	}); err != nil {
+		m.logger.Error("Failed to encode payment required response", zap.Error(err))
+	}
 }

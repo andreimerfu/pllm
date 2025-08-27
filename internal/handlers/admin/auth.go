@@ -223,5 +223,7 @@ func (h *AuthHandler) GetPermissions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("Failed to encode auth response", zap.Error(err))
+	}
 }

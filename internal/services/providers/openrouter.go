@@ -152,7 +152,7 @@ func (p *OpenRouterProvider) ChatCompletion(ctx context.Context, request *ChatRe
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
@@ -233,7 +233,7 @@ func (p *OpenRouterProvider) ChatCompletionStream(ctx context.Context, request *
 			}
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Check for errors
 		if resp.StatusCode != http.StatusOK {
@@ -348,7 +348,7 @@ func (p *OpenRouterProvider) Completion(ctx context.Context, request *Completion
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
@@ -401,7 +401,7 @@ func (p *OpenRouterProvider) CompletionStream(ctx context.Context, request *Comp
 		if err != nil {
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			return
@@ -435,7 +435,7 @@ func (p *OpenRouterProvider) HealthCheck(ctx context.Context) error {
 		p.SetHealthy(false)
 		return fmt.Errorf("health check failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		p.SetHealthy(false)
@@ -460,7 +460,7 @@ func (p *OpenRouterProvider) FetchModels(ctx context.Context) ([]string, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to fetch models, status: %d", resp.StatusCode)

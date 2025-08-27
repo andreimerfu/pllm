@@ -82,7 +82,7 @@ func newUserCreateCommand(ctx context.Context) *cobra.Command {
 	cmd.Flags().Float64Var(&maxBudget, "max-budget", 0, "Maximum budget")
 	cmd.Flags().StringVar(&budgetDuration, "budget-duration", "monthly", "Budget duration (daily, weekly, monthly, yearly)")
 
-	cmd.MarkFlagRequired("email")
+	_ = cmd.MarkFlagRequired("email")
 
 	return cmd
 }
@@ -331,7 +331,7 @@ func createUserAPI(ctx context.Context, user *models.User) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 201 {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)
@@ -364,7 +364,7 @@ func listUsersAPI(ctx context.Context, teamID string, limit, offset int) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var users []models.User
 	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
@@ -395,7 +395,7 @@ func getUserAPI(ctx context.Context, userID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var user models.User
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
@@ -420,7 +420,7 @@ func updateUserAPI(ctx context.Context, userID uuid.UUID, updates map[string]int
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)
@@ -435,7 +435,7 @@ func deleteUserAPI(ctx context.Context, userID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 && resp.StatusCode != 204 {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)

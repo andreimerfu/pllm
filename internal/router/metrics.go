@@ -1,6 +1,7 @@
 package router
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/amerfu/pllm/internal/config"
@@ -22,7 +23,9 @@ func NewMetricsRouter(cfg *config.Config, logger *zap.Logger) http.Handler {
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok", "service": "metrics"}`))
+		if _, err := w.Write([]byte(`{"status": "ok", "service": "metrics"}`)); err != nil {
+			log.Printf("Failed to write metrics health response: %v", err)
+		}
 	})
 
 	// Prometheus metrics endpoint

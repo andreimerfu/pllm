@@ -301,7 +301,7 @@ func TestConnection(ctx context.Context, cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to get database: %w", err)
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	// Test connection with context
 	if err := sqlDB.PingContext(ctx); err != nil {

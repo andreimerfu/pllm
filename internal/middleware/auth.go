@@ -17,11 +17,12 @@ import (
 type contextKey string
 
 const (
-	UserContextKey      contextKey = "user"
-	KeyContextKey       contextKey = "key"
-	TeamContextKey      contextKey = "team"
-	AuthTypeContextKey  contextKey = "auth_type"
-	MasterKeyContextKey contextKey = "master_key_context"
+	UserContextKey        contextKey = "user"
+	KeyContextKey         contextKey = "key"
+	TeamContextKey        contextKey = "team"
+	AuthTypeContextKey    contextKey = "auth_type"
+	MasterKeyContextKey   contextKey = "master_key_context"
+	PermissionsContextKey contextKey = "permissions"
 )
 
 type AuthType string
@@ -136,7 +137,7 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			ctx := context.WithValue(r.Context(), AuthTypeContextKey, AuthTypeJWT)
 			ctx = context.WithValue(ctx, UserContextKey, cachedClaims.UserID)
 			// Store permissions in context for RBAC
-			ctx = context.WithValue(ctx, "permissions", cachedClaims.Permissions)
+			ctx = context.WithValue(ctx, PermissionsContextKey, cachedClaims.Permissions)
 			next.ServeHTTP(w, r.WithContext(ctx))
 
 		default:
@@ -327,13 +328,15 @@ func (m *AuthMiddleware) extractAuth(r *http.Request) (AuthType, string, error) 
 func (m *AuthMiddleware) sendError(w http.ResponseWriter, statusCode int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"error": map[string]interface{}{
 			"message": message,
 			"type":    "authentication_error",
 			"code":    statusCode,
 		},
-	})
+	}); err != nil {
+		m.logger.Error("Failed to encode auth error response", zap.Error(err))
+	}
 }
 
 // Helper functions to extract auth context

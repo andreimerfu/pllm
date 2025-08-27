@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -77,6 +78,7 @@ func (m *MasterKeyService) ValidateMasterKey(ctx context.Context, key string) (*
 	// Save audit entry
 	if err := m.db.Create(auditEntry).Error; err != nil {
 		// Log error but don't fail authentication
+		log.Printf("Failed to create master key audit entry: %v", err)
 	}
 
 	return &MasterKeyContext{

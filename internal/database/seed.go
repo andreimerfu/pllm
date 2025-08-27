@@ -464,24 +464,3 @@ func (s *Seeder) SeedBudgets() error {
 	return nil
 }
 
-// Helper functions
-func generateRandomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[time.Now().UnixNano()%int64(len(charset))]
-	}
-	return string(b)
-}
-
-func timePtr(t time.Time) *time.Time {
-	return &t
-}
-
-func floatPtr(f float64) *float64 {
-	return &f
-}
-
-func intPtr(i int) *int {
-	return &i
-}

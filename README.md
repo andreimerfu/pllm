@@ -1,42 +1,42 @@
 <div align="center">
 
-# ⚡ PLLM - Production LLM Gateway
+# ⚡ pLLM - performant LLM Gateway
 
-### The High-Performance Go Alternative to LiteLLM
+### Enterprise-Grade LLM Gateway Built in Go
 
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=for-the-badge&logo=go)](https://go.dev)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)](https://hub.docker.com/r/amerfu/pllm)
 [![OpenAI Compatible](https://img.shields.io/badge/OpenAI-Compatible-412991?style=for-the-badge&logo=openai)](https://platform.openai.com)
 
-**Drop-in OpenAI replacement** • **10x faster than Python alternatives** • **Enterprise-grade reliability**
+**Drop-in OpenAI replacement** • **High-performance Go architecture** • **Enterprise-grade reliability**
 
-[🚀 Quick Start](#-quick-start) • [📊 Benchmarks](#-performance-benchmarks) • [📖 Documentation](docs/) • [💬 Discord](https://discord.gg/pllm)
+[🚀 Quick Start](#-quick-start) • [📊 Benchmarks](#-performance-benchmarks) • [📖 Documentation](docs/)
 
 </div>
 
 ---
 
-## 🎯 Why PLLM?
+## 🎯 Why pLLM?
 
 <table>
 <tr>
 <td width="33%" align="center">
 
-### 🚀 **10x Performance**
-Handle 10,000+ concurrent requests on a single instance
+### 🚀 **High Performance**
+Handle thousands of concurrent requests on a single instance
 
 </td>
 <td width="33%" align="center">
 
-### 💰 **80% Cost Reduction**
-$280/month vs $1,400/month for equivalent Python solutions
+### 💰 **Cost Efficient**
+Significantly reduced infrastructure costs vs interpreted alternatives
 
 </td>
 <td width="33%" align="center">
 
-### ⚡ **<1ms Latency**
-Sub-millisecond overhead vs 3-31ms for Python gateways
+### ⚡ **Low Latency**
+Minimal overhead with native Go performance
 
 </td>
 </tr>
@@ -45,29 +45,29 @@ Sub-millisecond overhead vs 3-31ms for Python gateways
 ## 📊 Performance Benchmarks
 
 <details>
-<summary><b>🏎️ Head-to-Head Comparison with LiteLLM</b></summary>
+<summary><b>🏎️ Performance Benchmarks</b></summary>
 
-| Metric | PLLM (Go) | LiteLLM (Python) | Improvement |
-|:-------|:----------|:-----------------|:------------|
-| **Concurrent Connections** | 10,000+ | ~1,000 | **10x** 🚀 |
-| **Memory Usage** | 50-80MB | 150-300MB | **70% less** 💾 |
-| **Startup Time** | <100ms | 2-5s | **50x faster** ⚡ |
-| **CPU Efficiency** | 90%+ all cores | ~60% (GIL) | **True parallelism** 🔥 |
-| **P99 Latency** | <1ms | 31ms | **31x faster** 📈 |
-| **Instances Required** | 1 | 5+ | **5x efficiency** 💪 |
+| Metric | PLLM (Go) | Typical Interpreted Gateway | Advantage |
+|:-------|:----------|:----------------------------|:----------|
+| **Concurrent Connections** | High (thousands) | Limited | **Superior concurrency** 🚀 |
+| **Memory Usage** | 50-80MB | 150-300MB+ | **Lower footprint** 💾 |
+| **Startup Time** | <100ms | 2-5s | **Instant startup** ⚡ |
+| **CPU Efficiency** | All cores utilized | GIL limitations | **True parallelism** 🔥 |
+| **Response Latency** | Sub-millisecond | Variable | **Consistent performance** 📈 |
+| **Infrastructure** | Single instance capable | Often requires scaling | **Higher efficiency** 💪 |
 
 </details>
 
 <details>
-<summary><b>💰 Cost Analysis (10K concurrent users)</b></summary>
+<summary><b>💰 Cost Analysis (High Concurrency Scenario)</b></summary>
 
 ```
 ┌─────────────────────────────────────────────┐
-│ PLLM:     1x c5.2xlarge  = $280/month      │
-│ LiteLLM:  5x c5.2xlarge  = $1,400/month    │
+│ PLLM:              1x instance required    │
+│ Interpreted Gateway: Multiple instances    │
 │                                             │
-│ Monthly Savings: $1,120 (80% reduction)    │
-│ Annual Savings:  $13,440                   │
+│ Result: Significant infrastructure savings │
+│ Lower operational complexity               │
 └─────────────────────────────────────────────┘
 ```
 
@@ -104,7 +104,7 @@ Sub-millisecond overhead vs 3-31ms for Python gateways
 - ✅ **Adaptive Routing** - Zero failed requests with automatic failover
 - ✅ **Multi-Key Load Balancing** - Distribute load across multiple API keys
 - ✅ **Advanced Rate Limiting** - Per-user, per-model, per-endpoint controls
-- ✅ **Intelligent Caching** - Redis-backed semantic caching
+- ✅ **Intelligent Caching** - Redis-backed response caching
 - ✅ **Budget Management** - User and group-based spending controls
 
 ### 🛡️ **Security & Monitoring**
@@ -144,10 +144,11 @@ curl http://localhost:8080/v1/chat/completions \
 
 | Service | URL | Description |
 |:--------|:----|:------------|
-| 🌐 **API** | http://localhost:8080 | Main gateway endpoint |
+| 🌐 **API** | http://localhost:8080/v1 | Main gateway endpoint |
 | 📚 **Swagger** | http://localhost:8080/swagger | Interactive API docs |
-| 🎛️ **Admin** | http://localhost:8081 | Admin dashboard |
-| 📊 **Metrics** | http://localhost:9090 | Prometheus metrics |
+| 🎛️ **Admin UI** | http://localhost:8080/ui | Web admin dashboard |
+| 📖 **Documentation** | http://localhost:8080/docs | Project documentation |
+| 📊 **Metrics** | http://localhost:8080/metrics | Prometheus metrics |
 
 ### 🧪 Quick Test
 
@@ -227,13 +228,10 @@ AZURE_API_KEY=your-azure-key
 
 ```yaml
 model_list:
-  - model_name: gpt-4
-    litellm_params:
-      api_key: ${OPENAI_API_KEY_1}
-      rpm: 60        # Requests per minute
-      tpm: 90000     # Tokens per minute
-    priority: 10     # Higher = preferred
-    weight: 1        # Load distribution weight
+  - model_name: my-gpt-4
+    params:
+      model: gpt-4
+      api_key: ${OPENAI_API_KEY}
 ```
 
 </details>
@@ -243,12 +241,10 @@ model_list:
 
 ```yaml
 router:
-  strategy: "latency_based"  # round_robin, least_busy, weighted, priority
+  routing_strategy: "latency-based"
+  circuit_breaker_enabled: true
   fallbacks:
-    gpt-4: ["gpt-3.5-turbo"]  # Automatic fallback chains
-  circuit_breaker:
-    threshold: 5               # Failures before opening
-    timeout: 30s              # Recovery timeout
+    my-gpt-4: ["my-gpt-35-turbo"]  # Automatic fallback chains
 ```
 
 </details>
@@ -321,7 +317,7 @@ graph LR
 - **🔌 Circuit Breaking** - Prevents cascade failures
 - **🛡️ Load Protection** - Graceful degradation under load
 
-[→ Full Documentation](docs/ADAPTIVE_ROUTING.md)
+[→ See Implementation](internal/services/loadbalancer/)
 
 ## 🏗️ Architecture
 
@@ -405,7 +401,7 @@ go run cmd/server/main.go
 
 ### Metrics Dashboard
 
-Access real-time metrics at `http://localhost:9090/metrics`
+Access real-time metrics at `http://localhost:8080/metrics`
 
 ```
 ┌──────────────────────────────────────┐
@@ -429,14 +425,14 @@ Access real-time metrics at `http://localhost:9090/metrics`
 ## 🏢 Enterprise Benefits
 
 ### 🚀 **Performance at Scale**
-- Handle **10,000+ concurrent requests** on a single instance
-- **Sub-millisecond latency** even at P99
-- True multi-core utilization without GIL limitations
+- Handle **thousands of concurrent requests** on a single instance
+- **Consistent low latency** across percentiles
+- True multi-core utilization without interpreter limitations
 
-### 💰 **Dramatic Cost Reduction**
-- **80% lower infrastructure costs** vs Python alternatives
-- Single PLLM instance replaces 5+ Python instances
-- Reduced operational complexity and maintenance
+### 💰 **Infrastructure Efficiency**
+- **Reduced infrastructure costs** vs interpreted alternatives
+- Fewer instances required for equivalent load
+- Simplified operational complexity and maintenance
 
 ### 🛡️ **Production Reliability**
 - Built on Go's battle-tested concurrency model
@@ -477,14 +473,12 @@ Access real-time metrics at `http://localhost:9090/metrics`
 ## 🤝 Community & Support
 
 ### Get Help
-- 💬 [Discord Community](https://discord.gg/pllm) - Real-time support
 - 📖 [Documentation](docs/) - Comprehensive guides
 - 🐛 [GitHub Issues](https://github.com/andreimerfu/pllm/issues) - Bug reports & features
-- 📧 [Email Support](mailto:support@pllm.dev) - Enterprise inquiries
 
 ### Contributing
 
-We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for:
+We welcome contributions! Please see our [GitHub Issues](https://github.com/andreimerfu/pllm/issues) for:
 - 🐛 Bug reports
 - ✨ Feature requests
 - 🔧 Pull requests
@@ -496,14 +490,14 @@ We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for:
 - [x] Multi-provider support
 - [x] Adaptive routing
 - [x] Prometheus metrics
-- [ ] Web admin UI
+- [x] Web admin UI
 - [ ] Semantic caching
 - [ ] Custom model fine-tuning
 - [ ] GraphQL API
 
 ## 📄 License
 
-Licensed under the [Apache License 2.0](LICENSE)
+Licensed under the [MIT License](LICENSE)
 
 ---
 
@@ -511,6 +505,6 @@ Licensed under the [Apache License 2.0](LICENSE)
 
 **Built with ❤️ by the PLLM Team**
 
-[⭐ Star us on GitHub](https://github.com/andreimerfu/pllm) • [🐦 Follow on Twitter](https://twitter.com/pllm_dev)
+[⭐ Star us on GitHub](https://github.com/andreimerfu/pllm)
 
 </div>

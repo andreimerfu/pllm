@@ -99,7 +99,9 @@ func (m *RateLimitMiddleware) Handler(next http.Handler) http.Handler {
 			// Rate limit exceeded
 			w.Header().Set("Retry-After", strconv.Itoa(int(window.Seconds())))
 			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte(`{"error": {"message": "Rate limit exceeded. Please retry later.", "type": "rate_limit_error", "code": "rate_limit_exceeded"}}`))
+			if _, err := w.Write([]byte(`{"error": {"message": "Rate limit exceeded. Please retry later.", "type": "rate_limit_error", "code": "rate_limit_exceeded"}}`)); err != nil {
+				m.log.Error("Failed to write rate limit error response", zap.Error(err))
+			}
 
 			m.log.Warn("Rate limit exceeded",
 				zap.String("key", key),
@@ -162,6 +164,7 @@ func (m *RateLimitMiddleware) getRateLimits(r *http.Request) (int, time.Duration
 		if model != "" {
 			// TODO: Get model-specific rate limits from config
 			// For now, use default chat limits
+			m.log.Debug("Model-specific rate limiting not implemented", zap.String("model", model))
 		}
 
 		if m.config.ChatCompletionsRPM > 0 {

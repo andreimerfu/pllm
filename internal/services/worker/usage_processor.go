@@ -127,7 +127,7 @@ func (up *UsageProcessor) processBatch(ctx context.Context) error {
 		up.logger.Debug("Could not acquire processing lock, skipping batch")
 		return nil
 	}
-	defer lock.Release(ctx)
+	defer func() { _ = lock.Release(ctx) }()
 
 	// Get batch of records from queue
 	records, err := up.usageQueue.DequeueUsageBatch(ctx)

@@ -22,7 +22,7 @@ func TestBudgetCache(t *testing.T) {
 	client := redis.NewClient(&redis.Options{
 		Addr: mr.Addr(),
 	})
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	ctx := context.Background()
 
@@ -150,6 +150,7 @@ func TestBudgetCache(t *testing.T) {
 		}
 		if status == nil {
 			t.Error("Expected budget status to exist")
+			return
 		}
 		if status.Limit != 100.0 {
 			t.Errorf("Expected limit to be 100.0, got %f", status.Limit)

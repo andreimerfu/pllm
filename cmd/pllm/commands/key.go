@@ -113,7 +113,7 @@ func newKeyGenerateCommand(ctx context.Context) *cobra.Command {
 	cmd.Flags().IntVar(&rpm, "rpm", 0, "Requests per minute limit")
 	cmd.Flags().IntVar(&maxParallel, "max-parallel", 0, "Maximum parallel calls")
 
-	cmd.MarkFlagRequired("name")
+	_ = cmd.MarkFlagRequired("name")
 
 	return cmd
 }
@@ -462,7 +462,7 @@ func generateKeyAPI(ctx context.Context, keyRequest *models.KeyRequest) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 201 {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)
@@ -503,7 +503,7 @@ func listKeysAPI(ctx context.Context, userID, teamID string, limit, offset int, 
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var keys []models.Key
 	if err := json.NewDecoder(resp.Body).Decode(&keys); err != nil {
@@ -548,7 +548,7 @@ func getKeyAPI(ctx context.Context, keyID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var key models.Key
 	if err := json.NewDecoder(resp.Body).Decode(&key); err != nil {
@@ -578,7 +578,7 @@ func revokeKeyAPI(ctx context.Context, keyID uuid.UUID, reason string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)

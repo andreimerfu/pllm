@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -69,7 +70,7 @@ func (p *OpenAIProvider) ChatCompletion(ctx context.Context, request *ChatReques
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
@@ -132,7 +133,7 @@ func (p *OpenAIProvider) ChatCompletionStream(ctx context.Context, request *Chat
 		if err != nil {
 			return // Just close channel on error
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Check for errors
 		if resp.StatusCode != http.StatusOK {
@@ -170,6 +171,7 @@ func (p *OpenAIProvider) parseStreamResponse(body io.Reader, streamChan chan<- S
 		if err != nil {
 			if err != io.EOF {
 				// Log error but continue
+				log.Printf("Error reading OpenAI response: %v", err)
 			}
 			return
 		}
@@ -223,7 +225,7 @@ func (p *OpenAIProvider) HealthCheck(ctx context.Context) error {
 		p.SetHealthy(false)
 		return fmt.Errorf("health check failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		p.SetHealthy(false)

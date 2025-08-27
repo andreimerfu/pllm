@@ -73,7 +73,7 @@ func (c *Cache) Get(ctx context.Context, key string, dest interface{}) error {
 
 	// Check if entry has expired
 	if time.Now().After(entry.ExpiresAt) {
-		c.Delete(ctx, key)
+		_ = c.Delete(ctx, key) // Ignore deletion error on expired entry
 		return ErrCacheMiss
 	}
 

@@ -328,7 +328,9 @@ func (m *CacheMiddleware) serveCachedResponse(w http.ResponseWriter, cached *Cac
 
 	// Write status and body
 	w.WriteHeader(cached.StatusCode)
-	w.Write(cached.Body)
+	if _, err := w.Write(cached.Body); err != nil {
+		m.log.Error("Failed to write cached response", zap.Error(err))
+	}
 }
 
 func (m *CacheMiddleware) shouldCacheHeader(name string) bool {

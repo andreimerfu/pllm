@@ -23,7 +23,7 @@ func TestUsageQueue(t *testing.T) {
 	client := redis.NewClient(&redis.Options{
 		Addr: mr.Addr(),
 	})
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	ctx := context.Background()
 
@@ -37,7 +37,7 @@ func TestUsageQueue(t *testing.T) {
 
 	// Clean up test data
 	defer func() {
-		queue.ClearQueue(ctx)
+		_ = queue.ClearQueue(ctx)
 	}()
 
 	t.Run("EnqueueAndDequeueSingle", func(t *testing.T) {
@@ -168,7 +168,7 @@ func TestUsageQueue(t *testing.T) {
 
 	t.Run("QueueStats", func(t *testing.T) {
 		// Clear queue first
-		queue.ClearQueue(ctx)
+		_ = queue.ClearQueue(ctx)
 
 		// Add some records
 		for i := 0; i < 5; i++ {
@@ -177,7 +177,7 @@ func TestUsageQueue(t *testing.T) {
 				Model:     "gpt-4",
 				TotalCost: 0.001,
 			}
-			queue.EnqueueUsage(ctx, record)
+			_ = queue.EnqueueUsage(ctx, record)
 		}
 
 		stats, err := queue.GetQueueStats(ctx)

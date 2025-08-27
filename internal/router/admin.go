@@ -1,6 +1,7 @@
 package router
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/amerfu/pllm/internal/auth"
@@ -175,13 +176,17 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 				// Profile endpoint - to be implemented
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusNotImplemented)
-				w.Write([]byte(`{"error": "Profile endpoint not yet implemented"}`))
+				if _, err := w.Write([]byte(`{"error": "Profile endpoint not yet implemented"}`)); err != nil {
+					log.Printf("Failed to write profile error response: %v", err)
+				}
 			})
 
 			// User's own keys
 			r.Get("/keys", func(w http.ResponseWriter, r *http.Request) {
 				userID, _ := middleware.GetUserID(r.Context())
-				r.URL.Query().Add("user_id", userID.String())
+				q := r.URL.Query()
+				q.Add("user_id", userID.String())
+				r.URL.RawQuery = q.Encode()
 				keyHandler.ListKeys(w, r)
 			})
 			r.Post("/keys", keyHandler.CreateKey)
@@ -246,7 +251,9 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok", "service": "admin"}`))
+		if _, err := w.Write([]byte(`{"status": "ok", "service": "admin"}`)); err != nil {
+			log.Printf("Failed to write admin health response: %v", err)
+		}
 	})
 
 	// Public authentication endpoints
@@ -359,13 +366,17 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 				// Profile endpoint - to be implemented
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusNotImplemented)
-				w.Write([]byte(`{"error": "Profile endpoint not yet implemented"}`))
+				if _, err := w.Write([]byte(`{"error": "Profile endpoint not yet implemented"}`)); err != nil {
+					log.Printf("Failed to write profile error response: %v", err)
+				}
 			})
 
 			// User's own keys
 			r.Get("/keys", func(w http.ResponseWriter, r *http.Request) {
 				userID, _ := middleware.GetUserID(r.Context())
-				r.URL.Query().Add("user_id", userID.String())
+				q := r.URL.Query()
+				q.Add("user_id", userID.String())
+				r.URL.RawQuery = q.Encode()
 				keyHandler.ListKeys(w, r)
 			})
 			r.Post("/keys", keyHandler.CreateKey)

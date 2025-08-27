@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/amerfu/pllm/internal/database"
@@ -46,22 +47,28 @@ func Health(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Failed to encode health response: %v", err)
+	}
 }
 
 func Ready(w http.ResponseWriter, r *http.Request) {
 	if !database.IsHealthy() {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		json.NewEncoder(w).Encode(map[string]string{
+		if err := json.NewEncoder(w).Encode(map[string]string{
 			"status": "not_ready",
 			"error":  "Database not ready",
-		})
+		}); err != nil {
+			log.Printf("Failed to encode ready error response: %v", err)
+		}
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"status": "ready",
-	})
+	}); err != nil {
+		log.Printf("Failed to encode ready response: %v", err)
+	}
 }

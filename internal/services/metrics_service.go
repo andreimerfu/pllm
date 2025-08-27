@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -162,7 +163,9 @@ func (s *MetricsService) setupMonitoring() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy","service":"metrics"}`))
+		if _, err := w.Write([]byte(`{"status":"healthy","service":"metrics"}`)); err != nil {
+			log.Printf("Failed to write metrics health response: %v", err)
+		}
 	})
 
 	// Worker statistics
@@ -183,7 +186,9 @@ func (s *MetricsService) setupMonitoring() {
 			stats["last_aggregation"], stats["worker_count"],
 			stats["batch_size"], time.Now().Format(time.RFC3339))
 
-		w.Write([]byte(response))
+		if _, err := w.Write([]byte(response)); err != nil {
+			log.Printf("Failed to write metrics stats response: %v", err)
+		}
 	})
 
 	// Queue management endpoints
@@ -196,7 +201,9 @@ func (s *MetricsService) setupMonitoring() {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf(`{"queue_size": %d}`, size)))
+		if _, err := fmt.Fprintf(w, `{"queue_size": %d}`, size); err != nil {
+			log.Printf("Failed to write queue size response: %v", err)
+		}
 	})
 
 	mux.HandleFunc("/queue/flush", func(w http.ResponseWriter, r *http.Request) {
@@ -212,7 +219,9 @@ func (s *MetricsService) setupMonitoring() {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"message": "queue flushed"}`))
+		if _, err := w.Write([]byte(`{"message": "queue flushed"}`)); err != nil {
+			log.Printf("Failed to write queue flush response: %v", err)
+		}
 	})
 
 	s.monitoringServer = &http.Server{

@@ -81,7 +81,7 @@ func (h *OAuthHandler) TokenExchange(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Token exchange failed", http.StatusInternalServerError)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read the response body once
 	var responseBody map[string]interface{}
@@ -101,13 +101,17 @@ func (h *OAuthHandler) TokenExchange(w http.ResponseWriter, r *http.Request) {
 		// Return the error from Dex to the frontend
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(responseBody)
+		if err := json.NewEncoder(w).Encode(responseBody); err != nil {
+			h.logger.Error("Failed to encode oauth error response", zap.Error(err))
+		}
 		return
 	}
 
 	// Return the tokens to the frontend
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(responseBody)
+	if err := json.NewEncoder(w).Encode(responseBody); err != nil {
+		h.logger.Error("Failed to encode oauth response", zap.Error(err))
+	}
 }
 
 // UserInfo fetches user information from Dex
@@ -153,7 +157,7 @@ func (h *OAuthHandler) UserInfo(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to fetch user info", http.StatusInternalServerError)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		h.logger.Error("User info request failed", zap.Int("status", resp.StatusCode))
@@ -178,7 +182,9 @@ func (h *OAuthHandler) UserInfo(w http.ResponseWriter, r *http.Request) {
 
 	// Return the user info to the frontend
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(userInfo)
+	if err := json.NewEncoder(w).Encode(userInfo); err != nil {
+		h.logger.Error("Failed to encode user info response", zap.Error(err))
+	}
 }
 
 // autoProvisionUser creates or updates a user based on Dex user info
@@ -230,7 +236,8 @@ func (h *OAuthHandler) autoProvisionUser(userInfo map[string]interface{}) error 
 
 	now := time.Now()
 
-	if err == gorm.ErrRecordNotFound {
+	switch err {
+	case gorm.ErrRecordNotFound:
 		// Create new user
 		user = models.User{
 			DexID:            sub,
@@ -279,7 +286,7 @@ func (h *OAuthHandler) autoProvisionUser(userInfo map[string]interface{}) error 
 			zap.String("dex_id", sub),
 			zap.String("email", email),
 			zap.String("provider", provider))
-	} else if err == nil {
+	case nil:
 		// Update existing user
 		user.LastLoginAt = &now
 		user.ExternalProvider = provider
@@ -303,7 +310,7 @@ func (h *OAuthHandler) autoProvisionUser(userInfo map[string]interface{}) error 
 			zap.String("dex_id", sub),
 			zap.String("email", email),
 			zap.String("provider", provider))
-	} else {
+	default:
 		return fmt.Errorf("database error: %w", err)
 	}
 

@@ -23,7 +23,7 @@ func TestInMemoryLimiter(t *testing.T) {
 
 	t.Run("allow requests within limit", func(t *testing.T) {
 		// Reset limiter
-		limiter.Reset(ctx, key)
+		_ = limiter.Reset(ctx, key)
 
 		for i := 0; i < limit; i++ {
 			allowed, err := limiter.Allow(ctx, key, limit, window)
@@ -34,7 +34,7 @@ func TestInMemoryLimiter(t *testing.T) {
 
 	t.Run("reject requests exceeding limit", func(t *testing.T) {
 		// Reset limiter
-		limiter.Reset(ctx, key)
+		_ = limiter.Reset(ctx, key)
 
 		// Use up all tokens
 		for i := 0; i < limit; i++ {
@@ -51,7 +51,7 @@ func TestInMemoryLimiter(t *testing.T) {
 
 	t.Run("tokens refill over time", func(t *testing.T) {
 		// Reset limiter
-		limiter.Reset(ctx, key)
+		_ = limiter.Reset(ctx, key)
 
 		// Use up all tokens
 		for i := 0; i < limit; i++ {
@@ -71,7 +71,7 @@ func TestInMemoryLimiter(t *testing.T) {
 
 	t.Run("AllowN multiple tokens", func(t *testing.T) {
 		// Reset limiter
-		limiter.Reset(ctx, key)
+		_ = limiter.Reset(ctx, key)
 
 		// Take 3 tokens at once
 		allowed, err := limiter.AllowN(ctx, key, 3, limit, window)
@@ -91,14 +91,14 @@ func TestInMemoryLimiter(t *testing.T) {
 
 	t.Run("GetRemaining", func(t *testing.T) {
 		// Reset limiter
-		limiter.Reset(ctx, key)
+		_ = limiter.Reset(ctx, key)
 
 		remaining, err := limiter.GetRemaining(ctx, key, limit, window)
 		require.NoError(t, err)
 		assert.Equal(t, limit, remaining)
 
 		// Use some tokens
-		limiter.AllowN(ctx, key, 2, limit, window)
+		_, _ = limiter.AllowN(ctx, key, 2, limit, window)
 
 		remaining, err = limiter.GetRemaining(ctx, key, limit, window)
 		require.NoError(t, err)
@@ -107,7 +107,7 @@ func TestInMemoryLimiter(t *testing.T) {
 
 	t.Run("concurrent access", func(t *testing.T) {
 		// Reset limiter
-		limiter.Reset(ctx, key)
+		_ = limiter.Reset(ctx, key)
 
 		const numGoroutines = 10
 		results := make(chan bool, numGoroutines)
@@ -148,7 +148,7 @@ func TestInMemoryLimiter_TokenBucketAlgorithm(t *testing.T) {
 	window := 1 * time.Second
 
 	t.Run("initial bucket is full", func(t *testing.T) {
-		limiter.Reset(ctx, key)
+		_ = limiter.Reset(ctx, key)
 
 		remaining, err := limiter.GetRemaining(ctx, key, limit, window)
 		require.NoError(t, err)
@@ -156,7 +156,7 @@ func TestInMemoryLimiter_TokenBucketAlgorithm(t *testing.T) {
 	})
 
 	t.Run("tokens consume from bucket", func(t *testing.T) {
-		limiter.Reset(ctx, key)
+		_ = limiter.Reset(ctx, key)
 
 		// Use 3 tokens
 		allowed, err := limiter.AllowN(ctx, key, 3, limit, window)
@@ -169,7 +169,7 @@ func TestInMemoryLimiter_TokenBucketAlgorithm(t *testing.T) {
 	})
 
 	t.Run("tokens refill based on elapsed time", func(t *testing.T) {
-		limiter.Reset(ctx, key)
+		_ = limiter.Reset(ctx, key)
 
 		// Use all tokens
 		allowed, err := limiter.AllowN(ctx, key, limit, limit, window)
@@ -192,7 +192,7 @@ func TestInMemoryLimiter_TokenBucketAlgorithm(t *testing.T) {
 	})
 
 	t.Run("bucket cannot exceed capacity", func(t *testing.T) {
-		limiter.Reset(ctx, key)
+		_ = limiter.Reset(ctx, key)
 
 		// Wait for extra time
 		time.Sleep(2 * window)
@@ -213,8 +213,8 @@ func TestInMemoryLimiter_DifferentKeys(t *testing.T) {
 
 	t.Run("different keys have independent limits", func(t *testing.T) {
 		// Reset both keys
-		limiter.Reset(ctx, "key1")
-		limiter.Reset(ctx, "key2")
+		_ = limiter.Reset(ctx, "key1")
+		_ = limiter.Reset(ctx, "key2")
 
 		// Use up key1's limit
 		for i := 0; i < limit; i++ {
@@ -235,8 +235,8 @@ func TestInMemoryLimiter_DifferentKeys(t *testing.T) {
 	})
 
 	t.Run("keys can have different limits", func(t *testing.T) {
-		limiter.Reset(ctx, "low-limit")
-		limiter.Reset(ctx, "high-limit")
+		_ = limiter.Reset(ctx, "low-limit")
+		_ = limiter.Reset(ctx, "high-limit")
 
 		lowLimit := 2
 		highLimit := 10
@@ -292,7 +292,7 @@ func BenchmarkInMemoryLimiter_Allow(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		limiter.Allow(ctx, key, limit, window)
+		_, _ = limiter.Allow(ctx, key, limit, window)
 	}
 }
 
@@ -306,7 +306,7 @@ func BenchmarkInMemoryLimiter_AllowN(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		limiter.AllowN(ctx, key, 5, limit, window)
+		_, _ = limiter.AllowN(ctx, key, 5, limit, window)
 	}
 }
 
@@ -322,7 +322,7 @@ func BenchmarkInMemoryLimiter_ConcurrentAccess(b *testing.B) {
 		i := 0
 		for pb.Next() {
 			key := fmt.Sprintf("bench-key-%d", i%10) // 10 different keys
-			limiter.Allow(ctx, key, limit, window)
+			_, _ = limiter.Allow(ctx, key, limit, window)
 			i++
 		}
 	})
@@ -334,9 +334,9 @@ func TestInMemoryLimiter_Cleanup(t *testing.T) {
 	ctx := context.Background()
 
 	// Add some buckets
-	limiter.Allow(ctx, "key1", 10, 1*time.Second)
-	limiter.Allow(ctx, "key2", 10, 1*time.Second)
-	limiter.Allow(ctx, "key3", 10, 1*time.Second)
+	_, _ = limiter.Allow(ctx, "key1", 10, 1*time.Second)
+	_, _ = limiter.Allow(ctx, "key2", 10, 1*time.Second)
+	_, _ = limiter.Allow(ctx, "key3", 10, 1*time.Second)
 
 	// Check buckets exist
 	limiter.mu.RLock()
@@ -387,7 +387,7 @@ func TestRateLimiterEdgeCases(t *testing.T) {
 
 	t.Run("very long window", func(t *testing.T) {
 		// Reset to ensure clean state
-		limiter.Reset(ctx, "test-long")
+		_ = limiter.Reset(ctx, "test-long")
 		allowed, err := limiter.Allow(ctx, "test-long", 1, 24*time.Hour)
 		require.NoError(t, err)
 		assert.True(t, allowed)
@@ -500,7 +500,7 @@ func TestInMemoryLimiter_DifferentWindows(t *testing.T) {
 
 	for _, window := range windows {
 		t.Run(fmt.Sprintf("window_%v", window), func(t *testing.T) {
-			limiter.Reset(ctx, key)
+			_ = limiter.Reset(ctx, key)
 
 			// Should be able to use the full limit
 			for i := 0; i < limit; i++ {

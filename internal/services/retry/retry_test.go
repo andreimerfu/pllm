@@ -335,7 +335,7 @@ func TestDo_JitterEffect(t *testing.T) {
 		return errors.New("timeout error")
 	}
 
-	Do(ctx, config, fn, DefaultIsRetryable)
+	_ = Do(ctx, config, fn, DefaultIsRetryable)
 
 	// Calculate actual delays
 	for i := 1; i < len(callTimes); i++ {
@@ -416,7 +416,7 @@ func BenchmarkDo_Success(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Do(ctx, config, fn, DefaultIsRetryable)
+		_ = Do(ctx, config, fn, DefaultIsRetryable)
 	}
 }
 
@@ -440,7 +440,7 @@ func BenchmarkDo_WithRetries(b *testing.B) {
 			}
 			return nil
 		}
-		Do(ctx, config, fn, DefaultIsRetryable)
+		_ = Do(ctx, config, fn, DefaultIsRetryable)
 	}
 }
 
@@ -545,7 +545,7 @@ func TestDo_EdgeCases(t *testing.T) {
 			return errors.New("timeout")
 		}
 
-		Do(ctx, config, fn, DefaultIsRetryable)
+		_ = Do(ctx, config, fn, DefaultIsRetryable)
 
 		require.Len(t, callTimes, 2)
 		// Should have minimal delay between calls

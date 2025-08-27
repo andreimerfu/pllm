@@ -98,7 +98,7 @@ func TestOpenRouterProvider_ChatCompletion(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"id": "chatcmpl-test",
 			"object": "chat.completion",
 			"created": 1234567890,
@@ -164,7 +164,7 @@ func TestOpenRouterProvider_HealthCheck(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"data": []}`))
+		_, _ = w.Write([]byte(`{"data": []}`))
 	}))
 	defer server.Close()
 
@@ -194,7 +194,7 @@ func TestOpenRouterProvider_FetchModels(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"data": [
 				{
 					"id": "openai/gpt-4-turbo",

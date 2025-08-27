@@ -127,9 +127,9 @@ func main() {
 
 	// Close connections
 	if sqlDB, err := db.DB(); err == nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 	}
-	redisClient.Close()
+	_ = redisClient.Close()
 
 	logger.Info("Usage worker shutdown complete")
 }

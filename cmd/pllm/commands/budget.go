@@ -98,9 +98,9 @@ func newBudgetSetCommand(ctx context.Context) *cobra.Command {
 	cmd.Flags().Float64VarP(&amount, "amount", "a", 0, "Budget amount")
 	cmd.Flags().StringVar(&duration, "duration", "monthly", "Budget duration (daily, weekly, monthly, yearly)")
 
-	cmd.MarkFlagRequired("entity-type")
-	cmd.MarkFlagRequired("entity-id")
-	cmd.MarkFlagRequired("amount")
+	_ = cmd.MarkFlagRequired("entity-type")
+	_ = cmd.MarkFlagRequired("entity-id")
+	_ = cmd.MarkFlagRequired("amount")
 
 	return cmd
 }
@@ -139,8 +139,8 @@ func newBudgetResetCommand(ctx context.Context) *cobra.Command {
 	cmd.Flags().StringVar(&entityType, "entity-type", "", "Entity type (user, team, key)")
 	cmd.Flags().StringVar(&entityID, "entity-id", "", "Entity ID")
 
-	cmd.MarkFlagRequired("entity-type")
-	cmd.MarkFlagRequired("entity-id")
+	_ = cmd.MarkFlagRequired("entity-type")
+	_ = cmd.MarkFlagRequired("entity-id")
 
 	return cmd
 }
@@ -589,7 +589,7 @@ func showBudgetStatusAPI(ctx context.Context, userID, teamID, keyID string) erro
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var status map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
@@ -620,7 +620,7 @@ func setBudgetAPI(ctx context.Context, entityType string, entityID uuid.UUID, am
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)
@@ -640,7 +640,7 @@ func resetBudgetAPI(ctx context.Context, entityType string, entityID uuid.UUID) 
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("API request failed with status %d", resp.StatusCode)
@@ -666,7 +666,7 @@ func showBudgetUsageAPI(ctx context.Context, userID, teamID, keyID string, days 
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var usage []models.BudgetTracking
 	if err := json.NewDecoder(resp.Body).Decode(&usage); err != nil {
@@ -699,7 +699,7 @@ func generateBudgetReportAPI(ctx context.Context, period string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var report map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&report); err != nil {

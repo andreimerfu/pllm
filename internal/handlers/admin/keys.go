@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -98,7 +99,10 @@ func (h *KeyHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 
 	// Log audit event - use system user for admin actions
 	systemUserID := uuid.New()
-	h.auditLogger.LogKeyCreated(r.Context(), systemUserID, req.TeamID, k.ID, req.KeyType)
+	if err := h.auditLogger.LogKeyCreated(r.Context(), systemUserID, req.TeamID, k.ID, req.KeyType); err != nil {
+		// Log audit failure but don't fail the operation
+		log.Printf("Failed to log key creation audit: %v", err)
+	}
 
 	response := KeyResponse{
 		Key:          k,
@@ -296,12 +300,14 @@ func (h *KeyHandler) UpdateKey(w http.ResponseWriter, r *http.Request) {
 	// Log audit event if there were changes
 	if len(changes) > 0 {
 		systemUserID := uuid.New()
-		h.auditLogger.LogEvent(r.Context(), &systemUserID, k.TeamID, audit.AuditEvent{
+		if err := h.auditLogger.LogEvent(r.Context(), &systemUserID, k.TeamID, audit.AuditEvent{
 			Action:     audit.ActionUpdate,
 			Resource:   audit.ResourceKey,
 			ResourceID: &k.ID,
 			Details:    changes,
-		})
+		}); err != nil {
+			log.Printf("Failed to log key update audit: %v", err)
+		}
 	}
 
 	h.sendJSON(w, http.StatusOK, k)
@@ -334,7 +340,9 @@ func (h *KeyHandler) DeleteKey(w http.ResponseWriter, r *http.Request) {
 
 	// Log audit event
 	systemUserID := uuid.New()
-	h.auditLogger.LogKeyDeleted(r.Context(), systemUserID, k.TeamID, k.ID, string(k.Type))
+	if err := h.auditLogger.LogKeyDeleted(r.Context(), systemUserID, k.TeamID, k.ID, string(k.Type)); err != nil {
+		log.Printf("Failed to log key deletion audit: %v", err)
+	}
 
 	h.sendJSON(w, http.StatusOK, map[string]string{"message": "Key deleted successfully"})
 }

@@ -87,7 +87,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Get file info
 	stat, err := file.Stat()
@@ -99,13 +99,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// If it's a directory, serve index.html
 	if stat.IsDir() {
 		uiPath = "/index.html"
-		file.Close()
+		_ = file.Close()
 		file, err = h.fileSystem.Open(uiPath)
 		if err != nil {
 			http.NotFound(w, r)
 			return
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		stat, err = file.Stat()
 		if err != nil {
@@ -138,5 +138,5 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Serve the file using http.ServeContent for proper handling
-	http.ServeContent(w, r, uiPath, stat.ModTime(), file.(http.File))
+	http.ServeContent(w, r, uiPath, stat.ModTime(), file)
 }

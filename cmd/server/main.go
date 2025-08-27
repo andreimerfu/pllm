@@ -33,8 +33,8 @@ import (
 // @contact.name API Support
 // @contact.email support@pllm.io
 
-// @license.name Apache 2.0
-// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+// @license.name MIT License
+// @license.url https://opensource.org/licenses/MIT
 
 // @host localhost:8080
 // @BasePath /v1
@@ -70,7 +70,7 @@ func main() {
 		fmt.Printf("Failed to initialize logger: %v\n", err)
 		os.Exit(1)
 	}
-	defer log.Sync()
+	defer func() { _ = log.Sync() }()
 
 	// Detect available dependencies
 	appMode := detectDependencies(cfg, log)
@@ -114,7 +114,7 @@ func main() {
 			appMode.DatabaseAvailable = false
 			appMode.IsLiteMode = true
 		} else {
-			defer database.Close()
+			defer func() { _ = database.Close() }()
 		}
 	}
 
@@ -132,7 +132,7 @@ func main() {
 			log.Warn("Failed to initialize cache, continuing without caching", zap.Error(err))
 			appMode.RedisAvailable = false
 		} else {
-			defer cache.Close()
+			defer func() { _ = cache.Close() }()
 		}
 	}
 
@@ -163,10 +163,7 @@ func main() {
 
 	if !appMode.IsLiteMode && appMode.RedisAvailable && db != nil {
 		// Initialize Redis client for worker
-		redisAddr := cfg.Redis.URL
-		if strings.HasPrefix(redisAddr, "redis://") {
-			redisAddr = strings.TrimPrefix(redisAddr, "redis://")
-		}
+		redisAddr := strings.TrimPrefix(cfg.Redis.URL, "redis://")
 
 		redisClient := redis.NewClient(&redis.Options{
 			Addr:     redisAddr,

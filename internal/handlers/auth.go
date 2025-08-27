@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -336,7 +337,9 @@ func (h *AuthHandler) GetBudgetStatus(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) sendResponse(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		log.Printf("Failed to encode JSON response: %v", err)
+	}
 }
 
 func (h *AuthHandler) sendError(w http.ResponseWriter, status int, message string, err error) {
@@ -355,7 +358,9 @@ func (h *AuthHandler) sendError(w http.ResponseWriter, status int, message strin
 		errorData["error"].(map[string]interface{})["details"] = err.Error()
 	}
 
-	json.NewEncoder(w).Encode(errorData)
+	if err := json.NewEncoder(w).Encode(errorData); err != nil {
+		log.Printf("Failed to encode JSON error response: %v", err)
+	}
 }
 
 // GetUserTeams returns the teams that the user belongs to

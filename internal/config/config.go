@@ -273,66 +273,66 @@ func setDefaults() {
 
 func bindEnvVars() {
 	// Server
-	viper.BindEnv("server.port", "SERVER_PORT")
-	viper.BindEnv("server.admin_port", "ADMIN_PORT")
-	viper.BindEnv("server.metrics_port", "METRICS_PORT")
-	viper.BindEnv("server.read_timeout", "SERVER_READ_TIMEOUT")
-	viper.BindEnv("server.write_timeout", "SERVER_WRITE_TIMEOUT")
-	viper.BindEnv("server.idle_timeout", "SERVER_IDLE_TIMEOUT")
+	_ = viper.BindEnv("server.port", "SERVER_PORT")
+	_ = viper.BindEnv("server.admin_port", "ADMIN_PORT")
+	_ = viper.BindEnv("server.metrics_port", "METRICS_PORT")
+	_ = viper.BindEnv("server.read_timeout", "SERVER_READ_TIMEOUT")
+	_ = viper.BindEnv("server.write_timeout", "SERVER_WRITE_TIMEOUT")
+	_ = viper.BindEnv("server.idle_timeout", "SERVER_IDLE_TIMEOUT")
 
 	// Database
-	viper.BindEnv("database.url", "DATABASE_URL")
-	viper.BindEnv("database.max_connections", "DATABASE_MAX_CONNECTIONS")
-	viper.BindEnv("database.max_idle_connections", "DATABASE_MAX_IDLE_CONNECTIONS")
+	_ = viper.BindEnv("database.url", "DATABASE_URL")
+	_ = viper.BindEnv("database.max_connections", "DATABASE_MAX_CONNECTIONS")
+	_ = viper.BindEnv("database.max_idle_connections", "DATABASE_MAX_IDLE_CONNECTIONS")
 
 	// Redis
-	viper.BindEnv("redis.url", "REDIS_URL")
-	viper.BindEnv("redis.password", "REDIS_PASSWORD")
-	viper.BindEnv("redis.db", "REDIS_DB")
+	_ = viper.BindEnv("redis.url", "REDIS_URL")
+	_ = viper.BindEnv("redis.password", "REDIS_PASSWORD")
+	_ = viper.BindEnv("redis.db", "REDIS_DB")
 
 	// JWT
-	viper.BindEnv("jwt.secret_key", "JWT_SECRET_KEY")
-	viper.BindEnv("jwt.access_token_duration", "JWT_ACCESS_TOKEN_DURATION")
-	viper.BindEnv("jwt.refresh_token_duration", "JWT_REFRESH_TOKEN_DURATION")
+	_ = viper.BindEnv("jwt.secret_key", "JWT_SECRET_KEY")
+	_ = viper.BindEnv("jwt.access_token_duration", "JWT_ACCESS_TOKEN_DURATION")
+	_ = viper.BindEnv("jwt.refresh_token_duration", "JWT_REFRESH_TOKEN_DURATION")
 
 	// Admin
-	viper.BindEnv("admin.username", "ADMIN_USERNAME")
-	viper.BindEnv("admin.password", "ADMIN_PASSWORD")
-	viper.BindEnv("admin.email", "ADMIN_EMAIL")
+	_ = viper.BindEnv("admin.username", "ADMIN_USERNAME")
+	_ = viper.BindEnv("admin.password", "ADMIN_PASSWORD")
+	_ = viper.BindEnv("admin.email", "ADMIN_EMAIL")
 
 	// Auth
-	viper.BindEnv("auth.master_key", "PLLM_MASTER_KEY")
-	viper.BindEnv("auth.require_auth", "PLLM_REQUIRE_AUTH")
+	_ = viper.BindEnv("auth.master_key", "PLLM_MASTER_KEY")
+	_ = viper.BindEnv("auth.require_auth", "PLLM_REQUIRE_AUTH")
 
 	// Dex OAuth
-	viper.BindEnv("auth.dex.enabled", "DEX_ENABLED")
-	viper.BindEnv("auth.dex.issuer", "DEX_ISSUER")
-	viper.BindEnv("auth.dex.public_issuer", "DEX_PUBLIC_ISSUER")
-	viper.BindEnv("auth.dex.client_id", "DEX_CLIENT_ID")
-	viper.BindEnv("auth.dex.client_secret", "DEX_CLIENT_SECRET")
-	viper.BindEnv("auth.dex.redirect_url", "DEX_REDIRECT_URL")
+	_ = viper.BindEnv("auth.dex.enabled", "DEX_ENABLED")
+	_ = viper.BindEnv("auth.dex.issuer", "DEX_ISSUER")
+	_ = viper.BindEnv("auth.dex.public_issuer", "DEX_PUBLIC_ISSUER")
+	_ = viper.BindEnv("auth.dex.client_id", "DEX_CLIENT_ID")
+	_ = viper.BindEnv("auth.dex.client_secret", "DEX_CLIENT_SECRET")
+	_ = viper.BindEnv("auth.dex.redirect_url", "DEX_REDIRECT_URL")
 
 	// Cache
-	viper.BindEnv("cache.ttl", "CACHE_TTL")
-	viper.BindEnv("cache.max_size", "CACHE_MAX_SIZE")
+	_ = viper.BindEnv("cache.ttl", "CACHE_TTL")
+	_ = viper.BindEnv("cache.max_size", "CACHE_MAX_SIZE")
 
 	// Rate Limiting
-	viper.BindEnv("rate_limit.requests_per_minute", "RATE_LIMIT_REQUESTS_PER_MINUTE")
-	viper.BindEnv("rate_limit.burst", "RATE_LIMIT_BURST")
+	_ = viper.BindEnv("rate_limit.requests_per_minute", "RATE_LIMIT_REQUESTS_PER_MINUTE")
+	_ = viper.BindEnv("rate_limit.burst", "RATE_LIMIT_BURST")
 
 	// Monitoring
-	viper.BindEnv("monitoring.enable_metrics", "ENABLE_METRICS")
-	viper.BindEnv("monitoring.enable_tracing", "ENABLE_TRACING")
-	viper.BindEnv("monitoring.jaeger_endpoint", "JAEGER_ENDPOINT")
+	_ = viper.BindEnv("monitoring.enable_metrics", "ENABLE_METRICS")
+	_ = viper.BindEnv("monitoring.enable_tracing", "ENABLE_TRACING")
+	_ = viper.BindEnv("monitoring.jaeger_endpoint", "JAEGER_ENDPOINT")
 
 	// Logging
-	viper.BindEnv("logging.level", "LOG_LEVEL")
-	viper.BindEnv("logging.format", "LOG_FORMAT")
+	_ = viper.BindEnv("logging.level", "LOG_LEVEL")
+	_ = viper.BindEnv("logging.format", "LOG_FORMAT")
 
 	// CORS
-	viper.BindEnv("cors.allowed_origins", "CORS_ALLOWED_ORIGINS")
-	viper.BindEnv("cors.allowed_methods", "CORS_ALLOWED_METHODS")
-	viper.BindEnv("cors.allowed_headers", "CORS_ALLOWED_HEADERS")
+	_ = viper.BindEnv("cors.allowed_origins", "CORS_ALLOWED_ORIGINS")
+	_ = viper.BindEnv("cors.allowed_methods", "CORS_ALLOWED_METHODS")
+	_ = viper.BindEnv("cors.allowed_headers", "CORS_ALLOWED_HEADERS")
 }
 
 func Get() *Config {

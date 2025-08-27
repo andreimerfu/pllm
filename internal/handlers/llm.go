@@ -132,7 +132,9 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("Failed to encode LLM response", zap.Error(err))
+	}
 }
 
 func (h *LLMHandler) Completions(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +165,9 @@ func (h *LLMHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("Failed to encode embeddings response", zap.Error(err))
+	}
 }
 
 func (h *LLMHandler) GetModel(w http.ResponseWriter, r *http.Request) {
@@ -226,7 +230,9 @@ func (h *LLMHandler) ModelStats(w http.ResponseWriter, r *http.Request) {
 	stats := h.modelManager.GetModelStats()
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		h.logger.Error("Failed to encode model stats response", zap.Error(err))
+	}
 }
 
 // handleStreamingChat handles streaming chat completion requests
@@ -278,7 +284,7 @@ func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request,
 			zap.String("model", request.Model),
 			zap.Error(err))
 		// Send error in SSE format
-		fmt.Fprintf(w, "data: {\"error\": {\"message\": \"%s\"}}\n\n", err.Error())
+		_, _ = fmt.Fprintf(w, "data: {\"error\": {\"message\": \"%s\"}}\n\n", err.Error())
 		flusher.Flush()
 		return
 	}
@@ -326,7 +332,7 @@ func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request,
 	}
 
 	// Send final [DONE] marker
-	fmt.Fprintf(w, "data: [DONE]\n\n")
+	_, _ = fmt.Fprintf(w, "data: [DONE]\n\n")
 	flusher.Flush()
 
 	// Record successful streaming request
@@ -352,44 +358,16 @@ func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request,
 		zap.Int64("latency_ms", latencyMs))
 }
 
-// handleNonStreamingFallback handles streaming requests when flusher is not available
-func (h *LLMHandler) handleNonStreamingFallback(w http.ResponseWriter, r *http.Request, request *providers.ChatRequest, instance *models.ModelInstance, startTime time.Time) {
-	h.logger.Warn("Falling back to non-streaming response due to missing flusher")
-
-	// Create a copy of the request with streaming disabled
-	providerRequest := *request
-	providerRequest.Model = instance.Config.Provider.Model
-	providerRequest.Stream = false
-
-	// Forward request to provider as non-streaming
-	response, err := instance.Provider.ChatCompletion(r.Context(), &providerRequest)
-	latency := time.Since(startTime)
-	latencyMs := latency.Milliseconds()
-
-	if err != nil {
-		instance.RecordError(err)
-		h.modelManager.RecordRequestEnd(request.Model, latency, false, err)
-		h.logger.Error("Provider request failed", zap.Error(err))
-		h.sendError(w, http.StatusInternalServerError, "Provider request failed")
-		return
-	}
-
-	// Record successful request
-	totalTokens := int32(response.Usage.TotalTokens)
-	instance.RecordRequest(totalTokens, latencyMs)
-	h.modelManager.RecordRequestEnd(request.Model, latency, true, nil)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
 
 func (h *LLMHandler) sendError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(providers.ErrorResponse{
+	if err := json.NewEncoder(w).Encode(providers.ErrorResponse{
 		Error: providers.APIError{
 			Message: message,
 			Type:    "invalid_request_error",
 		},
-	})
+	}); err != nil {
+		h.logger.Error("Failed to encode LLM error response", zap.Error(err))
+	}
 }

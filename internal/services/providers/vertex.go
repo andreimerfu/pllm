@@ -229,7 +229,7 @@ func (p *VertexProvider) exchangeJWT(ctx context.Context, jwt string) (string, t
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -300,11 +300,11 @@ func (p *VertexProvider) ChatCompletion(ctx context.Context, request *ChatReques
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Vertex AI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("vertex AI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	// Parse response based on model type
@@ -596,11 +596,11 @@ func (p *VertexProvider) Embeddings(ctx context.Context, request *EmbeddingsRequ
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Vertex AI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("vertex AI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	// Parse response

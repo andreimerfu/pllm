@@ -32,11 +32,8 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	r := chi.NewRouter()
 
 	// Initialize Redis client
-	redisAddr := cfg.Redis.URL
 	// Handle redis:// protocol prefix
-	if strings.HasPrefix(redisAddr, "redis://") {
-		redisAddr = strings.TrimPrefix(redisAddr, "redis://")
-	}
+	redisAddr := strings.TrimPrefix(cfg.Redis.URL, "redis://")
 
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisAddr,
@@ -419,7 +416,9 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": {"message": "Not found", "type": "invalid_request_error", "code": "not_found"}}`))
+		if _, err := w.Write([]byte(`{"error": {"message": "Not found", "type": "invalid_request_error", "code": "not_found"}}`)); err != nil {
+			logger.Error("Failed to write 404 response", zap.Error(err))
+		}
 	})
 
 	return r

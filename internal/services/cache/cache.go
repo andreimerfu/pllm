@@ -175,7 +175,7 @@ func TestConnection(ctx context.Context, cfg *Config) error {
 	}
 
 	testClient := redis.NewClient(opt)
-	defer testClient.Close()
+	defer func() { _ = testClient.Close() }()
 
 	// Test connection with context
 	if err := testClient.Ping(ctx).Err(); err != nil {

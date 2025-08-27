@@ -33,7 +33,7 @@ type AzureConfig struct {
 // NewAzureProvider creates a new Azure OpenAI provider
 func NewAzureProvider(name string, config ProviderConfig) (*AzureProvider, error) {
 	if config.BaseURL == "" {
-		return nil, fmt.Errorf("Azure endpoint URL is required")
+		return nil, fmt.Errorf("azure endpoint URL is required")
 	}
 
 	// Ensure endpoint doesn't have trailing slash
@@ -106,11 +106,11 @@ func (p *AzureProvider) ChatCompletion(ctx context.Context, request *ChatRequest
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Azure OpenAI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("azure OpenAI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	// Parse response
@@ -164,7 +164,7 @@ func (p *AzureProvider) ChatCompletionStream(ctx context.Context, request *ChatR
 		if err != nil {
 			return // Just close the channel on error
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			// Log error but just close channel
@@ -356,11 +356,11 @@ func (p *AzureProvider) Completion(ctx context.Context, request *CompletionReque
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Azure OpenAI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("azure OpenAI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	// Parse response
@@ -408,11 +408,11 @@ func (p *AzureProvider) Embeddings(ctx context.Context, request *EmbeddingsReque
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Azure OpenAI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("azure OpenAI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	// Parse response
@@ -535,7 +535,7 @@ func (p *AzureProvider) HealthCheck(ctx context.Context) error {
 		p.mu.Unlock()
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	p.mu.Lock()
 	p.healthy = resp.StatusCode < 500

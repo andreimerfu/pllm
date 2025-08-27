@@ -13,7 +13,7 @@ type AnthropicProvider struct {
 
 func NewAnthropicProvider(name string, cfg ProviderConfig) (*AnthropicProvider, error) {
 	if cfg.APIKey == "" {
-		return nil, fmt.Errorf("Anthropic API key is required")
+		return nil, fmt.Errorf("anthropic API key is required")
 	}
 
 	baseURL := cfg.BaseURL

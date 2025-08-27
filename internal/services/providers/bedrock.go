@@ -120,7 +120,7 @@ func (p *BedrockProvider) ChatCompletion(ctx context.Context, request *ChatReque
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -179,7 +179,7 @@ func (p *BedrockProvider) ChatCompletionStream(ctx context.Context, request *Cha
 		if err != nil {
 			return // Just close channel on error
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			return // Just close channel on error
@@ -653,7 +653,7 @@ func (p *BedrockProvider) HealthCheck(ctx context.Context) error {
 		p.mu.Unlock()
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	p.mu.Lock()
 	p.healthy = resp.StatusCode < 500

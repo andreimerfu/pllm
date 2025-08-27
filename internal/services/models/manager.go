@@ -130,7 +130,7 @@ func (m *ModelManager) selectLeastLatency(instances []*ModelInstance) *ModelInst
 
 // selectRandom selects a random instance
 func (m *ModelManager) selectRandom(instances []*ModelInstance) *ModelInstance {
-	return instances[len(instances)%len(instances)] // Simplified random selection
+	return instances[0] // Use first instance since random selection is not implemented
 }
 
 // RecordSuccess records a successful request

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -47,9 +48,10 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 	// Filter by active status
 	if active := r.URL.Query().Get("active"); active != "" {
-		if active == "true" {
+		switch active {
+		case "true":
 			query = query.Where("is_active = ?", true)
-		} else if active == "false" {
+		case "false":
 			query = query.Where("is_active = ?", false)
 		}
 	}
@@ -76,7 +78,9 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(userResponses)
+	if err := json.NewEncoder(w).Encode(userResponses); err != nil {
+		log.Printf("Failed to encode user list response: %v", err)
+	}
 }
 
 // GetUser returns a specific user
@@ -97,7 +101,9 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		log.Printf("Failed to encode user response: %v", err)
+	}
 }
 
 // CreateUser creates a new user (usually auto-provisioned from Dex)
@@ -174,7 +180,9 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		log.Printf("Failed to encode created user response: %v", err)
+	}
 }
 
 // UpdateUser updates a user
@@ -255,7 +263,9 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(user)
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		log.Printf("Failed to encode user response: %v", err)
+	}
 }
 
 // DeleteUser deletes a user
@@ -342,7 +352,9 @@ func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
 	stats.BudgetResetAt = user.BudgetResetAt
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		log.Printf("Failed to encode user stats response: %v", err)
+	}
 }
 
 // ResetUserBudget resets a user's budget
@@ -371,11 +383,13 @@ func (h *UserHandler) ResetUserBudget(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":    "Budget reset successfully",
 		"user_id":    userID,
 		"next_reset": user.BudgetResetAt,
-	})
+	}); err != nil {
+		log.Printf("Failed to encode budget reset response: %v", err)
+	}
 }
 
 // Helper function to calculate next budget reset time

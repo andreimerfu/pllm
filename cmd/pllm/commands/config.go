@@ -102,33 +102,33 @@ func OutputTable(headers []string, rows [][]string) {
 	// Print headers
 	for i, header := range headers {
 		if i > 0 {
-			fmt.Fprint(w, "\t")
+			_, _ = fmt.Fprint(w, "\t")
 		}
-		fmt.Fprint(w, header)
+		_, _ = fmt.Fprint(w, header)
 	}
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 
 	// Print separator
 	for i := range headers {
 		if i > 0 {
-			fmt.Fprint(w, "\t")
+			_, _ = fmt.Fprint(w, "\t")
 		}
-		fmt.Fprint(w, "---")
+		_, _ = fmt.Fprint(w, "---")
 	}
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 
 	// Print rows
 	for _, row := range rows {
 		for i, cell := range row {
 			if i > 0 {
-				fmt.Fprint(w, "\t")
+				_, _ = fmt.Fprint(w, "\t")
 			}
-			fmt.Fprint(w, cell)
+			_, _ = fmt.Fprint(w, cell)
 		}
-		fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w)
 	}
 
-	w.Flush()
+	_ = w.Flush()
 }
 
 // OutputJSON outputs data in JSON format
