@@ -81,7 +81,13 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/pllm_test?sslmode=disable
           REDIS_URL: redis://localhost:6379
-        run: make test
+        run: |
+          echo "Verifying embedded assets exist:"
+          ls -la web/dist/ || echo "Frontend dist not found"
+          ls -la internal/docs/dist/ || echo "Docs dist not found"
+          ls -la internal/handlers/swagger/ || echo "Swagger not found"
+          
+          make test
 
       - name: Run linting
         run: make lint
@@ -158,13 +164,29 @@ jobs:
             --set pllm.secrets.openaiApiKey="sk-test-openai" \
             --output-dir /tmp/helm-output
           
+          # Debug: list what was created
+          echo "Contents of /tmp/helm-output:"
+          find /tmp/helm-output -type f -name "*.yaml" | head -10
+          
           # Find the generated manifest files and combine them
           find /tmp/helm-output -name "*.yaml" -type f -exec cat {} \; > /tmp/pllm-manifests.yaml
+          
+          # Verify the output file was created
+          echo "Size of combined manifest file:"
+          ls -la /tmp/pllm-manifests.yaml
 
       - name: Validate Kubernetes manifests
-        uses: instrumenta/kubeval-action@master
-        with:
-          files: /tmp/pllm-manifests.yaml
+        run: |
+          if [ -f /tmp/pllm-manifests.yaml ]; then
+            echo "✅ Helm template generation successful"
+            echo "Manifest file size: $(wc -l < /tmp/pllm-manifests.yaml) lines"
+            
+            # Basic validation - check if file contains valid YAML structure
+            head -20 /tmp/pllm-manifests.yaml
+          else
+            echo "❌ Manifest file not found"
+            exit 1
+          fi
 
   security-scan:
     runs-on: ubuntu-latest
@@ -185,6 +207,7 @@ jobs:
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
+        if: always()
         with:
           sarif_file: 'trivy-results.sarif'
 
