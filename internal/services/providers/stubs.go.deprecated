@@ -1,6 +1,0 @@
-# This file has been moved to .deprecated extension
-# The stub implementations in this file are no longer used
-# They can be safely deleted in the next cleanup cycle
-
-# Original file contained stub implementations that have been
-# replaced with proper provider implementations in the main codebase

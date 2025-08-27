@@ -136,7 +136,8 @@ pllm:
       jwtSecret: ""  # Use secret
       masterKey: ""  # Use secret
       dex:
-        issuer: ""  # Will be auto-configured if dex is enabled
+        issuer: ""  # Backend internal URL - Will be auto-configured if dex is enabled
+        publicIssuer: ""  # Frontend public URL - Defaults to issuer if not set
         clientId: pllm
         clientSecret: ""  # Use secret
 

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getBudgetSummary } from "@/lib/api";
+import { getBudgetSummary, getUserBreakdown } from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -37,7 +37,13 @@ export default function Budget() {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  if (isLoading) {
+  const { data: userBreakdownData, isLoading: isLoadingUsers } = useQuery({
+    queryKey: ["user-breakdown"],
+    queryFn: getUserBreakdown,
+    refetchInterval: 30000,
+  });
+
+  if (isLoading || isLoadingUsers) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -46,12 +52,14 @@ export default function Budget() {
   }
 
   const budget = budgetData as any; // axios interceptor extracts data
+  const userBreakdown = userBreakdownData as any;
   
   if (!budget) {
     return <div>No budget data available</div>;
   }
 
   const { summary, team_budgets, key_budgets, usage_by_period, charts } = budget;
+  const { user_breakdown = [], team_breakdown = [], summary: userSummary } = userBreakdown || {};
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -400,6 +408,124 @@ export default function Budget() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* User Analytics Section */}
+      {userBreakdown && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {/* User Breakdown */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Icon icon="lucide:users" className="h-5 w-5" />
+                Top Users by Spending
+              </CardTitle>
+              <CardDescription>
+                {userSummary?.total_users || 0} active users this month
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {user_breakdown.slice(0, 10).map((user: any) => (
+                  <div
+                    key={user.user_id}
+                    className="flex items-center justify-between p-3 rounded-lg border"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium">
+                          {user.user_name || user.user_email}
+                        </h4>
+                        {user.team_requests > 0 && user.user_requests > 0 && (
+                          <Badge variant="outline">Mixed</Badge>
+                        )}
+                        {user.team_requests > 0 && user.user_requests === 0 && (
+                          <Badge variant="secondary">Team User</Badge>
+                        )}
+                        {user.user_requests > 0 && user.team_requests === 0 && (
+                          <Badge variant="default">Personal User</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                        <span>Cost: {formatCurrency(user.cost)}</span>
+                        <span>Requests: {user.requests.toLocaleString()}</span>
+                        <span>Tokens: {user.tokens.toLocaleString()}</span>
+                      </div>
+                      {user.team_requests > 0 && user.user_requests > 0 && (
+                        <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                          <span>Team: {user.team_requests.toLocaleString()} requests</span>
+                          <span>Personal: {user.user_requests.toLocaleString()} requests</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {user_breakdown.length === 0 && (
+                  <p className="text-muted-foreground text-center py-8">
+                    No user activity this month
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Team User Breakdown */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Icon icon="lucide:building" className="h-5 w-5" />
+                Team Activity
+              </CardTitle>
+              <CardDescription>
+                User activity within teams
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {team_breakdown.map((team: any) => (
+                  <div key={team.team_id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium">{team.team_name}</h4>
+                      <Badge variant="outline">
+                        {team.active_members}/{team.member_count} active
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-sm mb-3">
+                      <div>
+                        <span className="text-muted-foreground">Cost:</span>
+                        <span className="ml-1 font-medium">{formatCurrency(team.cost)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Requests:</span>
+                        <span className="ml-1 font-medium">{team.requests.toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Tokens:</span>
+                        <span className="ml-1 font-medium">{team.tokens.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    {team.user_breakdown && Object.values(team.user_breakdown).length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">Top Users:</p>
+                        {Object.values(team.user_breakdown).slice(0, 3).map((user: any) => (
+                          <div key={user.user_id} className="flex justify-between text-sm">
+                            <span>{user.user_name || user.user_email}</span>
+                            <span className="font-medium">{formatCurrency(user.cost)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {team_breakdown.length === 0 && (
+                  <p className="text-muted-foreground text-center py-8">
+                    No team activity this month
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

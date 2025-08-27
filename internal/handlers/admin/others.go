@@ -1,7 +1,11 @@
 package admin
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -32,15 +36,19 @@ func (h *AnalyticsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	// Get real statistics from the model manager first
 	modelStats := h.modelManager.GetModelStats()
 
-	// TODO: Get real database stats - for now, use model stats plus placeholders
-	// This should be replaced with actual database queries for users, teams, keys
+	// Get real database stats
+	var activeTeams int64
+	var activeKeys int64
+	h.db.Model(&models.Team{}).Where("is_active = true").Count(&activeTeams)
+	h.db.Model(&models.Key{}).Where("is_active = true").Count(&activeKeys)
+
 	stats := map[string]interface{}{
 		"total_requests":   modelStats["total_requests"],
 		"total_tokens":     modelStats["total_tokens"],
 		"total_cost":       modelStats["total_cost"],
 		"active_users":     modelStats["active_users"],
-		"active_teams":     8,                           // TODO: Query from database
-		"active_keys":      156,                         // TODO: Query from database
+		"active_teams":     activeTeams,
+		"active_keys":      activeKeys,
 		"load_balancer":    modelStats["load_balancer"], // Pass through model load balancer stats
 		"should_shed_load": modelStats["should_shed_load"],
 	}
@@ -48,63 +56,181 @@ func (h *AnalyticsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AnalyticsHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
+	// Get real statistics from the model manager
+	modelStats := h.modelManager.GetModelStats()
+
+	// Get real database stats for active counts
+	var activeTeams int64
+	var activeKeys int64
+	h.db.Model(&models.Team{}).Where("is_active = true").Count(&activeTeams)
+	h.db.Model(&models.Key{}).Where("is_active = true").Count(&activeKeys)
+
+	// Get top users by spending from usage logs
+	var topUsers []struct {
+		ActualUserID  string  `gorm:"column:actual_user_id"`
+		UserEmail     string  `gorm:"column:user_email"`
+		TotalRequests int64   `gorm:"column:total_requests"`
+		TotalTokens   int64   `gorm:"column:total_tokens"`
+		TotalCost     float64 `gorm:"column:total_cost"`
+	}
+
+	h.db.Raw(`
+		SELECT 
+			ul.actual_user_id,
+			COALESCE(u.email, 'unknown') as user_email,
+			COUNT(*) as total_requests,
+			SUM(ul.total_tokens) as total_tokens,
+			SUM(ul.total_cost) as total_cost
+		FROM usage_logs ul
+		LEFT JOIN users u ON ul.actual_user_id = u.id::text
+		WHERE ul.created_at >= DATE_TRUNC('month', NOW())
+		GROUP BY ul.actual_user_id, u.email
+		ORDER BY total_cost DESC
+		LIMIT 10
+	`).Scan(&topUsers)
+
+	// Get top models from usage logs
+	var topModels []struct {
+		Model         string  `gorm:"column:model"`
+		TotalRequests int64   `gorm:"column:total_requests"`
+		TotalTokens   int64   `gorm:"column:total_tokens"`
+		TotalCost     float64 `gorm:"column:total_cost"`
+	}
+
+	h.db.Raw(`
+		SELECT 
+			model,
+			COUNT(*) as total_requests,
+			SUM(total_tokens) as total_tokens,
+			SUM(total_cost) as total_cost
+		FROM usage_logs
+		WHERE created_at >= DATE_TRUNC('month', NOW())
+		GROUP BY model
+		ORDER BY total_cost DESC
+		LIMIT 10
+	`).Scan(&topModels)
+
+	// Get recent activity
+	var recentActivity []struct {
+		Timestamp time.Time `gorm:"column:timestamp"`
+		UserEmail string    `gorm:"column:user_email"`
+		Model     string    `gorm:"column:model"`
+		Tokens    int64     `gorm:"column:tokens"`
+	}
+
+	h.db.Raw(`
+		SELECT 
+			ul.created_at as timestamp,
+			COALESCE(u.email, 'unknown') as user_email,
+			ul.model,
+			ul.total_tokens as tokens
+		FROM usage_logs ul
+		LEFT JOIN users u ON ul.actual_user_id = u.id::text
+		ORDER BY ul.created_at DESC
+		LIMIT 10
+	`).Scan(&recentActivity)
+
+	// Format data for response
+	topUsersArray := make([]map[string]interface{}, 0)
+	for _, user := range topUsers {
+		topUsersArray = append(topUsersArray, map[string]interface{}{
+			"id":    user.ActualUserID,
+			"email": user.UserEmail,
+			"usage": user.TotalTokens,
+			"cost":  user.TotalCost,
+		})
+	}
+
+	topModelsArray := make([]map[string]interface{}, 0)
+	for _, model := range topModels {
+		topModelsArray = append(topModelsArray, map[string]interface{}{
+			"model":    model.Model,
+			"requests": model.TotalRequests,
+			"tokens":   model.TotalTokens,
+			"cost":     model.TotalCost,
+		})
+	}
+
+	recentActivityArray := make([]map[string]interface{}, 0)
+	for _, activity := range recentActivity {
+		recentActivityArray = append(recentActivityArray, map[string]interface{}{
+			"timestamp": activity.Timestamp.Format(time.RFC3339),
+			"user":      activity.UserEmail,
+			"action":    "API call",
+			"model":     activity.Model,
+			"tokens":    activity.Tokens,
+		})
+	}
+
 	dashboard := map[string]interface{}{
 		"stats": map[string]interface{}{
-			"total_requests": 15234,
-			"total_tokens":   5678901,
-			"total_cost":     234.56,
-			"active_users":   42,
+			"total_requests": modelStats["total_requests"],
+			"total_tokens":   modelStats["total_tokens"],
+			"total_cost":     modelStats["total_cost"],
+			"active_users":   modelStats["active_users"],
 		},
-		"recent_activity": []map[string]interface{}{
-			{
-				"timestamp": "2024-01-15T10:30:00Z",
-				"user":      "john.doe@example.com",
-				"action":    "API call",
-				"model":     "gpt-4",
-				"tokens":    1500,
-			},
-		},
-		"top_users": []map[string]interface{}{
-			{
-				"id":    "user_001",
-				"email": "john.doe@example.com",
-				"usage": 45678,
-				"cost":  45.67,
-			},
-		},
-		"top_models": []map[string]interface{}{
-			{
-				"model":    "gpt-4",
-				"requests": 5432,
-				"tokens":   2345678,
-				"cost":     123.45,
-			},
-		},
+		"recent_activity": recentActivityArray,
+		"top_users":       topUsersArray,
+		"top_models":      topModelsArray,
 	}
 	h.sendJSON(w, http.StatusOK, dashboard)
 }
 
 func (h *AnalyticsHandler) GetUsage(w http.ResponseWriter, r *http.Request) {
+	// Get daily usage for the current month
+	var dailyUsage []struct {
+		Date     time.Time `gorm:"column:date"`
+		Requests int64     `gorm:"column:requests"`
+		Tokens   int64     `gorm:"column:tokens"`
+		Cost     float64   `gorm:"column:cost"`
+	}
+
+	h.db.Raw(`
+		SELECT 
+			DATE_TRUNC('day', created_at) as date,
+			COUNT(*) as requests,
+			SUM(total_tokens) as tokens,
+			SUM(total_cost) as cost
+		FROM usage_logs
+		WHERE created_at >= DATE_TRUNC('month', NOW())
+		GROUP BY DATE_TRUNC('day', created_at)
+		ORDER BY date
+	`).Scan(&dailyUsage)
+
+	// Get total usage for the period
+	var totalUsage struct {
+		Requests int64   `gorm:"column:requests"`
+		Tokens   int64   `gorm:"column:tokens"`
+		Cost     float64 `gorm:"column:cost"`
+	}
+
+	h.db.Raw(`
+		SELECT 
+			COUNT(*) as requests,
+			SUM(total_tokens) as tokens,
+			SUM(total_cost) as cost
+		FROM usage_logs
+		WHERE created_at >= DATE_TRUNC('month', NOW())
+	`).Scan(&totalUsage)
+
+	// Format daily usage for response
+	usageArray := make([]map[string]interface{}, 0)
+	for _, day := range dailyUsage {
+		usageArray = append(usageArray, map[string]interface{}{
+			"date":     day.Date.Format("2006-01-02"),
+			"requests": day.Requests,
+			"tokens":   day.Tokens,
+			"cost":     day.Cost,
+		})
+	}
+
 	usage := map[string]interface{}{
-		"period": "2024-01",
-		"usage": []map[string]interface{}{
-			{
-				"date":     "2024-01-01",
-				"requests": 512,
-				"tokens":   234567,
-				"cost":     23.45,
-			},
-			{
-				"date":     "2024-01-02",
-				"requests": 623,
-				"tokens":   345678,
-				"cost":     34.56,
-			},
-		},
+		"period": time.Now().Format("2006-01"),
+		"usage":  usageArray,
 		"total": map[string]interface{}{
-			"requests": 15234,
-			"tokens":   5678901,
-			"cost":     234.56,
+			"requests": totalUsage.Requests,
+			"tokens":   totalUsage.Tokens,
+			"cost":     totalUsage.Cost,
 		},
 	}
 	h.sendJSON(w, http.StatusOK, usage)
@@ -132,6 +258,162 @@ func (h *AnalyticsHandler) GetCostBreakdown(w http.ResponseWriter, r *http.Reque
 
 func (h *AnalyticsHandler) GetPerformance(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, http.StatusOK, map[string]interface{}{"performance": []interface{}{}})
+}
+
+// GetHistoricalModelHealth returns historical model health data for heatmap
+func (h *AnalyticsHandler) GetHistoricalModelHealth(w http.ResponseWriter, r *http.Request) {
+	days := 30
+	if d := r.URL.Query().Get("days"); d != "" {
+		if parsed, err := strconv.Atoi(d); err == nil && parsed > 0 && parsed <= 90 {
+			days = parsed
+		}
+	}
+
+	metrics, err := models.GetModelHealthHistory(h.db, days)
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to fetch historical model health data")
+		return
+	}
+
+	// Group by model and format for frontend
+	modelData := make(map[string][]map[string]interface{})
+	for _, metric := range metrics {
+		modelName := metric.ModelName
+		if _, exists := modelData[modelName]; !exists {
+			modelData[modelName] = make([]map[string]interface{}, 0)
+		}
+
+		modelData[modelName] = append(modelData[modelName], map[string]interface{}{
+			"date":         metric.Timestamp.Format("2006-01-02"),
+			"health_score": metric.HealthScore,
+			"requests":     metric.TotalRequests,
+			"failed":       metric.FailedRequests,
+			"avg_latency":  metric.AvgLatency,
+		})
+	}
+
+	h.sendJSON(w, http.StatusOK, map[string]interface{}{
+		"models": modelData,
+		"period": fmt.Sprintf("%d days", days),
+	})
+}
+
+// GetHistoricalSystemMetrics returns historical system metrics for charts
+func (h *AnalyticsHandler) GetHistoricalSystemMetrics(w http.ResponseWriter, r *http.Request) {
+	// Parse query parameters
+	intervalStr := r.URL.Query().Get("interval")
+	if intervalStr == "" {
+		intervalStr = "hourly"
+	}
+
+	interval := models.IntervalHourly
+	if intervalStr == "daily" {
+		interval = models.IntervalDaily
+	}
+
+	hoursStr := r.URL.Query().Get("hours")
+	hours := 24 // Default to 24 hours
+	if h := hoursStr; h != "" {
+		if parsed, err := strconv.Atoi(h); err == nil && parsed > 0 && parsed <= 720 { // Max 30 days
+			hours = parsed
+		}
+	}
+
+	since := time.Now().Add(-time.Duration(hours) * time.Hour)
+	metrics, err := models.GetSystemMetricsHistory(h.db, interval, since)
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to fetch historical system metrics")
+		return
+	}
+
+	// Format for charts
+	timestamps := make([]string, 0)
+	requests := make([]int64, 0)
+	latencies := make([]int64, 0)
+	healthScores := make([]float64, 0)
+	costs := make([]float64, 0)
+
+	for _, metric := range metrics {
+		timestamps = append(timestamps, metric.Timestamp.Format("2006-01-02 15:04"))
+		requests = append(requests, metric.TotalRequests)
+		latencies = append(latencies, metric.AvgLatency)
+		healthScores = append(healthScores, metric.AvgHealthScore)
+		costs = append(costs, metric.TotalCost)
+	}
+
+	h.sendJSON(w, http.StatusOK, map[string]interface{}{
+		"interval":      intervalStr,
+		"period_hours":  hours,
+		"timestamps":    timestamps,
+		"requests":      requests,
+		"latencies":     latencies,
+		"health_scores": healthScores,
+		"costs":         costs,
+	})
+}
+
+// GetHistoricalModelLatencies returns historical latency data for specific models
+func (h *AnalyticsHandler) GetHistoricalModelLatencies(w http.ResponseWriter, r *http.Request) {
+	// Parse models parameter
+	modelsParam := r.URL.Query().Get("models")
+	if modelsParam == "" {
+		h.sendError(w, http.StatusBadRequest, "models parameter is required")
+		return
+	}
+
+	modelNames := strings.Split(modelsParam, ",")
+	for i, name := range modelNames {
+		modelNames[i] = strings.TrimSpace(name)
+	}
+
+	// Parse other parameters
+	intervalStr := r.URL.Query().Get("interval")
+	if intervalStr == "" {
+		intervalStr = "hourly"
+	}
+
+	interval := models.IntervalHourly
+	if intervalStr == "daily" {
+		interval = models.IntervalDaily
+	}
+
+	hoursStr := r.URL.Query().Get("hours")
+	hours := 24
+	if h := hoursStr; h != "" {
+		if parsed, err := strconv.Atoi(h); err == nil && parsed > 0 && parsed <= 720 {
+			hours = parsed
+		}
+	}
+
+	since := time.Now().Add(-time.Duration(hours) * time.Hour)
+	metrics, err := models.GetModelLatencyHistory(h.db, modelNames, interval, since)
+	if err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to fetch model latency data")
+		return
+	}
+
+	// Group by model
+	modelLatencies := make(map[string][]map[string]interface{})
+	for _, metric := range metrics {
+		modelName := metric.ModelName
+		if _, exists := modelLatencies[modelName]; !exists {
+			modelLatencies[modelName] = make([]map[string]interface{}, 0)
+		}
+
+		modelLatencies[modelName] = append(modelLatencies[modelName], map[string]interface{}{
+			"timestamp":   metric.Timestamp.Format("2006-01-02 15:04"),
+			"avg_latency": metric.AvgLatency,
+			"p95_latency": metric.P95Latency,
+			"p99_latency": metric.P99Latency,
+			"requests":    metric.TotalRequests,
+		})
+	}
+
+	h.sendJSON(w, http.StatusOK, map[string]interface{}{
+		"models":       modelLatencies,
+		"interval":     intervalStr,
+		"period_hours": hours,
+	})
 }
 
 func (h *AnalyticsHandler) GetErrors(w http.ResponseWriter, r *http.Request) {
@@ -316,6 +598,298 @@ func (h *AnalyticsHandler) GetBudgetSummary(w http.ResponseWriter, r *http.Reque
 				{"name": "Teams", "value": totalTeamSpent},
 				{"name": "Keys", "value": totalKeySpent},
 			},
+		},
+	}
+
+	h.sendJSON(w, http.StatusOK, response)
+}
+
+// GetUserBreakdown returns detailed user analytics across teams and keys
+func (h *AnalyticsHandler) GetUserBreakdown(w http.ResponseWriter, r *http.Request) {
+	var usageStats []struct {
+		ActualUserID  string  `gorm:"column:actual_user_id"`
+		UserID        string  `gorm:"column:user_id"`
+		KeyID         string  `gorm:"column:key_id"`
+		TeamID        *string `gorm:"column:team_id"`
+		TotalRequests int64   `gorm:"column:total_requests"`
+		TotalTokens   int64   `gorm:"column:total_tokens"`
+		TotalCost     float64 `gorm:"column:total_cost"`
+	}
+
+	// Get user breakdown from usage logs
+	if err := h.db.Raw(`
+		SELECT 
+			actual_user_id,
+			user_id,
+			key_id,
+			team_id,
+			COUNT(*) as total_requests,
+			SUM(total_tokens) as total_tokens,
+			SUM(total_cost) as total_cost
+		FROM usage_logs 
+		WHERE created_at >= DATE_TRUNC('month', NOW())
+		GROUP BY actual_user_id, user_id, key_id, team_id
+		ORDER BY total_cost DESC
+	`).Scan(&usageStats).Error; err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to get user breakdown data")
+		return
+	}
+
+	// Get user details
+	var users []models.User
+	if err := h.db.Select("id, email, username, first_name, last_name").Find(&users).Error; err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to get user details")
+		return
+	}
+
+	userMap := make(map[string]*models.User)
+	for i := range users {
+		userMap[users[i].ID.String()] = &users[i]
+	}
+
+	// Get team details
+	var teams []models.Team
+	if err := h.db.Select("id, name").Find(&teams).Error; err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to get team details")
+		return
+	}
+
+	teamMap := make(map[string]*models.Team)
+	for i := range teams {
+		teamMap[teams[i].ID.String()] = &teams[i]
+	}
+
+	// Get key details
+	var keys []models.Key
+	if err := h.db.Select("id, name, team_id, user_id").Find(&keys).Error; err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to get key details")
+		return
+	}
+
+	keyMap := make(map[string]*models.Key)
+	for i := range keys {
+		keyMap[keys[i].ID.String()] = &keys[i]
+	}
+
+	// Aggregate data by actual user
+	userBreakdown := make(map[string]*models.UserStats)
+	teamBreakdown := make(map[string]*models.TeamStats)
+
+	for _, stat := range usageStats {
+		// Get user info
+		actualUser := userMap[stat.ActualUserID]
+		if actualUser == nil {
+			continue
+		}
+
+		// Initialize user stats if not exists
+		userKey := stat.ActualUserID
+		if _, exists := userBreakdown[userKey]; !exists {
+			userBreakdown[userKey] = &models.UserStats{
+				UserID:    actualUser.ID.String(),
+				UserEmail: actualUser.Email,
+				UserName:  actualUser.Username,
+			}
+		}
+
+		userStats := userBreakdown[userKey]
+		userStats.Requests += stat.TotalRequests
+		userStats.Tokens += stat.TotalTokens
+		userStats.Cost += stat.TotalCost
+
+		// Track key usage
+		key := keyMap[stat.KeyID]
+		if key != nil {
+			if stat.TeamID != nil && *stat.TeamID != "" {
+				userStats.TeamRequests += stat.TotalRequests
+				// Update team breakdown
+				teamKey := *stat.TeamID
+				if _, exists := teamBreakdown[teamKey]; !exists {
+					team := teamMap[*stat.TeamID]
+					if team != nil {
+						teamBreakdown[teamKey] = &models.TeamStats{
+							TeamID:        team.ID.String(),
+							TeamName:      team.Name,
+							UserBreakdown: make(map[string]*models.UserStats),
+						}
+					}
+				}
+				if teamStats, exists := teamBreakdown[teamKey]; exists {
+					teamStats.Requests += stat.TotalRequests
+					teamStats.Tokens += stat.TotalTokens
+					teamStats.Cost += stat.TotalCost
+					// Add user to team breakdown
+					if _, userExists := teamStats.UserBreakdown[userKey]; !userExists {
+						teamStats.UserBreakdown[userKey] = &models.UserStats{
+							UserID:    actualUser.ID.String(),
+							UserEmail: actualUser.Email,
+							UserName:  actualUser.Username,
+						}
+					}
+					teamUserStats := teamStats.UserBreakdown[userKey]
+					teamUserStats.Requests += stat.TotalRequests
+					teamUserStats.Tokens += stat.TotalTokens
+					teamUserStats.Cost += stat.TotalCost
+					teamUserStats.TeamRequests += stat.TotalRequests
+				}
+			} else {
+				userStats.UserRequests += stat.TotalRequests
+			}
+		}
+	}
+
+	// Convert maps to slices for JSON response
+	userArray := make([]*models.UserStats, 0, len(userBreakdown))
+	for _, user := range userBreakdown {
+		userArray = append(userArray, user)
+	}
+
+	teamArray := make([]*models.TeamStats, 0, len(teamBreakdown))
+	for _, team := range teamBreakdown {
+		// Count active members
+		team.MemberCount = len(team.UserBreakdown)
+		team.ActiveMembers = len(team.UserBreakdown) // All members in breakdown are active
+		teamArray = append(teamArray, team)
+	}
+
+	response := map[string]interface{}{
+		"user_breakdown": userArray,
+		"team_breakdown": teamArray,
+		"summary": map[string]interface{}{
+			"total_users":        len(userArray),
+			"total_active_teams": len(teamArray),
+			"total_requests": func() int64 {
+				total := int64(0)
+				for _, user := range userArray {
+					total += user.Requests
+				}
+				return total
+			}(),
+			"total_cost": func() float64 {
+				total := 0.0
+				for _, user := range userArray {
+					total += user.Cost
+				}
+				return total
+			}(),
+		},
+	}
+
+	h.sendJSON(w, http.StatusOK, response)
+}
+
+// GetTeamUserBreakdown returns user analytics for a specific team
+func (h *AnalyticsHandler) GetTeamUserBreakdown(w http.ResponseWriter, r *http.Request) {
+	teamID := r.URL.Query().Get("team_id")
+	if teamID == "" {
+		h.sendError(w, http.StatusBadRequest, "team_id parameter is required")
+		return
+	}
+
+	// Get team info
+	var team models.Team
+	if err := h.db.First(&team, "id = ?", teamID).Error; err != nil {
+		h.sendError(w, http.StatusNotFound, "Team not found")
+		return
+	}
+
+	// Get usage for this team
+	var usageStats []struct {
+		ActualUserID  string  `gorm:"column:actual_user_id"`
+		KeyID         string  `gorm:"column:key_id"`
+		TotalRequests int64   `gorm:"column:total_requests"`
+		TotalTokens   int64   `gorm:"column:total_tokens"`
+		TotalCost     float64 `gorm:"column:total_cost"`
+	}
+
+	if err := h.db.Raw(`
+		SELECT 
+			actual_user_id,
+			key_id,
+			COUNT(*) as total_requests,
+			SUM(total_tokens) as total_tokens,
+			SUM(total_cost) as total_cost
+		FROM usage_logs 
+		WHERE team_id = ? AND created_at >= DATE_TRUNC('month', NOW())
+		GROUP BY actual_user_id, key_id
+		ORDER BY total_cost DESC
+	`, teamID).Scan(&usageStats).Error; err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to get team usage data")
+		return
+	}
+
+	// Get user details for this team
+	var users []models.User
+	if err := h.db.Raw(`
+		SELECT DISTINCT u.id, u.email, u.username, u.first_name, u.last_name
+		FROM users u
+		JOIN team_members tm ON u.id = tm.user_id
+		WHERE tm.team_id = ?
+	`, teamID).Scan(&users).Error; err != nil {
+		h.sendError(w, http.StatusInternalServerError, "Failed to get team members")
+		return
+	}
+
+	userMap := make(map[string]*models.User)
+	for i := range users {
+		userMap[users[i].ID.String()] = &users[i]
+	}
+
+	// Aggregate usage by user
+	userBreakdown := make(map[string]*models.UserStats)
+	for _, stat := range usageStats {
+		user := userMap[stat.ActualUserID]
+		if user == nil {
+			continue
+		}
+
+		userKey := stat.ActualUserID
+		if _, exists := userBreakdown[userKey]; !exists {
+			userBreakdown[userKey] = &models.UserStats{
+				UserID:    user.ID.String(),
+				UserEmail: user.Email,
+				UserName:  user.Username,
+			}
+		}
+
+		userStats := userBreakdown[userKey]
+		userStats.Requests += stat.TotalRequests
+		userStats.Tokens += stat.TotalTokens
+		userStats.Cost += stat.TotalCost
+		userStats.TeamRequests += stat.TotalRequests // All requests are team requests
+	}
+
+	userArray := make([]*models.UserStats, 0, len(userBreakdown))
+	for _, user := range userBreakdown {
+		userArray = append(userArray, user)
+	}
+
+	response := map[string]interface{}{
+		"team": map[string]interface{}{
+			"id":            team.ID,
+			"name":          team.Name,
+			"description":   team.Description,
+			"max_budget":    team.MaxBudget,
+			"current_spend": team.CurrentSpend,
+		},
+		"user_breakdown": userArray,
+		"summary": map[string]interface{}{
+			"total_members":  len(users),
+			"active_members": len(userArray),
+			"total_requests": func() int64 {
+				total := int64(0)
+				for _, user := range userArray {
+					total += user.Requests
+				}
+				return total
+			}(),
+			"total_cost": func() float64 {
+				total := 0.0
+				for _, user := range userArray {
+					total += user.Cost
+				}
+				return total
+			}(),
 		},
 	}
 

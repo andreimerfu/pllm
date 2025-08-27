@@ -186,7 +186,7 @@ services:
       - AZURE_API_KEY_EAST=${AZURE_API_KEY_EAST:-}
       - GROQ_API_KEY_1=${GROQ_API_KEY:-}
       - MISTRAL_API_KEY_1=${MISTRAL_API_KEY:-}
-      # Dex Authentication - Both use localhost (custom resolver in backend)
+      # Dex Authentication - Use public URL for both (backend handles internal routing)
       - DEX_ISSUER=http://localhost:5556/dex
       - DEX_PUBLIC_ISSUER=http://localhost:5556/dex
       - DEX_CLIENT_ID=pllm-web

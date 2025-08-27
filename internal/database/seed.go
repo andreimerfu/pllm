@@ -437,8 +437,8 @@ func (s *Seeder) SeedBudgets() error {
 		},
 		{
 			Name:     "Engineering Team Budget",
-			Type:     models.BudgetTypeGroup,
-			GroupID:  &teamID,
+			Type:     models.BudgetTypeTeam,
+			TeamID:   &teamID,
 			Amount:   10000,
 			Period:   models.BudgetPeriodMonthly,
 			StartsAt: time.Now(),

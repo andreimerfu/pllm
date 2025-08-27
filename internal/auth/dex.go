@@ -18,7 +18,8 @@ import (
 )
 
 type DexConfig struct {
-	Issuer       string   `json:"issuer" yaml:"issuer"`
+	Issuer       string   `json:"issuer" yaml:"issuer"`               // Backend connection URL
+	PublicIssuer string   `json:"public_issuer" yaml:"public_issuer"` // Frontend OAuth URL
 	ClientID     string   `json:"client_id" yaml:"client_id"`
 	ClientSecret string   `json:"client_secret" yaml:"client_secret"`
 	RedirectURL  string   `json:"redirect_url" yaml:"redirect_url"`
@@ -57,12 +58,11 @@ type Session struct {
 func NewDexAuthProvider(config *DexConfig) (*DexAuthProvider, error) {
 	ctx := context.Background()
 
-	// Create a custom HTTP client that resolves localhost:5556 to dex:5556 for Docker environments
-	// This allows Dex to advertise localhost:5556 (for browsers) while backend connects to dex:5556
+	// Create a custom HTTP client for internal communication
+	// Redirects localhost:5556 to dex:5556 for container-to-container communication
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// Replace localhost:5556 with dex:5556 for internal Docker communication
 				if addr == "localhost:5556" {
 					addr = "dex:5556"
 				}
@@ -71,8 +71,7 @@ func NewDexAuthProvider(config *DexConfig) (*DexAuthProvider, error) {
 			},
 		},
 	}
-	
-	// Create context with custom HTTP client
+
 	ctx = oidc.ClientContext(ctx, httpClient)
 
 	provider, err := oidc.NewProvider(ctx, config.Issuer)

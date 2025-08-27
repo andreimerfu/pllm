@@ -273,7 +273,14 @@ func (m *AuthMiddleware) extractAuth(r *http.Request) (AuthType, string, error) 
 
 		switch scheme {
 		case "bearer":
-			// Check if it's an API key or JWT
+			// Check if it's a master key first
+			if m.masterKeyService != nil && m.masterKeyService.IsConfigured() {
+				if _, err := m.masterKeyService.ValidateMasterKey(r.Context(), credentials); err == nil {
+					m.logger.Debug("Detected master key in Bearer token")
+					return AuthTypeMasterKey, credentials, nil
+				}
+			}
+			// Check if it's an API key
 			if strings.HasPrefix(credentials, "sk-") || strings.HasPrefix(credentials, "pllm_") {
 				m.logger.Debug("Detected API key in Bearer token")
 				return AuthTypeAPIKey, credentials, nil

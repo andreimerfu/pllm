@@ -7,6 +7,7 @@ import (
 	"github.com/amerfu/pllm/internal/config"
 	"github.com/amerfu/pllm/internal/handlers/admin"
 	"github.com/amerfu/pllm/internal/middleware"
+	"github.com/amerfu/pllm/internal/services/budget"
 	"github.com/amerfu/pllm/internal/services/team"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
@@ -21,6 +22,7 @@ type AdminRouterConfig struct {
 	DB               *gorm.DB
 	AuthService      *auth.AuthService
 	MasterKeyService *auth.MasterKeyService
+	BudgetService    budget.Service
 	ModelManager     interface {
 		GetModelStats() map[string]interface{}
 	}
@@ -39,13 +41,13 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	oauthHandler := admin.NewOAuthHandler(
 		cfg.Logger,
 		cfg.DB,
-		"http://localhost:5556/dex",
+		"http://dex:5556/dex",
 		"pllm-web",
 		"pllm-web-secret",
 	)
 	userHandler := admin.NewUserHandler(cfg.Logger, cfg.DB)
-	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB)
-	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
+	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB, cfg.BudgetService)
+	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB, cfg.BudgetService)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
 
@@ -119,6 +121,8 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 		// Analytics
 		r.Route("/analytics", func(r chi.Router) {
 			r.Get("/budget", analyticsHandler.GetBudgetSummary)
+			r.Get("/user-breakdown", analyticsHandler.GetUserBreakdown)
+			r.Get("/team-user-breakdown", analyticsHandler.GetTeamUserBreakdown)
 			r.Get("/usage", analyticsHandler.GetUsage)
 			r.Get("/usage/hourly", analyticsHandler.GetHourlyUsage)
 			r.Get("/usage/daily", analyticsHandler.GetDailyUsage)
@@ -128,6 +132,10 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Get("/performance", analyticsHandler.GetPerformance)
 			r.Get("/errors", analyticsHandler.GetErrors)
 			r.Get("/cache", analyticsHandler.GetCacheStats)
+			// Historical metrics endpoints
+			r.Get("/historical/model-health", analyticsHandler.GetHistoricalModelHealth)
+			r.Get("/historical/system-metrics", analyticsHandler.GetHistoricalSystemMetrics)
+			r.Get("/historical/model-latencies", analyticsHandler.GetHistoricalModelLatencies)
 		})
 
 		// System management
@@ -149,6 +157,39 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Put("/rate-limits", systemHandler.UpdateRateLimits)
 			r.Get("/cache", systemHandler.GetCacheSettings)
 			r.Put("/cache", systemHandler.UpdateCacheSettings)
+		})
+	})
+
+	// User self-service routes (authenticated users, not necessarily admin)
+	r.Group(func(r chi.Router) {
+		r.Use(authMiddleware.Authenticate)
+
+		r.Route("/user", func(r chi.Router) {
+			// Current user profile
+			r.Get("/profile", func(w http.ResponseWriter, r *http.Request) {
+				_, ok := middleware.GetUserID(r.Context())
+				if !ok {
+					http.Error(w, "User not found", http.StatusUnauthorized)
+					return
+				}
+				// Profile endpoint - to be implemented
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusNotImplemented)
+				w.Write([]byte(`{"error": "Profile endpoint not yet implemented"}`))
+			})
+
+			// User's own keys
+			r.Get("/keys", func(w http.ResponseWriter, r *http.Request) {
+				userID, _ := middleware.GetUserID(r.Context())
+				r.URL.Query().Add("user_id", userID.String())
+				keyHandler.ListKeys(w, r)
+			})
+			r.Post("/keys", keyHandler.CreateKey)
+
+			// User's teams
+			r.Get("/teams", func(w http.ResponseWriter, r *http.Request) {
+				teamHandler.ListTeams(w, r)
+			})
 		})
 	})
 
@@ -188,8 +229,8 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 
 	// Initialize handlers
 	// authHandler := admin.NewAuthHandler(cfg.Logger, cfg.MasterKey) // Will be used when auth endpoints are enabled
-	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB)
-	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB)
+	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB, cfg.BudgetService)
+	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB, cfg.BudgetService)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
 
@@ -260,6 +301,9 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 
 			// Analytics
 			r.Route("/analytics", func(r chi.Router) {
+				r.Get("/budget", analyticsHandler.GetBudgetSummary)
+				r.Get("/user-breakdown", analyticsHandler.GetUserBreakdown)
+				r.Get("/team-user-breakdown", analyticsHandler.GetTeamUserBreakdown)
 				r.Get("/usage", analyticsHandler.GetUsage)
 				r.Get("/usage/hourly", analyticsHandler.GetHourlyUsage)
 				r.Get("/usage/daily", analyticsHandler.GetDailyUsage)
@@ -269,6 +313,10 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 				r.Get("/performance", analyticsHandler.GetPerformance)
 				r.Get("/errors", analyticsHandler.GetErrors)
 				r.Get("/cache", analyticsHandler.GetCacheStats)
+				// Historical metrics endpoints
+				r.Get("/historical/model-health", analyticsHandler.GetHistoricalModelHealth)
+				r.Get("/historical/system-metrics", analyticsHandler.GetHistoricalSystemMetrics)
+				r.Get("/historical/model-latencies", analyticsHandler.GetHistoricalModelLatencies)
 			})
 
 			// System management

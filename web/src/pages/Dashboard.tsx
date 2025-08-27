@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { getModelStats, getModels, getBudgetSummary } from "@/lib/api";
+import { getModelStats, getModels, getBudgetSummary, getHistoricalModelHealth, getHistoricalModelLatencies } from "@/lib/api";
+import api from "@/lib/api";
 import type { StatsResponse, ModelsResponse } from "@/types/api";
 import {
   Card,
@@ -63,9 +64,33 @@ export default function Dashboard() {
     enabled: !!isAdmin, // Only fetch budget data for admins
   });
 
+  const { data: userBudgetData } = useQuery({
+    queryKey: ["user-budget"],
+    queryFn: () => api.userProfile.getBudgetStatus(),
+    enabled: !isAdmin, // Only fetch for non-admin users
+  });
+
+  // Historical data queries
+  const { data: historicalHealthData } = useQuery({
+    queryKey: ["historical-model-health"],
+    queryFn: () => getHistoricalModelHealth(30),
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+  });
+
   const stats = statsData as StatsResponse;
+
+  const { data: historicalLatencyData } = useQuery({
+    queryKey: ["historical-model-latencies", Object.keys(stats?.load_balancer || {})],
+    queryFn: () => {
+      const models = Object.keys(stats?.load_balancer || {});
+      return models.length > 0 ? getHistoricalModelLatencies(models, "hourly", 24) : null;
+    },
+    enabled: !!stats?.load_balancer && Object.keys(stats.load_balancer).length > 0,
+    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
+  });
   const models = (modelsData as ModelsResponse)?.data || [];
   const budget = budgetData as any; // axios interceptor extracts data
+  const userBudget = userBudgetData as any; // axios interceptor extracts data
 
   // Calculate summary metrics
   const totalRequests = Object.values(stats?.load_balancer || {}).reduce(
@@ -110,7 +135,7 @@ export default function Dashboard() {
 
   // Enhanced provider detection function
   const getProviderInfo = (modelName: string) => {
-    const name = modelName.toLowerCase();
+    const name = modelName?.toLowerCase() || "";
 
     if (name.includes("gpt") || name.includes("openai")) {
       return {
@@ -197,6 +222,106 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* User Budget Summary Cards */}
+      {!isAdmin && userBudget && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="transition-theme border-l-4 border-l-blue-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Personal Budget
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:wallet"
+                  width="16"
+                  height="16"
+                  className="text-blue-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                ${userBudget.user?.max_budget?.toLocaleString() || '∞'}
+              </div>
+              <p className="text-xs text-muted-foreground">Monthly limit</p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-theme border-l-4 border-l-orange-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Current Spend</CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:trending-up"
+                  width="16"
+                  height="16"
+                  className="text-orange-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                ${userBudget.user?.current_spend?.toLocaleString() || '0'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {userBudget.user?.max_budget > 0 
+                  ? `${((userBudget.user?.current_spend / userBudget.user?.max_budget) * 100).toFixed(1)}% used`
+                  : 'No limit set'
+                }
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-theme border-l-4 border-l-purple-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Team Budgets
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:users"
+                  width="16"
+                  height="16"
+                  className="text-purple-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                {userBudget.teams?.length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Teams with budgets
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="transition-theme border-l-4 border-l-emerald-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                API Keys
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:key"
+                  width="16"
+                  height="16"
+                  className="text-emerald-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                {userBudget.keys?.length || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Active keys
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Admin Budget Summary Cards */}
       {isAdmin && budget?.summary && (
@@ -408,13 +533,13 @@ export default function Dashboard() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
-        {/* Model Health Chart */}
+        {/* Model Health Heatmap */}
         <Card className="transition-theme">
           <CardHeader>
             <CardTitle className="text-lg lg:text-xl">
-              Model Health Scores
+              Model Health Heatmap
             </CardTitle>
-            <CardDescription>Real-time health monitoring</CardDescription>
+            <CardDescription>30-day health activity overview</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[250px] sm:h-[300px]">
@@ -422,10 +547,7 @@ export default function Dashboard() {
                 option={{
                   backgroundColor: "transparent",
                   tooltip: {
-                    trigger: "axis",
-                    axisPointer: {
-                      type: "shadow",
-                    },
+                    position: 'top',
                     backgroundColor: isDark
                       ? "hsl(215, 27.9%, 16.9%)"
                       : "hsl(0, 0%, 100%)",
@@ -437,17 +559,31 @@ export default function Dashboard() {
                         ? "hsl(210, 20%, 98%)"
                         : "hsl(224, 71.4%, 4.1%)",
                     },
+                    formatter: function (params: any) {
+                      const data = params.data;
+                      return `<div style="padding: 8px;">
+                        <div style="font-weight: bold; margin-bottom: 4px;">${data[3]}</div>
+                        <div style="margin-bottom: 2px;">Day ${data[1] + 1}</div>
+                        <div style="margin-bottom: 2px;">Health: ${data[2].toFixed(1)}%</div>
+                        <div style="color: ${isDark ? '#9ca3af' : '#6b7280'}; font-size: 12px;">
+                          ${data[2] >= 90 ? 'Excellent' : data[2] >= 75 ? 'Good' : data[2] >= 50 ? 'Fair' : data[2] >= 25 ? 'Poor' : 'Critical'}
+                        </div>
+                      </div>`;
+                    }
                   },
                   grid: {
-                    left: "3%",
-                    right: "4%",
-                    bottom: "15%",
-                    top: "3%",
-                    containLabel: true,
+                    height: '65%',
+                    top: '8%',
+                    left: '12%',
+                    right: '5%',
+                    bottom: '25%'
                   },
                   xAxis: {
-                    type: "category",
-                    data: modelHealthData.map((m) => m.name),
+                    type: 'category',
+                    data: Array.from({length: 30}, (_, i) => `Day ${i + 1}`),
+                    splitArea: {
+                      show: true
+                    },
                     axisLine: {
                       lineStyle: {
                         color: isDark
@@ -459,20 +595,17 @@ export default function Dashboard() {
                       color: isDark
                         ? "hsl(217.9, 10.6%, 64.9%)"
                         : "hsl(220, 8.9%, 46.1%)",
-                      rotate: 45,
-                      fontSize: 11,
-                    },
-                    splitLine: {
-                      show: false,
-                    },
+                      interval: 4,
+                      fontSize: 10
+                    }
                   },
                   yAxis: {
-                    type: "value",
-                    name: "Health Score (%)",
-                    nameTextStyle: {
-                      color: isDark
-                        ? "hsl(217.9, 10.6%, 64.9%)"
-                        : "hsl(220, 8.9%, 46.1%)",
+                    type: 'category',
+                    data: (historicalHealthData as any)?.models ? 
+                      Object.keys((historicalHealthData as any).models).map(name => name.replace("my-", "")) :
+                      Object.keys(stats?.load_balancer || {}).map(name => name.replace("my-", "")),
+                    splitArea: {
+                      show: true
                     },
                     axisLine: {
                       lineStyle: {
@@ -485,55 +618,109 @@ export default function Dashboard() {
                       color: isDark
                         ? "hsl(217.9, 10.6%, 64.9%)"
                         : "hsl(220, 8.9%, 46.1%)",
-                    },
-                    splitLine: {
-                      lineStyle: {
-                        color: isDark
-                          ? "hsl(215, 27.9%, 16.9%)"
-                          : "hsl(220, 13%, 91%)",
-                        type: "dashed",
-                      },
-                    },
+                      fontSize: 11
+                    }
                   },
-                  series: [
-                    {
-                      name: "Health Score",
-                      type: "bar",
-                      data: modelHealthData.map((m) => ({
-                        value: m.health,
-                        itemStyle: {
-                          color: {
-                            type: "linear",
-                            x: 0,
-                            y: 0,
-                            x2: 0,
-                            y2: 1,
-                            colorStops: [
-                              {
-                                offset: 0,
-                                color: isDark ? "#60a5fa" : "#3b82f6",
-                              },
-                              {
-                                offset: 1,
-                                color: isDark ? "#3b82f6" : "#2563eb",
-                              },
-                            ],
-                          },
-                          borderRadius: [6, 6, 0, 0],
-                        },
-                      })),
-                      emphasis: {
-                        itemStyle: {
-                          shadowBlur: 10,
-                          shadowOffsetX: 0,
-                          shadowColor: "rgba(0, 0, 0, 0.2)",
-                        },
-                      },
+                  visualMap: {
+                    min: 0,
+                    max: 100,
+                    calculable: true,
+                    orient: 'horizontal',
+                    left: 'center',
+                    bottom: '8%',
+                    inRange: {
+                      color: ['#ff4444', '#ff8800', '#ffbb33', '#99cc00', '#00aa00']
                     },
-                  ],
+                    text: ['High', 'Low'],
+                    show: true, // Ensure visual map is visible
+                    textStyle: {
+                      color: isDark
+                        ? "hsl(217.9, 10.6%, 64.9%)"
+                        : "hsl(220, 8.9%, 46.1%)",
+                      fontSize: 11
+                    }
+                  },
+                  series: [{
+                    name: 'Health Score',
+                    type: 'heatmap',
+                    data: (() => {
+                      console.log('Heatmap debug:', { historicalHealthData, hasModels: !!(historicalHealthData as any)?.models });
+                      if (!(historicalHealthData as any)?.models) {
+                        // Fallback to synthetic data if historical data is not available
+                        return Object.entries(stats?.load_balancer || {}).flatMap(([, modelStats], modelIndex) =>
+                          Array.from({length: 30}, (_, dayIndex) => {
+                            const baseHealth = (modelStats as any).health_score;
+                            const variance = (Math.sin(dayIndex * 0.5) * 15) + (Math.random() * 10 - 5);
+                            const health = Math.max(10, Math.min(100, baseHealth + variance));
+                            
+                            return [
+                              dayIndex, 
+                              modelIndex, 
+                              Math.round(health * 100) / 100
+                            ];
+                          })
+                        );
+                      }
+                      
+                      // Use real historical data
+                      const heatmapData: any[] = [];
+                      const modelNames = Object.keys((historicalHealthData as any).models);
+                      
+                      modelNames.forEach((modelName, modelIndex) => {
+                        const modelData = (historicalHealthData as any).models[modelName] || [];
+                        
+                        // Create a map of date to data for efficient lookup
+                        const dataByDate: Record<string, any> = {};
+                        modelData.forEach((entry: any) => {
+                          dataByDate[entry.date] = entry;
+                        });
+                        console.log(`Model ${modelName} dataByDate:`, dataByDate);
+                        
+                        // Create array for last 30 days
+                        const today = new Date();
+                        for (let dayIndex = 0; dayIndex < 30; dayIndex++) {
+                          const targetDate = new Date(today);
+                          targetDate.setDate(today.getDate() - (29 - dayIndex)); // 29-dayIndex to go from oldest to newest
+                          const dateStr = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+                          
+                          const dayData = dataByDate[dateStr];
+                          const health = dayData?.health_score || 0; // 0 for days with no data
+                          
+                          if (dayIndex < 5 || dayIndex > 25) { // Debug first 5 days and last 4 days
+                            console.log(`Day ${dayIndex}: dateStr=${dateStr}, dayData=`, dayData, 'health=', health);
+                          }
+                          
+                          heatmapData.push([
+                            dayIndex,
+                            modelIndex,
+                            Math.round(health * 100) / 100
+                          ]);
+                        }
+                      });
+                      
+                      console.log('Generated heatmap data sample:', heatmapData.slice(0, 5), 'Total entries:', heatmapData.length);
+                      console.log('Day 29 data (should have health=95):', heatmapData.filter(item => item[0] === 29));
+                      return heatmapData;
+                    })(),
+                    itemStyle: {
+                      borderRadius: 2,
+                      borderWidth: 1,
+                      borderColor: isDark ? '#374151' : '#e5e7eb'
+                    },
+                    label: {
+                      show: true, // Show values on squares temporarily for debugging
+                      fontSize: 8
+                    },
+                    emphasis: {
+                      itemStyle: {
+                        shadowBlur: 10,
+                        shadowColor: 'rgba(0, 0, 0, 0.5)'
+                      }
+                    }
+                  }]
                 }}
                 style={{ height: "100%", width: "100%" }}
-                opts={{ renderer: "svg" }}
+                opts={{ renderer: "canvas" }}
               />
             </div>
           </CardContent>
@@ -693,7 +880,22 @@ export default function Dashboard() {
                 },
                 xAxis: {
                   type: "category",
-                  data: ["00:00", "00:05", "00:10", "00:15", "00:20"],
+                  data: (() => {
+                    if (!(historicalLatencyData as any)?.models) {
+                      return ["00:00", "00:05", "00:10", "00:15", "00:20"];
+                    }
+                    
+                    // Get timestamps from first model's data
+                    const firstModel = Object.values((historicalLatencyData as any).models)[0] as any[];
+                    return firstModel?.map(point => {
+                      const date = new Date(point.timestamp);
+                      return date.toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        hour12: false 
+                      });
+                    }) || ["00:00", "00:05", "00:10", "00:15", "00:20"];
+                  })(),
                   axisLine: {
                     lineStyle: {
                       color: isDark
@@ -744,43 +946,84 @@ export default function Dashboard() {
                     },
                   },
                 },
-                series: modelHealthData.map((model, index) => ({
-                  name: model.name,
-                  type: "line",
-                  smooth: true,
-                  symbol: "circle",
-                  symbolSize: 6,
-                  data: Array.from(
-                    { length: 5 },
-                    () => Math.floor(Math.random() * 200) + model.latency,
-                  ),
-                  lineStyle: {
-                    color: COLORS[index % COLORS.length],
-                    width: 3,
-                  },
-                  itemStyle: {
-                    color: COLORS[index % COLORS.length],
-                  },
-                  areaStyle: {
-                    color: {
-                      type: "linear",
-                      x: 0,
-                      y: 0,
-                      x2: 0,
-                      y2: 1,
-                      colorStops: [
-                        {
-                          offset: 0,
-                          color: COLORS[index % COLORS.length] + "20",
+                series: (() => {
+                  if (!(historicalLatencyData as any)?.models) {
+                    // Fallback to synthetic data
+                    return modelHealthData.map((model, index) => ({
+                      name: model.name,
+                      type: "line",
+                      smooth: true,
+                      symbol: "circle",
+                      symbolSize: 6,
+                      data: Array.from(
+                        { length: 5 },
+                        () => Math.floor(Math.random() * 200) + model.latency,
+                      ),
+                      lineStyle: {
+                        color: COLORS[index % COLORS.length],
+                        width: 3,
+                      },
+                      itemStyle: {
+                        color: COLORS[index % COLORS.length],
+                      },
+                      areaStyle: {
+                        color: {
+                          type: "linear",
+                          x: 0,
+                          y: 0,
+                          x2: 0,
+                          y2: 1,
+                          colorStops: [
+                            {
+                              offset: 0,
+                              color: COLORS[index % COLORS.length] + "20",
+                            },
+                            {
+                              offset: 1,
+                              color: COLORS[index % COLORS.length] + "00",
+                            },
+                          ],
                         },
-                        {
-                          offset: 1,
-                          color: COLORS[index % COLORS.length] + "00",
-                        },
-                      ],
+                      },
+                    }));
+                  }
+                  
+                  // Use real historical latency data
+                  return Object.entries((historicalLatencyData as any).models).map(([modelName, modelData], index) => ({
+                    name: modelName.replace("my-", ""),
+                    type: "line",
+                    smooth: true,
+                    symbol: "circle",
+                    symbolSize: 6,
+                    data: (modelData as any[]).map(point => point.avg_latency || 0),
+                    lineStyle: {
+                      color: COLORS[index % COLORS.length],
+                      width: 3,
                     },
-                  },
-                })),
+                    itemStyle: {
+                      color: COLORS[index % COLORS.length],
+                    },
+                    areaStyle: {
+                      color: {
+                        type: "linear",
+                        x: 0,
+                        y: 0,
+                        x2: 0,
+                        y2: 1,
+                        colorStops: [
+                          {
+                            offset: 0,
+                            color: COLORS[index % COLORS.length] + "20",
+                          },
+                          {
+                            offset: 1,
+                            color: COLORS[index % COLORS.length] + "00",
+                          },
+                        ],
+                      },
+                    },
+                  }));
+                })(),
               }}
               style={{ height: "100%", width: "100%" }}
               opts={{ renderer: "svg" }}

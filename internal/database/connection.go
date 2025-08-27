@@ -139,6 +139,11 @@ func Migrate() error {
 		&models.Budget{},
 		&models.Usage{},
 		&models.Audit{}, // New audit model
+		// Metrics models
+		&models.ModelMetrics{},
+		&models.SystemMetrics{},
+		&models.UserMetrics{},
+		&models.TeamMetrics{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate models: %w", err)
 	}
@@ -222,6 +227,12 @@ func createIndexes() error {
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_request_id ON audits(request_id)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_resource_type ON audits(resource_type)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_resource_id ON audits(resource_id)")
+
+	// Metrics indexes for efficient querying
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_model_metrics_lookup ON model_metrics(model_name, interval, timestamp)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_system_metrics_lookup ON system_metrics(interval, timestamp)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_user_metrics_lookup ON user_metrics(user_id, interval, timestamp)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_team_metrics_lookup ON team_metrics(team_id, interval, timestamp)")
 
 	return nil
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Key, Copy, Trash2, RotateCw, Eye, EyeOff } from 'lucide-react';
+import { Plus, Key, Copy, Trash2, RotateCw, Eye, EyeOff, Users, User } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -7,10 +7,14 @@ import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { useToast } from '../components/ui/use-toast';
+import { usePermissions } from '../contexts/PermissionContext';
+import { CanAccess } from '../components/CanAccess';
+import api from '../lib/api';
 
 interface VirtualKey {
   id: string;
-  key: string;
+  key?: string; // Only present when creating new keys
+  key_prefix?: string; // May not be present in all responses
   name: string;
   user_id?: string;
   team_id?: string;
@@ -32,28 +36,29 @@ interface VirtualKey {
 
 const Keys: React.FC = () => {
   const [keys, setKeys] = useState<VirtualKey[]>([]);
+  const [userTeams, setUserTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showKeyValue, setShowKeyValue] = useState<{[key: string]: boolean}>({});
   const [filter, setFilter] = useState<'all' | 'active' | 'expired' | 'revoked'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const { hasRole, hasPermission } = usePermissions();
+  
+  // Check if user is admin
+  const isAdmin = hasRole('admin') || hasPermission('admin.*');
 
   useEffect(() => {
     fetchKeys();
-  }, []);
+    if (!isAdmin) {
+      fetchUserTeams();
+    }
+  }, [isAdmin]);
 
   const fetchKeys = async () => {
     try {
-      const response = await fetch('/api/admin/keys', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setKeys(data.keys || []);
-      }
+      const data = await api.keys.list(!isAdmin) as any;
+      setKeys(data.keys || []);
     } catch (error) {
       toast({
         title: 'Error',
@@ -65,46 +70,46 @@ const Keys: React.FC = () => {
     }
   };
 
+  const fetchUserTeams = async () => {
+    try {
+      // For non-admin users, we need to fetch their teams
+      const data = await api.userProfile.getTeams() as any;
+      setUserTeams(data.teams || []);
+    } catch (error) {
+      console.error('Failed to fetch user teams:', error);
+      // Not critical, so don't show error toast
+    }
+  };
+
   const generateKey = async (keyData: any) => {
     try {
-      const response = await fetch('/api/admin/keys/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
-        },
-        body: JSON.stringify(keyData),
+      const data = await api.keys.generate(keyData, !isAdmin) as any;
+      
+      // Show the new key in a modal or alert
+      toast({
+        title: 'Key Generated Successfully',
+        description: (
+          <div className="mt-2">
+            <p className="mb-2">Save this key - it won't be shown again!</p>
+            <code className="block p-2 bg-gray-100 rounded text-xs break-all">
+              {data.key || data.key_value}
+            </code>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2"
+              onClick={() => navigator.clipboard.writeText(data.key || data.key_value)}
+            >
+              <Copy className="h-3 w-3 mr-1" />
+              Copy
+            </Button>
+          </div>
+        ),
+        duration: 30000, // Show for 30 seconds
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Show the new key in a modal or alert
-        toast({
-          title: 'Key Generated Successfully',
-          description: (
-            <div className="mt-2">
-              <p className="mb-2">Save this key - it won't be shown again!</p>
-              <code className="block p-2 bg-gray-100 rounded text-xs break-all">
-                {data.key}
-              </code>
-              <Button
-                size="sm"
-                variant="outline"
-                className="mt-2"
-                onClick={() => navigator.clipboard.writeText(data.key)}
-              >
-                <Copy className="h-3 w-3 mr-1" />
-                Copy
-              </Button>
-            </div>
-          ),
-          duration: 30000, // Show for 30 seconds
-        });
-        
-        fetchKeys(); // Refresh the list
-        setShowCreateModal(false);
-      }
+      
+      fetchKeys(); // Refresh the list
+      setShowCreateModal(false);
     } catch (error) {
       toast({
         title: 'Error',
@@ -115,23 +120,23 @@ const Keys: React.FC = () => {
   };
 
   const revokeKey = async (keyId: string) => {
-    try {
-      const response = await fetch(`/api/admin/keys/${keyId}/revoke`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
-        },
-        body: JSON.stringify({ reason: 'Revoked by admin' }),
+    // Only admins can revoke keys
+    if (!isAdmin) {
+      toast({
+        title: 'Error',
+        description: 'Only administrators can revoke keys',
+        variant: 'destructive',
       });
+      return;
+    }
 
-      if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Key revoked successfully',
-        });
-        fetchKeys();
-      }
+    try {
+      await api.keys.revoke(keyId, { reason: 'Revoked by admin' });
+      toast({
+        title: 'Success',
+        description: 'Key revoked successfully',
+      });
+      fetchKeys();
     } catch (error) {
       toast({
         title: 'Error',
@@ -147,20 +152,12 @@ const Keys: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`/api/admin/keys/${keyId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
-        },
+      await api.keys.delete(keyId, !isAdmin);
+      toast({
+        title: 'Success',
+        description: 'Key deleted successfully',
       });
-
-      if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Key deleted successfully',
-        });
-        setKeys(keys.filter(k => k.id !== keyId));
-      }
+      setKeys(keys.filter(k => k.id !== keyId));
     } catch (error) {
       toast({
         title: 'Error',
@@ -211,10 +208,15 @@ const Keys: React.FC = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">API Keys</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-bold">
+            {isAdmin ? 'All API Keys' : 'My API Keys'}
+          </h1>
+          {isAdmin && <Badge variant="secondary">Admin View</Badge>}
+        </div>
         <Button onClick={() => setShowCreateModal(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Generate Key
+          {isAdmin ? 'Generate Key' : 'Create API Key'}
         </Button>
       </div>
 
@@ -307,7 +309,7 @@ const Keys: React.FC = () => {
                     
                     <div className="flex items-center gap-2">
                       <code className="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                        {showKeyValue[key.id] ? key.key : key.key.replace(/sk-.{40}/, 'sk-****')}
+                        {showKeyValue[key.id] && key.key ? key.key : `****${key.key_prefix || 'xxxx'}`}
                       </code>
                       <Button
                         variant="ghost"
@@ -319,7 +321,8 @@ const Keys: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => copyKey(key.key)}
+                        disabled={!key.key}
+                        onClick={() => key.key && copyKey(key.key)}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
@@ -382,16 +385,18 @@ const Keys: React.FC = () => {
                   </div>
 
                   <div className="flex gap-2 ml-4">
-                    {status === 'active' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => revokeKey(key.id)}
-                      >
-                        <RotateCw className="h-4 w-4 mr-1" />
-                        Revoke
-                      </Button>
-                    )}
+                    <CanAccess role="admin" permissions={['admin.keys.revoke']}>
+                      {status === 'active' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => revokeKey(key.id)}
+                        >
+                          <RotateCw className="h-4 w-4 mr-1" />
+                          Revoke
+                        </Button>
+                      )}
+                    </CanAccess>
                     <Button
                       variant="outline"
                       size="sm"
@@ -421,19 +426,54 @@ const Keys: React.FC = () => {
                 <Input id="key-name" placeholder="Enter a descriptive name" />
               </div>
 
-              <div>
-                <Label>Ownership</Label>
-                <Select defaultValue="user">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">User Key</SelectItem>
-                    <SelectItem value="team">Team Key</SelectItem>
-                    <SelectItem value="system">System Key</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+{isAdmin ? (
+                <div>
+                  <Label>Ownership</Label>
+                  <Select defaultValue="user" onValueChange={(value) => {
+                    const ownershipSelect = document.getElementById('key-ownership') as HTMLSelectElement;
+                    if (ownershipSelect) ownershipSelect.value = value;
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">User Key</SelectItem>
+                      <SelectItem value="team">Team Key</SelectItem>
+                      <SelectItem value="system">System Key</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <select id="key-ownership" className="hidden" defaultValue="user" />
+                </div>
+              ) : userTeams.length > 0 ? (
+                <div>
+                  <Label>Key Type</Label>
+                  <Select defaultValue="personal" onValueChange={(value) => {
+                    const keyTypeSelect = document.getElementById('key-type') as HTMLSelectElement;
+                    if (keyTypeSelect) keyTypeSelect.value = value;
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="personal">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          Personal Key
+                        </div>
+                      </SelectItem>
+                      {userTeams.map((team) => (
+                        <SelectItem key={team.id} value={`team:${team.id}`}>
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            {team.name} Team
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <select id="key-type" className="hidden" defaultValue="personal" />
+                </div>
+              ) : null}
 
               <div>
                 <Label>Expiration</Label>
@@ -494,14 +534,28 @@ const Keys: React.FC = () => {
                   const budget = (document.getElementById('key-budget') as HTMLInputElement)?.value;
                   const tpm = (document.getElementById('key-tpm') as HTMLInputElement)?.value;
                   const rpm = (document.getElementById('key-rpm') as HTMLInputElement)?.value;
+                  const ownership = (document.getElementById('key-ownership') as HTMLSelectElement)?.value;
+                  const keyType = (document.getElementById('key-type') as HTMLSelectElement)?.value;
                   
-                  generateKey({
+                  let keyData: any = {
                     name: name || 'New API Key',
                     max_budget: budget ? parseFloat(budget) : undefined,
                     budget_duration: 'monthly',
                     tpm: tpm ? parseInt(tpm) : undefined,
                     rpm: rpm ? parseInt(rpm) : undefined,
-                  });
+                  };
+
+                  // Handle ownership/key type for different user roles
+                  if (isAdmin && ownership) {
+                    keyData.type = ownership === 'system' ? 'master' : 'api';
+                  } else if (!isAdmin && keyType) {
+                    if (keyType.startsWith('team:')) {
+                      keyData.team_id = keyType.replace('team:', '');
+                    }
+                    // Personal keys are the default (no team_id)
+                  }
+                  
+                  generateKey(keyData);
                 }}>
                   Generate Key
                 </Button>

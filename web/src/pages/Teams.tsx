@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Users, Settings, Trash2, Edit, Key } from 'lucide-react';
+import { Plus, Users, Trash2, Edit, Key, Activity } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useToast } from '../components/ui/use-toast';
+import { getTeamUserBreakdown } from '../lib/api';
 
 interface Team {
   id: string;
@@ -21,25 +22,52 @@ interface Team {
   key_count?: number;
   is_active: boolean;
   created_at: string;
+  members?: TeamMember[];
+}
+
+interface User {
+  id: string;
+  email: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  is_active: boolean;
 }
 
 interface TeamMember {
   id: string;
+  team_id: string;
   user_id: string;
-  username?: string;
-  email?: string;
+  user?: User;
   role: string;
   max_budget?: number;
   current_spend: number;
   joined_at: string;
 }
 
+interface UserUsageStats {
+  user_id: string;
+  username?: string;
+  email?: string;
+  total_requests: number;
+  total_cost: number;
+  avg_cost_per_request: number;
+  last_activity: string;
+  models_used: string[];
+}
+
 const Teams: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [userAnalytics, setUserAnalytics] = useState<UserUsageStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showEditTeamModal, setShowEditTeamModal] = useState(false);
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -49,6 +77,7 @@ const Teams: React.FC = () => {
   useEffect(() => {
     if (selectedTeam) {
       fetchTeamMembers(selectedTeam.id);
+      fetchTeamAnalytics(selectedTeam.id);
     }
   }, [selectedTeam]);
 
@@ -85,11 +114,28 @@ const Teams: React.FC = () => {
         },
       });
       if (response.ok) {
-        const data = await response.json();
-        setMembers(data.members || []);
+        const teamData = await response.json();
+        setMembers(teamData.members || []);
       }
     } catch (error) {
       console.error('Failed to fetch team members:', error);
+    }
+  };
+
+  const fetchTeamAnalytics = async (teamId: string) => {
+    setAnalyticsLoading(true);
+    try {
+      const data: any = await getTeamUserBreakdown(teamId);
+      setUserAnalytics(data?.users || []);
+    } catch (error) {
+      console.error('Failed to fetch team analytics:', error);
+      toast({
+        title: 'Warning',
+        description: 'Failed to load user analytics',
+        variant: 'destructive',
+      });
+    } finally {
+      setAnalyticsLoading(false);
     }
   };
 
@@ -122,36 +168,128 @@ const Teams: React.FC = () => {
     }
   };
 
-  // TODO: Implement add member functionality
-  // const addMember = async (memberData: any) => {
-  //   if (!selectedTeam) return;
+  const updateTeam = async (teamData: any) => {
+    if (!selectedTeam) return;
 
-  //   try {
-  //     const response = await fetch(`/api/admin/teams/${selectedTeam.id}/members`, {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //         'Authorization': `Bearer ${localStorage.getItem('token')}`,
-  //       },
-  //       body: JSON.stringify(memberData),
-  //     });
+    try {
+      const response = await fetch(`/api/admin/teams/${selectedTeam.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
+        },
+        body: JSON.stringify(teamData),
+      });
 
-  //     if (response.ok) {
-  //       const newMember = await response.json();
-  //       setMembers([...members, newMember]);
-  //       toast({
-  //         title: 'Success',
-  //         description: 'Member added successfully',
-  //       });
-  //     }
-  //   } catch (error) {
-  //     toast({
-  //       title: 'Error',
-  //       description: 'Failed to add member',
-  //       variant: 'destructive',
-  //     });
-  //   }
-  // };
+      if (response.ok) {
+        const updatedTeam = await response.json();
+        setTeams(teams.map(t => t.id === updatedTeam.id ? updatedTeam : t));
+        setSelectedTeam(updatedTeam);
+        toast({
+          title: 'Success',
+          description: 'Team updated successfully',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update team',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const deleteTeam = async (teamId: string) => {
+    if (!confirm('Are you sure you want to delete this team? This action cannot be undone.')) return;
+
+    try {
+      const response = await fetch(`/api/admin/teams/${teamId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
+        },
+      });
+
+      if (response.ok) {
+        setTeams(teams.filter(t => t.id !== teamId));
+        if (selectedTeam?.id === teamId) {
+          setSelectedTeam(teams.length > 1 ? teams[0] : null);
+        }
+        toast({
+          title: 'Success',
+          description: 'Team deleted successfully',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete team',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const addMember = async (memberData: any) => {
+    if (!selectedTeam) return;
+
+    try {
+      const response = await fetch(`/api/admin/teams/${selectedTeam.id}/members`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
+        },
+        body: JSON.stringify(memberData),
+      });
+
+      if (response.ok) {
+        const newMember = await response.json();
+        setMembers([...members, newMember]);
+        toast({
+          title: 'Success',
+          description: 'Member added successfully',
+        });
+        fetchTeamMembers(selectedTeam.id); // Refresh to get user data
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to add member',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const updateMember = async (memberId: string, memberData: any) => {
+    if (!selectedTeam) return;
+
+    try {
+      const response = await fetch(`/api/admin/teams/${selectedTeam.id}/members/${memberId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('authToken')}`,
+        },
+        body: JSON.stringify(memberData),
+      });
+
+      if (response.ok) {
+        const updatedMember = await response.json();
+        setMembers(members.map(m => m.id === memberId ? updatedMember : m));
+        toast({
+          title: 'Success',
+          description: 'Member updated successfully',
+        });
+        fetchTeamMembers(selectedTeam.id); // Refresh to get user data
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update member',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const removeMember = async (memberId: string) => {
     if (!selectedTeam) return;
@@ -262,20 +400,29 @@ const Teams: React.FC = () => {
                     <CardDescription>{selectedTeam.description}</CardDescription>
                   </div>
                   <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setShowEditTeamModal(true)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="sm">
-                      <Settings className="h-4 w-4" />
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => deleteTeam(selectedTeam.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="overview">
-                  <TabsList className="grid w-full grid-cols-4">
+                  <TabsList className="grid w-full grid-cols-5">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="members">Members</TabsTrigger>
+                    <TabsTrigger value="analytics">User Analytics</TabsTrigger>
                     <TabsTrigger value="keys">API Keys</TabsTrigger>
                     <TabsTrigger value="settings">Settings</TabsTrigger>
                   </TabsList>
@@ -337,7 +484,7 @@ const Teams: React.FC = () => {
                   <TabsContent value="members" className="space-y-4">
                     <div className="flex justify-between items-center">
                       <h3 className="text-lg font-medium">Team Members</h3>
-                      <Button size="sm" onClick={() => toast({ title: 'Coming Soon', description: 'Add member functionality will be available soon' })}>
+                      <Button size="sm" onClick={() => setShowAddMemberModal(true)}>
                         <Plus className="mr-2 h-4 w-4" />
                         Add Member
                       </Button>
@@ -350,8 +497,15 @@ const Teams: React.FC = () => {
                               <Users className="h-5 w-5 text-gray-600" />
                             </div>
                             <div>
-                              <p className="font-medium">{member.email || member.username}</p>
-                              <p className="text-sm text-gray-500">Role: {member.role}</p>
+                              <p className="font-medium">
+                                {member.user?.first_name && member.user?.last_name 
+                                  ? `${member.user.first_name} ${member.user.last_name}` 
+                                  : member.user?.email || member.user?.username || 'Unknown User'}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {member.user?.email} • Role: {member.role}
+                                {member.joined_at && ` • Joined: ${new Date(member.joined_at).toLocaleDateString()}`}
+                              </p>
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
@@ -360,17 +514,129 @@ const Teams: React.FC = () => {
                                 ${member.current_spend.toFixed(2)} / ${member.max_budget.toFixed(2)}
                               </Badge>
                             )}
+                            <Badge variant="outline">{member.role}</Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingMember(member)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => removeMember(member.id)}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
                           </div>
                         </div>
                       ))}
                     </div>
+                  </TabsContent>
+
+                  <TabsContent value="analytics" className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-medium">User Analytics</h3>
+                      <Button size="sm" variant="outline" onClick={() => fetchTeamAnalytics(selectedTeam.id)}>
+                        <Activity className="mr-2 h-4 w-4" />
+                        Refresh
+                      </Button>
+                    </div>
+                    
+                    {analyticsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="text-sm text-gray-500">Loading analytics...</div>
+                      </div>
+                    ) : userAnalytics.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <Card>
+                            <CardContent className="pt-4">
+                              <div className="text-2xl font-bold text-blue-600">
+                                {userAnalytics.length}
+                              </div>
+                              <p className="text-xs text-muted-foreground">Active Users</p>
+                            </CardContent>
+                          </Card>
+                          <Card>
+                            <CardContent className="pt-4">
+                              <div className="text-2xl font-bold text-green-600">
+                                {userAnalytics.reduce((sum, user) => sum + user.total_requests, 0).toLocaleString()}
+                              </div>
+                              <p className="text-xs text-muted-foreground">Total Requests</p>
+                            </CardContent>
+                          </Card>
+                          <Card>
+                            <CardContent className="pt-4">
+                              <div className="text-2xl font-bold text-orange-600">
+                                ${userAnalytics.reduce((sum, user) => sum + user.total_cost, 0).toFixed(2)}
+                              </div>
+                              <p className="text-xs text-muted-foreground">Total Cost</p>
+                            </CardContent>
+                          </Card>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <h4 className="text-md font-medium">User Activity</h4>
+                          {userAnalytics.map((user, index) => (
+                            <Card key={user.user_id} className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <Users className="h-5 w-5 text-blue-600" />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">
+                                      {user.username || user.email || `User ${index + 1}`}
+                                    </p>
+                                    <p className="text-sm text-gray-500">
+                                      Last active: {new Date(user.last_activity).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-4 text-sm">
+                                  <div className="text-center">
+                                    <div className="font-medium text-blue-600">{user.total_requests.toLocaleString()}</div>
+                                    <div className="text-xs text-gray-500">Requests</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="font-medium text-green-600">${user.total_cost.toFixed(2)}</div>
+                                    <div className="text-xs text-gray-500">Cost</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="font-medium text-purple-600">${user.avg_cost_per_request.toFixed(4)}</div>
+                                    <div className="text-xs text-gray-500">Avg/Request</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <Badge variant="outline">{user.models_used.length} models</Badge>
+                                  </div>
+                                </div>
+                              </div>
+                              {user.models_used.length > 0 && (
+                                <div className="mt-2 pt-2 border-t">
+                                  <p className="text-xs text-gray-500 mb-1">Models used:</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {user.models_used.slice(0, 3).map((model, i) => (
+                                      <Badge key={i} variant="secondary" className="text-xs">{model}</Badge>
+                                    ))}
+                                    {user.models_used.length > 3 && (
+                                      <Badge variant="secondary" className="text-xs">+{user.models_used.length - 3} more</Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No user activity data available for this team</p>
+                        <p className="text-sm mt-1">Team members will appear here once they start using API keys</p>
+                      </div>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="keys" className="space-y-4">
@@ -389,20 +655,20 @@ const Teams: React.FC = () => {
                     <div className="space-y-4">
                       <div>
                         <Label>Team Name</Label>
-                        <Input value={selectedTeam.name} />
+                        <Input id="team-settings-name" defaultValue={selectedTeam.name} />
                       </div>
                       <div>
                         <Label>Description</Label>
-                        <Input value={selectedTeam.description} />
+                        <Input id="team-settings-description" defaultValue={selectedTeam.description} />
                       </div>
                       <div>
                         <Label>Budget Limit</Label>
-                        <Input type="number" value={selectedTeam.max_budget} />
+                        <Input id="team-settings-budget" type="number" defaultValue={selectedTeam.max_budget} />
                       </div>
                       <div>
                         <Label>Budget Period</Label>
-                        <Select value={selectedTeam.budget_duration}>
-                          <SelectTrigger>
+                        <Select defaultValue={selectedTeam.budget_duration}>
+                          <SelectTrigger id="team-settings-duration">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -413,7 +679,19 @@ const Teams: React.FC = () => {
                           </SelectContent>
                         </Select>
                       </div>
-                      <Button>Save Changes</Button>
+                      <Button onClick={() => {
+                        const name = (document.getElementById('team-settings-name') as HTMLInputElement)?.value;
+                        const description = (document.getElementById('team-settings-description') as HTMLInputElement)?.value;
+                        const budget = parseFloat((document.getElementById('team-settings-budget') as HTMLInputElement)?.value || '0');
+                        const duration = (document.getElementById('team-settings-duration') as HTMLSelectElement)?.value;
+                        
+                        updateTeam({
+                          name,
+                          description,
+                          max_budget: budget,
+                          budget_duration: duration,
+                        });
+                      }}>Save Changes</Button>
                     </div>
                   </TabsContent>
                 </Tabs>
@@ -475,6 +753,179 @@ const Teams: React.FC = () => {
                   });
                 }}>
                   Create Team
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Member Modal */}
+      {showAddMemberModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-96">
+            <CardHeader>
+              <CardTitle>Add Team Member</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>User ID</Label>
+                <Input id="member-user-id" placeholder="Enter user ID" />
+              </div>
+              <div>
+                <Label>Role</Label>
+                <Select defaultValue="member">
+                  <SelectTrigger id="member-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="owner">Owner</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Max Budget (Optional)</Label>
+                <Input id="member-budget" type="number" placeholder="0.00" />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowAddMemberModal(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={() => {
+                  const userId = (document.getElementById('member-user-id') as HTMLInputElement)?.value;
+                  const role = (document.getElementById('member-role') as HTMLSelectElement)?.value;
+                  const budget = parseFloat((document.getElementById('member-budget') as HTMLInputElement)?.value || '0');
+                  
+                  if (userId) {
+                    addMember({
+                      user_id: userId,
+                      role,
+                      max_budget: budget > 0 ? budget : undefined,
+                    });
+                    setShowAddMemberModal(false);
+                  }
+                }}>
+                  Add Member
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {editingMember && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-96">
+            <CardHeader>
+              <CardTitle>Edit Member</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>User</Label>
+                <Input value={editingMember.user?.email || editingMember.user?.username || 'Unknown'} disabled />
+              </div>
+              <div>
+                <Label>Role</Label>
+                <Select defaultValue={editingMember.role}>
+                  <SelectTrigger id="edit-member-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                    <SelectItem value="member">Member</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="owner">Owner</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Max Budget (Optional)</Label>
+                <Input 
+                  id="edit-member-budget" 
+                  type="number" 
+                  defaultValue={editingMember.max_budget || ''} 
+                  placeholder="0.00" 
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setEditingMember(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={() => {
+                  const role = (document.getElementById('edit-member-role') as HTMLSelectElement)?.value;
+                  const budget = parseFloat((document.getElementById('edit-member-budget') as HTMLInputElement)?.value || '0');
+                  
+                  updateMember(editingMember.id, {
+                    role,
+                    max_budget: budget > 0 ? budget : undefined,
+                  });
+                  setEditingMember(null);
+                }}>
+                  Update Member
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit Team Modal */}
+      {showEditTeamModal && selectedTeam && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-96">
+            <CardHeader>
+              <CardTitle>Edit Team</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Team Name</Label>
+                <Input id="edit-team-name" defaultValue={selectedTeam.name} />
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Input id="edit-team-description" defaultValue={selectedTeam.description} />
+              </div>
+              <div>
+                <Label>Budget Limit ($)</Label>
+                <Input id="edit-team-budget" type="number" defaultValue={selectedTeam.max_budget} />
+              </div>
+              <div>
+                <Label>Budget Period</Label>
+                <Select defaultValue={selectedTeam.budget_duration}>
+                  <SelectTrigger id="edit-team-duration">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="yearly">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowEditTeamModal(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={() => {
+                  const name = (document.getElementById('edit-team-name') as HTMLInputElement)?.value;
+                  const description = (document.getElementById('edit-team-description') as HTMLInputElement)?.value;
+                  const budget = parseFloat((document.getElementById('edit-team-budget') as HTMLInputElement)?.value || '0');
+                  const duration = (document.getElementById('edit-team-duration') as HTMLSelectElement)?.value;
+                  
+                  updateTeam({
+                    name,
+                    description,
+                    max_budget: budget,
+                    budget_duration: duration,
+                  });
+                  setShowEditTeamModal(false);
+                }}>
+                  Update Team
                 </Button>
               </div>
             </CardContent>

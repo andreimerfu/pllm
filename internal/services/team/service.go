@@ -66,8 +66,8 @@ func (s *TeamService) CreateTeam(ctx context.Context, req *CreateTeamRequest, ow
 		TPM:              req.TPM,
 		RPM:              req.RPM,
 		MaxParallelCalls: req.MaxParallelCalls,
-		AllowedModels:    req.AllowedModels,
-		BlockedModels:    req.BlockedModels,
+		AllowedModels:    models.StringArray(req.AllowedModels),
+		BlockedModels:    models.StringArray(req.BlockedModels),
 		IsActive:         true,
 	}
 
@@ -280,7 +280,7 @@ func (s *TeamService) ListTeams(ctx context.Context, userID *uuid.UUID, limit, o
 	}
 
 	var teams []*models.Team
-	err := dataQuery.Preload("Members").
+	err := dataQuery.Preload("Members.User").
 		Order("created_at DESC").
 		Limit(limit).Offset(offset).
 		Find(&teams).Error
@@ -438,8 +438,8 @@ func (s *TeamService) GetOrCreateDefaultTeam(ctx context.Context) (*models.Team,
 		TPM:              1000, // 1000 tokens per minute
 		RPM:              100,  // 100 requests per minute
 		MaxParallelCalls: 5,
-		AllowedModels:    []string{"gpt-3.5-turbo", "gpt-4o-mini"}, // Safe, cost-effective models
-		BlockedModels:    []string{},                               // No blocked models initially
+		AllowedModels:    models.StringArray{}, // Start with empty - can be configured later
+		BlockedModels:    models.StringArray{}, // No blocked models initially
 	}
 
 	// Use master key user ID as owner (won't be added as member due to special handling)

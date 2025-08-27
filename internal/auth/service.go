@@ -172,6 +172,7 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 			}
 
 			// Auto-assign user to default team if team service is available
+			fmt.Printf("DEBUG: TeamService available: %t\n", s.teamService != nil)
 			if s.teamService != nil {
 				// Map user role to team role
 				teamRole := models.TeamRoleMember
@@ -182,12 +183,17 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 				if teamMember, err := s.teamService.AddUserToDefaultTeam(ctx, user.ID, teamRole); err != nil {
 					// Log error but don't fail user creation
 					// User can be manually assigned to teams later
-					fmt.Printf("Warning: Failed to assign user to default team: %v\n", err)
-				} else if s.keyService != nil && teamMember != nil {
-					// Create default API key for the user
-					if _, err := s.keyService.CreateDefaultKeyForUser(ctx, user.ID, teamMember.TeamID); err != nil {
-						// Log error but don't fail user creation
-						fmt.Printf("Warning: Failed to create default key for user: %v\n", err)
+					fmt.Printf("ERROR: Failed to assign user %s to default team: %v\n", user.Email, err)
+				} else {
+					fmt.Printf("SUCCESS: User %s added to default team %s\n", user.Email, teamMember.TeamID)
+					if s.keyService != nil && teamMember != nil {
+						// Create default API key for the user
+						if _, err := s.keyService.CreateDefaultKeyForUser(ctx, user.ID, teamMember.TeamID); err != nil {
+							// Log error but don't fail user creation
+							fmt.Printf("ERROR: Failed to create default key for user %s: %v\n", user.Email, err)
+						} else {
+							fmt.Printf("SUCCESS: Created default key for user %s\n", user.Email)
+						}
 					}
 				}
 			}

@@ -12,13 +12,16 @@ type Usage struct {
 	RequestID string    `gorm:"uniqueIndex;not null" json:"request_id"`
 	Timestamp time.Time `gorm:"index" json:"timestamp"`
 
-	// User/Group/API Key
-	UserID  uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"`
-	User    User       `gorm:"foreignKey:UserID" json:"-"`
-	GroupID *uuid.UUID `gorm:"type:uuid;index" json:"group_id,omitempty"`
-	Group   *Group     `gorm:"foreignKey:GroupID" json:"-"`
-	KeyID   uuid.UUID  `gorm:"type:uuid;not null;index" json:"key_id"`
-	Key     Key        `gorm:"foreignKey:KeyID" json:"-"`
+	// User/Team/API Key - Enhanced for better tracking
+	UserID       uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"` // Who made the request
+	User         User       `gorm:"foreignKey:UserID" json:"-"`
+	ActualUserID uuid.UUID  `gorm:"type:uuid;not null;index" json:"actual_user_id"` // Who actually used the key (same as UserID for personal keys)
+	ActualUser   User       `gorm:"foreignKey:ActualUserID" json:"-"`
+	TeamID       *uuid.UUID `gorm:"type:uuid;index" json:"team_id,omitempty"`
+	Team         *Team      `gorm:"foreignKey:TeamID" json:"-"`
+	KeyID        *uuid.UUID `gorm:"type:uuid;index" json:"key_id,omitempty"`
+	Key          *Key       `gorm:"foreignKey:KeyID" json:"-"`
+	KeyOwnerID   *uuid.UUID `gorm:"type:uuid;index" json:"key_owner_id,omitempty"` // Who owns the key (for user keys)
 
 	// Provider/Model
 	Provider string `gorm:"index" json:"provider"`
@@ -69,7 +72,7 @@ type UsageStats struct {
 	ByProvider map[string]*ProviderStats `json:"by_provider,omitempty"`
 	ByModel    map[string]*ModelStats    `json:"by_model,omitempty"`
 	ByUser     map[string]*UserStats     `json:"by_user,omitempty"`
-	ByGroup    map[string]*GroupStats    `json:"by_group,omitempty"`
+	ByTeam     map[string]*TeamStats     `json:"by_team,omitempty"`
 }
 
 type ProviderStats struct {
@@ -89,17 +92,28 @@ type ModelStats struct {
 }
 
 type UserStats struct {
-	Requests  int64   `json:"requests"`
-	Tokens    int64   `json:"tokens"`
-	Cost      float64 `json:"cost"`
-	CacheHits int64   `json:"cache_hits"`
+	UserID       string  `json:"user_id"`
+	UserEmail    string  `json:"user_email"`
+	UserName     string  `json:"user_name"`
+	Requests     int64   `json:"requests"`
+	Tokens       int64   `json:"tokens"`
+	Cost         float64 `json:"cost"`
+	CacheHits    int64   `json:"cache_hits"`
+	KeysUsed     int     `json:"keys_used"`     // Number of different keys used
+	TeamRequests int64   `json:"team_requests"` // Requests made using team keys
+	UserRequests int64   `json:"user_requests"` // Requests made using personal keys
 }
 
-type GroupStats struct {
-	Requests   int64   `json:"requests"`
-	Tokens     int64   `json:"tokens"`
-	Cost       float64 `json:"cost"`
-	BudgetUsed float64 `json:"budget_used"`
+type TeamStats struct {
+	TeamID        string                `json:"team_id"`
+	TeamName      string                `json:"team_name"`
+	Requests      int64                 `json:"requests"`
+	Tokens        int64                 `json:"tokens"`
+	Cost          float64               `json:"cost"`
+	BudgetUsed    float64               `json:"budget_used"`
+	UserBreakdown map[string]*UserStats `json:"user_breakdown,omitempty"` // Per-user stats within team
+	MemberCount   int                   `json:"member_count"`
+	ActiveMembers int                   `json:"active_members"` // Members who made requests this period
 }
 
 // Indexes for performance

@@ -89,6 +89,15 @@ func (u *User) IsBudgetExceeded() bool {
 	return u.MaxBudget > 0 && u.CurrentSpend >= u.MaxBudget
 }
 
+func (u *User) ShouldAlertBudget() bool {
+	if u.MaxBudget <= 0 {
+		return false
+	}
+	// Alert if usage is >= 80% of budget
+	usagePercent := (u.CurrentSpend / u.MaxBudget) * 100
+	return usagePercent >= 80.0
+}
+
 func (u *User) ShouldResetBudget() bool {
 	return time.Now().After(u.BudgetResetAt)
 }
