@@ -18,8 +18,19 @@ deps-update: ## Update Go dependencies
 	go mod tidy
 
 .PHONY: build
-build: docs-build ## Build the binary with embedded docs
+build: ui-build docs-build ## Build the binary with embedded UI and docs
 	go build -o bin/pllm cmd/server/main.go
+
+.PHONY: web-build
+web-build: ## Build frontend assets
+	@echo "Building frontend..."
+	cd web && npm run build
+
+.PHONY: ui-build
+ui-build: web-build ## Copy built frontend to internal/ui/dist for embedding
+	@mkdir -p internal/ui/dist
+	@cp -r web/dist/* internal/ui/dist/
+	@echo "✅ Frontend copied to internal/ui/dist/"
 
 .PHONY: build-worker
 build-worker: ## Build the worker binary for background processing
@@ -324,7 +335,9 @@ redis-shell: ## Open Redis shell
 ##@ Testing
 
 .PHONY: test
-test: ## Run tests
+test:
+	mkdir -p internal/ui/dist
+	touch internal/ui/dist/index.html
 	go test -v ./...
 
 .PHONY: test-coverage

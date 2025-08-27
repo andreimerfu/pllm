@@ -68,9 +68,6 @@ jobs:
       - name: Install docs dependencies  
         run: cd docs && npm ci
 
-      - name: Build frontend
-        run: cd web && npm run build
-
       - name: Build docs
         run: make docs-build
 
@@ -81,13 +78,7 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/pllm_test?sslmode=disable
           REDIS_URL: redis://localhost:6379
-        run: |
-          echo "Verifying embedded assets exist:"
-          ls -la web/dist/ || echo "Frontend dist not found"
-          ls -la internal/docs/dist/ || echo "Docs dist not found"
-          ls -la internal/handlers/swagger/ || echo "Swagger not found"
-          
-          make test
+        run: make test
 
       - name: Run linting
         run: make lint

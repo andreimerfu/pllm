@@ -45,6 +45,11 @@ jobs:
       - name: Build frontend
         run: cd web && npm run build
 
+      - name: Copy frontend build for Go embed
+        run: |
+          mkdir -p internal/ui/dist
+          cp -r web/dist/* internal/ui/dist/
+
       - name: Build docs
         run: cd docs && npm run build
 
