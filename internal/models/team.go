@@ -27,19 +27,19 @@ func (s *StringArray) Scan(value interface{}) error {
 		*s = StringArray{}
 		return nil
 	}
-	
+
 	str, ok := value.(string)
 	if !ok {
 		return fmt.Errorf("cannot scan %T into StringArray", value)
 	}
-	
+
 	// Handle PostgreSQL array format: {item1,item2,item3}
 	str = strings.Trim(str, "{}")
 	if str == "" {
 		*s = StringArray{}
 		return nil
 	}
-	
+
 	*s = StringArray(strings.Split(str, ","))
 	return nil
 }
@@ -64,8 +64,8 @@ type Team struct {
 	MaxParallelCalls int `json:"max_parallel_calls"`
 
 	// Model Access Control
-	AllowedModels StringArray `gorm:"type:text[]" json:"allowed_models"`
-	BlockedModels StringArray `gorm:"type:text[]" json:"blocked_models"`
+	AllowedModels StringArray    `gorm:"type:text[]" json:"allowed_models"`
+	BlockedModels StringArray    `gorm:"type:text[]" json:"blocked_models"`
 	ModelAliases  datatypes.JSON `json:"model_aliases,omitempty"`
 
 	// Configuration

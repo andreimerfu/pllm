@@ -18,7 +18,7 @@ import (
 )
 
 type DexConfig struct {
-	Issuer       string   `json:"issuer" yaml:"issuer"`             // Backend connection URL
+	Issuer       string   `json:"issuer" yaml:"issuer"`               // Backend connection URL
 	PublicIssuer string   `json:"public_issuer" yaml:"public_issuer"` // Frontend OAuth URL
 	ClientID     string   `json:"client_id" yaml:"client_id"`
 	ClientSecret string   `json:"client_secret" yaml:"client_secret"`
@@ -71,7 +71,7 @@ func NewDexAuthProvider(config *DexConfig) (*DexAuthProvider, error) {
 			},
 		},
 	}
-	
+
 	ctx = oidc.ClientContext(ctx, httpClient)
 
 	provider, err := oidc.NewProvider(ctx, config.Issuer)

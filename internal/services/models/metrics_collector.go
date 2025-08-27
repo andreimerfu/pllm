@@ -23,11 +23,11 @@ func (m *MetricsCollector) RecordRequest(instance *ModelInstance, tokens int64, 
 	// Update counters
 	instance.TotalRequests.Add(1)
 	instance.TotalTokens.Add(tokens)
-	
+
 	// Update average latency using exponential moving average
 	latencyMs := latency.Milliseconds()
 	currentAvg := instance.AverageLatency.Load()
-	
+
 	// Simple moving average with weight factor 0.1 for new values
 	if currentAvg == 0 {
 		instance.AverageLatency.Store(latencyMs)
@@ -35,10 +35,10 @@ func (m *MetricsCollector) RecordRequest(instance *ModelInstance, tokens int64, 
 		newAvg := int64(float64(currentAvg)*0.9 + float64(latencyMs)*0.1)
 		instance.AverageLatency.Store(newAvg)
 	}
-	
+
 	// Update rate limiting counters
 	m.updateRateLimitCounters(instance)
-	
+
 	m.logger.Debug("Recorded request metrics",
 		zap.String("instance_id", instance.Config.ID),
 		zap.Int64("tokens", tokens),
@@ -49,7 +49,7 @@ func (m *MetricsCollector) RecordRequest(instance *ModelInstance, tokens int64, 
 func (m *MetricsCollector) updateRateLimitCounters(instance *ModelInstance) {
 	now := time.Now()
 	windowStart, _ := instance.WindowStart.Load().(time.Time)
-	
+
 	// Reset counters if we've passed the minute boundary
 	if now.Sub(windowStart) >= time.Minute {
 		instance.RequestsThisMinute.Store(1)
@@ -63,7 +63,7 @@ func (m *MetricsCollector) updateRateLimitCounters(instance *ModelInstance) {
 // GetMetrics returns current metrics for an instance
 func (m *MetricsCollector) GetMetrics(instance *ModelInstance) InstanceMetrics {
 	windowStart, _ := instance.WindowStart.Load().(time.Time)
-	
+
 	return InstanceMetrics{
 		InstanceID:         instance.Config.ID,
 		TotalRequests:      instance.TotalRequests.Load(),
@@ -104,7 +104,7 @@ func (m *MetricsCollector) CheckRateLimit(instance *ModelInstance, additionalTok
 			return false
 		}
 	}
-	
+
 	// Check TPM (tokens per minute)
 	if instance.Config.TPM > 0 {
 		currentTPM := instance.TokensThisMinute.Load() + additionalTokens
@@ -112,7 +112,7 @@ func (m *MetricsCollector) CheckRateLimit(instance *ModelInstance, additionalTok
 			return false
 		}
 	}
-	
+
 	return true
 }
 

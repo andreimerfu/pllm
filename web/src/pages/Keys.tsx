@@ -13,7 +13,8 @@ import api from '../lib/api';
 
 interface VirtualKey {
   id: string;
-  key: string;
+  key?: string; // Only present when creating new keys
+  key_prefix?: string; // May not be present in all responses
   name: string;
   user_id?: string;
   team_id?: string;
@@ -308,7 +309,7 @@ const Keys: React.FC = () => {
                     
                     <div className="flex items-center gap-2">
                       <code className="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                        {showKeyValue[key.id] ? key.key : key.key.replace(/sk-.{40}/, 'sk-****')}
+                        {showKeyValue[key.id] && key.key ? key.key : `****${key.key_prefix || 'xxxx'}`}
                       </code>
                       <Button
                         variant="ghost"
@@ -320,7 +321,8 @@ const Keys: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => copyKey(key.key)}
+                        disabled={!key.key}
+                        onClick={() => key.key && copyKey(key.key)}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Users, Trash2, Edit, Key } from 'lucide-react';
+import { Plus, Users, Trash2, Edit, Key, Activity } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useToast } from '../components/ui/use-toast';
+import { getTeamUserBreakdown } from '../lib/api';
 
 interface Team {
   id: string;
@@ -45,11 +46,24 @@ interface TeamMember {
   joined_at: string;
 }
 
+interface UserUsageStats {
+  user_id: string;
+  username?: string;
+  email?: string;
+  total_requests: number;
+  total_cost: number;
+  avg_cost_per_request: number;
+  last_activity: string;
+  models_used: string[];
+}
+
 const Teams: React.FC = () => {
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [userAnalytics, setUserAnalytics] = useState<UserUsageStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showEditTeamModal, setShowEditTeamModal] = useState(false);
@@ -63,6 +77,7 @@ const Teams: React.FC = () => {
   useEffect(() => {
     if (selectedTeam) {
       fetchTeamMembers(selectedTeam.id);
+      fetchTeamAnalytics(selectedTeam.id);
     }
   }, [selectedTeam]);
 
@@ -104,6 +119,23 @@ const Teams: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to fetch team members:', error);
+    }
+  };
+
+  const fetchTeamAnalytics = async (teamId: string) => {
+    setAnalyticsLoading(true);
+    try {
+      const data: any = await getTeamUserBreakdown(teamId);
+      setUserAnalytics(data?.users || []);
+    } catch (error) {
+      console.error('Failed to fetch team analytics:', error);
+      toast({
+        title: 'Warning',
+        description: 'Failed to load user analytics',
+        variant: 'destructive',
+      });
+    } finally {
+      setAnalyticsLoading(false);
     }
   };
 
@@ -387,9 +419,10 @@ const Teams: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="overview">
-                  <TabsList className="grid w-full grid-cols-4">
+                  <TabsList className="grid w-full grid-cols-5">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="members">Members</TabsTrigger>
+                    <TabsTrigger value="analytics">User Analytics</TabsTrigger>
                     <TabsTrigger value="keys">API Keys</TabsTrigger>
                     <TabsTrigger value="settings">Settings</TabsTrigger>
                   </TabsList>
@@ -500,6 +533,110 @@ const Teams: React.FC = () => {
                         </div>
                       ))}
                     </div>
+                  </TabsContent>
+
+                  <TabsContent value="analytics" className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-medium">User Analytics</h3>
+                      <Button size="sm" variant="outline" onClick={() => fetchTeamAnalytics(selectedTeam.id)}>
+                        <Activity className="mr-2 h-4 w-4" />
+                        Refresh
+                      </Button>
+                    </div>
+                    
+                    {analyticsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="text-sm text-gray-500">Loading analytics...</div>
+                      </div>
+                    ) : userAnalytics.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <Card>
+                            <CardContent className="pt-4">
+                              <div className="text-2xl font-bold text-blue-600">
+                                {userAnalytics.length}
+                              </div>
+                              <p className="text-xs text-muted-foreground">Active Users</p>
+                            </CardContent>
+                          </Card>
+                          <Card>
+                            <CardContent className="pt-4">
+                              <div className="text-2xl font-bold text-green-600">
+                                {userAnalytics.reduce((sum, user) => sum + user.total_requests, 0).toLocaleString()}
+                              </div>
+                              <p className="text-xs text-muted-foreground">Total Requests</p>
+                            </CardContent>
+                          </Card>
+                          <Card>
+                            <CardContent className="pt-4">
+                              <div className="text-2xl font-bold text-orange-600">
+                                ${userAnalytics.reduce((sum, user) => sum + user.total_cost, 0).toFixed(2)}
+                              </div>
+                              <p className="text-xs text-muted-foreground">Total Cost</p>
+                            </CardContent>
+                          </Card>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <h4 className="text-md font-medium">User Activity</h4>
+                          {userAnalytics.map((user, index) => (
+                            <Card key={user.user_id} className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <Users className="h-5 w-5 text-blue-600" />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">
+                                      {user.username || user.email || `User ${index + 1}`}
+                                    </p>
+                                    <p className="text-sm text-gray-500">
+                                      Last active: {new Date(user.last_activity).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-4 text-sm">
+                                  <div className="text-center">
+                                    <div className="font-medium text-blue-600">{user.total_requests.toLocaleString()}</div>
+                                    <div className="text-xs text-gray-500">Requests</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="font-medium text-green-600">${user.total_cost.toFixed(2)}</div>
+                                    <div className="text-xs text-gray-500">Cost</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="font-medium text-purple-600">${user.avg_cost_per_request.toFixed(4)}</div>
+                                    <div className="text-xs text-gray-500">Avg/Request</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <Badge variant="outline">{user.models_used.length} models</Badge>
+                                  </div>
+                                </div>
+                              </div>
+                              {user.models_used.length > 0 && (
+                                <div className="mt-2 pt-2 border-t">
+                                  <p className="text-xs text-gray-500 mb-1">Models used:</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {user.models_used.slice(0, 3).map((model, i) => (
+                                      <Badge key={i} variant="secondary" className="text-xs">{model}</Badge>
+                                    ))}
+                                    {user.models_used.length > 3 && (
+                                      <Badge variant="secondary" className="text-xs">+{user.models_used.length - 3} more</Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No user activity data available for this team</p>
+                        <p className="text-sm mt-1">Team members will appear here once they start using API keys</p>
+                      </div>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="keys" className="space-y-4">

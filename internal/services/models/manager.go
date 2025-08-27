@@ -157,35 +157,35 @@ func (m *ModelManager) RecordFailure(instance *ModelInstance, err error) {
 // GetModelStats returns statistics for all models
 func (m *ModelManager) GetModelStats() map[string]interface{} {
 	stats := make(map[string]interface{})
-	
+
 	// Registry stats
 	registryStats := m.registry.GetRegistryStats()
 	stats["registry"] = registryStats
-	
+
 	// Health status for all instances
 	allInstances := m.registry.GetAllInstances()
 	healthStatuses := m.healthTracker.GetAllHealthStatuses(allInstances)
 	stats["health"] = healthStatuses
-	
+
 	// Metrics for all instances
 	metrics := m.metricsCollector.GetAllMetrics(allInstances)
 	stats["metrics"] = metrics
-	
+
 	// Legacy compatibility: Create load_balancer format expected by dashboard
 	loadBalancerStats := make(map[string]interface{})
 	for _, instance := range allInstances {
 		modelName := instance.Config.ModelName
-		
+
 		// Get health status
 		healthStatus := m.healthTracker.GetHealthStatus(instance)
 		healthScore := 100
 		if !healthStatus.IsHealthy {
 			healthScore = 50 // Simplified health scoring
 		}
-		
+
 		// Get metrics
 		instanceMetrics := m.metricsCollector.GetMetrics(instance)
-		
+
 		loadBalancerStats[modelName] = map[string]interface{}{
 			"health_score":    healthScore,
 			"total_requests":  instanceMetrics.TotalRequests,
@@ -195,25 +195,25 @@ func (m *ModelManager) GetModelStats() map[string]interface{} {
 		}
 	}
 	stats["load_balancer"] = loadBalancerStats
-	
+
 	// Legacy compatibility: Add summary fields expected by admin analytics
 	var totalRequests int64
 	var totalTokens int64
 	activeModels := len(loadBalancerStats)
-	
+
 	for _, instance := range allInstances {
 		instanceMetrics := m.metricsCollector.GetMetrics(instance)
 		totalRequests += instanceMetrics.TotalRequests
 		totalTokens += instanceMetrics.TotalTokens
 	}
-	
+
 	stats["total_requests"] = totalRequests
 	stats["total_tokens"] = totalTokens
 	stats["total_cost"] = float64(totalTokens) * 0.0001 // Rough cost estimate
 	stats["active_users"] = 0                           // TODO: Track active users
 	stats["should_shed_load"] = false                   // TODO: Implement load shedding logic
 	stats["active_models"] = activeModels
-	
+
 	return stats
 }
 
@@ -240,7 +240,7 @@ func (m *ModelManager) RecordRequestStart(modelName string) {
 	// No-op - tracking is now done at success/failure level
 }
 
-// RecordRequestEnd records the end of a request (no-op for now)  
+// RecordRequestEnd records the end of a request (no-op for now)
 func (m *ModelManager) RecordRequestEnd(modelName string, latency time.Duration, success bool, err error) {
 	// No-op - use RecordSuccess/RecordFailure instead
 }
@@ -259,10 +259,10 @@ func (m *ModelManager) ListModels() []string {
 func (m *ModelManager) GetDetailedModelInfo() []ModelInfo {
 	availableModels := m.GetAvailableModels()
 	allInstances := m.registry.GetAllInstances()
-	
+
 	// Create a map to track model info
 	modelInfoMap := make(map[string]*ModelInfo)
-	
+
 	// Build model info from instances
 	for _, instance := range allInstances {
 		modelName := instance.Config.ModelName
@@ -273,7 +273,7 @@ func (m *ModelManager) GetDetailedModelInfo() []ModelInfo {
 			case "openai":
 				ownedBy = "openai"
 			case "anthropic":
-				ownedBy = "anthropic"  
+				ownedBy = "anthropic"
 			case "azure":
 				ownedBy = "azure"
 			case "bedrock":
@@ -285,16 +285,16 @@ func (m *ModelManager) GetDetailedModelInfo() []ModelInfo {
 			default:
 				ownedBy = instance.Config.Provider.Type
 			}
-			
+
 			modelInfoMap[modelName] = &ModelInfo{
-				ID:       modelName,
-				Object:   "model",
-				OwnedBy:  ownedBy,
-				Created:  time.Now().Unix(),
+				ID:      modelName,
+				Object:  "model",
+				OwnedBy: ownedBy,
+				Created: time.Now().Unix(),
 			}
 		}
 	}
-	
+
 	// Convert to slice
 	var result []ModelInfo
 	for _, modelName := range availableModels {
@@ -304,13 +304,13 @@ func (m *ModelManager) GetDetailedModelInfo() []ModelInfo {
 			// Fallback for models without instances
 			result = append(result, ModelInfo{
 				ID:      modelName,
-				Object:  "model", 
+				Object:  "model",
 				OwnedBy: "unknown",
 				Created: time.Now().Unix(),
 			})
 		}
 	}
-	
+
 	return result
 }
 

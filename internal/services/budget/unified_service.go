@@ -206,7 +206,7 @@ func (s *UnifiedService) checkBudgetFromDB(ctx context.Context, entityType, enti
 func (s *UnifiedService) recordUsageSync(ctx context.Context, keyID uuid.UUID, cost float64, model string, inputTokens, outputTokens int) error {
 	// Record usage in the usage table
 	usage := &models.Usage{
-		KeyID:        keyID,
+		KeyID:        &keyID,
 		Model:        model,
 		InputTokens:  inputTokens,
 		OutputTokens: outputTokens,
@@ -238,7 +238,7 @@ func (s *UnifiedService) recordUsageSync(ctx context.Context, keyID uuid.UUID, c
 // getNextResetDate calculates the next budget reset date based on period
 func (s *UnifiedService) getNextResetDate(period models.BudgetPeriod) time.Time {
 	now := time.Now()
-	
+
 	switch period {
 	case models.BudgetPeriodDaily:
 		return time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())

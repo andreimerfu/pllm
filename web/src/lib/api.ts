@@ -134,6 +134,14 @@ export const getModelStats = () =>
   axiosInstance.get("/api/admin/stats") as Promise<StatsResponse>;
 export const getMetrics = () => axiosInstance.get("/metrics");
 
+// Historical metrics API
+export const getHistoricalModelHealth = (days = 30) =>
+  axiosInstance.get(`/api/admin/analytics/historical/model-health?days=${days}`);
+export const getHistoricalSystemMetrics = (interval = "hourly", hours = 24) =>
+  axiosInstance.get(`/api/admin/analytics/historical/system-metrics?interval=${interval}&hours=${hours}`);
+export const getHistoricalModelLatencies = (models: string[], interval = "hourly", hours = 24) =>
+  axiosInstance.get(`/api/admin/analytics/historical/model-latencies?models=${models.join(",")}&interval=${interval}&hours=${hours}`);
+
 // Users (legacy exports)
 export const getUsers = () => axiosInstance.get("/api/admin/users");
 export const getUser = (id: string) =>
@@ -183,6 +191,9 @@ export const validateKey = (key: string) =>
 
 // Budget Analytics
 export const getBudgetSummary = () => axiosInstance.get("/api/admin/analytics/budget");
+export const getUserBreakdown = () => axiosInstance.get("/api/admin/analytics/user-breakdown");
+export const getTeamUserBreakdown = (teamId?: string) => 
+  axiosInstance.get(`/api/admin/analytics/team-user-breakdown${teamId ? `?team_id=${teamId}` : ""}`);
 
 // Analytics
 export const getUsage = () => axiosInstance.get("/api/admin/analytics/usage");

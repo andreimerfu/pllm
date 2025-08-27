@@ -18,9 +18,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: "lucide:layout-dashboard", permission: null },
   { name: "Chat", href: "/chat", icon: "lucide:messages-square", permission: null },
-  { name: "Models", href: "/models", icon: "lucide:brain", permission: "admin.models.read" },
+  { name: "Models", href: "/models", icon: "lucide:brain", permission: null }, // Allow all authenticated users
   { name: "Teams", href: "/teams", icon: "lucide:users-2", permission: "admin.teams.read" },
-  { name: "API Keys", href: "/keys", icon: "lucide:key", permission: "admin.keys.read" },
+  { name: "API Keys", href: "/keys", icon: "lucide:key", permission: null }, // Allow all authenticated users  
   { name: "Users", href: "/users", icon: "lucide:users", permission: "admin.users.read" },
   { name: "Budget", href: "/budget", icon: "lucide:wallet", permission: "admin.budget.read" },
   { name: "Settings", href: "/settings", icon: "lucide:settings", permission: "admin.settings.read" },

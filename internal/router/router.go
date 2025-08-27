@@ -11,6 +11,7 @@ import (
 	"github.com/amerfu/pllm/internal/docs"
 	"github.com/amerfu/pllm/internal/handlers"
 	"github.com/amerfu/pllm/internal/middleware"
+	"github.com/amerfu/pllm/internal/services"
 	"github.com/amerfu/pllm/internal/services/budget"
 	"github.com/amerfu/pllm/internal/services/key"
 	"github.com/amerfu/pllm/internal/services/models"
@@ -36,7 +37,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	if strings.HasPrefix(redisAddr, "redis://") {
 		redisAddr = strings.TrimPrefix(redisAddr, "redis://")
 	}
-	
+
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisAddr,
 		Password: cfg.Redis.Password,
@@ -88,6 +89,49 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		logger.Fatal("Failed to initialize auth service", zap.Error(err))
 	}
 
+	// Initialize metrics service if database and Redis are available
+	var metricsService *services.MetricsService
+	var metricsEmitter *services.MetricEventEmitter
+	if db != nil {
+		metricsConfig := &services.MetricsServiceConfig{
+			DB:                db,
+			Redis:             redisClient,
+			Logger:            logger,
+			WorkerCount:       4,
+			BatchSize:         100,
+			BatchTimeout:      5 * time.Second,
+			AggregateInterval: 1 * time.Minute,
+			EnableMonitoring:  false,
+			MonitoringPort:    8082,
+		}
+
+		metricsService, err = services.NewMetricsService(metricsConfig)
+		if err != nil {
+			logger.Warn("Failed to initialize metrics service", zap.Error(err))
+		} else {
+			// Start metrics service
+			if err := metricsService.Start(context.Background()); err != nil {
+				logger.Warn("Failed to start metrics service", zap.Error(err))
+				metricsService = nil
+			} else {
+				metricsEmitter = metricsService.GetEmitter()
+				logger.Info("Metrics service started successfully")
+			}
+		}
+	}
+
+	// Initialize historical metrics collector to aggregate existing usage data
+	logger.Info("Checking metrics collector prerequisites", 
+		zap.Bool("db_exists", db != nil), 
+		zap.Bool("model_manager_exists", modelManager != nil))
+	if db != nil && modelManager != nil {
+		historicalCollector := services.NewMetricsCollector(db, logger, modelManager)
+		historicalCollector.Start()
+		logger.Info("Historical metrics collector started")
+	} else {
+		logger.Warn("Cannot start historical metrics collector - missing prerequisites")
+	}
+
 	// Legacy synchronous budget/usage systems removed in favor of async Redis-based system
 
 	// Basic middleware
@@ -96,8 +140,12 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(middleware.Logger(logger))
 
-	// Metrics middleware
-	r.Use(middleware.MetricsMiddleware(logger))
+	// Metrics middleware - use advanced metrics if available, otherwise basic
+	if metricsEmitter != nil {
+		r.Use(middleware.NewAsyncMetricsMiddleware(metricsEmitter, logger).Middleware)
+	} else {
+		r.Use(middleware.MetricsMiddleware(logger))
+	}
 
 	// CORS
 	r.Use(cors.Handler(cors.Options{
@@ -132,7 +180,12 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
 	// Initialize handlers
-	llmHandler := handlers.NewLLMHandler(logger, modelManager)
+	var llmHandler *handlers.LLMHandler
+	if metricsEmitter != nil {
+		llmHandler = handlers.NewLLMHandlerWithMetrics(logger, modelManager, metricsEmitter)
+	} else {
+		llmHandler = handlers.NewLLMHandler(logger, modelManager)
+	}
 	authHandler := handlers.NewAuthHandler(logger, authService, masterKeyService, db)
 
 	// Public routes
@@ -159,7 +212,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			AuthService: authService,
 			BudgetCache: redisService.NewBudgetCache(redisClient, logger, 5*time.Minute),
 			EventPub:    redisService.NewEventPublisher(redisClient, logger),
-			UsageQueue:  redisService.NewUsageQueue(&redisService.UsageQueueConfig{
+			UsageQueue: redisService.NewUsageQueue(&redisService.UsageQueueConfig{
 				Client:     redisClient,
 				Logger:     logger,
 				QueueName:  "usage_processing_queue",
@@ -221,6 +274,8 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			r.Get("/usage", authHandler.GetUsage)
 			r.Get("/usage/daily", authHandler.GetDailyUsage)
 			r.Get("/usage/monthly", authHandler.GetMonthlyUsage)
+			r.Get("/budget", authHandler.GetBudgetStatus)
+			r.Get("/teams", authHandler.GetUserTeams)
 
 		})
 
@@ -248,7 +303,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			AuthService: authService,
 			BudgetCache: redisService.NewBudgetCache(redisClient, logger, 5*time.Minute),
 			EventPub:    redisService.NewEventPublisher(redisClient, logger),
-			UsageQueue:  redisService.NewUsageQueue(&redisService.UsageQueueConfig{
+			UsageQueue: redisService.NewUsageQueue(&redisService.UsageQueueConfig{
 				Client:     redisClient,
 				Logger:     logger,
 				QueueName:  "usage_processing_queue",

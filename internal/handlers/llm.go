@@ -6,20 +6,31 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/amerfu/pllm/internal/middleware"
+	"github.com/amerfu/pllm/internal/services"
 	"github.com/amerfu/pllm/internal/services/models"
 	"github.com/amerfu/pllm/internal/services/providers"
 	"go.uber.org/zap"
 )
 
 type LLMHandler struct {
-	logger       *zap.Logger
-	modelManager *models.ModelManager
+	logger         *zap.Logger
+	modelManager   *models.ModelManager
+	metricsEmitter *services.MetricEventEmitter
 }
 
 func NewLLMHandler(logger *zap.Logger, modelManager *models.ModelManager) *LLMHandler {
 	return &LLMHandler{
 		logger:       logger,
 		modelManager: modelManager,
+	}
+}
+
+func NewLLMHandlerWithMetrics(logger *zap.Logger, modelManager *models.ModelManager, metricsEmitter *services.MetricEventEmitter) *LLMHandler {
+	return &LLMHandler{
+		logger:         logger,
+		modelManager:   modelManager,
+		metricsEmitter: metricsEmitter,
 	}
 }
 
@@ -45,6 +56,13 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("Failed to decode request body", zap.Error(err))
 		h.sendError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
+	}
+
+	// Populate metrics context if available
+	if metricsCtx, ok := r.Context().Value(middleware.MetricsContextKey).(*middleware.MetricsContext); ok && metricsCtx != nil {
+		metricsCtx.ModelName = request.Model
+		// Extract user/team info from auth context if available
+		// These will be populated by the auth middleware in the context
 	}
 
 	// Track request start for adaptive routing
@@ -102,6 +120,16 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	instance.RecordRequest(totalTokens, latencyMs)
 	// Record success for adaptive components
 	h.modelManager.RecordRequestEnd(request.Model, latency, true, nil)
+
+	// Emit detailed metrics if metrics emitter is available
+	if h.metricsEmitter != nil && middleware.GetMetricsContext(r.Context()) != nil {
+		// Calculate cost (simple estimation - could be moved to a proper cost calculator)
+		estimatedCost := float64(response.Usage.TotalTokens) * 0.001 // $0.001 per token estimate
+		
+		middleware.EmitDetailedResponse(r.Context(), h.metricsEmitter, 
+			int64(response.Usage.TotalTokens), int64(response.Usage.PromptTokens), 
+			int64(response.Usage.CompletionTokens), estimatedCost, false)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
@@ -203,6 +231,13 @@ func (h *LLMHandler) ModelStats(w http.ResponseWriter, r *http.Request) {
 
 // handleStreamingChat handles streaming chat completion requests
 func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request, request *providers.ChatRequest, instance *models.ModelInstance, startTime time.Time) {
+	// Populate metrics context if available
+	if metricsCtx, ok := r.Context().Value(middleware.MetricsContextKey).(*middleware.MetricsContext); ok && metricsCtx != nil {
+		metricsCtx.ModelName = request.Model
+		// Extract user/team info from auth context if available
+		// These will be populated by the auth middleware in the context
+	}
+
 	// Debug: write type to header
 	w.Header().Set("X-Debug-Writer-Type", fmt.Sprintf("%T", w))
 
@@ -299,6 +334,16 @@ func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request,
 	latencyMs := latency.Milliseconds()
 	instance.RecordRequest(int32(tokenCount), latencyMs)
 	h.modelManager.RecordRequestEnd(request.Model, latency, true, nil)
+
+	// Emit detailed metrics for streaming request if metrics emitter is available
+	if h.metricsEmitter != nil && middleware.GetMetricsContext(r.Context()) != nil {
+		// Calculate cost (simple estimation for streaming - could be more sophisticated)
+		estimatedCost := float64(tokenCount) * 0.001 // $0.001 per token estimate
+		
+		middleware.EmitDetailedResponse(r.Context(), h.metricsEmitter, 
+			int64(tokenCount), int64(tokenCount), // For streaming, we estimate input ≈ output for simplicity
+			int64(tokenCount), estimatedCost, false)
+	}
 
 	h.logger.Info("Streaming request completed",
 		zap.String("model", request.Model),

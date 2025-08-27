@@ -160,14 +160,14 @@ func main() {
 	var usageProcessor *worker.UsageProcessor
 	var workerCtx context.Context
 	var workerCancel context.CancelFunc
-	
+
 	if !appMode.IsLiteMode && appMode.RedisAvailable && db != nil {
 		// Initialize Redis client for worker
 		redisAddr := cfg.Redis.URL
 		if strings.HasPrefix(redisAddr, "redis://") {
 			redisAddr = strings.TrimPrefix(redisAddr, "redis://")
 		}
-		
+
 		redisClient := redis.NewClient(&redis.Options{
 			Addr:     redisAddr,
 			Password: cfg.Redis.Password,

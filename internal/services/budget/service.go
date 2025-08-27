@@ -12,14 +12,14 @@ import (
 type Service interface {
 	// CheckBudget validates if a request can be made within budget limits
 	CheckBudget(ctx context.Context, keyID uuid.UUID, estimatedCost float64) (*BudgetCheck, error)
-	
+
 	// CheckBudgetCached performs fast budget check using Redis cache
 	CheckBudgetCached(ctx context.Context, entityType, entityID string, requestCost float64) (bool, error)
-	
+
 	// RecordUsage records actual usage after a request completes
-	RecordUsage(ctx context.Context, keyID uuid.UUID, cost float64, model string, 
+	RecordUsage(ctx context.Context, keyID uuid.UUID, cost float64, model string,
 		inputTokens, outputTokens int) error
-		
+
 	// UpdateSpending updates budget spending for an entity
 	UpdateSpending(ctx context.Context, entityType, entityID string, cost float64) error
 }

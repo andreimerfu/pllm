@@ -181,7 +181,7 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 				}
 
 				if teamMember, err := s.teamService.AddUserToDefaultTeam(ctx, user.ID, teamRole); err != nil {
-					// Log error but don't fail user creation  
+					// Log error but don't fail user creation
 					// User can be manually assigned to teams later
 					fmt.Printf("ERROR: Failed to assign user %s to default team: %v\n", user.Email, err)
 				} else {

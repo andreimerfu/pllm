@@ -126,7 +126,7 @@ func (m *RateLimitMiddleware) shouldSkipRateLimit(path string) bool {
 		path == "/metrics" {
 		return true
 	}
-	
+
 	// Skip for static assets that might be served under docs/ui
 	if strings.Contains(path, "/assets/") ||
 		strings.Contains(path, "/css/") ||
@@ -143,7 +143,7 @@ func (m *RateLimitMiddleware) shouldSkipRateLimit(path string) bool {
 		strings.HasSuffix(path, ".ttf") {
 		return true
 	}
-	
+
 	return false
 }
 

@@ -16,8 +16,10 @@ type UsageRecord struct {
 	ID           string     `json:"id"`
 	RequestID    string     `json:"request_id"`
 	Timestamp    time.Time  `json:"timestamp"`
-	UserID       string     `json:"user_id,omitempty"`
+	UserID       string     `json:"user_id,omitempty"`        // Who made the request
+	ActualUserID string     `json:"actual_user_id,omitempty"` // Who actually used the key (for team keys)
 	KeyID        string     `json:"key_id,omitempty"`
+	KeyOwnerID   string     `json:"key_owner_id,omitempty"` // Who owns the key
 	TeamID       string     `json:"team_id,omitempty"`
 	Model        string     `json:"model"`
 	Provider     string     `json:"provider"`

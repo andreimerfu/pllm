@@ -17,13 +17,13 @@ type ModelInstance struct {
 	Provider providers.Provider
 
 	// Health tracking
-	Healthy        atomic.Bool
-	FailureCount   atomic.Int32
-	LastFailure    atomic.Value // time.Time
-	LastSuccess    atomic.Value // time.Time
-	LastError      atomic.Value // error
-	ConsecutiveOK  atomic.Int32
-	LastHealthy    atomic.Value // time.Time
+	Healthy       atomic.Bool
+	FailureCount  atomic.Int32
+	LastFailure   atomic.Value // time.Time
+	LastSuccess   atomic.Value // time.Time
+	LastError     atomic.Value // error
+	ConsecutiveOK atomic.Int32
+	LastHealthy   atomic.Value // time.Time
 
 	// Performance metrics
 	TotalRequests      atomic.Int64
@@ -44,12 +44,12 @@ func NewModelInstance(cfg config.ModelInstance, provider providers.Provider) *Mo
 		Config:   cfg,
 		Provider: provider,
 	}
-	
+
 	// Initialize atomic values
 	instance.Healthy.Store(true)
 	instance.WindowStart.Store(time.Now())
 	instance.LastHealthy.Store(time.Now())
-	
+
 	return instance
 }
 
@@ -67,7 +67,7 @@ func (m *ModelInstance) RecordRequest(tokens int32, latencyMs int64) {
 	m.TotalRequests.Add(1)
 	m.TotalTokens.Add(int64(tokens))
 	m.LastSuccess.Store(time.Now())
-	
+
 	// Update latency using exponential moving average
 	currentAvg := m.AverageLatency.Load()
 	if currentAvg == 0 {

@@ -23,7 +23,7 @@ func (h *HealthTracker) RecordSuccess(instance *ModelInstance) {
 	instance.Healthy.Store(true)
 	instance.LastSuccess.Store(time.Now())
 	instance.FailureCount.Store(0)
-	
+
 	h.logger.Debug("Recorded success for instance",
 		zap.String("instance_id", instance.Config.ID))
 }
@@ -32,7 +32,7 @@ func (h *HealthTracker) RecordSuccess(instance *ModelInstance) {
 func (h *HealthTracker) RecordFailure(instance *ModelInstance, err error) {
 	instance.LastError.Store(err)
 	failureCount := instance.FailureCount.Add(1)
-	
+
 	// Mark as unhealthy after 3 failures
 	if failureCount >= 3 {
 		instance.Healthy.Store(false)
@@ -57,14 +57,14 @@ func (h *HealthTracker) IsHealthy(instance *ModelInstance) bool {
 func (h *HealthTracker) GetHealthStatus(instance *ModelInstance) HealthStatus {
 	var lastError error
 	var lastSuccess time.Time
-	
+
 	if err, ok := instance.LastError.Load().(error); ok {
 		lastError = err
 	}
 	if ts, ok := instance.LastSuccess.Load().(time.Time); ok {
 		lastSuccess = ts
 	}
-	
+
 	return HealthStatus{
 		InstanceID:   instance.Config.ID,
 		IsHealthy:    instance.Healthy.Load(),

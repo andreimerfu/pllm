@@ -22,14 +22,14 @@ var ModelPricing = map[string]struct {
 	InputTokensPerDollar  float64
 	OutputTokensPerDollar float64
 }{
-	"gpt-4":              {InputTokensPerDollar: 33333, OutputTokensPerDollar: 16667},     // $0.03/$0.06 per 1K tokens
-	"gpt-4-turbo":        {InputTokensPerDollar: 100000, OutputTokensPerDollar: 33333},   // $0.01/$0.03 per 1K tokens
-	"gpt-3.5-turbo":      {InputTokensPerDollar: 500000, OutputTokensPerDollar: 666667},  // $0.002/$0.0015 per 1K tokens
-	"gpt-4o":             {InputTokensPerDollar: 200000, OutputTokensPerDollar: 100000},  // $0.005/$0.01 per 1K tokens
-	"gpt-4o-mini":        {InputTokensPerDollar: 6666667, OutputTokensPerDollar: 2000000}, // $0.00015/$0.0005 per 1K tokens
-	"claude-3-haiku":     {InputTokensPerDollar: 400000, OutputTokensPerDollar: 80000},   // $0.0025/$0.0125 per 1K tokens
-	"claude-3-sonnet":    {InputTokensPerDollar: 66667, OutputTokensPerDollar: 13333},    // $0.015/$0.075 per 1K tokens
-	"claude-3-opus":      {InputTokensPerDollar: 13333, OutputTokensPerDollar: 2667},     // $0.075/$0.375 per 1K tokens
+	"gpt-4":           {InputTokensPerDollar: 33333, OutputTokensPerDollar: 16667},     // $0.03/$0.06 per 1K tokens
+	"gpt-4-turbo":     {InputTokensPerDollar: 100000, OutputTokensPerDollar: 33333},    // $0.01/$0.03 per 1K tokens
+	"gpt-3.5-turbo":   {InputTokensPerDollar: 500000, OutputTokensPerDollar: 666667},   // $0.002/$0.0015 per 1K tokens
+	"gpt-4o":          {InputTokensPerDollar: 200000, OutputTokensPerDollar: 100000},   // $0.005/$0.01 per 1K tokens
+	"gpt-4o-mini":     {InputTokensPerDollar: 6666667, OutputTokensPerDollar: 2000000}, // $0.00015/$0.0005 per 1K tokens
+	"claude-3-haiku":  {InputTokensPerDollar: 400000, OutputTokensPerDollar: 80000},    // $0.0025/$0.0125 per 1K tokens
+	"claude-3-sonnet": {InputTokensPerDollar: 66667, OutputTokensPerDollar: 13333},     // $0.015/$0.075 per 1K tokens
+	"claude-3-opus":   {InputTokensPerDollar: 13333, OutputTokensPerDollar: 2667},      // $0.075/$0.375 per 1K tokens
 }
 
 // EstimateTokens roughly estimates input tokens from request content
@@ -177,6 +177,9 @@ func (m *AsyncBudgetMiddleware) trackUsageAsync(ctx context.Context, request pro
 	inputTokens = m.estimateInputTokens(request.Messages)
 	outputTokens = 150 // Default estimate - will be reconciled by worker
 
+	// Get the actual user who made the request from context
+	actualUserID, _ := GetUserID(ctx)
+
 	// Create usage record for queue processing
 	usageRecord := &redisService.UsageRecord{
 		RequestID:    fmt.Sprintf("req_%d", time.Now().UnixNano()),
@@ -191,22 +194,32 @@ func (m *AsyncBudgetMiddleware) trackUsageAsync(ctx context.Context, request pro
 		TotalTokens:  inputTokens + outputTokens,
 		TotalCost:    actualCost,
 		Latency:      latency.Milliseconds(),
+		ActualUserID: actualUserID.String(), // Always track who made the request
 	}
 
-	// Set entity IDs
+	// Set entity IDs and ownership information
 	if entityType == "key" {
 		if keyUUID, err := uuid.Parse(entityID); err == nil {
 			usageRecord.KeyID = keyUUID.String()
-			// Find associated user asynchronously if needed
-			if key, hasKey := GetKey(ctx); hasKey && key.UserID != nil {
-				usageRecord.UserID = key.UserID.String()
-			}
-			if key, hasKey := GetKey(ctx); hasKey && key.TeamID != nil {
-				usageRecord.TeamID = key.TeamID.String()
+			// Get key ownership details
+			if key, hasKey := GetKey(ctx); hasKey {
+				// Set key owner (for personal keys)
+				if key.UserID != nil {
+					usageRecord.KeyOwnerID = key.UserID.String()
+					usageRecord.UserID = key.UserID.String() // Key owner
+				}
+				// Set team info (for team keys)
+				if key.TeamID != nil {
+					usageRecord.TeamID = key.TeamID.String()
+					// For team keys, UserID is the key owner (team), ActualUserID is who made request
+					usageRecord.UserID = actualUserID.String()
+				}
 			}
 		}
 	} else if entityType == "user" {
 		usageRecord.UserID = entityID
+		// For direct user requests, ActualUserID is the same as UserID
+		usageRecord.ActualUserID = entityID
 	}
 
 	// Enqueue for batch processing - this is fire-and-forget

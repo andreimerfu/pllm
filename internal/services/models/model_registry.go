@@ -117,10 +117,10 @@ func (r *ModelRegistry) createProvider(cfg config.ProviderParams) (providers.Pro
 		OrgID:   cfg.OrgID,
 		Enabled: true, // Assume enabled if we're creating it
 	}
-	
+
 	// Use a temporary name for provider creation
 	providerName := fmt.Sprintf("%s-instance", cfg.Type)
-	
+
 	switch cfg.Type {
 	case "openai":
 		return providers.NewOpenAIProvider(providerName, providerCfg)
@@ -149,7 +149,7 @@ func (r *ModelRegistry) createProvider(cfg config.ProviderParams) (providers.Pro
 func (r *ModelRegistry) GetInstance(instanceID string) (*ModelInstance, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	instance, exists := r.instances[instanceID]
 	return instance, exists
 }
@@ -158,12 +158,12 @@ func (r *ModelRegistry) GetInstance(instanceID string) (*ModelInstance, bool) {
 func (r *ModelRegistry) GetModelInstances(modelName string) ([]*ModelInstance, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	instances, exists := r.modelMap[modelName]
 	if !exists {
 		return nil, false
 	}
-	
+
 	// Return a copy to avoid concurrent access issues
 	result := make([]*ModelInstance, len(instances))
 	copy(result, instances)
@@ -174,7 +174,7 @@ func (r *ModelRegistry) GetModelInstances(modelName string) ([]*ModelInstance, b
 func (r *ModelRegistry) GetAllInstances() []*ModelInstance {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	instances := make([]*ModelInstance, 0, len(r.instances))
 	for _, instance := range r.instances {
 		instances = append(instances, instance)
@@ -186,7 +186,7 @@ func (r *ModelRegistry) GetAllInstances() []*ModelInstance {
 func (r *ModelRegistry) GetAvailableModels() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	models := make([]string, 0, len(r.modelMap))
 	for modelName := range r.modelMap {
 		models = append(models, modelName)
@@ -198,7 +198,7 @@ func (r *ModelRegistry) GetAvailableModels() []string {
 func (r *ModelRegistry) GetRoundRobinCounter(modelName string) *atomic.Uint64 {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	return r.roundRobinCounters[modelName]
 }
 
@@ -206,18 +206,18 @@ func (r *ModelRegistry) GetRoundRobinCounter(modelName string) *atomic.Uint64 {
 func (r *ModelRegistry) GetRegistryStats() RegistryStats {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	stats := RegistryStats{
 		TotalInstances: len(r.instances),
 		TotalModels:    len(r.modelMap),
 		TotalProviders: len(r.providers),
 		ModelCounts:    make(map[string]int),
 	}
-	
+
 	for modelName, instances := range r.modelMap {
 		stats.ModelCounts[modelName] = len(instances)
 	}
-	
+
 	return stats
 }
 

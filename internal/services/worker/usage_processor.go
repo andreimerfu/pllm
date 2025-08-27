@@ -170,6 +170,8 @@ func (up *UsageProcessor) processBatchTransactional(ctx context.Context, records
 		// Convert Redis records to database models
 		usageModels := make([]*models.Usage, 0, len(records))
 		budgetUpdates := make(map[uuid.UUID]float64) // budget_id -> amount to add
+		userBudgetUpdates := make(map[uuid.UUID]float64) // user_id -> amount to add
+		teamBudgetUpdates := make(map[uuid.UUID]float64) // team_id -> amount to add
 
 		for _, record := range records {
 			// Convert to database model
@@ -183,17 +185,26 @@ func (up *UsageProcessor) processBatchTransactional(ctx context.Context, records
 
 			usageModels = append(usageModels, usage)
 
-			// Collect budget updates
+			// Collect budget updates from the Budget table
 			budgets, err := up.findActivebudgets(tx, usage)
 			if err != nil {
 				up.logger.Warn("Failed to find budgets for usage record",
 					zap.String("record_id", record.ID),
 					zap.Error(err))
-				continue
+			} else {
+				for _, budget := range budgets {
+					budgetUpdates[budget.ID] += record.TotalCost
+				}
 			}
 
-			for _, budget := range budgets {
-				budgetUpdates[budget.ID] += record.TotalCost
+			// Also update user-level budgets (stored directly in users table)
+			if usage.UserID != uuid.Nil {
+				userBudgetUpdates[usage.UserID] += record.TotalCost
+			}
+
+			// Update team-level budgets (stored directly in teams table)
+			if usage.TeamID != nil {
+				teamBudgetUpdates[*usage.TeamID] += record.TotalCost
 			}
 		}
 
@@ -204,19 +215,37 @@ func (up *UsageProcessor) processBatchTransactional(ctx context.Context, records
 			}
 		}
 
-		// Batch update budgets
+		// Batch update budgets (Budget table)
 		if len(budgetUpdates) > 0 {
 			if err := up.updateBudgetsBatch(tx, budgetUpdates); err != nil {
 				return fmt.Errorf("failed to batch update budgets: %w", err)
 			}
 		}
 
+		// Batch update user-level budgets (users.current_spend)
+		if len(userBudgetUpdates) > 0 {
+			if err := up.updateUserBudgetsBatch(tx, userBudgetUpdates); err != nil {
+				return fmt.Errorf("failed to batch update user budgets: %w", err)
+			}
+		}
+
+		// Batch update team-level budgets (teams.current_spend)
+		if len(teamBudgetUpdates) > 0 {
+			if err := up.updateTeamBudgetsBatch(tx, teamBudgetUpdates); err != nil {
+				return fmt.Errorf("failed to batch update team budgets: %w", err)
+			}
+		}
+
 		// Update cache with latest budget information
 		go up.refreshBudgetCaches(context.Background(), budgetUpdates)
+		go up.refreshUserBudgetCaches(context.Background(), userBudgetUpdates)
+		go up.refreshTeamBudgetCaches(context.Background(), teamBudgetUpdates)
 
 		up.logger.Info("Successfully processed usage batch",
 			zap.Int("usage_records", len(usageModels)),
-			zap.Int("budget_updates", len(budgetUpdates)))
+			zap.Int("budget_updates", len(budgetUpdates)),
+			zap.Int("user_budget_updates", len(userBudgetUpdates)),
+			zap.Int("team_budget_updates", len(teamBudgetUpdates)))
 
 		return nil
 	})
@@ -225,35 +254,69 @@ func (up *UsageProcessor) processBatchTransactional(ctx context.Context, records
 // convertToUsageModel converts Redis usage record to database model
 func (up *UsageProcessor) convertToUsageModel(record *redisService.UsageRecord) (*models.Usage, error) {
 	usage := &models.Usage{
-		RequestID:   record.RequestID,
-		Timestamp:   record.Timestamp,
-		Model:       record.Model,
-		Provider:    record.Provider,
-		Method:      record.Method,
-		Path:        record.Path,
-		StatusCode:  record.StatusCode,
-		InputTokens: record.InputTokens,
-		TotalCost:   record.TotalCost,
-		Latency:     record.Latency,
+		RequestID:    record.RequestID,
+		Timestamp:    record.Timestamp,
+		Model:        record.Model,
+		Provider:     record.Provider,
+		Method:       record.Method,
+		Path:         record.Path,
+		StatusCode:   record.StatusCode,
+		InputTokens:  record.InputTokens,
+		OutputTokens: record.OutputTokens,
+		TotalTokens:  record.TotalTokens,
+		TotalCost:    record.TotalCost,
+		Latency:      record.Latency,
 	}
 
-	// Parse UUIDs
+	// Parse UUIDs for key entities
 	if record.UserID != "" {
 		if userUUID, err := uuid.Parse(record.UserID); err == nil {
 			usage.UserID = userUUID
 		}
 	}
 
-	if record.KeyID != "" {
-		if keyUUID, err := uuid.Parse(record.KeyID); err == nil {
-			usage.KeyID = keyUUID
+	// Parse ActualUserID (who made the request)
+	if record.ActualUserID != "" {
+		if actualUserUUID, err := uuid.Parse(record.ActualUserID); err == nil {
+			usage.ActualUserID = actualUserUUID
+		}
+	} else if record.UserID != "" {
+		// Fallback: if ActualUserID not set, use UserID
+		if userUUID, err := uuid.Parse(record.UserID); err == nil {
+			usage.ActualUserID = userUUID
 		}
 	}
 
-	// Both UserID and KeyID are required by the model
-	if usage.UserID == uuid.Nil || usage.KeyID == uuid.Nil {
-		return nil, fmt.Errorf("both user_id and key_id are required for usage record")
+	if record.KeyID != "" {
+		if keyUUID, err := uuid.Parse(record.KeyID); err == nil {
+			usage.KeyID = &keyUUID
+		}
 	}
+
+	// Parse KeyOwnerID
+	if record.KeyOwnerID != "" {
+		if keyOwnerUUID, err := uuid.Parse(record.KeyOwnerID); err == nil {
+			usage.KeyOwnerID = &keyOwnerUUID
+		}
+	}
+
+	// Parse TeamID
+	if record.TeamID != "" {
+		if teamUUID, err := uuid.Parse(record.TeamID); err == nil {
+			usage.TeamID = &teamUUID
+		}
+	}
+
+	// Required fields validation
+	// We need either:
+	// 1. Both actual_user_id and key_id (for API key authentication)
+	// 2. Just actual_user_id with no key_id (for JWT authentication)
+	if usage.ActualUserID == uuid.Nil {
+		return nil, fmt.Errorf("actual_user_id is required for usage record")
+	}
+	
+	// If we have a key_id, it should be valid (not nil), but it's optional for JWT auth
+	// No additional validation needed for KeyID - it can be nil for JWT authentication
 
 	return usage, nil
 }
@@ -273,7 +336,16 @@ func (up *UsageProcessor) findActivebudgets(tx *gorm.DB, usage *models.Usage) ([
 		args = append(args, usage.UserID, models.BudgetTypeGlobal)
 	}
 
-	// TODO: Add team budget support when TeamID is available in usage record
+	// Add team budget support when TeamID is available in usage record
+	if usage.TeamID != nil {
+		if len(conditions) > 0 {
+			conditions[0] += " OR team_id = ?"
+			args = append(args, *usage.TeamID)
+		} else {
+			conditions = append(conditions, "team_id = ? OR type = ?")
+			args = append(args, *usage.TeamID, models.BudgetTypeGlobal)
+		}
+	}
 
 	if len(conditions) > 0 {
 		query = query.Where(fmt.Sprintf("(%s)", conditions[0]), args...)
@@ -410,5 +482,131 @@ func (up *UsageProcessor) isRunning() bool {
 		return false
 	default:
 		return true
+	}
+}
+
+// updateUserBudgetsBatch performs batch updates to user current_spend amounts
+func (up *UsageProcessor) updateUserBudgetsBatch(tx *gorm.DB, updates map[uuid.UUID]float64) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	// Use a single UPDATE query with CASE statement for efficiency
+	userIDs := make([]uuid.UUID, 0, len(updates))
+	for userID := range updates {
+		userIDs = append(userIDs, userID)
+	}
+
+	// Build CASE statement for atomic update
+	caseStmt := "CASE id "
+	args := []interface{}{}
+
+	for userID, amount := range updates {
+		caseStmt += "WHEN ? THEN current_spend + ? "
+		args = append(args, userID, amount)
+	}
+	caseStmt += "ELSE current_spend END"
+
+	// Execute batch update
+	result := tx.Model(&models.User{}).
+		Where("id IN ?", userIDs).
+		Update("current_spend", gorm.Expr(caseStmt, args...))
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	up.logger.Debug("Batch updated user budgets",
+		zap.Int("count", len(updates)),
+		zap.Int64("affected_rows", result.RowsAffected))
+
+	return nil
+}
+
+// updateTeamBudgetsBatch performs batch updates to team current_spend amounts
+func (up *UsageProcessor) updateTeamBudgetsBatch(tx *gorm.DB, updates map[uuid.UUID]float64) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	// Use a single UPDATE query with CASE statement for efficiency
+	teamIDs := make([]uuid.UUID, 0, len(updates))
+	for teamID := range updates {
+		teamIDs = append(teamIDs, teamID)
+	}
+
+	// Build CASE statement for atomic update
+	caseStmt := "CASE id "
+	args := []interface{}{}
+
+	for teamID, amount := range updates {
+		caseStmt += "WHEN ? THEN current_spend + ? "
+		args = append(args, teamID, amount)
+	}
+	caseStmt += "ELSE current_spend END"
+
+	// Execute batch update
+	result := tx.Model(&models.Team{}).
+		Where("id IN ?", teamIDs).
+		Update("current_spend", gorm.Expr(caseStmt, args...))
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	up.logger.Debug("Batch updated team budgets",
+		zap.Int("count", len(updates)),
+		zap.Int64("affected_rows", result.RowsAffected))
+
+	return nil
+}
+
+// refreshUserBudgetCaches updates Redis cache with latest user budget information
+func (up *UsageProcessor) refreshUserBudgetCaches(ctx context.Context, userUpdates map[uuid.UUID]float64) {
+	for userID := range userUpdates {
+		// Fetch latest user from database
+		var user models.User
+		if err := up.db.First(&user, "id = ?", userID).Error; err != nil {
+			up.logger.Error("Failed to fetch user for cache refresh",
+				zap.String("user_id", userID.String()),
+				zap.Error(err))
+			continue
+		}
+
+		// Update cache
+		available := user.MaxBudget - user.CurrentSpend
+		isExceeded := user.CurrentSpend >= user.MaxBudget
+
+		if err := up.budgetCache.UpdateBudgetCache(ctx, "user", userID.String(),
+			available, user.CurrentSpend, user.MaxBudget, isExceeded); err != nil {
+			up.logger.Error("Failed to update user budget cache",
+				zap.String("user_id", userID.String()),
+				zap.Error(err))
+		}
+	}
+}
+
+// refreshTeamBudgetCaches updates Redis cache with latest team budget information
+func (up *UsageProcessor) refreshTeamBudgetCaches(ctx context.Context, teamUpdates map[uuid.UUID]float64) {
+	for teamID := range teamUpdates {
+		// Fetch latest team from database
+		var team models.Team
+		if err := up.db.First(&team, "id = ?", teamID).Error; err != nil {
+			up.logger.Error("Failed to fetch team for cache refresh",
+				zap.String("team_id", teamID.String()),
+				zap.Error(err))
+			continue
+		}
+
+		// Update cache
+		available := team.MaxBudget - team.CurrentSpend
+		isExceeded := team.CurrentSpend >= team.MaxBudget
+
+		if err := up.budgetCache.UpdateBudgetCache(ctx, "team", teamID.String(),
+			available, team.CurrentSpend, team.MaxBudget, isExceeded); err != nil {
+			up.logger.Error("Failed to update team budget cache",
+				zap.String("team_id", teamID.String()),
+				zap.Error(err))
+		}
 	}
 }

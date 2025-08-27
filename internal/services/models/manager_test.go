@@ -168,12 +168,12 @@ func TestModelManager_AdaptiveRouting(t *testing.T) {
 		// Get stats (should work with new architecture)
 		stats := manager.GetModelStats()
 		require.NotNil(t, stats, "Stats should not be nil")
-		
+
 		// Check registry stats
 		registryStats, ok := stats["registry"]
 		require.True(t, ok, "Registry stats should exist")
 		require.NotNil(t, registryStats, "Registry stats should not be nil")
-		
+
 		// Basic functionality verification
 		ctx := context.Background()
 		instance, err := manager.GetBestInstance(ctx, "primary")
