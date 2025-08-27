@@ -163,13 +163,20 @@ func main() {
 
 	if !appMode.IsLiteMode && appMode.RedisAvailable && db != nil {
 		// Initialize Redis client for worker
-		redisAddr := strings.TrimPrefix(cfg.Redis.URL, "redis://")
+		opt, err := redis.ParseURL(cfg.Redis.URL)
+		if err != nil {
+			log.Fatal("Failed to parse Redis URL", zap.Error(err))
+		}
 
-		redisClient := redis.NewClient(&redis.Options{
-			Addr:     redisAddr,
-			Password: cfg.Redis.Password,
-			DB:       cfg.Redis.DB,
-		})
+		// Override with explicit password and DB if provided
+		if cfg.Redis.Password != "" {
+			opt.Password = cfg.Redis.Password
+		}
+		if cfg.Redis.DB != 0 {
+			opt.DB = cfg.Redis.DB
+		}
+
+		redisClient := redis.NewClient(opt)
 
 		// Test Redis connection for worker
 		if err := redisClient.Ping(context.Background()).Err(); err != nil {

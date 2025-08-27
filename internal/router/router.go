@@ -32,14 +32,20 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	r := chi.NewRouter()
 
 	// Initialize Redis client
-	// Handle redis:// protocol prefix
-	redisAddr := strings.TrimPrefix(cfg.Redis.URL, "redis://")
+	opt, err := redis.ParseURL(cfg.Redis.URL)
+	if err != nil {
+		logger.Fatal("Failed to parse Redis URL", zap.Error(err))
+	}
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     redisAddr,
-		Password: cfg.Redis.Password,
-		DB:       cfg.Redis.DB,
-	})
+	// Override with explicit password and DB if provided
+	if cfg.Redis.Password != "" {
+		opt.Password = cfg.Redis.Password
+	}
+	if cfg.Redis.DB != 0 {
+		opt.DB = cfg.Redis.DB
+	}
+
+	redisClient := redis.NewClient(opt)
 
 	// Test Redis connection
 	if err := redisClient.Ping(context.Background()).Err(); err != nil {
