@@ -5,24 +5,26 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
 func TestEventPublisher(t *testing.T) {
-	// Setup test Redis client
+	// Setup embedded Redis server for testing
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("Failed to start miniredis: %v", err)
+	}
+	defer mr.Close()
+
+	// Setup test Redis client connected to miniredis
 	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       1, // Use DB 1 for tests
+		Addr: mr.Addr(),
 	})
 	defer client.Close()
 
-	// Ping Redis to ensure it's available
 	ctx := context.Background()
-	if err := client.Ping(ctx).Err(); err != nil {
-		t.Skip("Redis not available for testing, skipping")
-	}
 
 	logger, _ := zap.NewDevelopment()
 	publisher := NewEventPublisher(client, logger)
