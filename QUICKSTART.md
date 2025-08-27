@@ -4,7 +4,7 @@
 
 ### 1. Clone and Setup
 ```bash
-git clone https://github.com/amerfu/pllm.git
+git clone https://github.com/andreimerfu/pllm.git
 cd pllm
 cp .env.example .env
 ```

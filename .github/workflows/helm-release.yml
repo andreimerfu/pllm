@@ -3,7 +3,8 @@ name: Release Helm Charts
 on:
   push:
     tags:
-      - 'v*'
+      - "v*.*.*"
+      - "v*.*.*-*"
   workflow_dispatch:
 
 permissions:
@@ -103,20 +104,21 @@ jobs:
 
       - name: Create ArtifactHub metadata
         run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          CHART_VERSION=$(cd deploy/helm && helm show chart pllm | grep '^version:' | awk '{print $2}')
+
           cat > artifacthub-pkg.yml << EOF
-          version: ${GITHUB_REF#refs/tags/v}
+          version: ${VERSION}
           name: pllm
           displayName: PLLM
-          createdAt: $(date -u +%Y-%m-%dT%H:%M:%S.%fZ)
+          createdAt: $(date -u +%Y-%m-%dT%H:%M:%SZ)
           description: A Helm chart for PLLM (Proxy for LLM) - Multi-provider LLM proxy with authentication, budgeting, and analytics
-          logoURL: https://raw.githubusercontent.com/amerfu/pllm/main/docs/logo.png
-          digest: $(cd deploy/helm && helm package pllm --dependency-update | grep 'digest:' | awk '{print $2}')
           license: MIT
-          homeURL: https://github.com/amerfu/pllm
-          appVersion: ${GITHUB_REF#refs/tags/v}
+          homeURL: https://github.com/andreimerfu/pllm
+          appVersion: ${VERSION}
           containersImages:
             - name: pllm
-              image: amerfu/pllm:${GITHUB_REF#refs/tags/v}
+              image: amerfu/pllm:${VERSION}
           keywords:
             - llm
             - proxy
@@ -126,7 +128,7 @@ jobs:
             - authentication
           links:
             - name: Chart Source
-              url: https://github.com/amerfu/pllm/tree/main/deploy/helm/pllm
+              url: https://github.com/andreimerfu/pllm/tree/main/deploy/helm/pllm
             - name: Docker Hub
               url: https://hub.docker.com/r/amerfu/pllm
           maintainers:
@@ -141,7 +143,9 @@ jobs:
           AH_TOKEN: ${{ secrets.ARTIFACTHUB_TOKEN }}
         run: |
           if [ -n "$AH_TOKEN" ]; then
-            ah push --kind helm --package-url https://github.com/amerfu/pllm/releases/download/${GITHUB_REF#refs/tags/}/pllm-${GITHUB_REF#refs/tags/v}.tgz
+            VERSION=${GITHUB_REF#refs/tags/v}
+            echo "Publishing to ArtifactHub with version: $VERSION"
+            ah push --kind helm --package-url https://github.com/andreimerfu/pllm/releases/download/${GITHUB_REF#refs/tags/}/pllm-${VERSION}.tgz
           else
             echo "ARTIFACTHUB_TOKEN not set, skipping ArtifactHub publish"
           fi

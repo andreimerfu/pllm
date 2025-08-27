@@ -53,6 +53,30 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
+      - name: Set up Node.js for docs build
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            web/package-lock.json
+            docs/package-lock.json
+
+      - name: Install frontend dependencies
+        run: cd web && npm ci
+
+      - name: Install docs dependencies  
+        run: cd docs && npm ci
+
+      - name: Build frontend
+        run: cd web && npm run build
+
+      - name: Build docs
+        run: make docs-build
+
+      - name: Generate Swagger docs
+        run: make swagger
+
       - name: Run tests
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/pllm_test?sslmode=disable
@@ -131,7 +155,11 @@ jobs:
           helm template pllm pllm \
             --set pllm.secrets.jwtSecret="test-jwt-secret" \
             --set pllm.secrets.masterKey="sk-master-test" \
-            --set pllm.secrets.openaiApiKey="sk-test-openai" > /tmp/pllm-manifests.yaml
+            --set pllm.secrets.openaiApiKey="sk-test-openai" \
+            --output-dir /tmp
+          
+          # Find the generated manifest files
+          find /tmp -name "*.yaml" -exec cat {} \; > /tmp/pllm-manifests.yaml
 
       - name: Validate Kubernetes manifests
         uses: instrumenta/kubeval-action@master
@@ -157,12 +185,14 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
+      - name: Install Gosec
+        run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+
       - name: Run Gosec Security Scanner
-        uses: securecodewarrior/github-action-gosec@master
-        with:
-          args: '-fmt sarif -out gosec-results.sarif ./...'
+        run: gosec -fmt sarif -out gosec-results.sarif ./...
 
       - name: Upload Gosec scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
+        if: always()
         with:
           sarif_file: 'gosec-results.sarif'

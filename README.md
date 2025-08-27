@@ -125,7 +125,7 @@ Sub-millisecond overhead vs 3-31ms for Python gateways
 
 ```bash
 # 1. Clone and setup
-git clone https://github.com/amerfu/pllm.git && cd pllm
+git clone https://github.com/andreimerfu/pllm.git && cd pllm
 cp .env.example .env
 
 # 2. Add your API key to .env
@@ -344,7 +344,7 @@ graph LR
 
 **Tech Stack:**
 - 🚀 **Chi Router** - Lightning-fast HTTP routing
-- 🗄️ **PostgreSQL + GORM** - Reliable data persistence  
+- 🗄️ **PostgreSQL + GORM** - Reliable data persistence
 - ⚡ **Redis** - High-speed caching & rate limiting
 - 📊 **Prometheus** - Enterprise monitoring
 - 📚 **Swagger** - Auto-generated API docs
@@ -353,7 +353,7 @@ graph LR
 
 ### Prerequisites
 
-- Go 1.23+ 
+- Go 1.23+
 - Docker & Docker Compose
 - PostgreSQL 16
 - Redis 7
@@ -362,7 +362,7 @@ graph LR
 
 ```bash
 # Clone the repo
-git clone https://github.com/amerfu/pllm.git && cd pllm
+git clone https://github.com/andreimerfu/pllm.git && cd pllm
 
 # Install dependencies
 go mod download
@@ -450,7 +450,7 @@ Access real-time metrics at `http://localhost:9090/metrics`
 
 ### 🏭 **Enterprise Performance Scaling**
 > **⚠️ Critical for High-Volume Deployments**
-> 
+>
 > For **massive performance and ultra-low latency**, the bottleneck is often the LLM providers themselves, not the gateway. To achieve true enterprise scale:
 >
 > - **Multiple LLM Deployments**: Deploy several instances of the same model (e.g., 5-10 GPT-4 Azure OpenAI deployments)
@@ -464,7 +464,7 @@ Access real-time metrics at `http://localhost:9090/metrics`
 >   - model_name: gpt-4
 >     deployments:
 >       - azure_deployment_1_east
->       - azure_deployment_2_east  
+>       - azure_deployment_2_east
 >       - azure_deployment_3_west
 >       - bedrock_account_1
 >       - bedrock_account_2
@@ -479,14 +479,14 @@ Access real-time metrics at `http://localhost:9090/metrics`
 ### Get Help
 - 💬 [Discord Community](https://discord.gg/pllm) - Real-time support
 - 📖 [Documentation](docs/) - Comprehensive guides
-- 🐛 [GitHub Issues](https://github.com/amerfu/pllm/issues) - Bug reports & features
+- 🐛 [GitHub Issues](https://github.com/andreimerfu/pllm/issues) - Bug reports & features
 - 📧 [Email Support](mailto:support@pllm.dev) - Enterprise inquiries
 
 ### Contributing
 
 We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for:
 - 🐛 Bug reports
-- ✨ Feature requests  
+- ✨ Feature requests
 - 🔧 Pull requests
 - 📖 Documentation improvements
 
@@ -511,6 +511,6 @@ Licensed under the [Apache License 2.0](LICENSE)
 
 **Built with ❤️ by the PLLM Team**
 
-[⭐ Star us on GitHub](https://github.com/amerfu/pllm) • [🐦 Follow on Twitter](https://twitter.com/pllm_dev)
+[⭐ Star us on GitHub](https://github.com/andreimerfu/pllm) • [🐦 Follow on Twitter](https://twitter.com/pllm_dev)
 
 </div>
