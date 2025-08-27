@@ -4,9 +4,12 @@
 
 ### Enterprise-Grade LLM Gateway Built in Go
 
+[![CI Status](https://img.shields.io/github/actions/workflow/status/andreimerfu/pllm/ci.yml?branch=main&style=for-the-badge&logo=github-actions&label=CI)](https://github.com/andreimerfu/pllm/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/andreimerfu/pllm?style=for-the-badge&logo=codecov)](https://codecov.io/gh/andreimerfu/pllm)
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=for-the-badge&logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)](https://hub.docker.com/r/amerfu/pllm)
+[![Helm Chart](https://img.shields.io/badge/Helm-Chart-0F1689?style=for-the-badge&logo=helm)](https://github.com/andreimerfu/pllm/tree/main/deploy/helm)
 [![OpenAI Compatible](https://img.shields.io/badge/OpenAI-Compatible-412991?style=for-the-badge&logo=openai)](https://platform.openai.com)
 
 **Drop-in OpenAI replacement** • **High-performance Go architecture** • **Enterprise-grade reliability**
@@ -121,7 +124,49 @@ Minimal overhead with native Go performance
 
 ## 🚀 Quick Start
 
-### 🐳 Docker Compose (Recommended)
+### ⚓ Kubernetes with Helm (Production Ready)
+
+Deploy pLLM on Kubernetes with high availability and auto-scaling:
+
+```bash
+# 1. Add the Helm repository
+helm repo add pllm https://andreimerfu.github.io/pllm
+helm repo update
+
+# 2. Create your configuration
+cat > pllm-values.yaml <<EOF
+pllm:
+  secrets:
+    jwtSecret: "your-super-secret-jwt-key"
+    masterKey: "sk-master-production-key" 
+    openaiApiKey: "sk-your-openai-key"
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: pllm.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+replicaCount: 3
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+EOF
+
+# 3. Install pLLM
+helm install pllm pllm/pllm -f pllm-values.yaml
+
+# 4. Check status
+kubectl get pods -l app.kubernetes.io/name=pllm
+```
+
+### 🐳 Docker Compose (Development)
+
+For local development and testing:
 
 ```bash
 # 1. Clone and setup
@@ -249,6 +294,282 @@ router:
 
 </details>
 
+## 📦 Deployment Options
+
+### ⚓ Production Deployment with Helm
+
+pLLM provides a comprehensive Helm chart for production Kubernetes deployments with built-in high availability, auto-scaling, and monitoring.
+
+#### Quick Deployment
+
+```bash
+# Add the official Helm repository
+helm repo add pllm https://andreimerfu.github.io/pllm
+helm repo update
+
+# Install with default configuration
+helm install pllm pllm/pllm \
+  --set pllm.secrets.jwtSecret="your-jwt-secret" \
+  --set pllm.secrets.masterKey="sk-master-your-key" \
+  --set pllm.secrets.openaiApiKey="sk-your-openai-key"
+```
+
+#### Advanced Production Setup
+
+<details>
+<summary><b>High Availability Configuration</b></summary>
+
+```yaml
+# production-values.yaml
+pllm:
+  secrets:
+    jwtSecret: "your-super-secret-jwt-key-min-32-chars"
+    masterKey: "sk-master-production-key"
+    openaiApiKey: "sk-your-openai-key"
+    anthropicApiKey: "sk-ant-your-anthropic-key"
+
+# High availability setup
+replicaCount: 3
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Resource limits
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+# Ingress with TLS
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "1000"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+  hosts:
+    - host: api.pllm.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: pllm-api-tls
+      hosts:
+        - api.pllm.yourdomain.com
+
+# Monitoring
+serviceMonitor:
+  enabled: true
+  labels:
+    prometheus: kube-prometheus
+
+# Database and Redis (production ready)
+postgresql:
+  enabled: true
+  auth:
+    database: pllm
+    username: pllm
+    password: "your-secure-db-password"
+  primary:
+    persistence:
+      size: 20Gi
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 250m
+
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "your-secure-redis-password"
+  master:
+    persistence:
+      size: 8Gi
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+```
+
+Deploy with:
+```bash
+helm install pllm pllm/pllm -f production-values.yaml
+```
+
+</details>
+
+<details>
+<summary><b>External Dependencies (Cloud)</b></summary>
+
+For cloud deployments using managed services:
+
+```yaml
+# cloud-values.yaml
+# Disable internal dependencies
+postgresql:
+  enabled: false
+redis:
+  enabled: false
+dex:
+  enabled: false
+
+pllm:
+  config:
+    database:
+      host: "your-rds-instance.amazonaws.com"
+      port: 5432
+      name: pllm
+      user: pllm
+      sslMode: require
+    redis:
+      host: "your-redis-cluster.cache.amazonaws.com"
+      port: 6379
+      tls: true
+    auth:
+      dex:
+        issuer: "https://your-auth-provider.com"
+
+  secrets:
+    databasePassword: "your-db-password"
+    redisPassword: "your-redis-password"
+    jwtSecret: "your-jwt-secret"
+    masterKey: "sk-master-key"
+    openaiApiKey: "sk-openai-key"
+    dexClientSecret: "your-auth-client-secret"
+
+# Multi-region setup
+replicaCount: 5
+autoscaling:
+  enabled: true
+  minReplicas: 5
+  maxReplicas: 50
+
+# Pod topology spread for availability zones
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+```
+
+</details>
+
+#### Helm Chart Registry
+
+The pLLM Helm chart is available through multiple registries:
+
+| Registry | Command |
+|:---------|:--------|
+| **GitHub Pages** | `helm repo add pllm https://andreimerfu.github.io/pllm` |
+| **Docker Hub (OCI)** | `helm install pllm oci://registry-1.docker.io/amerfu/pllm` |
+| **ArtifactHub** | [View on ArtifactHub](https://artifacthub.io/packages/helm/pllm/pllm) |
+
+#### Monitoring & Observability
+
+The Helm chart includes comprehensive monitoring out of the box:
+
+- **Prometheus Metrics** - ServiceMonitor for automatic discovery
+- **Grafana Dashboards** - Pre-built dashboards for key metrics  
+- **Health Checks** - Kubernetes health and readiness probes
+- **Distributed Tracing** - OpenTelemetry integration ready
+
+#### Chart Versioning & Updates
+
+```bash
+# List available versions
+helm search repo pllm/pllm --versions
+
+# Upgrade to latest
+helm repo update
+helm upgrade pllm pllm/pllm -f your-values.yaml
+
+# Rollback if needed
+helm rollback pllm 1
+```
+
+### 🐳 Docker Deployment
+
+For simpler deployments or development environments:
+
+<details>
+<summary><b>Docker Compose</b></summary>
+
+```bash
+# Clone and deploy
+git clone https://github.com/andreimerfu/pllm.git
+cd pllm
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your API keys
+
+# Deploy
+docker compose up -d
+
+# Scale if needed
+docker compose up -d --scale pllm=3
+```
+
+</details>
+
+<details>
+<summary><b>Standalone Docker</b></summary>
+
+```bash
+# Run pLLM container
+docker run -d \
+  --name pllm \
+  -p 8080:8080 \
+  -e OPENAI_API_KEY=sk-your-key \
+  -e JWT_SECRET=your-jwt-secret \
+  -e MASTER_KEY=sk-master-key \
+  amerfu/pllm:latest
+
+# With external database
+docker run -d \
+  --name pllm \
+  -p 8080:8080 \
+  -e DATABASE_URL=postgres://user:pass@host:5432/pllm \
+  -e REDIS_URL=redis://host:6379 \
+  -e OPENAI_API_KEY=sk-your-key \
+  amerfu/pllm:latest
+```
+
+</details>
+
+### 🏗️ Development Setup
+
+<details>
+<summary><b>Local Development</b></summary>
+
+```bash
+# Prerequisites: Go 1.23+, PostgreSQL, Redis
+git clone https://github.com/andreimerfu/pllm.git
+cd pllm
+
+# Start dependencies
+docker compose up postgres redis -d
+
+# Install dependencies
+go mod download
+cd web && npm ci && cd ..
+
+# Run with hot reload
+make dev
+
+# Or run directly
+go run cmd/server/main.go
+```
+
+</details>
+
 ## 🔌 Integration Examples
 
 ### Python
@@ -345,46 +666,6 @@ graph LR
 - 📊 **Prometheus** - Enterprise monitoring
 - 📚 **Swagger** - Auto-generated API docs
 
-## 🛠️ Development
-
-### Prerequisites
-
-- Go 1.23+
-- Docker & Docker Compose
-- PostgreSQL 16
-- Redis 7
-
-### Build & Run
-
-```bash
-# Clone the repo
-git clone https://github.com/andreimerfu/pllm.git && cd pllm
-
-# Install dependencies
-go mod download
-
-# Run tests
-go test ./... -v
-
-# Build binary
-go build -o pllm cmd/server/main.go
-
-# Run locally
-./pllm serve
-```
-
-### Development Mode
-
-```bash
-# Start dependencies only
-docker-compose up postgres redis -d
-
-# Run with hot reload
-air
-
-# Or run directly
-go run cmd/server/main.go
-```
 
 ## ⚖️ Load Balancing Strategies
 
