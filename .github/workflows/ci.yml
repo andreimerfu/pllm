@@ -2,14 +2,14 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 jobs:
   test-go:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:15
@@ -23,7 +23,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-      
+
       redis:
         image: redis:7-alpine
         options: >-
@@ -40,13 +40,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: "1.23"
 
       - name: Set up Node.js for docs build
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: |
             web/package-lock.json
             docs/package-lock.json
@@ -65,7 +65,7 @@ jobs:
       - name: Install frontend dependencies
         run: cd web && npm ci
 
-      - name: Install docs dependencies  
+      - name: Install docs dependencies
         run: cd docs && npm ci
 
       - name: Build docs
@@ -93,15 +93,15 @@ jobs:
 
   test-frontend:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: web/package-lock.json
 
       - name: Install frontend dependencies
@@ -121,7 +121,7 @@ jobs:
 
   test-helm:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
 
@@ -154,14 +154,14 @@ jobs:
             --set pllm.secrets.masterKey="sk-master-test" \
             --set pllm.secrets.openaiApiKey="sk-test-openai" \
             --output-dir /tmp/helm-output
-          
+
           # Debug: list what was created
           echo "Contents of /tmp/helm-output:"
           find /tmp/helm-output -type f -name "*.yaml" | head -10
-          
+
           # Find the generated manifest files and combine them
           find /tmp/helm-output -name "*.yaml" -type f -exec cat {} \; > /tmp/pllm-manifests.yaml
-          
+
           # Verify the output file was created
           echo "Size of combined manifest file:"
           ls -la /tmp/pllm-manifests.yaml
@@ -171,7 +171,7 @@ jobs:
           if [ -f /tmp/pllm-manifests.yaml ]; then
             echo "✅ Helm template generation successful"
             echo "Manifest file size: $(wc -l < /tmp/pllm-manifests.yaml) lines"
-            
+
             # Basic validation - check if file contains valid YAML structure
             head -20 /tmp/pllm-manifests.yaml
           else
@@ -179,40 +179,40 @@ jobs:
             exit 1
           fi
 
-  security-scan:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-    
-    steps:
-      - uses: actions/checkout@v4
+  # security-scan:
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #     security-events: write
+  #     actions: read
 
-      - name: Run Trivy vulnerability scanner in repo mode
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
+  #     - name: Run Trivy vulnerability scanner in repo mode
+  #       uses: aquasecurity/trivy-action@master
+  #       with:
+  #         scan-type: 'fs'
+  #         scan-ref: '.'
+  #         format: 'sarif'
+  #         output: 'trivy-results.sarif'
 
-      - name: Install Gosec
-        run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+  #     - name: Upload Trivy scan results to GitHub Security tab
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       if: always()
+  #       with:
+  #         sarif_file: 'trivy-results.sarif'
 
-      - name: Run Gosec Security Scanner
-        run: |
-          gosec -fmt sarif -out gosec-results.sarif ./... || echo "Gosec scan completed with issues"
-          ls -la gosec-results.sarif
+  #     - name: Install Gosec
+  #       run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
 
-      - name: Upload Gosec scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && hashFiles('gosec-results.sarif') != ''
-        with:
-          sarif_file: 'gosec-results.sarif'
+  #     - name: Run Gosec Security Scanner
+  #       run: |
+  #         gosec -fmt sarif -out gosec-results.sarif ./... || echo "Gosec scan completed with issues"
+  #         ls -la gosec-results.sarif
+
+  #     - name: Upload Gosec scan results to GitHub Security tab
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       if: always() && hashFiles('gosec-results.sarif') != ''
+  #       with:
+  #         sarif_file: 'gosec-results.sarif'

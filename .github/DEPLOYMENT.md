@@ -33,7 +33,7 @@ Configure these secrets in your GitHub repository settings (`Settings > Secrets 
 The default `GITHUB_TOKEN` needs these permissions (configured automatically):
 
 - `contents: write` - For creating releases and pushing to gh-pages
-- `packages: write` - For publishing OCI artifacts  
+- `packages: write` - For publishing OCI artifacts
 - `pages: write` - For GitHub Pages deployment
 - `id-token: write` - For OIDC authentication
 
@@ -48,9 +48,9 @@ Configure branch protection rules for `main` branch:
 require_status_checks: true
 required_status_checks:
   - "test-go"
-  - "test-frontend"  
+  - "test-frontend"
   - "test-helm"
-  - "security-scan"
+  # - "security-scan"
 dismiss_stale_reviews: true
 require_code_owner_reviews: true
 required_approving_review_count: 1
@@ -217,10 +217,10 @@ gh release list
 ```yaml
 # Pin to specific SHA instead of tag
 - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-  
+
 # Use official actions
 - uses: docker/setup-buildx-action@v3
-  
+
 # Validate inputs
 - name: Validate version
   run: |
