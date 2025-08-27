@@ -3,7 +3,6 @@ package router
 import (
 	"context"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/amerfu/pllm/internal/auth"
