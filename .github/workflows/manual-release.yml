@@ -324,7 +324,7 @@ jobs:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         run: |
-          cr upload -o amerfu -r pllm --skip-existing
+          cr upload -o andreimerfu -r pllm --skip-existing
 
       - name: Update chart repository index
         env:
