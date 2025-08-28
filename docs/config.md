@@ -17,7 +17,7 @@ PLLM looks for configuration files in this order:
 ```yaml
 server:
   port: 8080              # Main API port
-  admin_port: 8081        # Admin API port  
+  admin_port: 8081        # Admin API port
   metrics_port: 9090      # Prometheus metrics port
   read_timeout: 30s       # Request read timeout
   write_timeout: 300s     # Response write timeout (5min for streaming)
@@ -37,7 +37,7 @@ database:
   conn_max_lifetime: 1h     # Connection lifetime
 ```
 
-### Redis Configuration  
+### Redis Configuration
 
 Redis is required for caching, rate limiting, and async budget processing:
 
@@ -66,7 +66,7 @@ model_list:
       max_tokens: 2000
     rpm: 500                      # Rate limit (requests/min)
     tpm: 100000                  # Token limit (tokens/min)
-    
+
   # Azure OpenAI
   - model_name: azure-gpt-4
     params:
@@ -74,8 +74,8 @@ model_list:
       api_base: https://my-resource.openai.azure.com/
       api_key: ${AZURE_API_KEY}
       api_version: 2024-02-15-preview
-      
-  # OpenRouter  
+
+  # OpenRouter
   - model_name: openrouter-claude
     params:
       model: anthropic/claude-3-sonnet
@@ -90,7 +90,7 @@ Group models for easy access:
 ```yaml
 model_aliases:
   smart: ["my-gpt-4", "azure-gpt-4"]      # High-quality models
-  fast: ["my-gpt-35-turbo"]               # Fast models  
+  fast: ["my-gpt-35-turbo"]               # Fast models
   claude: ["openrouter-claude"]           # Anthropic models
   openrouter: ["openrouter-gpt-4", "openrouter-claude"]
 ```
@@ -106,13 +106,13 @@ router:
   max_retries: 3                      # Retry attempts
   default_timeout: 60s                # Request timeout
   health_check_interval: 30s          # Provider health checks
-  
+
   # Model fallbacks (when primary model fails)
   fallbacks:
     my-gpt-4: ["my-gpt-35-turbo", "azure-gpt-4"]
     my-gpt-35-turbo: ["my-gpt-35-turbo-16k"]
-  
-  # Context window fallbacks (when request is too large)  
+
+  # Context window fallbacks (when request is too large)
   context_window_fallbacks:
     my-gpt-35-turbo: ["my-gpt-35-turbo-16k"]
     my-gpt-4: ["my-gpt-4-32k"]
@@ -135,16 +135,16 @@ jwt:
 auth:
   master_key: sk-master-dev-key-change-in-production
   require_auth: true            # Enforce authentication
-  
+
   dex:
     enabled: true              # Enable OIDC via Dex
     issuer: "http://localhost:5556/dex"          # Dex backend URL
     public_issuer: "http://localhost:5556/dex"   # Frontend OAuth URL
     client_id: "pllm-web"
-    client_secret: "pllm-web-secret" 
+    client_secret: "pllm-web-secret"
     redirect_url: "http://localhost:3000/auth/callback"
     scopes: ["openid", "profile", "email", "groups"]
-    
+
     # Map Dex groups to PLLM teams
     group_mappings:
       "admin": "administrators"
@@ -171,7 +171,7 @@ rate_limit:
   requests_per_minute: 600        # Global RPM limit
   burst: 10                       # Burst allowance
   cleanup_interval: 1m            # Cleanup interval
-  
+
   # Per-endpoint limits
   global_rpm: 10000               # Overall system limit
   chat_completions_rpm: 5000      # Chat endpoint limit
@@ -183,7 +183,7 @@ rate_limit:
 
 ```yaml
 cors:
-  allowed_origins: 
+  allowed_origins:
     - "http://localhost:3000"
     - "https://yourdomain.com"
   allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
@@ -252,7 +252,7 @@ OPENROUTER_X_TITLE=PLLM Gateway
 # Other providers
 ANTHROPIC_API_KEY_1=sk-ant-your-key
 AZURE_API_KEY_EAST=your-azure-key
-GROQ_API_KEY_1=your-groq-key
+GROK_API_KEY_1=your-grok-key
 MISTRAL_API_KEY_1=your-mistral-key
 ```
 
@@ -271,7 +271,7 @@ JAEGER_ENDPOINT=http://localhost:14268/api/traces
 
 See [`config.yaml`](../config.yaml) for a complete development configuration.
 
-### Docker Setup  
+### Docker Setup
 
 See [`config.docker.yaml`](../config.docker.yaml) for containerized deployments.
 
@@ -291,7 +291,7 @@ PLLM validates configuration on startup and will:
 
 Configuration supports runtime updates for:
 - Model list changes
-- Rate limit adjustments  
+- Rate limit adjustments
 - Router strategy changes
 - Cache settings
 

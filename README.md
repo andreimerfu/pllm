@@ -100,7 +100,7 @@ Minimal overhead with native Go performance
 
 ### 🔌 **Compatibility**
 - ✅ **100% OpenAI Compatible** - Drop-in replacement, no code changes needed
-- ✅ **Multi-Provider Support** - OpenAI, Anthropic, Azure, Bedrock, Vertex AI, Groq, Cohere
+- ✅ **Multi-Provider Support** - OpenAI, Anthropic, Azure, Bedrock, Vertex AI, Grok, Cohere
 - ✅ **Streaming Support** - Real-time streaming responses for all providers
 
 ### 🎯 **Enterprise Features**
@@ -138,7 +138,7 @@ cat > pllm-values.yaml <<EOF
 pllm:
   secrets:
     jwtSecret: "your-super-secret-jwt-key"
-    masterKey: "sk-master-production-key" 
+    masterKey: "sk-master-production-key"
     openaiApiKey: "sk-your-openai-key"
 
 ingress:
@@ -476,7 +476,7 @@ The pLLM Helm chart is available through multiple registries:
 The Helm chart includes comprehensive monitoring out of the box:
 
 - **Prometheus Metrics** - ServiceMonitor for automatic discovery
-- **Grafana Dashboards** - Pre-built dashboards for key metrics  
+- **Grafana Dashboards** - Pre-built dashboards for key metrics
 - **Health Checks** - Kubernetes health and readiness probes
 - **Distributed Tracing** - OpenTelemetry integration ready
 

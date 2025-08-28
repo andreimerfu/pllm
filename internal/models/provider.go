@@ -67,7 +67,7 @@ const (
 	ProviderCohere      ProviderType = "cohere"
 	ProviderHuggingFace ProviderType = "huggingface"
 	ProviderReplicate   ProviderType = "replicate"
-	ProviderGroq        ProviderType = "groq"
+	ProviderGrok        ProviderType = "grok"
 	ProviderTogether    ProviderType = "together"
 	ProviderPerplexity  ProviderType = "perplexity"
 	ProviderMistral     ProviderType = "mistral"

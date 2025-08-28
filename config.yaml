@@ -5,12 +5,12 @@
 # Server Configuration
 # ===========================
 server:
-  port: 8080                    # HTTP server port
-  host: "0.0.0.0"              # Server host (0.0.0.0 for all interfaces)
-  read_timeout: 60s             # HTTP read timeout
-  write_timeout: 60s            # HTTP write timeout
-  idle_timeout: 120s            # HTTP idle timeout
-  graceful_shutdown: 30s        # Graceful shutdown timeout
+  port: 8080 # HTTP server port
+  host: "0.0.0.0" # Server host (0.0.0.0 for all interfaces)
+  read_timeout: 60s # HTTP read timeout
+  write_timeout: 60s # HTTP write timeout
+  idle_timeout: 120s # HTTP idle timeout
+  graceful_shutdown: 30s # Graceful shutdown timeout
 
 # ===========================
 # Database Configuration
@@ -19,12 +19,12 @@ database:
   # PostgreSQL connection URL
   # Format: postgres://user:password@host:port/database?options
   url: postgres://pllm:pllm@localhost:5432/pllm?sslmode=disable
-  
+
   # Database settings
-  max_open_conns: 25            # Maximum open connections
-  max_idle_conns: 25            # Maximum idle connections
-  conn_max_lifetime: 300s       # Connection maximum lifetime
-  auto_migrate: true            # Automatically run database migrations
+  max_open_conns: 25 # Maximum open connections
+  max_idle_conns: 25 # Maximum idle connections
+  conn_max_lifetime: 300s # Connection maximum lifetime
+  auto_migrate: true # Automatically run database migrations
 
 # ===========================
 # Redis Configuration
@@ -33,23 +33,23 @@ redis:
   # Redis connection URL
   # Format: redis://[username:password@]host:port/database
   url: redis://localhost:6379
-  
+
   # Redis settings
-  pool_size: 10                 # Connection pool size
-  min_idle_conns: 5             # Minimum idle connections
-  dial_timeout: 5s              # Connection dial timeout
-  read_timeout: 3s              # Read timeout
-  write_timeout: 3s             # Write timeout
+  pool_size: 10 # Connection pool size
+  min_idle_conns: 5 # Minimum idle connections
+  dial_timeout: 5s # Connection dial timeout
+  read_timeout: 3s # Read timeout
+  write_timeout: 3s # Write timeout
 
 # ===========================
 # Cache Configuration
 # ===========================
 cache:
-  enabled: true                 # Enable response caching
-  ttl: 300s                     # Cache time-to-live (5 minutes)
-  max_size: 1000                # Maximum number of cached responses
-  strategy: lru                 # Cache eviction strategy (lru, lfu, fifo)
-  
+  enabled: true # Enable response caching
+  ttl: 300s # Cache time-to-live (5 minutes)
+  max_size: 1000 # Maximum number of cached responses
+  strategy: lru # Cache eviction strategy (lru, lfu, fifo)
+
   # For lite mode (without Redis), uses in-memory cache
   # Set redis.url to empty string to enable lite mode
 
@@ -57,20 +57,20 @@ cache:
 # Rate Limiting Configuration
 # ===========================
 rate_limit:
-  enabled: true                 # Enable rate limiting
-  
+  enabled: true # Enable rate limiting
+
   # Global rate limits (applies to all endpoints)
-  global_rpm: 1000              # Global requests per minute
-  
+  global_rpm: 1000 # Global requests per minute
+
   # Endpoint-specific rate limits
-  chat_completions_rpm: 500     # Chat completions per minute
-  completions_rpm: 500          # Text completions per minute
-  embeddings_rpm: 1000          # Embeddings per minute
-  
+  chat_completions_rpm: 500 # Chat completions per minute
+  completions_rpm: 500 # Text completions per minute
+  embeddings_rpm: 1000 # Embeddings per minute
+
   # Rate limiting settings
-  burst: 50                     # Allow burst of requests
-  cleanup_interval: 5m          # Cleanup interval for expired entries
-  
+  burst: 50 # Allow burst of requests
+  cleanup_interval: 5m # Cleanup interval for expired entries
+
   # For lite mode (without Redis), uses in-memory rate limiting
   # Set redis.url to empty string to enable lite mode
 
@@ -78,17 +78,17 @@ rate_limit:
 # JWT Configuration
 # ===========================
 jwt:
-  secret_key: your-super-secret-jwt-key-change-this  # JWT signing secret (change in production)
-  expiry: 24h                   # JWT token expiry duration
-  refresh_expiry: 168h          # JWT refresh token expiry (7 days)
+  secret_key: your-super-secret-jwt-key-change-this # JWT signing secret (change in production)
+  expiry: 24h # JWT token expiry duration
+  refresh_expiry: 168h # JWT refresh token expiry (7 days)
 
 # ===========================
 # Admin Configuration
 # ===========================
 admin:
-  username: admin               # Default admin username
-  password: changeme123!        # Default admin password (change in production)
-  email: admin@pllm.io         # Admin email address
+  username: admin # Default admin username
+  password: changeme123! # Default admin password (change in production)
+  email: admin@pllm.io # Admin email address
 
 # ===========================
 # Authentication Configuration
@@ -96,35 +96,35 @@ admin:
 auth:
   # Master key for API access (change in production)
   master_key: sk-master-dev-key-change-in-production
-  
+
   # Authentication requirements
-  require_auth: true            # Require authentication for API access
-  api_key_header: "Authorization"  # HTTP header for API key
-  
+  require_auth: true # Require authentication for API access
+  api_key_header: "Authorization" # HTTP header for API key
+
   # Dex OIDC integration for web UI authentication
   dex:
-    enabled: true               # Enable Dex authentication
-    issuer: "http://localhost:5556/dex"           # Dex issuer URL
-    public_issuer: "http://localhost:5556/dex"    # Public Dex issuer URL
-    client_id: "pllm-web"       # OAuth2 client ID
-    client_secret: "pllm-web-secret"  # OAuth2 client secret
-    redirect_url: "http://localhost:8080/auth/callback"  # OAuth2 redirect URL
-    scopes: ["openid", "profile", "email", "groups"]    # OAuth2 scopes
+    enabled: true # Enable Dex authentication
+    issuer: "http://localhost:5556/dex" # Dex issuer URL
+    public_issuer: "http://localhost:5556/dex" # Public Dex issuer URL
+    client_id: "pllm-web" # OAuth2 client ID
+    client_secret: "pllm-web-secret" # OAuth2 client secret
+    redirect_url: "http://localhost:8080/auth/callback" # OAuth2 redirect URL
+    scopes: ["openid", "profile", "email", "groups"] # OAuth2 scopes
 
 # ===========================
 # Logging Configuration
 # ===========================
 logging:
-  level: info                   # Log level (debug, info, warn, error)
-  format: json                  # Log format (json, text)
-  output: stdout                # Log output (stdout, stderr, file path)
-  
+  level: info # Log level (debug, info, warn, error)
+  format: json # Log format (json, text)
+  output: stdout # Log output (stdout, stderr, file path)
+
   # File logging (when output is file path)
   file:
-    max_size: 100               # Maximum log file size in MB
-    max_backups: 3              # Maximum number of backup files
-    max_age: 28                 # Maximum age of log files in days
-    compress: true              # Compress old log files
+    max_size: 100 # Maximum log file size in MB
+    max_backups: 3 # Maximum number of backup files
+    max_age: 28 # Maximum age of log files in days
+    compress: true # Compress old log files
 
 # ===========================
 # Monitoring Configuration
@@ -132,19 +132,19 @@ logging:
 monitoring:
   # Prometheus metrics
   metrics:
-    enabled: true               # Enable Prometheus metrics
-    path: "/metrics"            # Metrics endpoint path
-    
+    enabled: true # Enable Prometheus metrics
+    path: "/metrics" # Metrics endpoint path
+
   # Health check
   health:
-    enabled: true               # Enable health check endpoint
-    path: "/health"             # Health check endpoint path
-    
+    enabled: true # Enable health check endpoint
+    path: "/health" # Health check endpoint path
+
   # Distributed tracing (optional)
   tracing:
-    enabled: false              # Enable distributed tracing
-    jaeger_endpoint: "http://localhost:14268/api/traces"  # Jaeger collector endpoint
-    service_name: "pllm"        # Service name for tracing
+    enabled: false # Enable distributed tracing
+    jaeger_endpoint: "http://localhost:14268/api/traces" # Jaeger collector endpoint
+    service_name: "pllm" # Service name for tracing
 
 # ===========================
 # Router Configuration
@@ -158,20 +158,20 @@ router:
   # - latency-based: Route to lowest latency model
   # - usage-based: Route based on usage statistics
   routing_strategy: "latency-based"
-  
+
   # Fallback configuration
-  fallback_enabled: true        # Enable fallback to alternative models
+  fallback_enabled: true # Enable fallback to alternative models
   circuit_breaker_enabled: true # Enable circuit breaker for failed models
-  retry_attempts: 2             # Number of retry attempts
-  timeout: 30s                  # Request timeout
-  health_check_interval: 30s    # Health check interval for models
-  
+  retry_attempts: 2 # Number of retry attempts
+  timeout: 30s # Request timeout
+  health_check_interval: 30s # Health check interval for models
+
   # Manual fallback mapping: model_name -> [fallback_model_names]
   # If a model fails, try these models in order
   fallbacks:
     my-gpt-4: ["my-gpt-35-turbo", "my-gpt-35-turbo-16k"]
     my-gpt-35-turbo: ["my-gpt-35-turbo-16k"]
-  
+
   # Context window fallbacks: when request exceeds model's context limit
   context_window_fallbacks:
     my-gpt-35-turbo: ["my-gpt-35-turbo-16k"]
@@ -187,51 +187,51 @@ model_list:
   # -------------------------
   # OpenAI Models
   # -------------------------
-  
+
   # GPT-4 deployment
-  - model_name: my-gpt-4        # Name users call in API requests
+  - model_name: my-gpt-4 # Name users call in API requests
     params:
-      model: gpt-4              # Actual OpenAI model name
-      api_key: ${OPENAI_API_KEY}  # API key from environment variable
+      model: gpt-4 # Actual OpenAI model name
+      api_key: ${OPENAI_API_KEY} # API key from environment variable
     # Optional rate limits (requests/tokens per minute)
-    rpm: 500                    # Requests per minute
-    tpm: 30000                  # Tokens per minute
-    
-  # GPT-3.5-Turbo deployment  
+    rpm: 500 # Requests per minute
+    tpm: 30000 # Tokens per minute
+
+  # GPT-3.5-Turbo deployment
   - model_name: my-gpt-35-turbo
     params:
       model: gpt-3.5-turbo
       api_key: ${OPENAI_API_KEY}
-    
+
   # GPT-3.5-Turbo-16K deployment for longer contexts
   - model_name: my-gpt-35-turbo-16k
     params:
       model: gpt-3.5-turbo-16k
       api_key: ${OPENAI_API_KEY}
-    
+
   # Example with custom parameters
   - model_name: fast-gpt
     params:
       model: gpt-3.5-turbo
       api_key: ${OPENAI_API_KEY}
-      temperature: 0.7          # Default temperature
-      max_tokens: 2000          # Default max tokens
+      temperature: 0.7 # Default temperature
+      max_tokens: 2000 # Default max tokens
     rpm: 500
     tpm: 100000
-    
+
   # Multiple API keys for load balancing
   - model_name: my-gpt-35-turbo-backup
     params:
       model: gpt-3.5-turbo
-      api_key: ${OPENAI_API_KEY_2}  # Secondary API key
-    
+      api_key: ${OPENAI_API_KEY_2} # Secondary API key
+
   # -------------------------
   # Azure OpenAI Models
   # -------------------------
-  
+
   - model_name: azure-gpt-4
     params:
-      model: azure/my-deployment-name    # Azure deployment name
+      model: azure/my-deployment-name # Azure deployment name
       api_base: https://my-azure-endpoint.openai.azure.com/
       api_key: ${AZURE_API_KEY}
       api_version: 2024-02-15-preview
@@ -241,7 +241,7 @@ model_list:
   # -------------------------
   # Anthropic Claude Models
   # -------------------------
-  
+
   - model_name: claude-3-sonnet
     params:
       model: claude-3-sonnet-20240229
@@ -261,7 +261,7 @@ model_list:
   # -------------------------
   # OpenRouter Models
   # -------------------------
-  
+
   - model_name: openrouter-gpt-4
     params:
       model: openai/gpt-4-turbo
@@ -285,7 +285,7 @@ model_list:
   # -------------------------
   # AWS Bedrock Models
   # -------------------------
-  
+
   - model_name: bedrock-claude-3
     params:
       model: bedrock/anthropic.claude-3-sonnet-20240229-v1:0
@@ -296,7 +296,7 @@ model_list:
   # -------------------------
   # Google Vertex AI Models
   # -------------------------
-  
+
   - model_name: vertex-gemini-pro
     params:
       model: vertex_ai/gemini-pro
@@ -304,14 +304,14 @@ model_list:
       vertex_location: ${VERTEX_LOCATION}
 
   # -------------------------
-  # Groq Models
+  # Grok Models
   # -------------------------
-  
-  - model_name: groq-mixtral
+
+  - model_name: grok-mixtral
     params:
       model: mixtral-8x7b-32768
-      api_key: ${GROQ_API_KEY}
-      api_base: https://api.groq.com/openai/v1
+      api_key: ${GROK_API_KEY}
+      api_base: https://api.grok.com/openai/v1
 
 # ===========================
 # Model Aliases/Groups
@@ -322,13 +322,13 @@ model_list:
 model_aliases:
   # Smart models (GPT-4 class)
   smart: ["my-gpt-4", "azure-gpt-4", "openrouter-gpt-4", "claude-3-sonnet"]
-  
+
   # Fast models (GPT-3.5 class)
   fast: ["my-gpt-35-turbo", "fast-gpt", "claude-3-haiku"]
-  
+
   # Long context models
   long-context: ["my-gpt-35-turbo-16k", "claude-3-sonnet"]
-  
+
   # Provider-specific groups
   claude: ["claude-3-sonnet", "claude-3-haiku", "openrouter-claude"]
   openai: ["my-gpt-4", "my-gpt-35-turbo", "my-gpt-35-turbo-16k"]
@@ -336,24 +336,23 @@ model_aliases:
   openrouter: ["openrouter-gpt-4", "openrouter-claude", "openrouter-llama"]
   bedrock: ["bedrock-claude-3"]
   vertex: ["vertex-gemini-pro"]
-  groq: ["groq-mixtral"]
-
+  grok: ["grok-mixtral"]
 # ===========================
 # Lite Mode Configuration
 # ===========================
 # For running pLLM without external dependencies (PostgreSQL, Redis)
-# 
+#
 # To enable lite mode:
 # 1. Set database.url to empty string: url: ""
 # 2. Set redis.url to empty string: url: ""
 # 3. Set auth.require_auth to false
-# 
+#
 # In lite mode:
 # - Uses in-memory caching instead of Redis
 # - Uses in-memory rate limiting instead of Redis
 # - Disables authentication features that require database
 # - Reduces functionality but eliminates external dependencies
-# 
+#
 # Example lite mode settings:
 # database:
 #   url: ""  # Empty to disable database
@@ -381,7 +380,7 @@ model_aliases:
 # - ANTHROPIC_API_KEY: Anthropic Claude API key
 # - AZURE_API_KEY: Azure OpenAI API key
 # - OPENROUTER_API_KEY: OpenRouter API key
-# - GROQ_API_KEY: Groq API key
+# - GROK_API_KEY: Grok API key
 # - AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION: AWS Bedrock credentials
 # - VERTEX_PROJECT, VERTEX_LOCATION: Google Vertex AI project settings
 #

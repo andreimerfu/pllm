@@ -22,9 +22,9 @@ docker-compose up -d
 ```
 
 **Services started:**
-- **PLLM Gateway**: `localhost:8080` (API), `localhost:8081` (Admin), `localhost:9090` (Metrics)  
+- **PLLM Gateway**: `localhost:8080` (API), `localhost:8081` (Admin), `localhost:9090` (Metrics)
 - **PostgreSQL**: `localhost:5432`
-- **Redis**: `localhost:6380` 
+- **Redis**: `localhost:6380`
 - **Dex OIDC**: `localhost:5556`
 - **Grafana**: `localhost:3001` (admin/admin)
 - **Prometheus**: `localhost:9091`
@@ -71,7 +71,7 @@ helm upgrade pllm ./pllm
 
 **Chart includes:**
 - PLLM deployment with HPA
-- PostgreSQL (with persistence) 
+- PostgreSQL (with persistence)
 - Redis cluster
 - Ingress configuration
 - ServiceMonitor for Prometheus
@@ -112,7 +112,7 @@ spec:
         - name: OPENAI_API_KEY
           valueFrom:
             secretKeyRef:
-              name: pllm-secrets  
+              name: pllm-secrets
               key: openai-api-key
         livenessProbe:
           httpGet:
@@ -216,7 +216,7 @@ sudo systemctl status pllm
 **Important**: PLLM's rate limiting is designed to protect API endpoints while allowing free access to:
 
 - **Documentation**: `/docs` (including all VitePress assets)
-- **Admin UI**: `/ui` (including all React app assets) 
+- **Admin UI**: `/ui` (including all React app assets)
 - **Health checks**: `/health`, `/ready`, `/metrics`
 - **API documentation**: `/swagger`
 - **Static assets**: CSS, JS, images, fonts
@@ -230,7 +230,7 @@ This ensures that users can always access documentation and the admin interface 
 # Database (required for auth)
 DATABASE_URL=postgres://pllm:password@localhost:5432/pllm?sslmode=require
 
-# Redis (required for caching/budget) 
+# Redis (required for caching/budget)
 REDIS_URL=redis://localhost:6379
 
 # At least one LLM provider
@@ -247,7 +247,7 @@ JWT_SECRET_KEY=your-very-secure-jwt-signing-key
 LOG_LEVEL=info
 LOG_FORMAT=json
 
-# Monitoring  
+# Monitoring
 ENABLE_METRICS=true
 ENABLE_TRACING=true
 JAEGER_ENDPOINT=http://jaeger:14268/api/traces
@@ -269,13 +269,13 @@ Configure multiple API keys for provider redundancy:
 ```bash
 # Multiple OpenAI keys
 OPENAI_API_KEY=sk-primary-key
-OPENAI_API_KEY_1=sk-backup-key-1  
+OPENAI_API_KEY_1=sk-backup-key-1
 OPENAI_API_KEY_2=sk-backup-key-2
 
 # Multiple providers
 ANTHROPIC_API_KEY_1=sk-ant-key
 AZURE_API_KEY_EAST=azure-east-key
-GROQ_API_KEY_1=groq-key
+GROK_API_KEY_1=grok-key
 ```
 
 #### Application Load Balancing
@@ -286,9 +286,9 @@ Use a load balancer in front of multiple PLLM instances:
 ```nginx
 upstream pllm_backend {
     server pllm-1:8080 weight=1 max_fails=3 fail_timeout=30s;
-    server pllm-2:8080 weight=1 max_fails=3 fail_timeout=30s; 
+    server pllm-2:8080 weight=1 max_fails=3 fail_timeout=30s;
     server pllm-3:8080 weight=1 max_fails=3 fail_timeout=30s;
-    
+
     # Health check
     keepalive 32;
 }
@@ -296,7 +296,7 @@ upstream pllm_backend {
 server {
     listen 80;
     server_name pllm.yourdomain.com;
-    
+
     location / {
         proxy_pass http://pllm_backend;
         proxy_http_version 1.1;
@@ -304,17 +304,17 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        
+
         # For streaming responses
         proxy_buffering off;
         proxy_cache off;
-        
+
         # Timeouts
         proxy_connect_timeout 30s;
         proxy_send_timeout 300s;
         proxy_read_timeout 300s;
     }
-    
+
     # Health check endpoint
     location /health {
         proxy_pass http://pllm_backend/health;
@@ -343,7 +343,7 @@ sudo crontab -e
 #### Firewall
 
 Configure firewall rules:
-```bash  
+```bash
 # Allow HTTP/HTTPS
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
@@ -388,7 +388,7 @@ scrape_configs:
     static_configs:
       - targets: ['postgres-exporter:9187']
 
-  - job_name: 'redis'  
+  - job_name: 'redis'
     static_configs:
       - targets: ['redis-exporter:9121']
 
@@ -416,7 +416,7 @@ Import these dashboards in Grafana UI.
     Parser json
     Tag pllm.*
 
-[OUTPUT] 
+[OUTPUT]
     Name elasticsearch
     Match pllm.*
     Host elasticsearch
@@ -433,10 +433,10 @@ Deploy PLLM in multiple regions with shared Redis cluster:
 ```yaml
 # Region 1: US-East
 - PLLM instances: 3
-- PostgreSQL: Primary 
+- PostgreSQL: Primary
 - Redis: Master
 
-# Region 2: EU-West  
+# Region 2: EU-West
 - PLLM instances: 3
 - PostgreSQL: Read replica
 - Redis: Replica
@@ -454,8 +454,8 @@ postgresql.conf:
   wal_level = replica
   max_wal_senders = 3
   wal_keep_segments = 64
-  
-# Replica server  
+
+# Replica server
 recovery.conf:
   standby_mode = 'on'
   primary_conninfo = 'host=primary-db port=5432 user=replicator'
@@ -510,7 +510,7 @@ sudo journalctl -u pllm -f
 # Test database connection
 pg_isready -h localhost -p 5432 -U pllm
 
-# Test Redis connection  
+# Test Redis connection
 redis-cli -h localhost -p 6379 ping
 ```
 
@@ -525,7 +525,7 @@ iotop -ao
 ```
 
 **Authentication problems:**
-```bash  
+```bash
 # Verify Dex connectivity
 curl http://localhost:5556/dex/.well-known/openid_configuration
 

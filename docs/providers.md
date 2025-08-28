@@ -48,13 +48,13 @@ model_list:
     params:
       model: gpt-4
       api_key: ${OPENAI_API_KEY}
-    
+
   # GPT-3.5-Turbo
   - model_name: my-gpt-35-turbo
     params:
       model: gpt-3.5-turbo
       api_key: ${OPENAI_API_KEY}
-    
+
   # Azure OpenAI deployment
   - model_name: azure-gpt-4
     params:
@@ -99,12 +99,12 @@ Configure routing strategy and fallbacks:
 router:
   routing_strategy: "latency-based"  # or "priority", "round-robin"
   circuit_breaker_enabled: true
-  
+
   # Model fallbacks
   fallbacks:
     my-gpt-4: ["my-gpt-35-turbo"]
     my-gpt-35-turbo: ["my-gpt-35-turbo-16k"]
-  
+
   # Context window fallbacks (when request is too large)
   context_window_fallbacks:
     my-gpt-35-turbo: ["my-gpt-35-turbo-16k"]
@@ -135,7 +135,7 @@ OPENAI_API_KEY=sk-your-key
 OPENAI_API_KEY_1=sk-backup-key-1
 OPENAI_API_KEY_2=sk-backup-key-2
 
-# OpenRouter  
+# OpenRouter
 OPENROUTER_API_KEY=sk-or-your-key
 OPENROUTER_HTTP_REFERER=http://localhost:8080
 OPENROUTER_X_TITLE=PLLM Gateway
@@ -143,7 +143,7 @@ OPENROUTER_X_TITLE=PLLM Gateway
 # Other providers
 ANTHROPIC_API_KEY_1=sk-ant-your-key
 AZURE_API_KEY_EAST=your-azure-key
-GROQ_API_KEY_1=your-groq-key
+GROK_API_KEY_1=your-grok-key
 MISTRAL_API_KEY_1=your-mistral-key
 ```
 
@@ -152,7 +152,7 @@ MISTRAL_API_KEY_1=your-mistral-key
 The gateway automatically monitors provider health through:
 
 - Response time tracking
-- Error rate monitoring  
+- Error rate monitoring
 - Circuit breaker pattern
 - Automatic failover
 

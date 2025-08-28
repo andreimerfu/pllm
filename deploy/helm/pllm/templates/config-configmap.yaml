@@ -6,4 +6,4 @@ metadata:
     {{- include "pllm.labels" . | nindent 4 }}
 data:
   config.yaml: |
-{{- (.Files.Get "files/config.yaml") | tpl . | nindent 4 }}
+{{- tpl (.Files.Get "files/config.yaml") . | nindent 4 }}
