@@ -184,17 +184,9 @@ jobs:
     needs: [validate-release, build-and-push-docker, release-helm]
     runs-on: ubuntu-latest
     steps:
-      - name: Notify Slack
-        if: ${{ secrets.SLACK_WEBHOOK_URL }}
-        uses: 8398a7/action-slack@v3
-        with:
-          status: success
-          fields: repo,message,commit,author,action,eventName,ref,workflow
-          text: |
-            🎉 New PLLM release ${{ needs.validate-release.outputs.tag_name }} is available!
-
-            📦 Docker Image: `amerfu/pllm:${{ needs.validate-release.outputs.tag_name }}`
-            📊 Helm Chart: `helm install pllm oci://registry-1.docker.io/amerfu/pllm --version ${{ needs.validate-release.outputs.tag_name }}`
-            📋 Release Notes: https://github.com/andreimerfu/pllm/releases/tag/${{ needs.validate-release.outputs.tag_name }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Release Summary
+        run: |
+          echo "🎉 New PLLM release ${{ needs.validate-release.outputs.tag_name }} is available!"
+          echo "📦 Docker Image: amerfu/pllm:${{ needs.validate-release.outputs.tag_name }}"
+          echo "📊 Helm Chart: helm install pllm oci://registry-1.docker.io/amerfu/pllm --version ${{ needs.validate-release.outputs.tag_name }}"
+          echo "📋 Release Notes: https://github.com/amerfu/pllm/releases/tag/${{ needs.validate-release.outputs.tag_name }}"
