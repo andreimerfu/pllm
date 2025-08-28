@@ -337,7 +337,9 @@ redis-shell: ## Open Redis shell
 .PHONY: test
 test:
 	mkdir -p internal/ui/dist
+	mkdir -p internal/docs/dist
 	touch internal/ui/dist/index.html
+	touch internal/docs/dist/index.html
 	go test -v ./...
 
 .PHONY: test-coverage
