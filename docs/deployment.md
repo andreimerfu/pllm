@@ -10,7 +10,7 @@ The complete stack includes PLLM, PostgreSQL, Redis, Dex, Grafana, Prometheus, a
 
 ```bash
 # Clone repository
-git clone https://github.com/amerfu/pllm.git
+git clone https://github.com/andreimerfu/pllm.git
 cd pllm
 
 # Set environment variables
@@ -146,7 +146,7 @@ spec:
 
 ```bash
 # Clone and build
-git clone https://github.com/amerfu/pllm.git
+git clone https://github.com/andreimerfu/pllm.git
 cd pllm
 
 # Install dependencies

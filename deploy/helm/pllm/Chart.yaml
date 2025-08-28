@@ -4,9 +4,9 @@ description: A Helm chart for PLLM (Proxy for LLM) - Multi-provider LLM proxy wi
 type: application
 version: 0.1.0
 appVersion: "latest"
-home: https://github.com/amerfu/pllm
+home: https://github.com/andreimerfu/pllm
 sources:
-  - https://github.com/amerfu/pllm
+  - https://github.com/andreimerfu/pllm
 keywords:
   - llm
   - proxy
@@ -15,7 +15,7 @@ keywords:
   - anthropic
 maintainers:
   - name: PLLM Team
-    url: https://github.com/amerfu/pllm
+    url: https://github.com/andreimerfu/pllm
 
 dependencies:
   - name: postgresql
@@ -24,7 +24,7 @@ dependencies:
     condition: postgresql.enabled
   - name: redis
     version: "20.2.0"
-    repository: https://charts.bitnami.com/bitnami  
+    repository: https://charts.bitnami.com/bitnami
     condition: redis.enabled
   - name: dex
     version: "0.18.0"

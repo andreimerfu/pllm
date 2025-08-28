@@ -22,7 +22,7 @@ A Helm chart for deploying PLLM (Proxy for LLM) on Kubernetes with all dependenc
 
 ```bash
 # Clone the repository
-git clone https://github.com/amerfu/pllm.git
+git clone https://github.com/andreimerfu/pllm.git
 cd pllm/deploy/helm
 
 # Update dependencies

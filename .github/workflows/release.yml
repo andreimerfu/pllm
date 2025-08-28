@@ -1,3 +1,5 @@
+# Automatic Release (triggered by tags)
+# This workflow is triggered when tags are pushed (usually by manual-release.yml)
 name: Release
 
 on:
@@ -7,23 +9,22 @@ on:
       - "v*.*.*-*"
 
 jobs:
-  create-release:
+  validate-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
+      tag_name: ${{ steps.get_tag.outputs.tag_name }}
     steps:
-      - uses: google-github-actions/release-please-action@v4
-        id: release
-        with:
-          release-type: go
-          package-name: pllm
+      - name: Get tag name
+        id: get_tag
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "Processing release for tag: $TAG_NAME"
 
   build-and-push-docker:
-    needs: create-release
-    if: ${{ needs.create-release.outputs.release_created }}
+    needs: validate-release
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -100,8 +101,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   release-helm:
-    needs: [create-release, build-and-push-docker]
-    if: ${{ needs.create-release.outputs.release_created }}
+    needs: [validate-release, build-and-push-docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -132,7 +132,7 @@ jobs:
       - name: Update chart version
         run: |
           cd deploy/helm/pllm
-          VERSION=${{ needs.create-release.outputs.tag_name }}
+          VERSION=${{ needs.validate-release.outputs.tag_name }}
           VERSION=${VERSION#v}
           sed -i "s/^version:.*/version: ${VERSION}/" Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" Chart.yaml
@@ -152,7 +152,7 @@ jobs:
       - name: Push chart to Docker Hub (OCI)
         run: |
           cd deploy/helm
-          VERSION=${{ needs.create-release.outputs.tag_name }}
+          VERSION=${{ needs.validate-release.outputs.tag_name }}
           VERSION=${VERSION#v}
           helm push pllm-${VERSION}.tgz oci://registry-1.docker.io/amerfu
 
@@ -181,8 +181,7 @@ jobs:
           cr index -o amerfu -r pllm -c https://amerfu.github.io/pllm --push
 
   notify:
-    needs: [create-release, build-and-push-docker, release-helm]
-    if: ${{ needs.create-release.outputs.release_created }}
+    needs: [validate-release, build-and-push-docker, release-helm]
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack
@@ -192,10 +191,10 @@ jobs:
           status: success
           fields: repo,message,commit,author,action,eventName,ref,workflow
           text: |
-            🎉 New PLLM release ${{ needs.create-release.outputs.tag_name }} is available!
+            🎉 New PLLM release ${{ needs.validate-release.outputs.tag_name }} is available!
 
-            📦 Docker Image: `amerfu/pllm:${{ needs.create-release.outputs.tag_name }}`
-            📊 Helm Chart: `helm install pllm oci://registry-1.docker.io/amerfu/pllm --version ${{ needs.create-release.outputs.tag_name }}`
-            📋 Release Notes: https://github.com/andreimerfu/pllm/releases/tag/${{ needs.create-release.outputs.tag_name }}
+            📦 Docker Image: `amerfu/pllm:${{ needs.validate-release.outputs.tag_name }}`
+            📊 Helm Chart: `helm install pllm oci://registry-1.docker.io/amerfu/pllm --version ${{ needs.validate-release.outputs.tag_name }}`
+            📋 Release Notes: https://github.com/andreimerfu/pllm/releases/tag/${{ needs.validate-release.outputs.tag_name }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
