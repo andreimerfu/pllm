@@ -36,7 +36,7 @@ helm install pllm ./pllm
 
 ```bash
 # Add the repository
-helm repo add pllm https://amerfu.github.io/pllm
+helm repo add pllm https://andreimerfu.github.io/pllm
 helm repo update
 
 # Install the chart

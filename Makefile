@@ -344,8 +344,11 @@ test:
 
 .PHONY: test-coverage
 test-coverage: ## Run tests with coverage
-	go test -v -cover -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out -o coverage.html
+	mkdir -p internal/ui/dist
+	mkdir -p internal/docs/dist
+	touch internal/ui/dist/index.html
+	touch internal/docs/dist/index.html
+	go test -v -cover -coverprofile=coverage.txt ./...
 
 .PHONY: test-integration
 test-integration: ## Run integration tests

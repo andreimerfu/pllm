@@ -178,7 +178,7 @@ jobs:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         run: |
-          cr index -o amerfu -r pllm -c https://amerfu.github.io/pllm --push
+          cr index -o andreimerfu -r pllm -c https://andreimerfu.github.io/pllm --push
 
   notify:
     needs: [validate-release, build-and-push-docker, release-helm]

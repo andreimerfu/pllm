@@ -175,7 +175,7 @@ jobs:
           swag init -g cmd/server/main.go -o internal/handlers/swagger
 
       - name: Run tests
-        run: make test
+        run: make test-coverage
 
       - name: Create Git tag
         run: |
@@ -330,7 +330,7 @@ jobs:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         run: |
-          cr index -o amerfu -r pllm -c https://amerfu.github.io/pllm --push
+          cr index -o andreimerfu -r pllm -c https://andreimerfu.github.io/pllm --push
 
   notify-success:
     needs: [calculate-version, build-and-release, release-helm]

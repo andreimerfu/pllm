@@ -173,7 +173,7 @@ The Helm chart provides a production-ready deployment with high availability, au
 
 ```bash
 # Install from published chart
-helm repo add pllm https://amerfu.github.io/pllm
+helm repo add pllm https://andreimerfu.github.io/pllm
 helm repo update
 helm install pllm pllm/pllm
 
@@ -188,7 +188,7 @@ helm install pllm ./pllm
 - **High Availability**: Multi-replica deployments with pod disruption budgets
 - **Auto-scaling**: HPA based on CPU/memory usage
 - **Security**: Pod security contexts, non-root containers
-- **Dependencies**: PostgreSQL, Redis, Dex as managed subcharts  
+- **Dependencies**: PostgreSQL, Redis, Dex as managed subcharts
 - **Monitoring**: ServiceMonitor for Prometheus integration
 - **Storage**: Persistent volumes for data and logs
 
