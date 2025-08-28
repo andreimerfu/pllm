@@ -91,9 +91,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: andreimerfu/pllm
-        uses: codecov/codecov-action@v4
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   test-frontend:
     runs-on: ubuntu-latest
