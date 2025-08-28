@@ -1,0 +1,148 @@
+# Dynamic PLLM Configuration generated from Helm values
+
+# Server Configuration
+server:
+  port: {{ .Values.service.port }}
+  admin_port: {{ .Values.service.adminPort }}
+  metrics_port: {{ .Values.service.metricsPort }}
+  read_timeout: 60s
+  write_timeout: 60s
+  idle_timeout: 120s
+  graceful_shutdown: 30s
+
+# Database Configuration
+database:
+  url: ${DATABASE_URL}
+  max_open_conns: {{ .Values.pllm.config.database.maxOpenConns }}
+  max_idle_conns: {{ .Values.pllm.config.database.maxIdleConns }}
+  conn_max_lifetime: 300s
+  auto_migrate: true
+
+# Redis Configuration
+redis:
+  url: ${REDIS_URL}
+  pool_size: 10
+  min_idle_conns: 5
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+
+# Cache Configuration
+cache:
+  enabled: true
+  ttl: 300s
+  max_size: 1000
+  strategy: lru
+
+# Rate Limiting Configuration
+rate_limit:
+  enabled: {{ .Values.pllm.config.rateLimit.enabled }}
+  global_rpm: {{ .Values.pllm.config.rateLimit.rpm }}
+  chat_completions_rpm: {{ .Values.pllm.config.rateLimit.rpm }}
+  completions_rpm: {{ .Values.pllm.config.rateLimit.rpm }}
+  embeddings_rpm: {{ .Values.pllm.config.rateLimit.rph }}
+  burst: 50
+  cleanup_interval: 5m
+
+# JWT Configuration
+jwt:
+  secret_key: ${JWT_SECRET_KEY}
+  expiry: 24h
+  refresh_expiry: 168h
+
+# Admin Configuration
+admin:
+  username: admin
+  password: changeme123!
+  email: admin@pllm.io
+
+# Authentication Configuration
+auth:
+  master_key: ${PLLM_MASTER_KEY}
+  require_auth: true
+  api_key_header: "Authorization"
+  dex:
+    enabled: {{ .Values.dex.enabled }}
+    issuer: ${DEX_ISSUER}
+    public_issuer: ${DEX_PUBLIC_ISSUER}
+    client_id: ${DEX_CLIENT_ID}
+    client_secret: ${DEX_CLIENT_SECRET}
+    redirect_url: "http://localhost:8080/auth/callback"
+    scopes: ["openid", "profile", "email", "groups"]
+
+# Logging Configuration
+logging:
+  level: {{ .Values.pllm.config.logging.level }}
+  format: {{ .Values.pllm.config.logging.format }}
+  output: stdout
+
+# Monitoring Configuration
+monitoring:
+  metrics:
+    enabled: true
+    path: "/metrics"
+  health:
+    enabled: true
+    path: "/health"
+  tracing:
+    enabled: false
+
+# Router Configuration
+router:
+  routing_strategy: "latency-based"
+  fallback_enabled: true
+  circuit_breaker_enabled: true
+  retry_attempts: 2
+  timeout: 30s
+  health_check_interval: 30s
+
+# Model Configuration
+{{- if .Values.pllm.config.model_list }}
+model_list:
+  {{- range .Values.pllm.config.model_list }}
+  - model_name: {{ .model_name }}
+    params:
+      model: {{ .params.model }}
+      {{- if .params.api_base }}
+      api_base: {{ .params.api_base }}
+      {{- end }}
+      {{- if .params.api_version }}
+      api_version: {{ .params.api_version }}
+      {{- end }}
+      {{- if .params.api_key }}
+      api_key: {{ .params.api_key }}
+      {{- end }}
+      {{- if .params.temperature }}
+      temperature: {{ .params.temperature }}
+      {{- end }}
+      {{- if .params.max_tokens }}
+      max_tokens: {{ .params.max_tokens }}
+      {{- end }}
+    {{- if .rpm }}
+    rpm: {{ .rpm }}
+    {{- end }}
+    {{- if .tpm }}
+    tpm: {{ .tpm }}
+    {{- end }}
+  {{- end }}
+{{- else }}
+# Fallback models if no model_list is provided
+model_list:
+  - model_name: default-gpt-3.5-turbo
+    params:
+      model: gpt-3.5-turbo
+      api_key: ${OPENAI_API_KEY}
+    rpm: 500
+    tpm: 90000
+{{- end }}
+
+# Model Aliases
+{{- if .Values.pllm.config.model_aliases }}
+model_aliases:
+  {{- range $alias, $models := .Values.pllm.config.model_aliases }}
+  {{ $alias }}:
+    {{- range $models }}
+    - {{ . }}
+    {{- end }}
+  {{- end }}
+{{- end }}

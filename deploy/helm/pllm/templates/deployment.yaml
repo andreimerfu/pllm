@@ -98,37 +98,17 @@ spec:
                 secretKeyRef:
                   name: {{ include "pllm.fullname" . }}
                   key: dex-client-secret
-            # Provider API keys
-            - name: OPENAI_API_KEY
+            # Generic API keys and secrets - dynamically generated from pllm.secrets
+            {{- range $key, $value := .Values.pllm.secrets }}
+            {{- if and $value (ne $key "databaseUrl") (ne $key "redisUrl") (ne $key "jwtSecret") (ne $key "masterKey") (ne $key "dexClientSecret") }}
+            - name: {{ $key | snakecase | upper }}
               valueFrom:
                 secretKeyRef:
                   name: {{ include "pllm.fullname" . }}
-                  key: openai-api-key
+                  key: {{ $key | kebabcase }}
                   optional: true
-            - name: ANTHROPIC_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "pllm.fullname" . }}
-                  key: anthropic-api-key
-                  optional: true
-            - name: AZURE_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "pllm.fullname" . }}
-                  key: azure-api-key
-                  optional: true
-            - name: BEDROCK_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "pllm.fullname" . }}
-                  key: bedrock-access-key-id
-                  optional: true
-            - name: BEDROCK_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "pllm.fullname" . }}
-                  key: bedrock-secret-access-key
-                  optional: true
+            {{- end }}
+            {{- end }}
             - name: BEDROCK_REGION
               valueFrom:
                 configMapKeyRef:
@@ -165,12 +145,22 @@ spec:
             {{- with .Values.pllm.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- with .Values.volumeMounts }}
           volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+              readOnly: true
+          {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
-      {{- with .Values.volumes }}
       volumes:
+        - name: config
+          configMap:
+            name: {{ include "pllm.fullname" . }}-config
+            items:
+              - key: config.yaml
+                path: config.yaml
+      {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.nodeSelector }}
