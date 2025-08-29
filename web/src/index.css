@@ -27,24 +27,24 @@
   }
 
   .dark {
-    --background: 224 71.4% 4.1%;
-    --foreground: 210 20% 98%;
-    --card: 224 71.4% 4.1%;
-    --card-foreground: 210 20% 98%;
-    --popover: 224 71.4% 4.1%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 210 20% 98%;
-    --primary-foreground: 220.9 39.3% 11%;
-    --secondary: 215 27.9% 16.9%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 215 27.9% 16.9%;
-    --muted-foreground: 217.9 10.6% 64.9%;
-    --accent: 215 27.9% 16.9%;
-    --accent-foreground: 210 20% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --background: 215 28% 12%;
+    --foreground: 210 20% 95%;
+    --card: 215 28% 15%;
+    --card-foreground: 210 20% 95%;
+    --popover: 215 28% 15%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 220 15% 65%;
+    --primary-foreground: 215 28% 15%;
+    --secondary: 215 28% 20%;
+    --secondary-foreground: 210 20% 90%;
+    --muted: 215 28% 18%;
+    --muted-foreground: 215 15% 75%;
+    --accent: 215 28% 20%;
+    --accent-foreground: 210 20% 90%;
+    --destructive: 0 62.8% 50.6%;
     --destructive-foreground: 210 20% 98%;
-    --border: 215 27.9% 16.9%;
-    --input: 215 27.9% 16.9%;
+    --border: 215 28% 22%;
+    --input: 215 28% 18%;
     --ring: 216 12.2% 83.9%;
   }
 }
@@ -73,4 +73,46 @@
     box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.1);
   }
   
+  .dark .shadow-glow {
+    box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.2);
+  }
+  
+  /* Improved contrast for form elements */
+  .dark input:focus,
+  .dark textarea:focus,
+  .dark select:focus {
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.3);
+  }
+  
+  /* Better visibility for dropdowns in dark mode */
+  .dark [data-radix-select-content] {
+    background: hsl(var(--popover));
+    border: 1px solid hsl(var(--border));
+  }
+  
+  /* Improved table/list contrast */
+  .dark tr:hover {
+    background: hsl(var(--muted) / 0.5);
+  }
+  
+  /* Better icon visibility in dark mode */
+  .dark .lucide {
+    color: hsl(var(--foreground) / 0.9);
+  }
+  
+  .dark .lucide:hover {
+    color: hsl(var(--foreground));
+  }
+  
+  /* Improved sidebar active state */
+  .dark .sidebar-active {
+    background: hsl(var(--primary) / 0.8);
+    color: hsl(var(--primary-foreground));
+  }
+  
+  /* Better card contrast */
+  .dark .card-content {
+    background: hsl(var(--card) / 0.95);
+    border: 1px solid hsl(var(--border) / 0.8);
+  }
 }

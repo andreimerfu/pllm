@@ -91,7 +91,7 @@ const Keys: React.FC = () => {
         description: (
           <div className="mt-2">
             <p className="mb-2">Save this key - it won't be shown again!</p>
-            <code className="block p-2 bg-gray-100 rounded text-xs break-all">
+            <code className="block p-2 bg-muted dark:bg-muted/50 dark:text-foreground rounded text-xs break-all border dark:border-border">
               {data.key || data.key_value}
             </code>
             <Button
@@ -293,7 +293,7 @@ const Keys: React.FC = () => {
                 <div className="flex items-start justify-between">
                   <div className="space-y-3 flex-1">
                     <div className="flex items-center gap-2">
-                      <Key className="h-5 w-5 text-gray-500" />
+                      <Key className="h-5 w-5 text-muted-foreground" />
                       <h3 className="font-semibold">{key.name}</h3>
                       <Badge
                         variant={
@@ -308,7 +308,7 @@ const Keys: React.FC = () => {
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      <code className="text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                      <code className="text-sm bg-muted dark:bg-muted/50 dark:text-foreground px-2 py-1 rounded border dark:border-border">
                         {showKeyValue[key.id] && key.key ? key.key : `****${key.key_prefix || 'xxxx'}`}
                       </code>
                       <Button
@@ -330,16 +330,16 @@ const Keys: React.FC = () => {
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
-                        <span className="text-gray-500">Usage:</span>
+                        <span className="text-muted-foreground">Usage:</span>
                         <span className="ml-2 font-medium">{key.usage_count} requests</span>
                       </div>
                       <div>
-                        <span className="text-gray-500">Tokens:</span>
+                        <span className="text-muted-foreground">Tokens:</span>
                         <span className="ml-2 font-medium">{key.total_tokens.toLocaleString()}</span>
                       </div>
                       {key.max_budget && (
                         <div>
-                          <span className="text-gray-500">Budget:</span>
+                          <span className="text-muted-foreground">Budget:</span>
                           <span className="ml-2 font-medium">
                             ${key.current_spend.toFixed(2)} / ${key.max_budget.toFixed(2)}
                           </span>
@@ -347,7 +347,7 @@ const Keys: React.FC = () => {
                       )}
                       {key.expires_at && (
                         <div>
-                          <span className="text-gray-500">Expires:</span>
+                          <span className="text-muted-foreground">Expires:</span>
                           <span className="ml-2 font-medium">
                             {new Date(key.expires_at).toLocaleDateString()}
                           </span>
@@ -361,12 +361,12 @@ const Keys: React.FC = () => {
                           <span>Budget Usage</span>
                           <span>{getBudgetPercentage(key).toFixed(1)}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-muted dark:bg-muted/50 rounded-full h-2">
                           <div
                             className={`h-2 rounded-full ${
-                              getBudgetPercentage(key) > 80 ? 'bg-red-500' :
-                              getBudgetPercentage(key) > 50 ? 'bg-yellow-500' :
-                              'bg-green-500'
+                              getBudgetPercentage(key) > 80 ? 'bg-red-500 dark:bg-red-400' :
+                              getBudgetPercentage(key) > 50 ? 'bg-yellow-500 dark:bg-yellow-400' :
+                              'bg-green-500 dark:bg-green-400'
                             }`}
                             style={{ width: `${Math.min(getBudgetPercentage(key), 100)}%` }}
                           />
@@ -374,7 +374,7 @@ const Keys: React.FC = () => {
                       </div>
                     )}
 
-                    <div className="flex gap-4 text-xs text-gray-500">
+                    <div className="flex gap-4 text-xs text-muted-foreground">
                       <span>Created: {new Date(key.created_at).toLocaleDateString()}</span>
                       {key.last_used_at && (
                         <span>Last used: {new Date(key.last_used_at).toLocaleDateString()}</span>
@@ -414,8 +414,8 @@ const Keys: React.FC = () => {
 
       {/* Create Key Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-[500px] max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <Card className="w-[500px] max-h-[90vh] overflow-y-auto shadow-xl border dark:border-border">
             <CardHeader>
               <CardTitle>Generate New API Key</CardTitle>
               <CardDescription>Configure the key settings and permissions</CardDescription>

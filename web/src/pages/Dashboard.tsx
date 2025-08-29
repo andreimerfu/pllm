@@ -1125,8 +1125,8 @@ export default function Dashboard() {
                                 <div
                                   className={`w-2 h-2 rounded-full ${
                                     data.circuit_open
-                                      ? "bg-red-500"
-                                      : "bg-green-500"
+                                      ? "bg-red-500 dark:bg-red-400"
+                                      : "bg-green-500 dark:bg-green-400"
                                   }`}
                                 />
                                 <span
@@ -1143,14 +1143,14 @@ export default function Dashboard() {
                             <td className="p-3">
                               <div className="flex items-center space-x-3">
                                 <div className="flex-1 max-w-20">
-                                  <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+                                  <div className="w-full bg-muted dark:bg-muted/50 rounded-full h-2.5 overflow-hidden">
                                     <div
                                       className={`h-2.5 rounded-full transition-all duration-500 ${
                                         data.health_score >= 80
-                                          ? "bg-green-500"
+                                          ? "bg-green-500 dark:bg-green-400"
                                           : data.health_score >= 60
-                                            ? "bg-yellow-500"
-                                            : "bg-red-500"
+                                            ? "bg-yellow-500 dark:bg-yellow-400"
+                                            : "bg-red-500 dark:bg-red-400"
                                       }`}
                                       style={{ width: `${data.health_score}%` }}
                                     />

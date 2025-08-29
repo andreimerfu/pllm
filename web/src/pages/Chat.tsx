@@ -409,7 +409,7 @@ export default function Chat() {
       </div>
 
       {/* Settings Sidebar */}
-      <div className="w-80 border-l bg-card overflow-y-auto">
+      <div className="w-80 border-l bg-card overflow-y-auto dark:bg-card/95 dark:backdrop-blur-sm">
         <div className="p-6 space-y-6">
           <div>
             <h2 className="text-lg font-semibold mb-4">Chat Settings</h2>
@@ -549,7 +549,7 @@ export default function Chat() {
               value={settings.systemPrompt}
               onChange={(e) => setSettings(prev => ({ ...prev, systemPrompt: e.target.value }))}
               placeholder="You are a helpful assistant..."
-              className="min-h-[100px] resize-none text-sm"
+              className="min-h-[100px] resize-none text-sm dark:bg-muted/50 dark:border-border"
             />
             <p className="text-xs text-muted-foreground">
               Sets the behavior and context for the assistant.

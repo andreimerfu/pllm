@@ -79,7 +79,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           variant="outline"
           size="icon"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="glass border-border shadow-lg hover:shadow-xl transition-all duration-200"
+          className="glass border-border shadow-lg hover:shadow-xl transition-all duration-200 text-foreground"
         >
           <div className="relative">
             <Icon 
@@ -140,7 +140,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     "group flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 relative overflow-hidden",
                     isActive
                       ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground hover:shadow-md",
+                      : "text-foreground/80 hover:bg-muted hover:text-foreground hover:shadow-md",
                   )}
                 >
                   {isActive && (
@@ -150,7 +150,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     "relative flex items-center justify-center w-8 h-8 rounded-lg mr-3 transition-all duration-200",
                     isActive 
                       ? "bg-white/20 text-white" 
-                      : "bg-muted/50 group-hover:bg-muted"
+                      : "bg-muted/50 group-hover:bg-muted text-foreground/90"
                   )}>
                     <Icon icon={item.icon} width="18" height="18" />
                   </div>
@@ -222,7 +222,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 variant="ghost"
                 size="icon"
                 onClick={toggleTheme}
-                className="h-10 w-10 rounded-xl hover:bg-muted transition-all duration-200 group"
+                className="h-10 w-10 rounded-xl hover:bg-muted transition-all duration-200 group text-foreground/90 hover:text-foreground"
               >
                 <div className="relative">
                   <Icon 
@@ -238,7 +238,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   href="/docs"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 group"
+                  className="p-2 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted transition-all duration-200 group"
                   title="Documentation"
                 >
                   <Icon icon="lucide:book-open" width="18" height="18" className="transition-transform duration-200" />
@@ -247,7 +247,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   href="https://github.com/amerfu/pllm"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 group"
+                  className="p-2 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted transition-all duration-200 group"
                   title="GitHub Repository"
                 >
                   <Icon icon="lucide:github" width="18" height="18" className="transition-transform duration-200" />
