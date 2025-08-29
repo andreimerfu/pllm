@@ -308,29 +308,13 @@ jobs:
           VERSION="${{ needs.calculate-version.outputs.version_without_v }}"
           helm push pllm-${VERSION}.tgz oci://registry-1.docker.io/amerfu
 
-      - name: Install chart-releaser
-        run: |
-          wget https://github.com/helm/chart-releaser/releases/download/v1.6.0/chart-releaser_1.6.0_linux_amd64.tar.gz
-          tar -xzf chart-releaser_1.6.0_linux_amd64.tar.gz
-          sudo mv cr /usr/local/bin/cr
-
-      - name: Package charts for GitHub Pages
-        run: |
-          mkdir -p .cr-release-packages
-          cd deploy/helm
-          helm package pllm -d ../../.cr-release-packages
-
-      - name: Upload chart to GitHub Releases
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.6.0
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-        run: |
-          cr upload -o andreimerfu -r pllm --skip-existing
-
-      - name: Update chart repository index
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-        run: |
-          cr index -o andreimerfu -r pllm -c https://andreimerfu.github.io/pllm --push
+        with:
+          charts_dir: deploy/helm
+          config: cr.yaml
 
   notify-success:
     needs: [calculate-version, build-and-release, release-helm]
