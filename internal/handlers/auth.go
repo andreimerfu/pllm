@@ -59,9 +59,28 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	h.sendResponse(w, http.StatusNotImplemented, map[string]string{
-		"message": "Token refresh not yet implemented",
-	})
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "Invalid request", err)
+		return
+	}
+
+	if req.RefreshToken == "" {
+		h.sendError(w, http.StatusBadRequest, "Missing refresh token", nil)
+		return
+	}
+
+	// Use the auth service to refresh the token
+	loginResp, err := h.authService.RefreshToken(r.Context(), req.RefreshToken)
+	if err != nil {
+		h.sendError(w, http.StatusUnauthorized, "Token refresh failed", err)
+		return
+	}
+
+	h.sendResponse(w, http.StatusOK, loginResp)
 }
 
 func (h *AuthHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
@@ -278,14 +297,14 @@ func (h *AuthHandler) GetBudgetStatus(w http.ResponseWriter, r *http.Request) {
 	// Format response
 	response := map[string]interface{}{
 		"user": map[string]interface{}{
-			"id":             user.ID,
-			"email":          user.Email,
-			"max_budget":     user.MaxBudget,
-			"current_spend":  user.CurrentSpend,
+			"id":              user.ID,
+			"email":           user.Email,
+			"max_budget":      user.MaxBudget,
+			"current_spend":   user.CurrentSpend,
 			"budget_duration": user.BudgetDuration,
 			"budget_reset_at": user.BudgetResetAt,
-			"should_alert":   user.ShouldAlertBudget(),
-			"is_exceeded":    user.IsBudgetExceeded(),
+			"should_alert":    user.ShouldAlertBudget(),
+			"is_exceeded":     user.IsBudgetExceeded(),
 		},
 		"teams": make([]map[string]interface{}, 0),
 		"keys":  make([]map[string]interface{}, 0),
@@ -299,15 +318,15 @@ func (h *AuthHandler) GetBudgetStatus(w http.ResponseWriter, r *http.Request) {
 		}
 
 		response["teams"] = append(response["teams"].([]map[string]interface{}), map[string]interface{}{
-			"id":             team.ID,
-			"name":           team.Name,
-			"max_budget":     team.MaxBudget,
-			"current_spend":  team.CurrentSpend,
+			"id":              team.ID,
+			"name":            team.Name,
+			"max_budget":      team.MaxBudget,
+			"current_spend":   team.CurrentSpend,
 			"budget_duration": team.BudgetDuration,
 			"budget_reset_at": team.BudgetResetAt,
-			"usage_percent":  usagePercent,
-			"should_alert":   team.ShouldAlertBudget(),
-			"is_exceeded":    team.IsBudgetExceeded(),
+			"usage_percent":   usagePercent,
+			"should_alert":    team.ShouldAlertBudget(),
+			"is_exceeded":     team.IsBudgetExceeded(),
 		})
 	}
 
@@ -319,15 +338,15 @@ func (h *AuthHandler) GetBudgetStatus(w http.ResponseWriter, r *http.Request) {
 		}
 
 		response["keys"] = append(response["keys"].([]map[string]interface{}), map[string]interface{}{
-			"id":           key.ID,
-			"name":         key.Name,
-			"max_budget":   key.MaxBudget,
-			"current_spend": key.CurrentSpend,
+			"id":              key.ID,
+			"name":            key.Name,
+			"max_budget":      key.MaxBudget,
+			"current_spend":   key.CurrentSpend,
 			"budget_duration": key.BudgetDuration,
 			"budget_reset_at": key.BudgetResetAt,
-			"usage_percent": usagePercent,
-			"usage_count":  key.UsageCount,
-			"total_cost":   key.TotalCost,
+			"usage_percent":   usagePercent,
+			"usage_count":     key.UsageCount,
+			"total_cost":      key.TotalCost,
 		})
 	}
 
@@ -394,17 +413,17 @@ func (h *AuthHandler) GetUserTeams(w http.ResponseWriter, r *http.Request) {
 		}
 
 		teamList = append(teamList, map[string]interface{}{
-			"id":             team.ID,
-			"name":           team.Name,
-			"description":    team.Description,
-			"max_budget":     team.MaxBudget,
-			"current_spend":  team.CurrentSpend,
+			"id":              team.ID,
+			"name":            team.Name,
+			"description":     team.Description,
+			"max_budget":      team.MaxBudget,
+			"current_spend":   team.CurrentSpend,
 			"budget_duration": team.BudgetDuration,
 			"budget_reset_at": team.BudgetResetAt,
-			"usage_percent":  usagePercent,
-			"should_alert":   team.ShouldAlertBudget(),
-			"is_exceeded":    team.IsBudgetExceeded(),
-			"is_active":      team.IsActive,
+			"usage_percent":   usagePercent,
+			"should_alert":    team.ShouldAlertBudget(),
+			"is_exceeded":     team.IsBudgetExceeded(),
+			"is_active":       team.IsActive,
 		})
 	}
 

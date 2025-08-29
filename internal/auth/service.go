@@ -502,7 +502,6 @@ func (s *AuthService) generateJWT(user *models.User) (string, error) {
 	return token.SignedString(s.jwtSecret)
 }
 
-
 // GetUserByDexID retrieves a user by their Dex subject ID
 func (s *AuthService) GetUserByDexID(ctx context.Context, dexID string) (*models.User, error) {
 	var user models.User

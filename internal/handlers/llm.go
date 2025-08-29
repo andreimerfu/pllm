@@ -125,9 +125,9 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 	if h.metricsEmitter != nil && middleware.GetMetricsContext(r.Context()) != nil {
 		// Calculate cost (simple estimation - could be moved to a proper cost calculator)
 		estimatedCost := float64(response.Usage.TotalTokens) * 0.001 // $0.001 per token estimate
-		
-		middleware.EmitDetailedResponse(r.Context(), h.metricsEmitter, 
-			int64(response.Usage.TotalTokens), int64(response.Usage.PromptTokens), 
+
+		middleware.EmitDetailedResponse(r.Context(), h.metricsEmitter,
+			int64(response.Usage.TotalTokens), int64(response.Usage.PromptTokens),
 			int64(response.Usage.CompletionTokens), estimatedCost, false)
 	}
 
@@ -345,8 +345,8 @@ func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request,
 	if h.metricsEmitter != nil && middleware.GetMetricsContext(r.Context()) != nil {
 		// Calculate cost (simple estimation for streaming - could be more sophisticated)
 		estimatedCost := float64(tokenCount) * 0.001 // $0.001 per token estimate
-		
-		middleware.EmitDetailedResponse(r.Context(), h.metricsEmitter, 
+
+		middleware.EmitDetailedResponse(r.Context(), h.metricsEmitter,
 			int64(tokenCount), int64(tokenCount), // For streaming, we estimate input ≈ output for simplicity
 			int64(tokenCount), estimatedCost, false)
 	}
@@ -357,7 +357,6 @@ func (h *LLMHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request,
 		zap.Int("estimated_tokens", tokenCount),
 		zap.Int64("latency_ms", latencyMs))
 }
-
 
 func (h *LLMHandler) sendError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")

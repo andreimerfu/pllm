@@ -123,8 +123,8 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	}
 
 	// Initialize historical metrics collector to aggregate existing usage data
-	logger.Info("Checking metrics collector prerequisites", 
-		zap.Bool("db_exists", db != nil), 
+	logger.Info("Checking metrics collector prerequisites",
+		zap.Bool("db_exists", db != nil),
 		zap.Bool("model_manager_exists", modelManager != nil))
 	if db != nil && modelManager != nil {
 		historicalCollector := services.NewMetricsCollector(db, logger, modelManager)

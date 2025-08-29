@@ -32,8 +32,8 @@ const oidcConfig: UserManagerSettings = {
   metadata: {
     issuer: import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex",
     authorization_endpoint: (import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex") + "/auth",
-    token_endpoint: (import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex") + "/token",
-    userinfo_endpoint: (import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex") + "/userinfo",
+    token_endpoint: `${window.location.origin}/api/admin/auth/token`, // Use our backend token endpoint
+    userinfo_endpoint: `${window.location.origin}/api/admin/auth/userinfo`, // Use our backend userinfo endpoint
     jwks_uri: (import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex") + "/keys",
     // Note: Dex doesn't provide a logout endpoint, we handle logout client-side
   },

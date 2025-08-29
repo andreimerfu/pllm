@@ -169,7 +169,7 @@ func (up *UsageProcessor) processBatchTransactional(ctx context.Context, records
 	return up.db.Transaction(func(tx *gorm.DB) error {
 		// Convert Redis records to database models
 		usageModels := make([]*models.Usage, 0, len(records))
-		budgetUpdates := make(map[uuid.UUID]float64) // budget_id -> amount to add
+		budgetUpdates := make(map[uuid.UUID]float64)     // budget_id -> amount to add
 		userBudgetUpdates := make(map[uuid.UUID]float64) // user_id -> amount to add
 		teamBudgetUpdates := make(map[uuid.UUID]float64) // team_id -> amount to add
 
@@ -314,7 +314,7 @@ func (up *UsageProcessor) convertToUsageModel(record *redisService.UsageRecord) 
 	if usage.ActualUserID == uuid.Nil {
 		return nil, fmt.Errorf("actual_user_id is required for usage record")
 	}
-	
+
 	// If we have a key_id, it should be valid (not nil), but it's optional for JWT auth
 	// No additional validation needed for KeyID - it can be nil for JWT authentication
 

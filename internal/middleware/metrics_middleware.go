@@ -71,7 +71,7 @@ func (m *AsyncMetricsMiddleware) Middleware(next http.Handler) http.Handler {
 		next.ServeHTTP(responseWriter, r)
 
 		// Emit completion event (if metrics context was populated)
-		m.logger.Debug("Metrics middleware completion check", 
+		m.logger.Debug("Metrics middleware completion check",
 			zap.String("model_name", metricsCtx.ModelName),
 			zap.String("path", r.URL.Path))
 		if metricsCtx.ModelName != "" {

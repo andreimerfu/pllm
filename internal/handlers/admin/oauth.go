@@ -50,9 +50,11 @@ func (h *OAuthHandler) TokenExchange(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Code         string `json:"code"`
-		RedirectURI  string `json:"redirect_uri"`
+		GrantType    string `json:"grant_type"`
+		Code         string `json:"code,omitempty"`
+		RedirectURI  string `json:"redirect_uri,omitempty"`
 		CodeVerifier string `json:"code_verifier,omitempty"`
+		RefreshToken string `json:"refresh_token,omitempty"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -61,17 +63,44 @@ func (h *OAuthHandler) TokenExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Exchange the authorization code for tokens
+	// Validate grant type
+	if req.GrantType == "" {
+		req.GrantType = "authorization_code" // Default for backward compatibility
+	}
+
+	if req.GrantType != "authorization_code" && req.GrantType != "refresh_token" {
+		h.logger.Error("Unsupported grant type", zap.String("grant_type", req.GrantType))
+		http.Error(w, "Unsupported grant type", http.StatusBadRequest)
+		return
+	}
+
+	// Exchange the authorization code or refresh token for tokens
 	tokenURL := fmt.Sprintf("%s/token", strings.TrimSuffix(h.dexURL, "/"))
 
 	data := url.Values{}
-	data.Set("grant_type", "authorization_code")
-	data.Set("code", req.Code)
-	data.Set("redirect_uri", req.RedirectURI)
+	data.Set("grant_type", req.GrantType)
 	data.Set("client_id", h.clientID)
 	data.Set("client_secret", h.clientSecret)
-	if req.CodeVerifier != "" {
-		data.Set("code_verifier", req.CodeVerifier)
+
+	switch req.GrantType {
+	case "authorization_code":
+		if req.Code == "" {
+			h.logger.Error("Missing authorization code")
+			http.Error(w, "Missing authorization code", http.StatusBadRequest)
+			return
+		}
+		data.Set("code", req.Code)
+		data.Set("redirect_uri", req.RedirectURI)
+		if req.CodeVerifier != "" {
+			data.Set("code_verifier", req.CodeVerifier)
+		}
+	case "refresh_token":
+		if req.RefreshToken == "" {
+			h.logger.Error("Missing refresh token")
+			http.Error(w, "Missing refresh token", http.StatusBadRequest)
+			return
+		}
+		data.Set("refresh_token", req.RefreshToken)
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
