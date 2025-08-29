@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getModelStats, getModels, getBudgetSummary, getHistoricalModelHealth, getHistoricalModelLatencies } from "@/lib/api";
+import { getModelStats, getModels, getBudgetSummary, getHistoricalModelLatencies } from "@/lib/api";
 import api from "@/lib/api";
 import type { StatsResponse, ModelsResponse } from "@/types/api";
 import {
@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Settings } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function Dashboard() {
   const [isDark, setIsDark] = useState(false);
@@ -70,12 +71,7 @@ export default function Dashboard() {
     enabled: !isAdmin, // Only fetch for non-admin users
   });
 
-  // Historical data queries
-  const { data: historicalHealthData } = useQuery({
-    queryKey: ["historical-model-health"],
-    queryFn: () => getHistoricalModelHealth(30),
-    refetchInterval: 5 * 60 * 1000, // Refresh every 5 minutes
-  });
+  // Historical data queries - removed unused historicalHealthData
 
   const stats = statsData as StatsResponse;
 
@@ -326,11 +322,12 @@ export default function Dashboard() {
       {/* Admin Budget Summary Cards */}
       {isAdmin && budget?.summary && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="transition-theme border-l-4 border-l-purple-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Budget
-              </CardTitle>
+          <Link to="/ui/budget" className="group">
+            <Card className="transition-theme border-l-4 border-l-purple-500 hover:shadow-lg hover:shadow-purple-500/10 cursor-pointer group-hover:scale-[1.02]">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Budget
+                </CardTitle>
               <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
                 <Icon
                   icon="lucide:wallet"
@@ -346,9 +343,11 @@ export default function Dashboard() {
               </div>
               <p className="text-xs text-muted-foreground">Across all entities</p>
             </CardContent>
-          </Card>
+            </Card>
+          </Link>
 
-          <Card className="transition-theme border-l-4 border-l-orange-500">
+          <Link to="/ui/budget" className="group">
+            <Card className="transition-theme border-l-4 border-l-orange-500 hover:shadow-lg hover:shadow-orange-500/10 cursor-pointer group-hover:scale-[1.02]">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
               <div className="h-8 w-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
@@ -372,356 +371,249 @@ export default function Dashboard() {
               </p>
             </CardContent>
           </Card>
+          </Link>
 
-          <Card className="transition-theme border-l-4 border-l-emerald-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Budget Alerts
-              </CardTitle>
-              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                <Icon
-                  icon="lucide:alert-triangle"
-                  width="16"
-                  height="16"
-                  className="text-emerald-500"
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl sm:text-2xl font-bold">
-                {(budget?.summary.alerting_count || 0) + (budget?.summary.exceeded_count || 0)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {budget?.summary.exceeded_count || 0} exceeded, {budget?.summary.alerting_count || 0} warning
-              </p>
-            </CardContent>
-          </Card>
+          <Link to="/ui/budget" className="group">
+            <Card className="transition-theme border-l-4 border-l-emerald-500 hover:shadow-lg hover:shadow-emerald-500/10 cursor-pointer group-hover:scale-[1.02]">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Budget Alerts
+                </CardTitle>
+                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                  <Icon
+                    icon="lucide:alert-triangle"
+                    width="16"
+                    height="16"
+                    className="text-emerald-500"
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl sm:text-2xl font-bold">
+                  {(budget?.summary.alerting_count || 0) + (budget?.summary.exceeded_count || 0)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {budget?.summary.exceeded_count || 0} exceeded, {budget?.summary.alerting_count || 0} warning
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="transition-theme border-l-4 border-l-cyan-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Budget Entities
-              </CardTitle>
-              <div className="h-8 w-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                <Icon
-                  icon="lucide:database"
-                  width="16"
-                  height="16"
-                  className="text-cyan-500"
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl sm:text-2xl font-bold">
-                {budget?.summary.total_entities || 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Teams & API Keys
-              </p>
-            </CardContent>
-          </Card>
+          <Link to="/ui/budget" className="group">
+            <Card className="transition-theme border-l-4 border-l-cyan-500 hover:shadow-lg hover:shadow-cyan-500/10 cursor-pointer group-hover:scale-[1.02]">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Budget Entities
+                </CardTitle>
+                <div className="h-8 w-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                  <Icon
+                    icon="lucide:database"
+                    width="16"
+                    height="16"
+                    className="text-cyan-500"
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl sm:text-2xl font-bold">
+                  {budget?.summary.total_entities || 0}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Teams & API Keys
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       )}
 
       {/* System Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="transition-theme border-l-4 border-l-blue-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Requests
-            </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-              <Icon
-                icon="lucide:activity"
-                width="16"
-                height="16"
-                className="text-blue-500"
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
-              {totalRequests.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">Across all models</p>
-          </CardContent>
-        </Card>
-
-        <Card className="transition-theme border-l-4 border-l-green-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Models</CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-              <Icon
-                icon="lucide:brain"
-                width="16"
-                height="16"
-                className="text-green-500"
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
-              {activeModels} / {models.length}
-            </div>
-            <p className="text-xs text-muted-foreground">Healthy and serving</p>
-          </CardContent>
-        </Card>
-
-        <Card className="transition-theme border-l-4 border-l-yellow-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Avg Health Score
-            </CardTitle>
-            <div className="h-8 w-8 rounded-lg bg-yellow-500/10 flex items-center justify-center">
-              <Icon
-                icon="lucide:zap"
-                width="16"
-                height="16"
-                className="text-yellow-500"
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
-              {avgHealthScore.toFixed(1)}%
-            </div>
-            <p className="text-xs text-muted-foreground">System health</p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`transition-theme border-l-4 ${
-            stats?.should_shed_load ? "border-l-red-500" : "border-l-green-500"
-          }`}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Load Shedding</CardTitle>
-            <div
-              className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                stats?.should_shed_load ? "bg-red-500/10" : "bg-green-500/10"
-              }`}
-            >
-              {stats?.should_shed_load ? (
+        <Link to="/ui/dashboard" className="group">
+          <Card className="transition-theme border-l-4 border-l-blue-500 hover:shadow-lg hover:shadow-blue-500/10 cursor-pointer group-hover:scale-[1.02]">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Requests
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
                 <Icon
-                  icon="lucide:alert-circle"
+                  icon="lucide:activity"
                   width="16"
                   height="16"
-                  className="text-red-500"
+                  className="text-blue-500"
                 />
-              ) : (
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                {totalRequests.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">Across all models</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/ui/models" className="group">
+          <Card className="transition-theme border-l-4 border-l-green-500 hover:shadow-lg hover:shadow-green-500/10 cursor-pointer group-hover:scale-[1.02]">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Models</CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center">
                 <Icon
-                  icon="lucide:check-circle"
+                  icon="lucide:brain"
                   width="16"
                   height="16"
                   className="text-green-500"
                 />
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl sm:text-2xl font-bold">
-              {stats?.should_shed_load ? "Active" : "Inactive"}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              System protection status
-            </p>
-          </CardContent>
-        </Card>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                {activeModels} / {models.length}
+              </div>
+              <p className="text-xs text-muted-foreground">Healthy and serving</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/ui/models" className="group">
+          <Card className="transition-theme border-l-4 border-l-yellow-500 hover:shadow-lg hover:shadow-yellow-500/10 cursor-pointer group-hover:scale-[1.02]">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Avg Health Score
+              </CardTitle>
+              <div className="h-8 w-8 rounded-lg bg-yellow-500/10 flex items-center justify-center">
+                <Icon
+                  icon="lucide:zap"
+                  width="16"
+                  height="16"
+                  className="text-yellow-500"
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                {avgHealthScore.toFixed(1)}%
+              </div>
+              <p className="text-xs text-muted-foreground">System health</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/ui/settings" className="group">
+          <Card
+            className={`transition-theme border-l-4 cursor-pointer group-hover:scale-[1.02] ${
+              stats?.should_shed_load ? "border-l-red-500 hover:shadow-lg hover:shadow-red-500/10" : "border-l-green-500 hover:shadow-lg hover:shadow-green-500/10"
+            }`}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Load Shedding</CardTitle>
+              <div
+                className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+                  stats?.should_shed_load ? "bg-red-500/10" : "bg-green-500/10"
+                }`}
+              >
+                {stats?.should_shed_load ? (
+                  <Icon
+                    icon="lucide:alert-circle"
+                    width="16"
+                    height="16"
+                    className="text-red-500"
+                  />
+                ) : (
+                  <Icon
+                    icon="lucide:check-circle"
+                    width="16"
+                    height="16"
+                    className="text-green-500"
+                  />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-xl sm:text-2xl font-bold">
+                {stats?.should_shed_load ? "Active" : "Inactive"}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                System protection status
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* TODO: Add admin quick actions later */}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
-        {/* Model Health Heatmap */}
+        {/* Model Health Overview - Summary Cards */}
         <Card className="transition-theme">
           <CardHeader>
             <CardTitle className="text-lg lg:text-xl">
-              Model Health Heatmap
+              Model Health Overview
             </CardTitle>
-            <CardDescription>30-day health activity overview</CardDescription>
+            <CardDescription>Quick health status across all models</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[250px] sm:h-[300px]">
-              <ReactECharts
-                option={{
-                  backgroundColor: "transparent",
-                  tooltip: {
-                    position: 'top',
-                    backgroundColor: isDark
-                      ? "hsl(215, 27.9%, 16.9%)"
-                      : "hsl(0, 0%, 100%)",
-                    borderColor: isDark
-                      ? "hsl(215, 27.9%, 16.9%)"
-                      : "hsl(220, 13%, 91%)",
-                    textStyle: {
-                      color: isDark
-                        ? "hsl(210, 20%, 98%)"
-                        : "hsl(224, 71.4%, 4.1%)",
-                    },
-                    formatter: function (params: any) {
-                      const data = params.data;
-                      return `<div style="padding: 8px;">
-                        <div style="font-weight: bold; margin-bottom: 4px;">${data[3]}</div>
-                        <div style="margin-bottom: 2px;">Day ${data[1] + 1}</div>
-                        <div style="margin-bottom: 2px;">Health: ${data[2].toFixed(1)}%</div>
-                        <div style="color: ${isDark ? '#9ca3af' : '#6b7280'}; font-size: 12px;">
-                          ${data[2] >= 90 ? 'Excellent' : data[2] >= 75 ? 'Good' : data[2] >= 50 ? 'Fair' : data[2] >= 25 ? 'Poor' : 'Critical'}
+              {Object.keys(stats?.load_balancer || {}).length === 0 ? (
+                <EmptyState
+                  variant="chart"
+                  icon="lucide:brain"
+                  title="No models configured"
+                  description="Add and configure models to see their health status here."
+                  action={{
+                    label: "Configure Models",
+                    href: "/ui/models"
+                  }}
+                />
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-full overflow-y-auto">
+                  {Object.entries(stats?.load_balancer || {}).map(([name, data]: [string, any]) => {
+                    const providerInfo = getProviderInfo(name);
+                    return (
+                      <div key={name} className="bg-muted/30 rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <Icon
+                            icon={providerInfo.icon}
+                            width="20"
+                            height="20"
+                            className={providerInfo.color}
+                          />
+                          <h3 className="font-medium truncate">{name}</h3>
                         </div>
-                      </div>`;
-                    }
-                  },
-                  grid: {
-                    height: '65%',
-                    top: '8%',
-                    left: '12%',
-                    right: '5%',
-                    bottom: '25%'
-                  },
-                  xAxis: {
-                    type: 'category',
-                    data: Array.from({length: 30}, (_, i) => `Day ${i + 1}`),
-                    splitArea: {
-                      show: true
-                    },
-                    axisLine: {
-                      lineStyle: {
-                        color: isDark
-                          ? "hsl(215, 27.9%, 16.9%)"
-                          : "hsl(220, 13%, 91%)",
-                      },
-                    },
-                    axisLabel: {
-                      color: isDark
-                        ? "hsl(217.9, 10.6%, 64.9%)"
-                        : "hsl(220, 8.9%, 46.1%)",
-                      interval: 4,
-                      fontSize: 10
-                    }
-                  },
-                  yAxis: {
-                    type: 'category',
-                    data: (historicalHealthData as any)?.models ? 
-                      Object.keys((historicalHealthData as any).models).map(name => name.replace("my-", "")) :
-                      Object.keys(stats?.load_balancer || {}).map(name => name.replace("my-", "")),
-                    splitArea: {
-                      show: true
-                    },
-                    axisLine: {
-                      lineStyle: {
-                        color: isDark
-                          ? "hsl(215, 27.9%, 16.9%)"
-                          : "hsl(220, 13%, 91%)",
-                      },
-                    },
-                    axisLabel: {
-                      color: isDark
-                        ? "hsl(217.9, 10.6%, 64.9%)"
-                        : "hsl(220, 8.9%, 46.1%)",
-                      fontSize: 11
-                    }
-                  },
-                  visualMap: {
-                    min: 0,
-                    max: 100,
-                    calculable: true,
-                    orient: 'horizontal',
-                    left: 'center',
-                    bottom: '8%',
-                    inRange: {
-                      color: ['#ff4444', '#ff8800', '#ffbb33', '#99cc00', '#00aa00']
-                    },
-                    text: ['High', 'Low'],
-                    show: true, // Ensure visual map is visible
-                    textStyle: {
-                      color: isDark
-                        ? "hsl(217.9, 10.6%, 64.9%)"
-                        : "hsl(220, 8.9%, 46.1%)",
-                      fontSize: 11
-                    }
-                  },
-                  series: [{
-                    name: 'Health Score',
-                    type: 'heatmap',
-                    data: (() => {
-                      console.log('Heatmap debug:', { historicalHealthData, hasModels: !!(historicalHealthData as any)?.models });
-                      if (!(historicalHealthData as any)?.models) {
-                        // Fallback to synthetic data if historical data is not available
-                        return Object.entries(stats?.load_balancer || {}).flatMap(([, modelStats], modelIndex) =>
-                          Array.from({length: 30}, (_, dayIndex) => {
-                            const baseHealth = (modelStats as any).health_score;
-                            const variance = (Math.sin(dayIndex * 0.5) * 15) + (Math.random() * 10 - 5);
-                            const health = Math.max(10, Math.min(100, baseHealth + variance));
-                            
-                            return [
-                              dayIndex, 
-                              modelIndex, 
-                              Math.round(health * 100) / 100
-                            ];
-                          })
-                        );
-                      }
-                      
-                      // Use real historical data
-                      const heatmapData: any[] = [];
-                      const modelNames = Object.keys((historicalHealthData as any).models);
-                      
-                      modelNames.forEach((modelName, modelIndex) => {
-                        const modelData = (historicalHealthData as any).models[modelName] || [];
-                        
-                        // Create a map of date to data for efficient lookup
-                        const dataByDate: Record<string, any> = {};
-                        modelData.forEach((entry: any) => {
-                          dataByDate[entry.date] = entry;
-                        });
-                        console.log(`Model ${modelName} dataByDate:`, dataByDate);
-                        
-                        // Create array for last 30 days
-                        const today = new Date();
-                        for (let dayIndex = 0; dayIndex < 30; dayIndex++) {
-                          const targetDate = new Date(today);
-                          targetDate.setDate(today.getDate() - (29 - dayIndex)); // 29-dayIndex to go from oldest to newest
-                          const dateStr = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD format
-                          
-                          const dayData = dataByDate[dateStr];
-                          const health = dayData?.health_score || 0; // 0 for days with no data
-                          
-                          if (dayIndex < 5 || dayIndex > 25) { // Debug first 5 days and last 4 days
-                            console.log(`Day ${dayIndex}: dateStr=${dateStr}, dayData=`, dayData, 'health=', health);
-                          }
-                          
-                          heatmapData.push([
-                            dayIndex,
-                            modelIndex,
-                            Math.round(health * 100) / 100
-                          ]);
-                        }
-                      });
-                      
-                      console.log('Generated heatmap data sample:', heatmapData.slice(0, 5), 'Total entries:', heatmapData.length);
-                      console.log('Day 29 data (should have health=95):', heatmapData.filter(item => item[0] === 29));
-                      return heatmapData;
-                    })(),
-                    itemStyle: {
-                      borderRadius: 2,
-                      borderWidth: 1,
-                      borderColor: isDark ? '#374151' : '#e5e7eb'
-                    },
-                    label: {
-                      show: true, // Show values on squares temporarily for debugging
-                      fontSize: 8
-                    },
-                    emphasis: {
-                      itemStyle: {
-                        shadowBlur: 10,
-                        shadowColor: 'rgba(0, 0, 0, 0.5)'
-                      }
-                    }
-                  }]
-                }}
-                style={{ height: "100%", width: "100%" }}
-                opts={{ renderer: "canvas" }}
-              />
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Health</span>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full transition-all duration-300 ${
+                                    data.health_score >= 80 ? "bg-green-500" :
+                                    data.health_score >= 60 ? "bg-yellow-500" : "bg-red-500"
+                                  }`}
+                                  style={{ width: `${data.health_score}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-bold">{Math.round(data.health_score)}%</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Requests</span>
+                            <span className="text-sm font-mono">{data.total_requests.toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">Status</span>
+                            <div className="flex items-center space-x-1">
+                              <div className={`w-2 h-2 rounded-full ${data.circuit_open ? "bg-red-500" : "bg-green-500"}`} />
+                              <span className="text-xs">{data.circuit_open ? "Unhealthy" : "Healthy"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -736,7 +628,19 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="h-[250px] sm:h-[300px]">
-              <ReactECharts
+              {pieData.every(item => item.value === 0) ? (
+                <EmptyState
+                  variant="chart"
+                  icon="lucide:pie-chart"
+                  title="No requests yet"
+                  description="Start sending requests to see the distribution across your models. View our API documentation to get started."
+                  action={{
+                    label: "View API Documentation",
+                    href: "/docs"
+                  }}
+                />
+              ) : (
+                <ReactECharts
                 option={{
                   backgroundColor: "transparent",
                   tooltip: {
@@ -762,8 +666,11 @@ export default function Dashboard() {
                       color: isDark
                         ? "hsl(210, 20%, 98%)"
                         : "hsl(224, 71.4%, 4.1%)",
-                      fontSize: 11,
+                      fontSize: 13, // Increased from 11 for better readability
+                      fontWeight: "500",
                     },
+                    itemWidth: 18, // Increased legend icon size
+                    itemHeight: 14,
                   },
                   series: [
                     {
@@ -784,7 +691,8 @@ export default function Dashboard() {
                         color: isDark
                           ? "hsl(210, 20%, 98%)"
                           : "hsl(224, 71.4%, 4.1%)",
-                        fontSize: 11,
+                        fontSize: 13, // Increased from 11 for better readability
+                        fontWeight: "bold",
                       },
                       labelLine: {
                         show: true,
@@ -802,7 +710,7 @@ export default function Dashboard() {
                         },
                         label: {
                           show: true,
-                          fontSize: 14,
+                          fontSize: 16, // Increased from 14 for better accessibility
                           fontWeight: "bold",
                         },
                       },
@@ -819,6 +727,7 @@ export default function Dashboard() {
                 style={{ height: "100%", width: "100%" }}
                 opts={{ renderer: "svg" }}
               />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -834,7 +743,19 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="h-[250px] sm:h-[300px]">
-            <ReactECharts
+            {!historicalLatencyData || Object.keys(historicalLatencyData || {}).length === 0 ? (
+              <EmptyState
+                variant="chart"
+                icon="lucide:activity"
+                title="No latency data available"
+                description="Real-time latency monitoring will appear here once your models start processing requests."
+                action={{
+                  label: "Test API Endpoint",
+                  href: "/ui/chat"
+                }}
+              />
+            ) : (
+              <ReactECharts
               option={{
                 backgroundColor: "transparent",
                 tooltip: {
@@ -865,8 +786,12 @@ export default function Dashboard() {
                     color: isDark
                       ? "hsl(210, 20%, 98%)"
                       : "hsl(224, 71.4%, 4.1%)",
+                    fontSize: 13, // Increased font size for better readability
+                    fontWeight: "500",
                   },
                   padding: [10, 0],
+                  itemWidth: 18, // Increased legend icon size
+                  itemHeight: 14,
                 },
                 grid: {
                   left: "3%",
@@ -907,6 +832,8 @@ export default function Dashboard() {
                     color: isDark
                       ? "hsl(217.9, 10.6%, 64.9%)"
                       : "hsl(220, 8.9%, 46.1%)",
+                    fontSize: 12, // Increased font size for better readability
+                    fontWeight: "500",
                   },
                   splitLine: {
                     lineStyle: {
@@ -924,6 +851,8 @@ export default function Dashboard() {
                     color: isDark
                       ? "hsl(217.9, 10.6%, 64.9%)"
                       : "hsl(220, 8.9%, 46.1%)",
+                    fontSize: 13, // Increased font size for Y-axis label
+                    fontWeight: "600",
                   },
                   axisLine: {
                     lineStyle: {
@@ -936,6 +865,8 @@ export default function Dashboard() {
                     color: isDark
                       ? "hsl(217.9, 10.6%, 64.9%)"
                       : "hsl(220, 8.9%, 46.1%)",
+                    fontSize: 12, // Increased font size for better readability
+                    fontWeight: "500",
                   },
                   splitLine: {
                     lineStyle: {
@@ -1028,13 +959,14 @@ export default function Dashboard() {
               style={{ height: "100%", width: "100%" }}
               opts={{ renderer: "svg" }}
             />
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* TODO: Add admin recent activity later */}
 
-      {/* Model Status Table */}
+      {/* Model Status Table - Full Width */}
       <Card className="transition-theme">
         <CardHeader>
           <CardTitle className="text-lg lg:text-xl">Model Status</CardTitle>

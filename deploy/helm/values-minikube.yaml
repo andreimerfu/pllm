@@ -11,20 +11,17 @@ ingress:
 # Dex configuration for Minikube
 dex:
   enabled: true
+  # Disable separate Dex ingress - use main ingress with /dex path
   ingress:
-    enabled: true
-    className: "nginx"
-    hosts:
-      - host: dex.local
-        paths:
-          - path: /
-            pathType: Prefix
+    enabled: false
   config:
     issuer: "http://pllm-dex:5556/dex"
     staticClients:
       - id: pllm
         redirectURIs:
           - 'http://pllm.local/auth/callback'
+          - 'http://pllm.local/ui/callback'
+          - 'http://pllm.local/ui/silent-renew'
         name: 'PLLM'
         secret: pllm-client-secret
 
@@ -39,6 +36,6 @@ pllm:
       dex:
         # Backend uses internal service URL for OIDC validation
         issuer: "http://pllm-dex:5556/dex"
-        # Frontend uses external domain for OAuth flows
-        publicIssuer: "http://dex.local/dex"
+        # Frontend uses external domain with /dex path for OAuth flows
+        publicIssuer: "http://pllm.local/dex"
         redirectUrl: "http://pllm.local/auth/callback"

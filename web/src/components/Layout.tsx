@@ -103,7 +103,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <div className={cn(
         "fixed inset-y-0 left-0 z-50 w-64 bg-card/95 backdrop-blur-xl border-r border-border/50 shadow-2xl",
-        "transform transition-all duration-300 ease-out",
+        "transform transition-all duration-300 ease-out overflow-y-auto",
         "lg:translate-x-0 lg:shadow-none lg:bg-card lg:backdrop-blur-none",
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
@@ -270,7 +270,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <div className="lg:pl-64 transition-all duration-300">
-        <main className="p-4 pt-16 lg:p-8 lg:pt-8 min-h-screen">
+        <main className="p-4 pt-20 lg:p-8 lg:pt-8 min-h-screen">
           <div className="mx-auto max-w-7xl">
             {children}
           </div>

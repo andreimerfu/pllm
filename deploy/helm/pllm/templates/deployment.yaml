@@ -98,6 +98,17 @@ spec:
                 secretKeyRef:
                   name: {{ include "pllm.fullname" . }}
                   key: dex-client-secret
+            # Frontend environment variables (Vite)
+            - name: VITE_DEX_PUBLIC_AUTHORITY
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: dex-public-issuer
+            - name: VITE_DEX_CLIENT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "pllm.fullname" . }}
+                  key: dex-client-id
             # Generic API keys and secrets - dynamically generated from pllm.secrets
             {{- range $key, $value := .Values.pllm.secrets }}
             {{- if and $value (ne $key "databaseUrl") (ne $key "redisUrl") (ne $key "jwtSecret") (ne $key "masterKey") (ne $key "dexClientSecret") }}

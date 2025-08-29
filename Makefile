@@ -146,22 +146,22 @@ helm-install-minikube: helm-deps ## Install PLLM with Minikube ingress configura
 	@echo "🔑 Master key for admin access:"
 	@echo "   sk-master-demo-minikube"
 	@echo ""
-	@echo "📝 Note: Make sure pllm.local and dex.local are in your /etc/hosts:"
-	@echo "   $$(minikube ip) pllm.local dex.local"
+	@echo "📝 Note: Make sure pllm.local is in your /etc/hosts:"
+	@echo "   $$(minikube ip) pllm.local"
 
 	@MINIKUBE_IP=$$(minikube ip); \
 	if ! grep -q "pllm.local" /etc/hosts; then \
-		echo "🔧 Adding pllm.local and dex.local to /etc/hosts (requires sudo)..."; \
-		echo "$$MINIKUBE_IP pllm.local dex.local" | sudo tee -a /etc/hosts; \
+		echo "🔧 Adding pllm.local to /etc/hosts (requires sudo)..."; \
+		echo "$$MINIKUBE_IP pllm.local" | sudo tee -a /etc/hosts; \
 	else \
-		echo "🔧 Updating pllm.local and dex.local in /etc/hosts (requires sudo)..."; \
-		sudo sed -i.bak "s/.* pllm.local.*/$$MINIKUBE_IP pllm.local dex.local/" /etc/hosts; \
+		echo "🔧 Updating pllm.local in /etc/hosts (requires sudo)..."; \
+		sudo sed -i.bak "s/.* pllm.local.*/$$MINIKUBE_IP pllm.local/" /etc/hosts; \
 	fi
 
 	@echo ""
 	@echo "✅ Ingress setup complete!"
 	@echo "🌐 Access PLLM at: http://pllm.local"
-	@echo "🔐 Access Dex at: http://dex.local/dex"
+	@echo "🔐 Access Dex at: http://pllm.local/dex"
 	@echo "🔑 Get master key: kubectl get secret -n pllm pllm -o jsonpath='{.data.master-key}' | base64 -d"
 
 .PHONY: helm-install-prod
@@ -281,17 +281,17 @@ minikube-ingress-setup: helm-deps ## Setup ingress for PLLM on Minikube
 	# Add to hosts file
 	@MINIKUBE_IP=$$(minikube ip); \
 	if ! grep -q "pllm.local" /etc/hosts; then \
-		echo "🔧 Adding pllm.local and dex.local to /etc/hosts (requires sudo)..."; \
-		echo "$$MINIKUBE_IP pllm.local dex.local" | sudo tee -a /etc/hosts; \
+		echo "🔧 Adding pllm.local to /etc/hosts (requires sudo)..."; \
+		echo "$$MINIKUBE_IP pllm.local" | sudo tee -a /etc/hosts; \
 	else \
-		echo "🔧 Updating pllm.local and dex.local in /etc/hosts (requires sudo)..."; \
-		sudo sed -i.bak "s/.* pllm.local.*/$$MINIKUBE_IP pllm.local dex.local/" /etc/hosts; \
+		echo "🔧 Updating pllm.local in /etc/hosts (requires sudo)..."; \
+		sudo sed -i.bak "s/.* pllm.local.*/$$MINIKUBE_IP pllm.local/" /etc/hosts; \
 	fi
 
 	@echo ""
 	@echo "✅ Ingress setup complete!"
 	@echo "🌐 Access PLLM at: http://pllm.local"
-	@echo "🔐 Access Dex at: http://dex.local/dex"
+	@echo "🔐 Access Dex at: http://pllm.local/dex"
 	@echo "🔑 Get master key: kubectl get secret -n pllm pllm -o jsonpath='{.data.master-key}' | base64 -d"
 
 .PHONY: minikube-ingress-cleanup
@@ -300,8 +300,8 @@ minikube-ingress-cleanup: ## Remove ingress setup for PLLM on Minikube
 
 	# Remove from hosts file
 	@if grep -q "pllm.local" /etc/hosts; then \
-		echo "🔧 Removing pllm.local and dex.local from /etc/hosts (requires sudo)..."; \
-		sudo sed -i.bak '/pllm.local\|dex.local/d' /etc/hosts; \
+		echo "🔧 Removing pllm.local from /etc/hosts (requires sudo)..."; \
+		sudo sed -i.bak '/pllm.local/d' /etc/hosts; \
 	fi
 
 	# Disable ingress in PLLM

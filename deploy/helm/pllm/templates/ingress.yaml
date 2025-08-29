@@ -39,7 +39,25 @@ spec:
     - host: {{ .host | quote }}
       http:
         paths:
+          {{- if $.Values.dex.enabled }}
+          # Dex authentication paths
+          - path: /dex
+            {{- if semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion }}
+            pathType: Prefix
+            {{- end }}
+            backend:
+              {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ include "pllm.fullname" $ }}-dex
+                port:
+                  number: {{ $.Values.dex.service.port }}
+              {{- else }}
+              serviceName: {{ include "pllm.fullname" $ }}-dex
+              servicePort: {{ $.Values.dex.service.port }}
+              {{- end }}
+          {{- end }}
           {{- range .paths }}
+          # PLLM application paths  
           - path: {{ .path }}
             {{- if and .pathType (semverCompare ">=1.18-0" $.Capabilities.KubeVersion.GitVersion) }}
             pathType: {{ .pathType }}
