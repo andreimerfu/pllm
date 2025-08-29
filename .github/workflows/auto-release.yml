@@ -3,9 +3,6 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
 
 permissions:
   contents: write
@@ -14,8 +11,61 @@ permissions:
   id-token: write
 
 jobs:
-  # Always build and push latest image
+  # Check what files changed
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      docker-build: ${{ steps.changes.outputs.docker-build }}
+      helm-charts: ${{ steps.changes.outputs.helm-charts }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: changes
+        run: |
+          # Get the commit before the current one for comparison
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            # First commit in repo
+            CHANGED_FILES=$(git diff --name-only HEAD~1 2>/dev/null || git ls-files)
+          else
+            CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }})
+          fi
+          
+          echo "Files changed in this push:"
+          echo "$CHANGED_FILES"
+          
+          # Check for Docker build triggers (code changes)
+          DOCKER_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^(cmd/|internal/|web/|Dockerfile|go\.mod|go\.sum)' | wc -l)
+          
+          # Check for Helm changes
+          HELM_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^deploy/helm/' | wc -l)
+          
+          echo "Docker-relevant changes: $DOCKER_CHANGES"
+          echo "Helm changes: $HELM_CHANGES"
+          
+          if [ "$DOCKER_CHANGES" -gt 0 ]; then
+            echo "docker-build=true" >> $GITHUB_OUTPUT
+            echo "🐳 Docker build needed - code changes detected"
+          else
+            echo "docker-build=false" >> $GITHUB_OUTPUT  
+            echo "⏭️ Skipping Docker build - no code changes"
+          fi
+          
+          if [ "$HELM_CHANGES" -gt 0 ]; then
+            echo "helm-charts=true" >> $GITHUB_OUTPUT
+            echo "📦 Helm changes detected"
+          else
+            echo "helm-charts=false" >> $GITHUB_OUTPUT
+            echo "⏭️ No Helm changes"
+          fi
+
+  # Build and push latest image only if code changed
   build-latest:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.docker-build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -81,6 +131,7 @@ jobs:
 
   # Determine if we need a new release
   check-release:
+    needs: detect-changes
     runs-on: ubuntu-latest
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
@@ -93,44 +144,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check what changed
+      - name: Determine release need
         id: check
         run: |
-          # Get the last tag
-          LAST_TAG=$(git tag -l --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          DOCKER_CHANGED="${{ needs.detect-changes.outputs.docker-build }}"
+          HELM_CHANGED="${{ needs.detect-changes.outputs.helm-charts }}"
           
-          if [ -z "$LAST_TAG" ]; then
-            echo "No previous tags found, creating initial release"
-            echo "should_release=true" >> $GITHUB_OUTPUT
-            echo "version_type=minor" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          echo "Docker changes: $DOCKER_CHANGED"
+          echo "Helm changes: $HELM_CHANGED"
           
-          # Check what changed since last tag
-          CHANGED_FILES=$(git diff --name-only "$LAST_TAG"...HEAD)
-          
-          echo "Files changed since $LAST_TAG:"
-          echo "$CHANGED_FILES"
-          
-          # Check for helm changes
-          HELM_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^deploy/helm/' | wc -l)
-          
-          # Check for code changes (excluding docs, markdown, github workflows)
-          CODE_CHANGES=$(echo "$CHANGED_FILES" | grep -v -E '\.md$|^docs/|^\.github/' | wc -l)
-          
-          echo "Helm changes: $HELM_CHANGES"
-          echo "Code changes: $CODE_CHANGES" 
-          
-          if [ "$HELM_CHANGES" -gt 0 ]; then
+          if [ "$HELM_CHANGED" = "true" ]; then
             echo "Helm charts changed - creating minor version release"
             echo "should_release=true" >> $GITHUB_OUTPUT
             echo "version_type=minor" >> $GITHUB_OUTPUT
-          elif [ "$CODE_CHANGES" -gt 0 ]; then
+          elif [ "$DOCKER_CHANGED" = "true" ]; then
             echo "Code changed - creating patch version release"
             echo "should_release=true" >> $GITHUB_OUTPUT
             echo "version_type=patch" >> $GITHUB_OUTPUT
           else
-            echo "Only docs/markdown changed - no release needed"
+            echo "No significant changes - no release needed"
             echo "should_release=false" >> $GITHUB_OUTPUT
           fi
 
@@ -171,9 +203,9 @@ jobs:
 
   # Create release if needed
   create-release:
-    needs: [build-latest, check-release]
+    needs: [detect-changes, build-latest, check-release]
+    if: always() && needs.check-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
-    if: needs.check-release.outputs.should_release == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

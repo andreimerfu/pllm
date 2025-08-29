@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version_type:
-        description: 'Version increment type'
+        description: "Version increment type"
         required: true
         type: choice
         options:
@@ -14,7 +14,7 @@ on:
           - prerelease
         default: patch
       prerelease_type:
-        description: 'Pre-release type (only used when version_type is prerelease)'
+        description: "Pre-release type (only used when version_type is prerelease)"
         required: false
         type: choice
         options:
@@ -23,7 +23,7 @@ on:
           - beta
         default: rc
       custom_version:
-        description: 'Custom version (e.g., v1.2.3 or v1.2.3-rc1). Overrides version_type if provided.'
+        description: "Custom version (e.g., v1.2.3 or v1.2.3-rc1). Overrides version_type if provided."
         required: false
         type: string
 
@@ -182,7 +182,7 @@ jobs:
           NEW_VERSION="${{ needs.calculate-version.outputs.new_version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
+          git tag -a "$NEW_VERSION" -m "$NEW_VERSION"
           git push origin "$NEW_VERSION"
 
       - name: Create GitHub Release
@@ -208,22 +208,22 @@ jobs:
 
           cat > release_notes.md << 'EOF'
           ## Changes
-          
+
           $RELEASE_NOTES
-          
+
           ## Docker Images
           - `amerfu/pllm:$NEW_VERSION`
           - `amerfu/pllm:${NEW_VERSION%.*}` (minor version)
           - `amerfu/pllm:${NEW_VERSION%%.*}` (major version)
-          
+
           ## Helm Chart
           ```bash
           helm install pllm oci://registry-1.docker.io/amerfu/pllm --version ${{ needs.calculate-version.outputs.version_without_v }}
           ```
           EOF
-          
+
           gh release create "$NEW_VERSION" $PRERELEASE_FLAG \
-            --title "Release $NEW_VERSION" \
+            --title "$NEW_VERSION" \
             --notes-file release_notes.md
 
       - name: Set up Docker Buildx
