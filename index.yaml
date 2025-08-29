@@ -2,6 +2,42 @@ apiVersion: v1
 entries:
   pllm:
   - apiVersion: v2
+    appVersion: 0.2.4
+    created: "2025-08-29T13:59:52.405926184Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 15.5.23
+    - condition: redis.enabled
+      name: redis
+      repository: https://charts.bitnami.com/bitnami
+      version: 20.2.0
+    - condition: dex.enabled
+      name: dex
+      repository: https://charts.dexidp.io
+      version: 0.18.0
+    description: A Helm chart for PLLM (Proxy for LLM) - Multi-provider LLM proxy
+      with authentication, budgeting, and analytics
+    digest: fe9d03dcf452ec0b58dce3f40e74c6455dc9197aceb04a3d55d1dfe2b41732ee
+    home: https://github.com/andreimerfu/pllm
+    keywords:
+    - llm
+    - proxy
+    - ai
+    - openai
+    - anthropic
+    maintainers:
+    - name: PLLM Team
+      url: https://github.com/andreimerfu/pllm
+    name: pllm
+    sources:
+    - https://github.com/andreimerfu/pllm
+    type: application
+    urls:
+    - https://github.com/andreimerfu/pllm/releases/download/pllm-0.2.4/pllm-0.2.4.tgz
+    version: 0.2.4
+  - apiVersion: v2
     appVersion: 0.2.1
     created: "2025-08-29T08:35:59.90246515Z"
     dependencies:
@@ -109,4 +145,4 @@ entries:
     urls:
     - https://github.com/andreimerfu/pllm/releases/download/pllm-0.1.0/pllm-0.1.0.tgz
     version: 0.1.0
-generated: "2025-08-29T08:35:59.902481551Z"
+generated: "2025-08-29T13:59:52.405941172Z"
