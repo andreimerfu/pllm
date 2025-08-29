@@ -1,4 +1,4 @@
-name: Auto Release on Main Push
+name: CI/CD Pipeline
 
 on:
   push:
@@ -6,7 +6,6 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
-      - '.github/**'
 
 permissions:
   contents: write
@@ -15,42 +14,177 @@ permissions:
   id-token: write
 
 jobs:
-  auto-release:
+  # Always build and push latest image
+  build-latest:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            web/package-lock.json
+            docs/package-lock.json
+
+      - name: Install frontend dependencies
+        run: cd web && npm ci
+
+      - name: Install docs dependencies
+        run: cd docs && npm ci
+
+      - name: Build frontend
+        run: cd web && npm run build
+
+      - name: Copy frontend build for Go embed
+        run: |
+          mkdir -p internal/ui/dist
+          cp -r web/dist/* internal/ui/dist/
+
+      - name: Build docs
+        run: cd docs && npm run build
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Generate Swagger docs
+        run: |
+          go install github.com/swaggo/swag/cmd/swag@latest
+          swag init -g cmd/server/main.go -o internal/handlers/swagger
+
+      - name: Run tests
+        run: make test-coverage
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push latest image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: amerfu/pllm:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Determine if we need a new release
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      version_type: ${{ steps.check.outputs.version_type }}
+      new_version: ${{ steps.version.outputs.new_version }}
+      version_without_v: ${{ steps.version.outputs.version_without_v }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Get latest tag
-        id: get_latest_tag
+      - name: Check what changed
+        id: check
+        run: |
+          # Get the last tag
+          LAST_TAG=$(git tag -l --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          
+          if [ -z "$LAST_TAG" ]; then
+            echo "No previous tags found, creating initial release"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "version_type=minor" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Check what changed since last tag
+          CHANGED_FILES=$(git diff --name-only "$LAST_TAG"...HEAD)
+          
+          echo "Files changed since $LAST_TAG:"
+          echo "$CHANGED_FILES"
+          
+          # Check for helm changes
+          HELM_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^deploy/helm/' | wc -l)
+          
+          # Check for code changes (excluding docs, markdown, github workflows)
+          CODE_CHANGES=$(echo "$CHANGED_FILES" | grep -v -E '\.md$|^docs/|^\.github/' | wc -l)
+          
+          echo "Helm changes: $HELM_CHANGES"
+          echo "Code changes: $CODE_CHANGES" 
+          
+          if [ "$HELM_CHANGES" -gt 0 ]; then
+            echo "Helm charts changed - creating minor version release"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "version_type=minor" >> $GITHUB_OUTPUT
+          elif [ "$CODE_CHANGES" -gt 0 ]; then
+            echo "Code changed - creating patch version release"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "version_type=patch" >> $GITHUB_OUTPUT
+          else
+            echo "Only docs/markdown changed - no release needed"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Calculate new version
+        if: steps.check.outputs.should_release == 'true'
+        id: version
         run: |
           LATEST_TAG=$(git tag -l --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1)
           if [ -z "$LATEST_TAG" ]; then
             LATEST_TAG="v0.0.0"
           fi
-          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-
-      - name: Calculate new version (patch bump)
-        id: version
-        run: |
-          LATEST_TAG="${{ steps.get_latest_tag.outputs.latest_tag }}"
+          
+          VERSION_TYPE="${{ steps.check.outputs.version_type }}"
           CURRENT_VERSION=${LATEST_TAG#v}
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
           
-          # Auto increment patch version
-          PATCH=$((PATCH + 1))
+          case "$VERSION_TYPE" in
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+          esac
+          
           NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          VERSION_WITHOUT_V="${MAJOR}.${MINOR}.${PATCH}"
           
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "Auto-generating version: $NEW_VERSION"
+          echo "version_without_v=$VERSION_WITHOUT_V" >> $GITHUB_OUTPUT
+          echo "Creating $VERSION_TYPE release: $NEW_VERSION"
+
+  # Create release if needed
+  create-release:
+    needs: [build-latest, check-release]
+    runs-on: ubuntu-latest
+    if: needs.check-release.outputs.should_release == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Create and push tag
         run: |
-          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          NEW_VERSION="${{ needs.check-release.outputs.new_version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$NEW_VERSION" -m "Auto-release $NEW_VERSION"
+          git tag -a "$NEW_VERSION" -m "Auto-release $NEW_VERSION (${{ needs.check-release.outputs.version_type }})"
           git push origin "$NEW_VERSION"
           echo "Created and pushed tag: $NEW_VERSION"

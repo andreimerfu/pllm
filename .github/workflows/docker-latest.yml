@@ -1,0 +1,80 @@
+name: Build Latest Docker Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force rebuild even without changes'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  packages: write
+
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            web/package-lock.json
+            docs/package-lock.json
+
+      - name: Install frontend dependencies
+        run: cd web && npm ci
+
+      - name: Install docs dependencies
+        run: cd docs && npm ci
+
+      - name: Build frontend
+        run: cd web && npm run build
+
+      - name: Copy frontend build for Go embed
+        run: |
+          mkdir -p internal/ui/dist
+          cp -r web/dist/* internal/ui/dist/
+
+      - name: Build docs
+        run: cd docs && npm run build
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Generate Swagger docs
+        run: |
+          go install github.com/swaggo/swag/cmd/swag@latest
+          swag init -g cmd/server/main.go -o internal/handlers/swagger
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push latest image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: amerfu/pllm:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "🐳 Docker image amerfu/pllm:latest has been updated"
+          echo "📦 Available on Docker Hub: docker pull amerfu/pllm:latest"

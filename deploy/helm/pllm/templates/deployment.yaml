@@ -104,7 +104,7 @@ spec:
             - name: {{ $key | snakecase | upper }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "pllm.fullname" . }}
+                  name: {{ include "pllm.fullname" $ }}
                   key: {{ $key | kebabcase }}
                   optional: true
             {{- end }}
