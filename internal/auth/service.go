@@ -309,11 +309,14 @@ func (s *AuthService) ValidateKey(ctx context.Context, key string) (*models.Key,
 		return nil, ErrInvalidAPIKey
 	}
 
-	// Update usage statistics
+	// Update usage statistics atomically to avoid race conditions
 	now := time.Now()
 	dbKey.LastUsedAt = &now
-	dbKey.UsageCount++
-	s.db.Save(&dbKey)
+	// Use atomic increment for usage_count to handle concurrent access
+	s.db.Model(&dbKey).Updates(map[string]interface{}{
+		"last_used_at": now,
+		"usage_count": gorm.Expr("usage_count + 1"),
+	})
 
 	// Create audit entry for key usage
 	auditEntry := &models.Audit{

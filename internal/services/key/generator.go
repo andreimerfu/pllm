@@ -16,6 +16,7 @@ const (
 	KeyPrefixAPI     = "sk-api"
 	KeyPrefixVirtual = "sk-vrt"
 	KeyPrefixMaster  = "sk-mst"
+	KeyPrefixSystem  = "sk-sys"
 
 	// Key lengths (before encoding)
 	KeyLengthBytes = 32
@@ -40,6 +41,11 @@ func (kg *KeyGenerator) GenerateVirtualKey() (string, string, error) {
 // GenerateMasterKey creates a new master key
 func (kg *KeyGenerator) GenerateMasterKey() (string, string, error) {
 	return kg.generateKey(KeyPrefixMaster)
+}
+
+// GenerateSystemKey creates a new system key
+func (kg *KeyGenerator) GenerateSystemKey() (string, string, error) {
+	return kg.generateKey(KeyPrefixSystem)
 }
 
 // generateKey creates a secure key with the given prefix
@@ -74,25 +80,24 @@ func (kg *KeyGenerator) HashKey(key string) string {
 
 // ValidateKeyFormat checks if a key has the correct format
 func (kg *KeyGenerator) ValidateKeyFormat(key string) error {
-	parts := strings.Split(key, "-")
-	if len(parts) < 2 {
-		return fmt.Errorf("invalid key format: missing prefix")
+	// Split on dash but limit to 3 parts to handle dashes in base64url data
+	parts := strings.SplitN(key, "-", 3)
+	if len(parts) < 3 {
+		return fmt.Errorf("invalid key format: expected format 'prefix-data'")
 	}
 
-	prefix := strings.Join(parts[:2], "-")
+	prefix := parts[0] + "-" + parts[1]
 	switch prefix {
-	case KeyPrefixAPI, KeyPrefixVirtual, KeyPrefixMaster:
+	case KeyPrefixAPI, KeyPrefixVirtual, KeyPrefixMaster, KeyPrefixSystem:
 		// Valid prefix
 	default:
 		return fmt.Errorf("invalid key prefix: %s", prefix)
 	}
 
-	if len(parts) < 3 {
-		return fmt.Errorf("invalid key format: missing key data")
-	}
-
 	keyData := parts[2]
-	if len(keyData) < 32 {
+	// Base64url-encoded 32 bytes should be at least 40 characters (without padding)
+	// 32 bytes * 4/3 = 42.67, minus up to 2 padding chars = ~40 minimum
+	if len(keyData) < 40 {
 		return fmt.Errorf("invalid key format: key too short")
 	}
 
@@ -106,9 +111,9 @@ func (kg *KeyGenerator) GenerateKeyID() uuid.UUID {
 
 // ExtractKeyPrefix returns the prefix from a key
 func (kg *KeyGenerator) ExtractKeyPrefix(key string) string {
-	parts := strings.Split(key, "-")
+	parts := strings.SplitN(key, "-", 3)
 	if len(parts) >= 2 {
-		return strings.Join(parts[:2], "-")
+		return parts[0] + "-" + parts[1]
 	}
 	return ""
 }
@@ -126,4 +131,9 @@ func (kg *KeyGenerator) IsVirtualKey(key string) bool {
 // IsMasterKey checks if the key is a master key
 func (kg *KeyGenerator) IsMasterKey(key string) bool {
 	return strings.HasPrefix(key, KeyPrefixMaster)
+}
+
+// IsSystemKey checks if the key is a system key
+func (kg *KeyGenerator) IsSystemKey(key string) bool {
+	return strings.HasPrefix(key, KeyPrefixSystem)
 }

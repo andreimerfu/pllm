@@ -137,7 +137,7 @@ func (mc *MetricsCollector) collectSystemMetrics(timestamp time.Time, systemStat
 	err := mc.db.Raw(`
 		SELECT 
 			COUNT(*) as total_requests,
-			SUM(CASE WHEN error_occurred THEN 1 ELSE 0 END) as failed_requests,
+			SUM(CASE WHEN error != '' AND error IS NOT NULL THEN 1 ELSE 0 END) as failed_requests,
 			SUM(total_tokens) as total_tokens,
 			SUM(total_cost) as total_cost,
 			SUM(CASE WHEN cache_hit THEN 1 ELSE 0 END) as cache_hits,
@@ -207,10 +207,10 @@ func (mc *MetricsCollector) collectModelMetrics(timestamp time.Time, loadBalance
 		err := mc.db.Raw(`
 			SELECT 
 				COUNT(*) as total_requests,
-				SUM(CASE WHEN error_occurred THEN 1 ELSE 0 END) as failed_requests,
+				SUM(CASE WHEN error != '' AND error IS NOT NULL THEN 1 ELSE 0 END) as failed_requests,
 				SUM(total_tokens) as total_tokens,
-				SUM(prompt_tokens) as input_tokens,
-				SUM(completion_tokens) as output_tokens,
+				SUM(input_tokens) as input_tokens,
+				SUM(output_tokens) as output_tokens,
 				SUM(total_cost) as total_cost
 			FROM usage_logs 
 			WHERE model = ? AND created_at >= ? AND created_at < ?
@@ -226,11 +226,11 @@ func (mc *MetricsCollector) collectModelMetrics(timestamp time.Time, loadBalance
 		// Get latency data for percentile calculations
 		var latencies []int64
 		mc.db.Raw(`
-			SELECT response_time_ms 
+			SELECT latency 
 			FROM usage_logs 
 			WHERE model = ? AND created_at >= ? AND created_at < ? 
-			AND response_time_ms IS NOT NULL AND response_time_ms > 0
-			ORDER BY response_time_ms
+			AND latency IS NOT NULL AND latency > 0
+			ORDER BY latency
 		`, modelName, since, timestamp).Scan(&latencies)
 
 		avgLatency := getInt64Value(modelMap, "avg_latency")
@@ -307,13 +307,13 @@ func (mc *MetricsCollector) collectUsageMetrics(timestamp time.Time) {
 			SELECT 
 				actual_user_id,
 				team_id,
-				total_tokens,
-				total_cost,
+				SUM(total_tokens) as total_tokens,
+				SUM(total_cost) as total_cost,
 				model,
 				COUNT(*) as model_count
 			FROM usage_logs 
 			WHERE created_at >= ? AND created_at < ?
-			GROUP BY actual_user_id, team_id, model, total_tokens, total_cost
+			GROUP BY actual_user_id, team_id, model
 		) subq
 		GROUP BY actual_user_id
 	`, since, timestamp).Scan(&userStats).Error
@@ -355,17 +355,29 @@ func (mc *MetricsCollector) collectUsageMetrics(timestamp time.Time) {
 
 	err = mc.db.Raw(`
 		SELECT 
-			ul.team_id,
+			team_id,
 			COUNT(*) as total_requests,
-			SUM(ul.total_tokens) as total_tokens,
-			SUM(ul.total_cost) as total_cost,
-			COUNT(DISTINCT ul.actual_user_id) as active_members,
-			t.current_spend,
-			json_object_agg(ul.model, model_count) as model_usage
-		FROM usage_logs ul
-		JOIN teams t ON ul.team_id = t.id
-		WHERE ul.created_at >= ? AND ul.created_at < ?
-		GROUP BY ul.team_id, t.current_spend
+			SUM(total_tokens) as total_tokens,
+			SUM(total_cost) as total_cost,
+			COUNT(DISTINCT actual_user_id) as active_members,
+			MAX(current_spend) as current_spend,
+			json_object_agg(model, model_count) as model_usage
+		FROM (
+			SELECT 
+				ul.team_id,
+				ul.actual_user_id,
+				SUM(ul.total_tokens) as total_tokens,
+				SUM(ul.total_cost) as total_cost,
+				ul.model,
+				t.current_spend,
+				COUNT(*) as model_count
+			FROM usage_logs ul
+			JOIN teams t ON ul.team_id = t.id
+			WHERE ul.created_at >= ? AND ul.created_at < ?
+			GROUP BY ul.team_id, ul.actual_user_id, ul.model, t.current_spend
+		) subq
+		WHERE team_id IS NOT NULL
+		GROUP BY team_id
 	`, since, timestamp).Scan(&teamStats).Error
 
 	if err != nil {

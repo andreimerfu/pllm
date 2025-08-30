@@ -1,8 +1,34 @@
 import { UserManagerSettings, WebStorageStateStore } from "oidc-client-ts";
 
+// Dynamic Dex URL based on environment or current host
+const getDexAuthority = () => {
+  // First try environment variables
+  if (import.meta.env.VITE_DEX_PUBLIC_AUTHORITY) {
+    return import.meta.env.VITE_DEX_PUBLIC_AUTHORITY;
+  }
+  if (import.meta.env.VITE_DEX_AUTHORITY) {
+    return import.meta.env.VITE_DEX_AUTHORITY;
+  }
+  
+  // Fallback: derive from current location
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  
+  // In Docker Compose: use localhost:5556
+  // In Kubernetes: use dex service or ingress
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return `${protocol}//localhost:5556/dex`;
+  } else {
+    // Production/Kubernetes: assume dex is at /dex path on same host
+    return `${protocol}//${hostname}/dex`;
+  }
+};
+
+const dexAuthority = getDexAuthority();
+
 const oidcConfig: UserManagerSettings = {
   // Dex public issuer URL (for browser OAuth flows)
-  authority: import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || import.meta.env.VITE_DEX_AUTHORITY || "http://dex.local/dex",
+  authority: dexAuthority,
   
   // OAuth2 client configuration
   client_id: import.meta.env.VITE_DEX_CLIENT_ID || "pllm-web",
@@ -30,11 +56,11 @@ const oidcConfig: UserManagerSettings = {
   
   // Additional metadata
   metadata: {
-    issuer: import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex",
-    authorization_endpoint: (import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex") + "/auth",
+    issuer: dexAuthority,
+    authorization_endpoint: dexAuthority + "/auth",
     token_endpoint: `${window.location.origin}/api/admin/auth/token`, // Use our backend token endpoint
     userinfo_endpoint: `${window.location.origin}/api/admin/auth/userinfo`, // Use our backend userinfo endpoint
-    jwks_uri: (import.meta.env.VITE_DEX_PUBLIC_AUTHORITY || "http://dex.local/dex") + "/keys",
+    jwks_uri: dexAuthority + "/keys",
     // Note: Dex doesn't provide a logout endpoint, we handle logout client-side
   },
 };
