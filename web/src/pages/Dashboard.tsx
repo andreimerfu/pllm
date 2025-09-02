@@ -21,6 +21,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { Settings } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 
@@ -974,174 +982,151 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <div className="min-w-[900px]">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left p-3 font-semibold min-w-[140px]">
-                      Model
-                    </th>
-                    <th className="text-left p-3 font-semibold min-w-[90px]">
-                      Provider
-                    </th>
-                    <th className="text-left p-3 font-semibold min-w-[100px]">
-                      Status
-                    </th>
-                    <th className="text-left p-3 font-semibold min-w-[140px]">
-                      Health Score
-                    </th>
-                    <th className="text-left p-3 font-semibold min-w-[90px]">
-                      Requests
-                    </th>
-                    <th className="text-left p-3 font-semibold min-w-[80px]">
-                      Failed
-                    </th>
-                    <th className="text-left p-3 font-semibold min-w-[100px]">
-                      Avg Latency
-                    </th>
-                    <th className="text-left p-3 font-semibold min-w-[100px]">
-                      P95 Latency
-                    </th>
-                    <th className="text-left p-3 font-semibold min-w-[90px]">
-                      Circuit
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <TooltipProvider>
-                    {Object.entries(stats?.load_balancer || {}).map(
-                      ([name, data]: [string, any]) => {
-                        const providerInfo = getProviderInfo(name);
+            <Table className="min-w-[900px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="min-w-[140px]">Model</TableHead>
+                  <TableHead className="min-w-[90px]">Provider</TableHead>
+                  <TableHead className="min-w-[100px]">Status</TableHead>
+                  <TableHead className="min-w-[140px]">Health Score</TableHead>
+                  <TableHead className="min-w-[90px]">Requests</TableHead>
+                  <TableHead className="min-w-[80px]">Failed</TableHead>
+                  <TableHead className="min-w-[100px]">Avg Latency</TableHead>
+                  <TableHead className="min-w-[100px]">P95 Latency</TableHead>
+                  <TableHead className="min-w-[90px]">Circuit</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TooltipProvider>
+                  {Object.entries(stats?.load_balancer || {}).map(
+                    ([name, data]: [string, any]) => {
+                      const providerInfo = getProviderInfo(name);
 
-                        return (
-                          <tr
-                            key={name}
-                            className="border-b border-border/50 hover:bg-muted/30 transition-colors duration-200"
-                          >
-                            <td className="p-3 font-medium">
-                              <div className="flex items-center space-x-3">
-                                <div className="flex-shrink-0">
+                      return (
+                        <TableRow key={name}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center space-x-3">
+                              <div className="flex-shrink-0">
+                                <Icon
+                                  icon={providerInfo.icon}
+                                  width="24"
+                                  height="24"
+                                  className={providerInfo.color}
+                                />
+                              </div>
+                              <span className="truncate font-medium">
+                                {name}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <UITooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-center w-10 h-8 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-help">
                                   <Icon
                                     icon={providerInfo.icon}
-                                    width="24"
-                                    height="24"
+                                    width="20"
+                                    height="20"
                                     className={providerInfo.color}
                                   />
                                 </div>
-                                <span className="truncate font-medium">
-                                  {name}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              <UITooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="flex items-center justify-center w-10 h-8 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-help">
-                                    <Icon
-                                      icon={providerInfo.icon}
-                                      width="20"
-                                      height="20"
-                                      className={providerInfo.color}
-                                    />
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p className="font-medium">
-                                    {providerInfo.name}
-                                  </p>
-                                </TooltipContent>
-                              </UITooltip>
-                            </td>
-                            <td className="p-3">
-                              <div className="flex items-center space-x-2">
-                                <div
-                                  className={`w-2 h-2 rounded-full ${
-                                    data.circuit_open
-                                      ? "bg-red-500 dark:bg-red-400"
-                                      : "bg-green-500 dark:bg-green-400"
-                                  }`}
-                                />
-                                <span
-                                  className={`text-sm font-medium ${
-                                    data.circuit_open
-                                      ? "text-red-600 dark:text-red-400"
-                                      : "text-green-600 dark:text-green-400"
-                                  }`}
-                                >
-                                  {data.circuit_open ? "Unhealthy" : "Healthy"}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              <div className="flex items-center space-x-3">
-                                <div className="flex-1 max-w-20">
-                                  <div className="w-full bg-muted dark:bg-muted/50 rounded-full h-2.5 overflow-hidden">
-                                    <div
-                                      className={`h-2.5 rounded-full transition-all duration-500 ${
-                                        data.health_score >= 80
-                                          ? "bg-green-500 dark:bg-green-400"
-                                          : data.health_score >= 60
-                                            ? "bg-yellow-500 dark:bg-yellow-400"
-                                            : "bg-red-500 dark:bg-red-400"
-                                      }`}
-                                      style={{ width: `${data.health_score}%` }}
-                                    />
-                                  </div>
-                                </div>
-                                <span className="text-sm font-bold min-w-[3ch] text-right">
-                                  {Math.round(data.health_score)}%
-                                </span>
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              <span className="font-mono text-sm font-medium">
-                                {data.total_requests.toLocaleString()}
-                              </span>
-                            </td>
-                            <td className="p-3">
-                              <span
-                                className={`font-mono text-sm font-medium ${
-                                  data.failed_requests > 0
-                                    ? "text-red-600 dark:text-red-400 font-bold"
-                                    : "text-muted-foreground"
-                                }`}
-                              >
-                                {data.failed_requests}
-                              </span>
-                            </td>
-                            <td className="p-3">
-                              <span className="font-mono text-sm">
-                                {data.avg_latency
-                                  ? `${data.avg_latency}ms`
-                                  : "N/A"}
-                              </span>
-                            </td>
-                            <td className="p-3">
-                              <span className="font-mono text-sm">
-                                {data.p95_latency
-                                  ? `${data.p95_latency}ms`
-                                  : "N/A"}
-                              </span>
-                            </td>
-                            <td className="p-3">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="font-medium">
+                                  {providerInfo.name}
+                                </p>
+                              </TooltipContent>
+                            </UITooltip>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <div
+                                className={`w-2 h-2 rounded-full ${
                                   data.circuit_open
-                                    ? "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
-                                    : "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
+                                    ? "bg-red-500 dark:bg-red-400"
+                                    : "bg-green-500 dark:bg-green-400"
+                                }`}
+                              />
+                              <span
+                                className={`text-sm font-medium ${
+                                  data.circuit_open
+                                    ? "text-red-600 dark:text-red-400"
+                                    : "text-green-600 dark:text-green-400"
                                 }`}
                               >
-                                {data.circuit_open ? "Open" : "Closed"}
+                                {data.circuit_open ? "Unhealthy" : "Healthy"}
                               </span>
-                            </td>
-                          </tr>
-                        );
-                      },
-                    )}
-                  </TooltipProvider>
-                </tbody>
-              </table>
-            </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-3">
+                              <div className="flex-1 max-w-20">
+                                <div className="w-full bg-muted dark:bg-muted/50 rounded-full h-2.5 overflow-hidden">
+                                  <div
+                                    className={`h-2.5 rounded-full transition-all duration-500 ${
+                                      data.health_score >= 80
+                                        ? "bg-green-500 dark:bg-green-400"
+                                        : data.health_score >= 60
+                                          ? "bg-yellow-500 dark:bg-yellow-400"
+                                          : "bg-red-500 dark:bg-red-400"
+                                    }`}
+                                    style={{ width: `${data.health_score}%` }}
+                                  />
+                                </div>
+                              </div>
+                              <span className="text-sm font-bold min-w-[3ch] text-right">
+                                {Math.round(data.health_score)}%
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-mono text-sm font-medium">
+                              {data.total_requests.toLocaleString()}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={`font-mono text-sm font-medium ${
+                                data.failed_requests > 0
+                                  ? "text-red-600 dark:text-red-400 font-bold"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {data.failed_requests}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-mono text-sm">
+                              {data.avg_latency
+                                ? `${data.avg_latency}ms`
+                                : "N/A"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-mono text-sm">
+                              {data.p95_latency
+                                ? `${data.p95_latency}ms`
+                                : "N/A"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${
+                                data.circuit_open
+                                  ? "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800"
+                                  : "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800"
+                              }`}
+                            >
+                              {data.circuit_open ? "Open" : "Closed"}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    },
+                  )}
+                </TooltipProvider>
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
