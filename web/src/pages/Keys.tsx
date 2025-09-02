@@ -1,59 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Key, Copy, Trash2, RotateCw, Eye, EyeOff, Users, User, Power } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { useToast } from '../components/ui/use-toast';
 import { usePermissions } from '../contexts/PermissionContext';
-import { CanAccess } from '../components/CanAccess';
+import { DataTable } from '../components/keys/data-table';
+import { createColumns, ApiKey } from '../components/keys/columns';
+import { CreateKeyDialog } from '../components/keys/create-key-dialog';
 import api from '../lib/api';
 
-interface VirtualKey {
-  id: string;
-  key?: string; // Only present when creating new keys
-  key_prefix?: string; // May not be present in all responses
-  name: string;
-  user_id?: string;
-  team_id?: string;
-  user?: {
-    id: string;
-    username: string;
-    email: string;
-    full_name?: string;
-  };
-  team?: {
-    id: string;
-    name: string;
-  };
-  created_by?: string;
-  is_active: boolean;
-  expires_at?: string;
-  max_budget?: number;
-  current_spend: number;
-  tpm?: number;
-  rpm?: number;
-  allowed_models?: string[];
-  blocked_models?: string[];
-  usage_count: number;
-  total_tokens: number;
-  last_used_at?: string;
-  created_at: string;
-  revoked_at?: string;
-  metadata?: any;
-}
+// Using ApiKey interface from columns.tsx
 
 const Keys: React.FC = () => {
-  const [keys, setKeys] = useState<VirtualKey[]>([]);
+  const [keys, setKeys] = useState<ApiKey[]>([]);
   const [userTeams, setUserTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showKeyValue, setShowKeyValue] = useState<{[key: string]: boolean}>({});
-  const [filter, setFilter] = useState<'all' | 'active' | 'inactive' | 'expired' | 'revoked'>('all');
-  const [ownerFilter, setOwnerFilter] = useState<'all' | 'user' | 'team' | 'system'>('all');
-  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const { hasRole, hasPermission } = usePermissions();
   
@@ -97,7 +57,7 @@ const Keys: React.FC = () => {
     try {
       const data = await api.keys.generate(keyData, !isAdmin) as any;
       
-      // Show the new key in a modal or alert
+      // Show the new key in a toast
       toast({
         title: 'Key Generated Successfully',
         description: (
@@ -106,22 +66,18 @@ const Keys: React.FC = () => {
             <code className="block p-2 bg-muted dark:bg-muted/50 dark:text-foreground rounded text-xs break-all border dark:border-border">
               {data.key || data.key_value}
             </code>
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-2"
+            <button
+              className="mt-2 px-2 py-1 text-xs bg-secondary hover:bg-secondary/80 rounded"
               onClick={() => navigator.clipboard.writeText(data.key || data.key_value)}
             >
-              <Copy className="h-3 w-3 mr-1" />
-              Copy
-            </Button>
+              Copy Key
+            </button>
           </div>
         ),
         duration: 30000, // Show for 30 seconds
       });
       
       fetchKeys(); // Refresh the list
-      setShowCreateModal(false);
     } catch (error) {
       toast({
         title: 'Error',
@@ -173,7 +129,7 @@ const Keys: React.FC = () => {
     }
   };
 
-  const deleteKey = async (keyId: string, key: VirtualKey) => {
+  const deleteKey = async (keyId: string, key: ApiKey) => {
     // Check if user has permission to delete this key
     const canDelete = isAdmin || (key.user_id && !key.team_id); // Users can only delete their own personal keys
     if (!canDelete) {
@@ -205,120 +161,38 @@ const Keys: React.FC = () => {
     }
   };
 
-  const copyKey = (key: string) => {
-    navigator.clipboard.writeText(key);
-    toast({
-      title: 'Copied',
-      description: 'Key copied to clipboard',
-    });
-  };
-
-  const toggleKeyVisibility = (keyId: string) => {
-    setShowKeyValue(prev => ({
-      ...prev,
-      [keyId]: !prev[keyId]
-    }));
-  };
-
-  const getKeyStatus = (key: VirtualKey) => {
+  const getKeyStatus = (key: ApiKey) => {
     if (key.revoked_at) return 'revoked';
     if (key.expires_at && new Date(key.expires_at) < new Date()) return 'expired';
     if (!key.is_active) return 'inactive';
     return 'active';
   };
 
-  const getBudgetPercentage = (key: VirtualKey) => {
-    if (!key.max_budget || key.max_budget === 0) return 0;
-    return (key.current_spend / key.max_budget) * 100;
-  };
-
-  const getKeyOwner = (key: VirtualKey) => {
-    if (key.team) {
-      return { type: 'team', name: key.team.name, icon: Users };
-    }
-    if (key.user) {
-      return { 
-        type: 'user', 
-        name: key.user.full_name || key.user.username || key.user.email,
-        email: key.user.email,
-        icon: User 
-      };
-    }
-    return { type: 'system', name: 'System Key', icon: Key };
-  };
-
-  const filteredKeys = keys.filter(key => {
-    const status = getKeyStatus(key);
-    if (filter !== 'all' && status !== filter) return false;
-    if (searchTerm && !key.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    
-    // Owner filter
-    if (ownerFilter !== 'all') {
-      const owner = getKeyOwner(key);
-      if (ownerFilter !== owner.type) return false;
-    }
-    
-    return true;
-  });
-
   if (loading) {
     return <div className="flex items-center justify-center h-96">Loading...</div>;
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2">
           <h1 className="text-3xl font-bold">
             {isAdmin ? 'All API Keys' : 'My API Keys'}
           </h1>
           {isAdmin && <Badge variant="secondary">Admin View</Badge>}
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {isAdmin ? 'Generate Key' : 'Create API Key'}
-        </Button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-4 mb-6 flex-wrap">
-        <Input
-          placeholder="Search keys..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
+        <CreateKeyDialog 
+          isAdmin={isAdmin}
+          userTeams={userTeams}
+          onCreateKey={generateKey}
         />
-        <Select value={filter} onValueChange={(value: any) => setFilter(value)}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Keys</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="expired">Expired</SelectItem>
-            <SelectItem value="revoked">Revoked</SelectItem>
-          </SelectContent>
-        </Select>
-        {isAdmin && (
-          <Select value={ownerFilter} onValueChange={(value: any) => setOwnerFilter(value)}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Owners</SelectItem>
-              <SelectItem value="user">User Keys</SelectItem>
-              <SelectItem value="team">Team Keys</SelectItem>
-              <SelectItem value="system">System Keys</SelectItem>
-            </SelectContent>
-          </Select>
-        )}
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Keys</CardTitle>
           </CardHeader>
           <CardContent>
@@ -326,11 +200,11 @@ const Keys: React.FC = () => {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Keys</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
               {keys.filter(k => getKeyStatus(k) === 'active').length}
             </div>
             <div className="text-xs text-muted-foreground">
@@ -339,357 +213,34 @@ const Keys: React.FC = () => {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Usage</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {keys.reduce((sum, k) => sum + k.usage_count, 0).toLocaleString()}
             </div>
+            <div className="text-xs text-muted-foreground">requests</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Spend</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               ${keys.reduce((sum, k) => sum + k.current_spend, 0).toFixed(2)}
             </div>
+            <div className="text-xs text-muted-foreground">cumulative</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Keys List */}
-      <div className="space-y-4">
-        {filteredKeys.map((key) => {
-          const status = getKeyStatus(key);
-          return (
-            <Card key={key.id}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-3 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Key className="h-5 w-5 text-muted-foreground" />
-                      <h3 className="font-semibold">{key.name}</h3>
-                      <Badge
-                        variant={
-                          status === 'active' ? 'default' :
-                          status === 'inactive' ? 'secondary' :
-                          status === 'expired' ? 'secondary' :
-                          status === 'revoked' ? 'destructive' :
-                          'outline'
-                        }
-                      >
-                        {status}
-                      </Badge>
-                      {(() => {
-                        const owner = getKeyOwner(key);
-                        const IconComponent = owner.icon;
-                        return (
-                          <Badge variant="outline" className="flex items-center gap-1">
-                            <IconComponent className="h-3 w-3" />
-                            {owner.type === 'team' && 'Team: '}
-                            {owner.name}
-                          </Badge>
-                        );
-                      })()}
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <code className="text-sm bg-muted dark:bg-muted/50 dark:text-foreground px-2 py-1 rounded border dark:border-border">
-                        {showKeyValue[key.id] && key.key ? key.key : `****${key.key_prefix || 'xxxx'}`}
-                      </code>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleKeyVisibility(key.id)}
-                      >
-                        {showKeyValue[key.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={!key.key}
-                        onClick={() => key.key && copyKey(key.key)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Usage:</span>
-                        <span className="ml-2 font-medium">{key.usage_count} requests</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Tokens:</span>
-                        <span className="ml-2 font-medium">{key.total_tokens.toLocaleString()}</span>
-                      </div>
-                      {key.max_budget && (
-                        <div>
-                          <span className="text-muted-foreground">Budget:</span>
-                          <span className="ml-2 font-medium">
-                            ${key.current_spend.toFixed(2)} / ${key.max_budget.toFixed(2)}
-                          </span>
-                        </div>
-                      )}
-                      {key.expires_at && (
-                        <div>
-                          <span className="text-muted-foreground">Expires:</span>
-                          <span className="ml-2 font-medium">
-                            {new Date(key.expires_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {key.max_budget && (
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Budget Usage</span>
-                          <span>{getBudgetPercentage(key).toFixed(1)}%</span>
-                        </div>
-                        <div className="w-full bg-muted dark:bg-muted/50 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${
-                              getBudgetPercentage(key) > 80 ? 'bg-red-500 dark:bg-red-400' :
-                              getBudgetPercentage(key) > 50 ? 'bg-yellow-500 dark:bg-yellow-400' :
-                              'bg-green-500 dark:bg-green-400'
-                            }`}
-                            style={{ width: `${Math.min(getBudgetPercentage(key), 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-4 text-xs text-muted-foreground flex-wrap">
-                      <span>Created: {new Date(key.created_at).toLocaleDateString()}</span>
-                      {key.last_used_at && (
-                        <span>Last used: {new Date(key.last_used_at).toLocaleDateString()}</span>
-                      )}
-                      {(() => {
-                        const owner = getKeyOwner(key);
-                        if (owner.type === 'team') {
-                          return <span>Team: {owner.name}</span>;
-                        } else if (owner.type === 'user') {
-                          return <span>Owner: {owner.name}{owner.email && ` (${owner.email})`}</span>;
-                        } else {
-                          return <span>System key</span>;
-                        }
-                      })()}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 ml-4">
-                    <CanAccess role="admin" permissions={['admin.keys.revoke']}>
-                      {/* Enable/Disable toggle for admins - only show if not revoked */}
-                      {status !== 'revoked' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleKeyStatus(key.id, key.is_active)}
-                          title={key.is_active ? 'Disable key' : 'Enable key'}
-                        >
-                          <Power className={`h-4 w-4 ${key.is_active ? 'text-green-500' : 'text-red-500'}`} />
-                        </Button>
-                      )}
-                      
-                      {/* Revoke button for active keys only */}
-                      {status === 'active' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => revokeKey(key.id)}
-                          title="Permanently revoke key"
-                        >
-                          <RotateCw className="h-4 w-4 mr-1" />
-                          Revoke
-                        </Button>
-                      )}
-                    </CanAccess>
-                    
-                    {/* Delete button - users can delete their own keys, admins can delete any */}
-                    {(() => {
-                      const canDelete = isAdmin || (key.user_id && !key.team_id);
-                      return (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={!canDelete}
-                          onClick={() => deleteKey(key.id, key)}
-                          title={!canDelete ? 'You cannot delete this key' : 'Delete key'}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Create Key Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <Card className="w-[500px] max-h-[90vh] overflow-y-auto shadow-xl border dark:border-border">
-            <CardHeader>
-              <CardTitle>Generate New API Key</CardTitle>
-              <CardDescription>Configure the key settings and permissions</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Key Name</Label>
-                <Input id="key-name" placeholder="Enter a descriptive name" />
-              </div>
-
-{isAdmin ? (
-                <div>
-                  <Label>Ownership</Label>
-                  <Select defaultValue="user" onValueChange={(value) => {
-                    const ownershipSelect = document.getElementById('key-ownership') as HTMLSelectElement;
-                    if (ownershipSelect) ownershipSelect.value = value;
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">User Key</SelectItem>
-                      <SelectItem value="team">Team Key</SelectItem>
-                      <SelectItem value="system">System Key</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <select id="key-ownership" className="hidden" defaultValue="user" />
-                </div>
-              ) : userTeams.length > 0 ? (
-                <div>
-                  <Label>Key Type</Label>
-                  <Select defaultValue="personal" onValueChange={(value) => {
-                    const keyTypeSelect = document.getElementById('key-type') as HTMLSelectElement;
-                    if (keyTypeSelect) keyTypeSelect.value = value;
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="personal">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          Personal Key
-                        </div>
-                      </SelectItem>
-                      {userTeams.map((team) => (
-                        <SelectItem key={team.id} value={`team:${team.id}`}>
-                          <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            {team.name} Team
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <select id="key-type" className="hidden" defaultValue="personal" />
-                </div>
-              ) : null}
-
-              <div>
-                <Label>Expiration</Label>
-                <Select defaultValue="never">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="never">Never</SelectItem>
-                    <SelectItem value="7">7 days</SelectItem>
-                    <SelectItem value="30">30 days</SelectItem>
-                    <SelectItem value="90">90 days</SelectItem>
-                    <SelectItem value="365">1 year</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Budget Limit ($)</Label>
-                <Input id="key-budget" type="number" placeholder="Leave empty for unlimited" />
-              </div>
-
-              <div>
-                <Label>Budget Period</Label>
-                <Select defaultValue="monthly">
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="yearly">Yearly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Rate Limits</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-xs">TPM (Tokens/min)</Label>
-                    <Input id="key-tpm" type="number" placeholder="100000" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">RPM (Requests/min)</Label>
-                    <Input id="key-rpm" type="number" placeholder="60" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowCreateModal(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={() => {
-                  const name = (document.getElementById('key-name') as HTMLInputElement)?.value;
-                  const budget = (document.getElementById('key-budget') as HTMLInputElement)?.value;
-                  const tpm = (document.getElementById('key-tpm') as HTMLInputElement)?.value;
-                  const rpm = (document.getElementById('key-rpm') as HTMLInputElement)?.value;
-                  const ownership = (document.getElementById('key-ownership') as HTMLSelectElement)?.value;
-                  const keyType = (document.getElementById('key-type') as HTMLSelectElement)?.value;
-                  
-                  let keyData: any = {
-                    name: name || 'New API Key',
-                    max_budget: budget ? parseFloat(budget) : undefined,
-                    budget_duration: 'monthly',
-                    tpm: tpm ? parseInt(tpm) : undefined,
-                    rpm: rpm ? parseInt(rpm) : undefined,
-                  };
-
-                  // Handle ownership/key type for different user roles
-                  if (ownership) {
-                    // Set key_type based on ownership selection (works for both admin and master key auth)
-                    keyData.key_type = ownership === 'system' ? 'system' : 'api';
-                  } else if (!isAdmin && keyType) {
-                    // Handle team keys for non-admin users
-                    keyData.key_type = 'api'; // Default to api key for team/personal keys
-                    if (keyType.startsWith('team:')) {
-                      keyData.team_id = keyType.replace('team:', '');
-                    }
-                    // Personal keys are the default (no team_id)
-                  } else {
-                    // Default key type if nothing else is set
-                    keyData.key_type = 'api';
-                  }
-                  
-                  generateKey(keyData);
-                }}>
-                  Generate Key
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Data Table */}
+      <DataTable 
+        columns={createColumns(toggleKeyStatus, revokeKey, deleteKey)}
+        data={keys}
+      />
     </div>
   );
 };

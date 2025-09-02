@@ -357,11 +357,9 @@ export default function Chat() {
                               : "bg-card"
                           )}>
                             <CardContent className="p-3">
-                              <div className="prose prose-sm dark:prose-invert max-w-none">
-                                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed m-0">
-                                  {message.content}
-                                </p>
-                              </div>
+                              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                {message.content}
+                              </p>
                             </CardContent>
                           </Card>
                           <div className="text-xs text-muted-foreground mt-1 px-1">
