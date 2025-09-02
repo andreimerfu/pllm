@@ -9,6 +9,9 @@ import { ScrollArea } from '../components/ui/scroll-area'
 import { Separator } from '../components/ui/separator'
 import { Badge } from '../components/ui/badge'
 import { toast } from '../components/ui/use-toast'
+import { Card, CardContent } from '../components/ui/card'
+import { Avatar, AvatarFallback } from '../components/ui/avatar'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip'
 import { getModels } from '../lib/api'
 import { cn } from '../lib/utils'
 
@@ -30,32 +33,31 @@ interface ChatSettings {
   systemPrompt: string
 }
 
-// Helper function to get provider info from model ID
 const getProviderInfo = (modelId: string) => {
   const id = modelId?.toLowerCase() || ""
   
   if (id.includes('gpt') || id.includes('openai')) {
-    return { icon: 'logos:openai-icon', name: 'OpenAI' }
+    return { icon: 'logos:openai-icon', name: 'OpenAI', color: 'bg-green-500' }
   }
   if (id.includes('claude') || id.includes('anthropic')) {
-    return { icon: 'logos:anthropic-icon', name: 'Anthropic' }
+    return { icon: 'logos:anthropic-icon', name: 'Anthropic', color: 'bg-orange-500' }
   }
   if (id.includes('mixtral') || id.includes('mistral')) {
-    return { icon: 'simple-icons:mistral', name: 'Mistral' }
+    return { icon: 'simple-icons:mistral', name: 'Mistral', color: 'bg-red-500' }
   }
   if (id.includes('llama') || id.includes('meta')) {
-    return { icon: 'logos:meta', name: 'Meta' }
+    return { icon: 'logos:meta', name: 'Meta', color: 'bg-blue-500' }
   }
   if (id.includes('gemini') || id.includes('google')) {
-    return { icon: 'logos:google', name: 'Google' }
+    return { icon: 'logos:google', name: 'Google', color: 'bg-yellow-500' }
   }
   if (id.includes('azure') || id.includes('microsoft')) {
-    return { icon: 'logos:microsoft', name: 'Microsoft' }
+    return { icon: 'logos:microsoft', name: 'Microsoft', color: 'bg-blue-600' }
   }
   if (id.includes('bedrock') || id.includes('aws')) {
-    return { icon: 'logos:aws', name: 'AWS' }
+    return { icon: 'logos:aws', name: 'AWS', color: 'bg-orange-600' }
   }
-  return { icon: 'lucide:cpu', name: 'Local' }
+  return { icon: 'lucide:cpu', name: 'Local', color: 'bg-gray-500' }
 }
 
 export default function Chat() {
@@ -77,7 +79,6 @@ export default function Chat() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  // Fetch available models
   useEffect(() => {
     const fetchModels = async () => {
       try {
@@ -102,7 +103,6 @@ export default function Chat() {
     fetchModels()
   }, [])
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -131,7 +131,6 @@ export default function Chat() {
     setInput('')
     setIsLoading(true)
 
-    // Prepare messages for API
     const apiMessages = [
       { role: 'system', content: settings.systemPrompt },
       ...messages.map(m => ({ role: m.role, content: m.content })),
@@ -141,7 +140,6 @@ export default function Chat() {
     try {
       abortControllerRef.current = new AbortController()
       
-      // Get auth token for API request
       const token = localStorage.getItem('token') || localStorage.getItem('authToken');
       
       const response = await fetch('/v1/chat/completions', {
@@ -246,317 +244,381 @@ export default function Chat() {
     }
   }
 
+  const provider = getProviderInfo(settings.model)
+
   return (
-    <div className="flex h-full">
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="border-b px-6 py-4 bg-card">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <Icon icon="lucide:messages-square" width="20" height="20" className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">Chat Playground</h1>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  {settings.model ? (
-                    <>
-                      <Icon icon={getProviderInfo(settings.model).icon} width="14" height="14" />
-                      <span>{settings.model}</span>
-                    </>
-                  ) : (
-                    'No model selected'
+    <TooltipProvider>
+      <div className="flex h-full bg-background">
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col">
+          {/* Modern Header */}
+          <div className="border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/95">
+            <div className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Avatar className="h-9 w-9">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                      <Icon icon="lucide:sparkles" width="18" height="18" />
+                    </AvatarFallback>
+                  </Avatar>
+                  {settings.model && (
+                    <div className={cn(
+                      "absolute -bottom-1 -right-1 h-4 w-4 rounded-full flex items-center justify-center",
+                      provider.color
+                    )}>
+                      <Icon icon={provider.icon} width="10" height="10" className="text-white" />
+                    </div>
                   )}
                 </div>
+                <div>
+                  <h1 className="font-semibold text-lg">Chat Playground</h1>
+                  <p className="text-sm text-muted-foreground">
+                    {settings.model ? settings.model : 'No model selected'}
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClear}
-                disabled={messages.length === 0}
-              >
-                <Icon icon="lucide:trash-2" width="16" height="16" className="mr-2" />
-                Clear
-              </Button>
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClear}
+                      disabled={messages.length === 0}
+                    >
+                      <Icon icon="lucide:trash-2" width="16" height="16" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Clear conversation</TooltipContent>
+                </Tooltip>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Messages Area */}
-        <ScrollArea className="flex-1 p-6">
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500/10 to-purple-600/10 flex items-center justify-center mb-4">
-                <Icon icon="lucide:sparkles" width="32" height="32" className="text-blue-500" />
-              </div>
-              <h2 className="text-lg font-semibold mb-2">Start a conversation</h2>
-              <p className="text-sm text-muted-foreground max-w-md">
-                Type a message below to begin chatting with the selected model
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4 max-w-4xl mx-auto">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "flex gap-3",
-                    message.role === 'user' ? "justify-end" : "justify-start"
-                  )}
-                >
-                  {message.role === 'assistant' && (
-                    <div className="flex-shrink-0">
-                      <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                        <Icon icon="lucide:bot" width="16" height="16" className="text-white" />
-                      </div>
+          {/* Messages Area with Modern Layout */}
+          <div className="flex-1 relative">
+            <ScrollArea className="h-full">
+              {messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full p-8">
+                  <div className="text-center max-w-md">
+                    <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500/10 to-purple-600/10 flex items-center justify-center mx-auto mb-6">
+                      <Icon icon="lucide:sparkles" width="32" height="32" className="text-blue-500" />
                     </div>
-                  )}
-                  
-                  <div
-                    className={cn(
-                      "group relative max-w-[70%] rounded-lg px-4 py-3",
-                      message.role === 'user' 
-                        ? "bg-primary text-primary-foreground" 
-                        : "bg-muted"
+                    <h2 className="text-xl font-semibold mb-2">Start a conversation</h2>
+                    <p className="text-muted-foreground text-sm mb-6">
+                      Type a message below to begin chatting with your selected model
+                    </p>
+                    {!settings.model && (
+                      <Badge variant="outline" className="text-xs">
+                        Please select a model first
+                      </Badge>
                     )}
-                  >
-                    {message.role === 'assistant' && message.model && (
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="secondary" className="text-xs">
-                          {message.model}
-                        </Badge>
-                      </div>
-                    )}
-                    <div className="text-sm whitespace-pre-wrap break-words">
-                      {message.content}
-                    </div>
-                    <div className="text-xs mt-1 opacity-50">
-                      {message.timestamp.toLocaleTimeString()}
-                    </div>
                   </div>
-                  
-                  {message.role === 'user' && (
-                    <div className="flex-shrink-0">
-                      <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                        <Icon icon="lucide:user" width="16" height="16" className="text-primary-foreground" />
-                      </div>
-                    </div>
-                  )}
                 </div>
-              ))}
-              {isLoading && (
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0">
-                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                      <Icon icon="lucide:bot" width="16" height="16" className="text-white" />
-                    </div>
-                  </div>
-                  <div className="bg-muted rounded-lg px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Icon icon="lucide:loader-2" width="16" height="16" className="animate-spin" />
-                      <span className="text-sm">Thinking...</span>
-                    </div>
+              ) : (
+                <div className="px-4 py-6">
+                  <div className="max-w-3xl mx-auto space-y-6">
+                    {messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={cn(
+                          "flex gap-3 group",
+                          message.role === 'user' ? "flex-row-reverse" : "flex-row"
+                        )}
+                      >
+                        {/* Avatar */}
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarFallback className={cn(
+                            message.role === 'user' 
+                              ? "bg-primary text-primary-foreground" 
+                              : "bg-muted"
+                          )}>
+                            <Icon 
+                              icon={message.role === 'user' ? "lucide:user" : "lucide:bot"} 
+                              width="16" 
+                              height="16" 
+                            />
+                          </AvatarFallback>
+                        </Avatar>
+
+                        {/* Message Content */}
+                        <div className="flex flex-col min-w-0 max-w-[80%]">
+                          {message.role === 'assistant' && message.model && (
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="secondary" className="text-xs">
+                                {message.model}
+                              </Badge>
+                            </div>
+                          )}
+                          <Card className={cn(
+                            "shadow-sm",
+                            message.role === 'user' 
+                              ? "bg-primary text-primary-foreground border-primary/20" 
+                              : "bg-card"
+                          )}>
+                            <CardContent className="p-3">
+                              <div className="prose prose-sm dark:prose-invert max-w-none">
+                                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed m-0">
+                                  {message.content}
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <div className="text-xs text-muted-foreground mt-1 px-1">
+                            {message.timestamp.toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {isLoading && (
+                      <div className="flex gap-3">
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarFallback className="bg-muted">
+                            <Icon icon="lucide:bot" width="16" height="16" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <Card className="bg-card shadow-sm">
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-2">
+                              <Icon icon="lucide:loader-2" width="16" height="16" className="animate-spin" />
+                              <span className="text-sm text-muted-foreground">Thinking...</span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
                   </div>
                 </div>
               )}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </ScrollArea>
-
-        {/* Input Area */}
-        <div className="border-t p-4 bg-card">
-          <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-            <div className="flex gap-2">
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type your message..."
-                className="min-h-[60px] max-h-[200px] resize-none"
-                disabled={isLoading}
-              />
-              <div className="flex flex-col gap-2">
-                {isLoading ? (
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="destructive"
-                    onClick={handleStop}
-                  >
-                    <Icon icon="lucide:square" width="16" height="16" />
-                  </Button>
-                ) : (
-                  <Button
-                    type="submit"
-                    size="icon"
-                    disabled={!input.trim() || !settings.model}
-                  >
-                    <Icon icon="lucide:send" width="16" height="16" />
-                  </Button>
-                )}
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              Press Enter to send, Shift+Enter for new line
-            </div>
-          </form>
-        </div>
-      </div>
-
-      {/* Settings Sidebar */}
-      <div className="w-80 border-l bg-card overflow-y-auto dark:bg-card/95 dark:backdrop-blur-sm">
-        <div className="p-6 space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold mb-4">Chat Settings</h2>
+            </ScrollArea>
           </div>
 
-          <Separator />
-
-          {/* Model Selection */}
-          <div className="space-y-2">
-            <Label>Model</Label>
-            <Select
-              value={settings.model}
-              onValueChange={(value: string) => setSettings(prev => ({ ...prev, model: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a model">
-                  {settings.model && (
-                    <div className="flex items-center gap-2">
-                      <Icon icon={getProviderInfo(settings.model).icon} width="16" height="16" />
-                      <span>{settings.model}</span>
-                    </div>
+          {/* Modern Input Area */}
+          <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/95 p-4">
+            <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+              <div className="flex gap-3 items-end">
+                <div className="flex-1 relative">
+                  <Textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type your message..."
+                    className="min-h-[60px] max-h-[200px] resize-none pr-12 rounded-xl border-2 border-border/50 focus:border-ring/50"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  {isLoading ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="destructive"
+                          onClick={handleStop}
+                          className="h-12 w-12 rounded-xl"
+                        >
+                          <Icon icon="lucide:square" width="18" height="18" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Stop generation</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="submit"
+                          size="icon"
+                          disabled={!input.trim() || !settings.model}
+                          className="h-12 w-12 rounded-xl"
+                        >
+                          <Icon icon="lucide:send" width="18" height="18" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Send message</TooltipContent>
+                    </Tooltip>
                   )}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {models.map(model => {
-                  const provider = getProviderInfo(model)
-                  return (
-                    <SelectItem key={model} value={model}>
-                      <div className="flex items-center gap-2">
-                        <Icon icon={provider.icon} width="16" height="16" />
-                        <span>{model}</span>
-                      </div>
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground text-center">
+                Press <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded">Enter</kbd> to send, 
+                <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded ml-1">Shift+Enter</kbd> for new line
+              </div>
+            </form>
           </div>
+        </div>
 
-          {/* Temperature */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Temperature</Label>
-              <span className="text-sm text-muted-foreground">{settings.temperature}</span>
+        {/* Redesigned Settings Sidebar */}
+        <div className="w-80 border-l bg-background">
+          <div className="h-full flex flex-col">
+            <div className="border-b p-4">
+              <h2 className="font-semibold flex items-center gap-2">
+                <Icon icon="lucide:settings" width="18" height="18" />
+                Configuration
+              </h2>
             </div>
-            <Slider
-              value={[settings.temperature]}
-              onValueChange={([value]) => setSettings(prev => ({ ...prev, temperature: value }))}
-              min={0}
-              max={2}
-              step={0.1}
-            />
-            <p className="text-xs text-muted-foreground">
-              Controls randomness. Lower is more focused, higher is more creative.
-            </p>
-          </div>
+            
+            <ScrollArea className="flex-1">
+              <div className="p-4 space-y-6">
+                {/* Model Selection */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Model</Label>
+                  <Select
+                    value={settings.model}
+                    onValueChange={(value: string) => setSettings(prev => ({ ...prev, model: value }))}
+                  >
+                    <SelectTrigger className="h-10">
+                      <SelectValue placeholder="Select a model">
+                        {settings.model && (
+                          <div className="flex items-center gap-2">
+                            <Icon icon={getProviderInfo(settings.model).icon} width="16" height="16" />
+                            <span className="truncate">{settings.model}</span>
+                          </div>
+                        )}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {models.map(model => {
+                        const provider = getProviderInfo(model)
+                        return (
+                          <SelectItem key={model} value={model}>
+                            <div className="flex items-center gap-2">
+                              <Icon icon={provider.icon} width="16" height="16" />
+                              <span>{model}</span>
+                            </div>
+                          </SelectItem>
+                        )
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Max Tokens */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Max Tokens</Label>
-              <span className="text-sm text-muted-foreground">{settings.maxTokens}</span>
-            </div>
-            <Slider
-              value={[settings.maxTokens]}
-              onValueChange={([value]) => setSettings(prev => ({ ...prev, maxTokens: value }))}
-              min={1}
-              max={4096}
-              step={1}
-            />
-            <p className="text-xs text-muted-foreground">
-              Maximum length of the response.
-            </p>
-          </div>
+                <Separator />
 
-          {/* Top P */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Top P</Label>
-              <span className="text-sm text-muted-foreground">{settings.topP}</span>
-            </div>
-            <Slider
-              value={[settings.topP]}
-              onValueChange={([value]) => setSettings(prev => ({ ...prev, topP: value }))}
-              min={0}
-              max={1}
-              step={0.01}
-            />
-            <p className="text-xs text-muted-foreground">
-              Nucleus sampling threshold.
-            </p>
-          </div>
+                {/* Parameters */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Parameters</h3>
+                  
+                  {/* Temperature */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Temperature</Label>
+                      <Badge variant="outline" className="text-xs tabular-nums">
+                        {settings.temperature}
+                      </Badge>
+                    </div>
+                    <Slider
+                      value={[settings.temperature]}
+                      onValueChange={([value]) => setSettings(prev => ({ ...prev, temperature: value }))}
+                      min={0}
+                      max={2}
+                      step={0.1}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Controls randomness. Lower = focused, higher = creative.
+                    </p>
+                  </div>
 
-          {/* Frequency Penalty */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Frequency Penalty</Label>
-              <span className="text-sm text-muted-foreground">{settings.frequencyPenalty}</span>
-            </div>
-            <Slider
-              value={[settings.frequencyPenalty]}
-              onValueChange={([value]) => setSettings(prev => ({ ...prev, frequencyPenalty: value }))}
-              min={-2}
-              max={2}
-              step={0.1}
-            />
-            <p className="text-xs text-muted-foreground">
-              Reduces repetition of token sequences.
-            </p>
-          </div>
+                  {/* Max Tokens */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Max Tokens</Label>
+                      <Badge variant="outline" className="text-xs tabular-nums">
+                        {settings.maxTokens}
+                      </Badge>
+                    </div>
+                    <Slider
+                      value={[settings.maxTokens]}
+                      onValueChange={([value]) => setSettings(prev => ({ ...prev, maxTokens: value }))}
+                      min={1}
+                      max={4096}
+                      step={1}
+                      className="w-full"
+                    />
+                  </div>
 
-          {/* Presence Penalty */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Presence Penalty</Label>
-              <span className="text-sm text-muted-foreground">{settings.presencePenalty}</span>
-            </div>
-            <Slider
-              value={[settings.presencePenalty]}
-              onValueChange={([value]) => setSettings(prev => ({ ...prev, presencePenalty: value }))}
-              min={-2}
-              max={2}
-              step={0.1}
-            />
-            <p className="text-xs text-muted-foreground">
-              Increases likelihood of new topics.
-            </p>
-          </div>
+                  {/* Top P */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Top P</Label>
+                      <Badge variant="outline" className="text-xs tabular-nums">
+                        {settings.topP}
+                      </Badge>
+                    </div>
+                    <Slider
+                      value={[settings.topP]}
+                      onValueChange={([value]) => setSettings(prev => ({ ...prev, topP: value }))}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      className="w-full"
+                    />
+                  </div>
 
-          <Separator />
+                  {/* Frequency Penalty */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Frequency Penalty</Label>
+                      <Badge variant="outline" className="text-xs tabular-nums">
+                        {settings.frequencyPenalty}
+                      </Badge>
+                    </div>
+                    <Slider
+                      value={[settings.frequencyPenalty]}
+                      onValueChange={([value]) => setSettings(prev => ({ ...prev, frequencyPenalty: value }))}
+                      min={-2}
+                      max={2}
+                      step={0.1}
+                      className="w-full"
+                    />
+                  </div>
 
-          {/* System Prompt */}
-          <div className="space-y-2">
-            <Label>System Prompt</Label>
-            <Textarea
-              value={settings.systemPrompt}
-              onChange={(e) => setSettings(prev => ({ ...prev, systemPrompt: e.target.value }))}
-              placeholder="You are a helpful assistant..."
-              className="min-h-[100px] resize-none text-sm dark:bg-muted/50 dark:border-border"
-            />
-            <p className="text-xs text-muted-foreground">
-              Sets the behavior and context for the assistant.
-            </p>
+                  {/* Presence Penalty */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Presence Penalty</Label>
+                      <Badge variant="outline" className="text-xs tabular-nums">
+                        {settings.presencePenalty}
+                      </Badge>
+                    </div>
+                    <Slider
+                      value={[settings.presencePenalty]}
+                      onValueChange={([value]) => setSettings(prev => ({ ...prev, presencePenalty: value }))}
+                      min={-2}
+                      max={2}
+                      step={0.1}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* System Prompt */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">System Prompt</Label>
+                  <Textarea
+                    value={settings.systemPrompt}
+                    onChange={(e) => setSettings(prev => ({ ...prev, systemPrompt: e.target.value }))}
+                    placeholder="You are a helpful assistant..."
+                    className="min-h-[100px] resize-none text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Sets the behavior and context for the assistant.
+                  </p>
+                </div>
+              </div>
+            </ScrollArea>
           </div>
         </div>
       </div>
-    </div>
+    </TooltipProvider>
   )
 }
