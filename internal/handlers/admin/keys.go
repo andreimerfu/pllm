@@ -204,7 +204,7 @@ func (h *KeyHandler) ListKeys(w http.ResponseWriter, r *http.Request) {
 		}
 
 		h.db.Model(&models.Usage{}).
-			Select("COUNT(*) as total_requests, COALESCE(SUM(cost), 0) as total_cost, MAX(created_at) as last_used").
+			Select("COUNT(*) as total_requests, COALESCE(SUM(total_cost), 0) as total_cost, MAX(created_at) as last_used").
 			Where("key_id = ?", k.ID).
 			Scan(&usageStats)
 
@@ -254,7 +254,7 @@ func (h *KeyHandler) GetKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.db.Model(&models.Usage{}).
-		Select("COUNT(*) as total_requests, COALESCE(SUM(cost), 0) as total_cost, MAX(created_at) as last_used").
+		Select("COUNT(*) as total_requests, COALESCE(SUM(total_cost), 0) as total_cost, MAX(created_at) as last_used").
 		Where("key_id = ?", k.ID).
 		Scan(&usageStats)
 
@@ -433,7 +433,7 @@ func (h *KeyHandler) GetKeyUsage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = h.db.Model(&models.Usage{}).
-		Select("model, COUNT(*) as total_requests, COALESCE(SUM(cost), 0) as total_cost, COALESCE(SUM(input_tokens), 0) as input_tokens, COALESCE(SUM(output_tokens), 0) as output_tokens, MAX(created_at) as last_used").
+		Select("model, COUNT(*) as total_requests, COALESCE(SUM(total_cost), 0) as total_cost, COALESCE(SUM(input_tokens), 0) as input_tokens, COALESCE(SUM(output_tokens), 0) as output_tokens, MAX(created_at) as last_used").
 		Where("key_id = ?", keyID).
 		Group("model").
 		Order("total_cost DESC").
@@ -453,7 +453,7 @@ func (h *KeyHandler) GetKeyUsage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.db.Model(&models.Usage{}).
-		Select("COUNT(*) as total_requests, COALESCE(SUM(cost), 0) as total_cost, COALESCE(SUM(input_tokens), 0) as total_input_tokens, COALESCE(SUM(output_tokens), 0) as total_output_tokens").
+		Select("COUNT(*) as total_requests, COALESCE(SUM(total_cost), 0) as total_cost, COALESCE(SUM(input_tokens), 0) as total_input_tokens, COALESCE(SUM(output_tokens), 0) as total_output_tokens").
 		Where("key_id = ?", keyID).
 		Scan(&totalStats)
 
