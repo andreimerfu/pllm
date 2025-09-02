@@ -10,6 +10,66 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Palette } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
+
+// Theme selector component
+function ThemeSelector() {
+  const { currentTheme, setTheme, themes } = useTheme();
+  
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Chart Theme</Label>
+        <Select value={currentTheme} onValueChange={setTheme}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select theme" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(themes).map(([key, config]) => (
+              <SelectItem key={key} value={key}>
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    {Object.values(config.colors).slice(0, 3).map((color, i) => (
+                      <div
+                        key={i}
+                        className="w-3 h-3 rounded-full border border-border/20"
+                        style={{ backgroundColor: `hsl(${color})` }}
+                      />
+                    ))}
+                  </div>
+                  {config.name}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-sm text-muted-foreground">
+          Choose a color theme for charts and data visualizations
+        </p>
+      </div>
+      
+      {/* Theme preview */}
+      <div className="grid grid-cols-5 gap-2">
+        {Object.values(themes[currentTheme].colors).map((color, i) => (
+          <div
+            key={i}
+            className="h-8 rounded-md border border-border/20 transition-all"
+            style={{ backgroundColor: `hsl(${color})` }}
+            title={`Chart ${i + 1}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Settings() {
   return (
@@ -65,6 +125,22 @@ export default function Settings() {
                   Reset to Defaults
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+          
+          {/* Appearance Settings Card */}
+          <Card className="transition-theme">
+            <CardHeader>
+              <CardTitle className="text-lg lg:text-xl flex items-center gap-2">
+                <Palette className="h-5 w-5" />
+                Appearance
+              </CardTitle>
+              <CardDescription>
+                Customize the look and feel of your dashboard
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ThemeSelector />
             </CardContent>
           </Card>
         </TabsContent>

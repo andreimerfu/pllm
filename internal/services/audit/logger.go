@@ -178,17 +178,17 @@ func (l *Logger) LogKeyCreated(ctx context.Context, userID uuid.UUID, teamID *uu
 	})
 }
 
-// LogKeyDeleted logs when a key is deleted
-func (l *Logger) LogKeyDeleted(ctx context.Context, userID uuid.UUID, teamID *uuid.UUID, keyID uuid.UUID, keyType string) error {
-	details := map[string]interface{}{
-		"key_type": keyType,
-	}
-	return l.LogEvent(ctx, &userID, teamID, AuditEvent{
-		Action:     ActionDelete,
-		Resource:   ResourceKey,
-		ResourceID: &keyID,
-		Details:    details,
-	})
+// LogKeyDeleted logs when a key is deleted. userID may be nil for system/master actions.
+func (l *Logger) LogKeyDeleted(ctx context.Context, userID *uuid.UUID, teamID *uuid.UUID, keyID uuid.UUID, keyType string) error {
+    details := map[string]interface{}{
+        "key_type": keyType,
+    }
+    return l.LogEvent(ctx, userID, teamID, AuditEvent{
+        Action:     ActionDelete,
+        Resource:   ResourceKey,
+        ResourceID: &keyID,
+        Details:    details,
+    })
 }
 
 // LogTeamCreated logs when a new team is created

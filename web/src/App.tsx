@@ -16,13 +16,15 @@ import { Toaster } from '@/components/ui/toaster'
 import { OIDCAuthProvider } from '@/contexts/OIDCAuthContext'
 import { PermissionProvider } from '@/contexts/PermissionContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 
 function App() {
   // Since the UI is only served when database is configured,
   // we don't need to check database status here
   return (
     <Router basename="/ui">
-      <OIDCAuthProvider>
+      <ThemeProvider>
+        <OIDCAuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/callback" element={<Callback />} />
@@ -49,7 +51,8 @@ function App() {
           } />
         </Routes>
         <Toaster />
-      </OIDCAuthProvider>
+        </OIDCAuthProvider>
+      </ThemeProvider>
     </Router>
   )
 }

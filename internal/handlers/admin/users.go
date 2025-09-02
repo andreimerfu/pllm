@@ -324,7 +324,7 @@ func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
 	// Get usage stats
 	h.db.Model(&models.Usage{}).
 		Where("user_id = ?", userID).
-		Select("COUNT(*) as total_requests, SUM(total_tokens) as total_tokens, SUM(cost) as total_cost").
+		Select("COUNT(*) as total_requests, SUM(total_tokens) as total_tokens, SUM(total_cost) as total_cost").
 		Scan(&stats)
 
 	// Get last usage time

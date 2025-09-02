@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -53,8 +54,8 @@ type Key struct {
 	MaxParallelCalls *int `json:"max_parallel_calls,omitempty"`
 
 	// Model Access Control
-	AllowedModels []string `gorm:"type:text[]" json:"allowed_models,omitempty"`
-	BlockedModels []string `gorm:"type:text[]" json:"blocked_models,omitempty"`
+	AllowedModels pq.StringArray `gorm:"type:text[]" json:"allowed_models,omitempty"`
+	BlockedModels pq.StringArray `gorm:"type:text[]" json:"blocked_models,omitempty"`
 
 	// Usage Tracking
 	UsageCount  int64   `json:"usage_count"`
@@ -62,11 +63,11 @@ type Key struct {
 	TotalCost   float64 `json:"total_cost"`
 
 	// Permissions and scopes
-	Scopes []string `gorm:"type:text[]" json:"scopes,omitempty"`
+	Scopes pq.StringArray `gorm:"type:text[]" json:"scopes,omitempty"`
 
 	// Metadata
 	Metadata datatypes.JSON `json:"metadata,omitempty"`
-	Tags     []string       `gorm:"type:text[]" json:"tags,omitempty"`
+	Tags     pq.StringArray `gorm:"type:text[]" json:"tags,omitempty"`
 
 	// Audit
 	CreatedBy        *uuid.UUID `gorm:"type:uuid" json:"created_by,omitempty"`
@@ -81,6 +82,7 @@ const (
 	KeyTypeAPI     KeyType = "api"     // API key
 	KeyTypeVirtual KeyType = "virtual" // Virtual key (OpenAI compatible)
 	KeyTypeMaster  KeyType = "master"  // Master key for admin access
+	KeyTypeSystem  KeyType = "system"  // System key for backend services
 )
 
 // KeyRequest represents a request to create a new key
@@ -123,6 +125,8 @@ func GenerateKey(keyType KeyType) (string, string, error) {
 		key = fmt.Sprintf("sk-%s", hex.EncodeToString(b[:24]))
 	case KeyTypeMaster:
 		key = fmt.Sprintf("pllm_mk_%s", hex.EncodeToString(b))
+	case KeyTypeSystem:
+		key = fmt.Sprintf("pllm_sk_%s", hex.EncodeToString(b))
 	default:
 		key = fmt.Sprintf("pllm_uk_%s", hex.EncodeToString(b))
 	}
@@ -143,6 +147,8 @@ func ValidateKeyFormat(key string) bool {
 		return len(key) == 51 // sk- (3) + 48 hex chars
 	case strings.HasPrefix(key, "pllm_mk_"):
 		return len(key) == 72 // pllm_mk_ (8) + 64 hex chars
+	case strings.HasPrefix(key, "pllm_sk_"):
+		return len(key) == 72 // pllm_sk_ (8) + 64 hex chars
 	default:
 		return false
 	}
@@ -315,14 +321,25 @@ func (k *Key) GetType() KeyType {
 		return k.Type
 	}
 
-	// Infer from key prefix
+	// Infer from key prefix (using new service generator format)
 	switch {
+	case strings.HasPrefix(k.Key, "sk-api"):
+		return KeyTypeAPI
+	case strings.HasPrefix(k.Key, "sk-vrt"):
+		return KeyTypeVirtual
+	case strings.HasPrefix(k.Key, "sk-mst"):
+		return KeyTypeMaster
+	case strings.HasPrefix(k.Key, "sk-sys"):
+		return KeyTypeSystem
+	// Legacy format support
 	case strings.HasPrefix(k.Key, "sk-"):
 		return KeyTypeVirtual
 	case strings.HasPrefix(k.Key, "pllm_ak_"):
 		return KeyTypeAPI
 	case strings.HasPrefix(k.Key, "pllm_mk_"):
 		return KeyTypeMaster
+	case strings.HasPrefix(k.Key, "pllm_sk_"):
+		return KeyTypeSystem
 	default:
 		return KeyTypeAPI
 	}

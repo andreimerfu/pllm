@@ -24,6 +24,19 @@
     --input: 220 13% 91%;
     --ring: 224 71.4% 4.1%;
     --radius: 0.75rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+    --chart-1: 220.9 39.3% 11%;
+    --chart-2: 220 14.3% 95.9%;
+    --chart-3: 220.9 39.3% 11%;
+    --chart-4: 220 14.3% 95.9%;
+    --chart-5: 220.9 39.3% 11%;
   }
 
   .dark {
@@ -46,6 +59,19 @@
     --border: 215 28% 22%;
     --input: 215 28% 18%;
     --ring: 216 12.2% 83.9%;
+    --sidebar-background: 215 28% 10%;
+    --sidebar-foreground: 210 20% 95%;
+    --sidebar-primary: 220 15% 65%;
+    --sidebar-primary-foreground: 215 28% 15%;
+    --sidebar-accent: 215 28% 18%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 215 28% 22%;
+    --sidebar-ring: 216 12.2% 83.9%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
   }
 }
 
@@ -55,6 +81,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 }

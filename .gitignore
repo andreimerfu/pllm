@@ -160,3 +160,6 @@ web/node_modules/*
 
 
 deploy/helm/values-test.yaml
+
+AGENTS.md
+.mcp.json

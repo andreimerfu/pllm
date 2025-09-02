@@ -40,6 +40,8 @@ type AuthClaims struct {
 	Name              string   `json:"name"`
 	Groups            []string `json:"groups"`
 	PreferredUsername string   `json:"preferred_username"`
+	ConnectorID       string   `json:"connector_id"`       // Dex connector ID (github, google, microsoft)
+	ConnectorData     map[string]interface{} `json:"connector_data"` // Additional connector-specific data
 }
 
 type Session struct {

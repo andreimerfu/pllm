@@ -12,6 +12,16 @@ RUN npm ci
 # Copy UI source
 COPY web/ ./
 
+# Build arguments for Vite environment variables
+ARG VITE_DEX_PUBLIC_AUTHORITY
+ARG VITE_DEX_CLIENT_ID
+ARG VITE_DEX_CLIENT_SECRET
+
+# Set environment variables for build
+ENV VITE_DEX_PUBLIC_AUTHORITY=$VITE_DEX_PUBLIC_AUTHORITY
+ENV VITE_DEX_CLIENT_ID=$VITE_DEX_CLIENT_ID
+ENV VITE_DEX_CLIENT_SECRET=$VITE_DEX_CLIENT_SECRET
+
 # Build UI
 RUN npm run build
 
