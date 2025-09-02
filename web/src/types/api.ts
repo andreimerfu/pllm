@@ -47,6 +47,8 @@ export interface User {
   id: string;
   dex_id: string;
   name?: string;
+  first_name?: string;
+  last_name?: string;
   email?: string;
   picture?: string;
   groups?: string[];
@@ -54,6 +56,9 @@ export interface User {
   created_at: string;
   updated_at: string;
   last_login?: string;
+  last_login_at?: string;
+  external_provider?: string;
+  provider_icon?: string;
 }
 
 export interface ModelsResponse {

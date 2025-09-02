@@ -36,11 +36,18 @@ export default function Users() {
     fetchUsers()
   }, [])
 
-  const filteredUsers = users.filter(user => 
-    (user.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-    (user.email?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-    user.dex_id.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredUsers = users.filter(user => {
+    const searchLower = searchTerm.toLowerCase();
+    const fullName = user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : '';
+    const displayName = fullName || user.name || user.email?.split('@')[0] || '';
+    
+    return (
+      displayName.toLowerCase().includes(searchLower) ||
+      (user.first_name?.toLowerCase().includes(searchLower) || false) ||
+      (user.last_name?.toLowerCase().includes(searchLower) || false) ||
+      (user.email?.toLowerCase().includes(searchLower) || false)
+    );
+  })
 
   return (
     <div className="space-y-6">
@@ -72,7 +79,7 @@ export default function Users() {
             <div className="relative">
               <Icon icon="lucide:search" width="16" height="16" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search users by name, email, or Dex ID..."
+                placeholder="Search users by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -105,13 +112,46 @@ export default function Users() {
               {filteredUsers.map(user => (
                 <Card key={user.id} className="p-4 transition-theme">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold">{user.name || user.dex_id}</h3>
+                    <div className="flex items-center gap-2">
+                      {user.provider_icon && (
+                        <Icon 
+                          icon={`simple-icons:${user.provider_icon}`} 
+                          width="16" 
+                          height="16" 
+                          className="text-muted-foreground" 
+                        />
+                      )}
+                      {user.provider_icon === 'key' && (
+                        <Icon 
+                          icon="lucide:key" 
+                          width="16" 
+                          height="16" 
+                          className="text-muted-foreground" 
+                        />
+                      )}
+                      {user.provider_icon === 'user' && (
+                        <Icon 
+                          icon="lucide:user" 
+                          width="16" 
+                          height="16" 
+                          className="text-muted-foreground" 
+                        />
+                      )}
+                      <h3 className="font-semibold">
+                        {user.first_name && user.last_name 
+                          ? `${user.first_name} ${user.last_name}` 
+                          : user.name || user.email?.split('@')[0] || 'Unknown'
+                        }
+                      </h3>
+                    </div>
                     <Badge variant={user.is_admin ? 'default' : 'secondary'} className="font-medium">
                       {user.is_admin ? 'Admin' : 'User'}
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mb-1">{user.email || 'No email'}</p>
-                  <p className="text-xs text-muted-foreground mb-2">Dex ID: {user.dex_id}</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Last Login: {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
+                  </p>
                   <div className="flex items-center justify-between">
                     <Badge 
                       variant="outline"
@@ -125,18 +165,6 @@ export default function Users() {
                       </Button>
                     </div>
                   </div>
-                  {user.groups && user.groups.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs text-muted-foreground mb-1">Groups:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {user.groups.map((group, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {group}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </Card>
               ))}
             </div>
@@ -149,46 +177,57 @@ export default function Users() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-left p-3 font-semibold min-w-[120px]">Name</th>
-                      <th className="text-left p-3 font-semibold min-w-[200px]">Email</th>
-                      <th className="text-left p-3 font-semibold min-w-[150px]">Dex ID</th>
+                      <th className="text-left p-3 font-semibold min-w-[180px]">Name</th>
+                      <th className="text-left p-3 font-semibold min-w-[80px]">Provider</th>
+                      <th className="text-left p-3 font-semibold min-w-[250px]">Email</th>
                       <th className="text-left p-3 font-semibold min-w-[80px]">Role</th>
-                      <th className="text-left p-3 font-semibold min-w-[100px]">Groups</th>
-                      <th className="text-left p-3 font-semibold min-w-[100px]">Last Login</th>
+                      <th className="text-left p-3 font-semibold min-w-[120px]">Last Login</th>
                       <th className="text-left p-3 font-semibold min-w-[100px]">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredUsers.map(user => (
                       <tr key={user.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors duration-200">
-                        <td className="p-3 font-medium">{user.name || user.dex_id}</td>
+                        <td className="p-3 font-medium">
+                          {user.first_name && user.last_name 
+                            ? `${user.first_name} ${user.last_name}` 
+                            : user.name || user.email?.split('@')[0] || 'Unknown'
+                          }
+                        </td>
+                        <td className="p-3">
+                          {user.provider_icon && (
+                            <Icon 
+                              icon={`simple-icons:${user.provider_icon}`} 
+                              width="18" 
+                              height="18" 
+                              className="text-muted-foreground" 
+                            />
+                          )}
+                          {user.provider_icon === 'key' && (
+                            <Icon 
+                              icon="lucide:key" 
+                              width="18" 
+                              height="18" 
+                              className="text-muted-foreground" 
+                            />
+                          )}
+                          {user.provider_icon === 'user' && (
+                            <Icon 
+                              icon="lucide:user" 
+                              width="18" 
+                              height="18" 
+                              className="text-muted-foreground" 
+                            />
+                          )}
+                        </td>
                         <td className="p-3 text-muted-foreground">{user.email || 'No email'}</td>
-                        <td className="p-3 text-muted-foreground font-mono text-xs">{user.dex_id}</td>
                         <td className="p-3">
                           <Badge variant={user.is_admin ? 'default' : 'secondary'} className="font-medium">
                             {user.is_admin ? 'Admin' : 'User'}
                           </Badge>
                         </td>
-                        <td className="p-3">
-                          {user.groups && user.groups.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {user.groups.slice(0, 2).map((group, index) => (
-                                <Badge key={index} variant="outline" className="text-xs">
-                                  {group}
-                                </Badge>
-                              ))}
-                              {user.groups.length > 2 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{user.groups.length - 2}
-                                </Badge>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">None</span>
-                          )}
-                        </td>
                         <td className="p-3 text-muted-foreground text-xs">
-                          {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
+                          {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
                         </td>
                         <td className="p-3">
                           <Button variant="ghost" size="sm" className="hover:bg-muted transition-colors">

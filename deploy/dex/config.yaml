@@ -80,7 +80,6 @@ connectors:
         - user:email
         - read:user
         - read:org
-
   # Google OAuth
   - type: google
     id: google

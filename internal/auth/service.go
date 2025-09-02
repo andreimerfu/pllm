@@ -165,8 +165,15 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 				Role:          role,
 			}
 
-			// Mark as provisioned from Dex
-			user.MarkAsProvisioned("dex", claims.Subject, claims.Groups)
+			// Extract the actual OAuth provider from Dex claims
+			actualProvider := extractOAuthProvider(claims)
+			
+			// Debug log to help with troubleshooting
+			fmt.Printf("DEBUG: Dex claims - Subject: %s, Email: %s, ConnectorID: %s, ExtractedProvider: %s\n", 
+				claims.Subject, claims.Email, claims.ConnectorID, actualProvider)
+			
+			// Mark as provisioned from the actual provider
+			user.MarkAsProvisioned(actualProvider, claims.Subject, claims.Groups)
 
 			if err := s.db.Create(&user).Error; err != nil {
 				return nil, fmt.Errorf("failed to create user: %w", err)
@@ -222,6 +229,18 @@ func (s *AuthService) LoginWithDex(ctx context.Context, code string) (*LoginResp
 		user.FirstName = claims.Name
 		user.EmailVerified = claims.EmailVerified
 		user.UpdateExternalGroups(claims.Groups)
+		
+		// Update provider info if it has changed or was missing
+		actualProvider := extractOAuthProvider(claims)
+		
+		// Debug log to help with troubleshooting (existing users)
+		fmt.Printf("DEBUG: Existing user - Subject: %s, Email: %s, Current Provider: %s, ExtractedProvider: %s\n", 
+			claims.Subject, claims.Email, user.ExternalProvider, actualProvider)
+		
+		if user.ExternalProvider != actualProvider {
+			user.ExternalProvider = actualProvider
+		}
+		
 		if err := s.db.Save(&user).Error; err != nil {
 			// Log error but don't fail login
 			log.Printf("Failed to update user from Dex claims: %v", err)
@@ -616,4 +635,68 @@ func (s *AuthService) GetKeyUser(ctx context.Context, keyID uuid.UUID) (*models.
 	}
 
 	return &user, nil
+}
+
+// extractOAuthProvider determines the actual OAuth provider from Dex claims
+func extractOAuthProvider(claims *AuthClaims) string {
+	// If connector_id is available, use it directly
+	if claims.ConnectorID != "" {
+		return claims.ConnectorID
+	}
+	
+	// Dex includes connector information in the subject ID
+	// The format is typically: CiQwMzHexample (base64) or connectorID-userID
+	subject := claims.Subject
+	
+	// Method 1: Check if subject contains connector prefix patterns
+	if strings.Contains(subject, "github") || strings.HasPrefix(subject, "github-") {
+		return "github"
+	}
+	if strings.Contains(subject, "google") || strings.HasPrefix(subject, "google-") {
+		return "google"
+	}
+	if strings.Contains(subject, "microsoft") || strings.HasPrefix(subject, "microsoft-") {
+		return "microsoft"
+	}
+	if strings.Contains(subject, "gitlab") || strings.HasPrefix(subject, "gitlab-") {
+		return "gitlab"
+	}
+	
+	// Method 2: Analyze the issuer and check for local vs external patterns
+	email := claims.Email
+	
+	// Check if it's a local/static password user from Dex config
+	if strings.Contains(email, "@pllm.local") {
+		return "local"
+	}
+	
+	// Method 3: Use email domain heuristics as fallback
+	if email != "" {
+		domain := strings.Split(email, "@")
+		if len(domain) == 2 {
+			switch strings.ToLower(domain[1]) {
+			case "gmail.com", "googlemail.com":
+				return "google"
+			case "outlook.com", "hotmail.com", "live.com", "msn.com":
+				return "microsoft"
+			}
+		}
+	}
+	
+	// Method 4: Check connector data if available
+	if claims.ConnectorData != nil {
+		if connectorType, exists := claims.ConnectorData["connector_type"]; exists {
+			if connectorStr, ok := connectorType.(string); ok {
+				return connectorStr
+			}
+		}
+		if connectorID, exists := claims.ConnectorData["connector_id"]; exists {
+			if connectorStr, ok := connectorID.(string); ok {
+				return connectorStr
+			}
+		}
+	}
+	
+	// Default fallback - this shouldn't happen with proper Dex setup
+	return "dex"
 }
