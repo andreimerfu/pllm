@@ -8,20 +8,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/amerfu/pllm/internal/models"
 	"github.com/amerfu/pllm/internal/services/key"
 	"github.com/amerfu/pllm/internal/testutil"
 )
 
-// newTestLogger creates a test logger
-func newTestLogger() *zap.Logger {
-	config := zap.NewDevelopmentConfig()
-	config.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
-	logger, _ := config.Build()
-	return logger
-}
 
 
 // mockTeamService implements TeamService for testing

@@ -444,7 +444,7 @@ func TestChatCompletions_KeyRestrictions(t *testing.T) {
 					// Check if model is allowed
 					if !keyModel.IsModelAllowed(tt.requestModel) {
 						w.WriteHeader(http.StatusForbidden)
-						json.NewEncoder(w).Encode(map[string]string{
+						_ = json.NewEncoder(w).Encode(map[string]string{
 							"error": "Model access denied",
 						})
 						return
