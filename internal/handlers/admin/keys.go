@@ -96,7 +96,7 @@ func (h *KeyHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get current user from context for audit
-	currentUserID, _ := middleware.GetUserID(r.Context())
+	currentUserID, hasUserID := middleware.GetUserID(r.Context())
 	
 	// Create key record
 	k := models.Key{
@@ -109,7 +109,16 @@ func (h *KeyHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 		IsActive:  true,
 		UserID:    req.UserID,    // Key owner (can be nil for system keys)
 		TeamID:    req.TeamID,
-		CreatedBy: &currentUserID, // Who created the key (audit)
+		CreatedBy: nil, // Will be set below based on auth type
+	}
+	
+	// Set CreatedBy based on authentication type
+	if hasUserID && currentUserID != uuid.Nil {
+		k.CreatedBy = &currentUserID // Regular user or JWT auth
+	} else if middleware.IsMasterKey(r.Context()) {
+		// For master key authentication, leave CreatedBy as nil since there's no user
+		// This is acceptable for system keys created by master key
+		k.CreatedBy = nil
 	}
 
 	if err := h.db.Create(&k).Error; err != nil {
@@ -316,23 +325,36 @@ func (h *KeyHandler) UpdateKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Log audit event if there were changes
-	if len(changes) > 0 {
-		systemUserID := uuid.New()
-		if err := h.auditLogger.LogEvent(r.Context(), &systemUserID, k.TeamID, audit.AuditEvent{
-			Action:     audit.ActionUpdate,
-			Resource:   audit.ResourceKey,
-			ResourceID: &k.ID,
-			Details:    changes,
-		}); err != nil {
-			log.Printf("Failed to log key update audit: %v", err)
-		}
-	}
+    // Log audit event if there were changes
+    if len(changes) > 0 {
+        // Determine actor: nil for master/system; real user otherwise
+        currentUserID, hasUserID := middleware.GetUserID(r.Context())
+        var actor *uuid.UUID
+        const masterJWTUser = "00000000-0000-0000-0000-000000000001"
+        if middleware.IsMasterKey(r.Context()) {
+            actor = nil
+        } else if hasUserID && currentUserID.String() == masterJWTUser {
+            // JWT that represents master user should be treated as system
+            actor = nil
+        } else if hasUserID && currentUserID != uuid.Nil {
+            actor = &currentUserID
+        } else {
+            actor = nil
+        }
+        if err := h.auditLogger.LogEvent(r.Context(), actor, k.TeamID, audit.AuditEvent{
+            Action:     audit.ActionUpdate,
+            Resource:   audit.ResourceKey,
+            ResourceID: &k.ID,
+            Details:    changes,
+        }); err != nil {
+            log.Printf("Failed to log key update audit: %v", err)
+        }
+    }
 
 	h.sendJSON(w, http.StatusOK, k)
 }
 
-// DeleteKey deletes a key (soft delete)
+// DeleteKey deletes a key (hard delete)
 func (h *KeyHandler) DeleteKey(w http.ResponseWriter, r *http.Request) {
 	keyID, err := uuid.Parse(chi.URLParam(r, "keyID"))
 	if err != nil {
@@ -350,18 +372,28 @@ func (h *KeyHandler) DeleteKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Soft delete by setting is_active to false
-	k.IsActive = false
-	if err := h.db.Save(&k).Error; err != nil {
+	// Hard delete the key record
+	if err := h.db.Delete(&k).Error; err != nil {
 		h.sendError(w, http.StatusInternalServerError, "Failed to delete key")
 		return
 	}
 
-	// Log audit event
-	systemUserID := uuid.New()
-	if err := h.auditLogger.LogKeyDeleted(r.Context(), systemUserID, k.TeamID, k.ID, string(k.Type)); err != nil {
-		log.Printf("Failed to log key deletion audit: %v", err)
-	}
+    // Log audit event
+    currentUserID, hasUserID := middleware.GetUserID(r.Context())
+    var actor *uuid.UUID
+    const masterJWTUser = "00000000-0000-0000-0000-000000000001"
+    if middleware.IsMasterKey(r.Context()) {
+        actor = nil
+    } else if hasUserID && currentUserID.String() == masterJWTUser {
+        actor = nil
+    } else if hasUserID && currentUserID != uuid.Nil {
+        actor = &currentUserID
+    } else {
+        actor = nil
+    }
+    if err := h.auditLogger.LogKeyDeleted(r.Context(), actor, k.TeamID, k.ID, string(k.Type)); err != nil {
+        log.Printf("Failed to log key deletion audit: %v", err)
+    }
 
 	h.sendJSON(w, http.StatusOK, map[string]string{"message": "Key deleted successfully"})
 }

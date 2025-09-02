@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Key, Copy, Trash2, RotateCw, Eye, EyeOff, Users, User } from 'lucide-react';
+import { Plus, Key, Copy, Trash2, RotateCw, Eye, EyeOff, Users, User, Power } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -18,6 +18,17 @@ interface VirtualKey {
   name: string;
   user_id?: string;
   team_id?: string;
+  user?: {
+    id: string;
+    username: string;
+    email: string;
+    full_name?: string;
+  };
+  team?: {
+    id: string;
+    name: string;
+  };
+  created_by?: string;
   is_active: boolean;
   expires_at?: string;
   max_budget?: number;
@@ -40,7 +51,8 @@ const Keys: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showKeyValue, setShowKeyValue] = useState<{[key: string]: boolean}>({});
-  const [filter, setFilter] = useState<'all' | 'active' | 'expired' | 'revoked'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'inactive' | 'expired' | 'revoked'>('all');
+  const [ownerFilter, setOwnerFilter] = useState<'all' | 'user' | 'team' | 'system'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const { hasRole, hasPermission } = usePermissions();
@@ -120,13 +132,7 @@ const Keys: React.FC = () => {
   };
 
   const revokeKey = async (keyId: string) => {
-    // Only admins can revoke keys
-    if (!isAdmin) {
-      toast({
-        title: 'Error',
-        description: 'Only administrators can revoke keys',
-        variant: 'destructive',
-      });
+    if (!confirm('Are you sure you want to revoke this key? This will make it unusable immediately.')) {
       return;
     }
 
@@ -146,7 +152,39 @@ const Keys: React.FC = () => {
     }
   };
 
-  const deleteKey = async (keyId: string) => {
+  const toggleKeyStatus = async (keyId: string, isActive: boolean) => {
+    if (!confirm(`Are you sure you want to ${isActive ? 'disable' : 'enable'} this key?`)) {
+      return;
+    }
+
+    try {
+      await api.keys.update(keyId, { is_active: !isActive });
+      toast({
+        title: 'Success',
+        description: `Key ${!isActive ? 'enabled' : 'disabled'} successfully`,
+      });
+      fetchKeys();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: `Failed to ${!isActive ? 'enable' : 'disable'} key`,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const deleteKey = async (keyId: string, key: VirtualKey) => {
+    // Check if user has permission to delete this key
+    const canDelete = isAdmin || (key.user_id && !key.team_id); // Users can only delete their own personal keys
+    if (!canDelete) {
+      toast({
+        title: 'Error',
+        description: 'You do not have permission to delete this key',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!confirm('Are you sure you want to delete this key? This action cannot be undone.')) {
       return;
     }
@@ -194,10 +232,32 @@ const Keys: React.FC = () => {
     return (key.current_spend / key.max_budget) * 100;
   };
 
+  const getKeyOwner = (key: VirtualKey) => {
+    if (key.team) {
+      return { type: 'team', name: key.team.name, icon: Users };
+    }
+    if (key.user) {
+      return { 
+        type: 'user', 
+        name: key.user.full_name || key.user.username || key.user.email,
+        email: key.user.email,
+        icon: User 
+      };
+    }
+    return { type: 'system', name: 'System Key', icon: Key };
+  };
+
   const filteredKeys = keys.filter(key => {
     const status = getKeyStatus(key);
     if (filter !== 'all' && status !== filter) return false;
     if (searchTerm && !key.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    
+    // Owner filter
+    if (ownerFilter !== 'all') {
+      const owner = getKeyOwner(key);
+      if (ownerFilter !== owner.type) return false;
+    }
+    
     return true;
   });
 
@@ -221,7 +281,7 @@ const Keys: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 mb-6">
+      <div className="flex gap-4 mb-6 flex-wrap">
         <Input
           placeholder="Search keys..."
           value={searchTerm}
@@ -235,10 +295,24 @@ const Keys: React.FC = () => {
           <SelectContent>
             <SelectItem value="all">All Keys</SelectItem>
             <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
             <SelectItem value="expired">Expired</SelectItem>
             <SelectItem value="revoked">Revoked</SelectItem>
           </SelectContent>
         </Select>
+        {isAdmin && (
+          <Select value={ownerFilter} onValueChange={(value: any) => setOwnerFilter(value)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Owners</SelectItem>
+              <SelectItem value="user">User Keys</SelectItem>
+              <SelectItem value="team">Team Keys</SelectItem>
+              <SelectItem value="system">System Keys</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -256,8 +330,11 @@ const Keys: React.FC = () => {
             <CardTitle className="text-sm font-medium">Active Keys</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold text-green-600">
               {keys.filter(k => getKeyStatus(k) === 'active').length}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {keys.filter(k => getKeyStatus(k) === 'inactive').length} inactive
             </div>
           </CardContent>
         </Card>
@@ -292,12 +369,13 @@ const Keys: React.FC = () => {
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="space-y-3 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Key className="h-5 w-5 text-muted-foreground" />
                       <h3 className="font-semibold">{key.name}</h3>
                       <Badge
                         variant={
                           status === 'active' ? 'default' :
+                          status === 'inactive' ? 'secondary' :
                           status === 'expired' ? 'secondary' :
                           status === 'revoked' ? 'destructive' :
                           'outline'
@@ -305,6 +383,17 @@ const Keys: React.FC = () => {
                       >
                         {status}
                       </Badge>
+                      {(() => {
+                        const owner = getKeyOwner(key);
+                        const IconComponent = owner.icon;
+                        return (
+                          <Badge variant="outline" className="flex items-center gap-1">
+                            <IconComponent className="h-3 w-3" />
+                            {owner.type === 'team' && 'Team: '}
+                            {owner.name}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                     
                     <div className="flex items-center gap-2">
@@ -374,36 +463,67 @@ const Keys: React.FC = () => {
                       </div>
                     )}
 
-                    <div className="flex gap-4 text-xs text-muted-foreground">
+                    <div className="flex gap-4 text-xs text-muted-foreground flex-wrap">
                       <span>Created: {new Date(key.created_at).toLocaleDateString()}</span>
                       {key.last_used_at && (
                         <span>Last used: {new Date(key.last_used_at).toLocaleDateString()}</span>
                       )}
-                      {key.team_id && <span>Team key</span>}
-                      {key.user_id && <span>User key</span>}
+                      {(() => {
+                        const owner = getKeyOwner(key);
+                        if (owner.type === 'team') {
+                          return <span>Team: {owner.name}</span>;
+                        } else if (owner.type === 'user') {
+                          return <span>Owner: {owner.name}{owner.email && ` (${owner.email})`}</span>;
+                        } else {
+                          return <span>System key</span>;
+                        }
+                      })()}
                     </div>
                   </div>
 
                   <div className="flex gap-2 ml-4">
                     <CanAccess role="admin" permissions={['admin.keys.revoke']}>
+                      {/* Enable/Disable toggle for admins - only show if not revoked */}
+                      {status !== 'revoked' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleKeyStatus(key.id, key.is_active)}
+                          title={key.is_active ? 'Disable key' : 'Enable key'}
+                        >
+                          <Power className={`h-4 w-4 ${key.is_active ? 'text-green-500' : 'text-red-500'}`} />
+                        </Button>
+                      )}
+                      
+                      {/* Revoke button for active keys only */}
                       {status === 'active' && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => revokeKey(key.id)}
+                          title="Permanently revoke key"
                         >
                           <RotateCw className="h-4 w-4 mr-1" />
                           Revoke
                         </Button>
                       )}
                     </CanAccess>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deleteKey(key.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    
+                    {/* Delete button - users can delete their own keys, admins can delete any */}
+                    {(() => {
+                      const canDelete = isAdmin || (key.user_id && !key.team_id);
+                      return (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!canDelete}
+                          onClick={() => deleteKey(key.id, key)}
+                          title={!canDelete ? 'You cannot delete this key' : 'Delete key'}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      );
+                    })()}
                   </div>
                 </div>
               </CardContent>
@@ -546,13 +666,19 @@ const Keys: React.FC = () => {
                   };
 
                   // Handle ownership/key type for different user roles
-                  if (isAdmin && ownership) {
-                    keyData.type = ownership === 'system' ? 'master' : 'api';
+                  if (ownership) {
+                    // Set key_type based on ownership selection (works for both admin and master key auth)
+                    keyData.key_type = ownership === 'system' ? 'system' : 'api';
                   } else if (!isAdmin && keyType) {
+                    // Handle team keys for non-admin users
+                    keyData.key_type = 'api'; // Default to api key for team/personal keys
                     if (keyType.startsWith('team:')) {
                       keyData.team_id = keyType.replace('team:', '');
                     }
                     // Personal keys are the default (no team_id)
+                  } else {
+                    // Default key type if nothing else is set
+                    keyData.key_type = 'api';
                   }
                   
                   generateKey(keyData);
