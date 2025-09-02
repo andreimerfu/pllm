@@ -4,13 +4,23 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { Pie, PieChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Button } from "@/components/ui/button";
+import { 
+  Pie, 
+  PieChart, 
+  Area,
+  AreaChart,
+  CartesianGrid, 
+  XAxis,
+  Label
+} from "recharts";
 import {
   ChartConfig,
   ChartContainer,
@@ -21,12 +31,18 @@ import {
 } from "@/components/ui/chart";
 import { 
   TrendingUp, 
+  TrendingDown,
   PiggyBank, 
   AlertTriangle, 
   Users, 
   Key, 
   Building, 
-  Target
+  Target,
+  Settings,
+  DollarSign,
+  Wallet,
+  Activity,
+  BarChart3
 } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 
@@ -123,89 +139,132 @@ export default function Budget() {
             Monitor spending, track budgets, and manage allocations
           </p>
         </div>
+        <Button variant="outline" asChild>
+          <a href="/ui/settings">
+            <Settings className="h-4 w-4 mr-2" />
+            Manage Budgets
+          </a>
+        </Button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Budget</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(summary.total_budget)}
+      <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs md:grid-cols-2 lg:grid-cols-4">
+        <Card className="@container/card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div className="space-y-1">
+              <CardDescription>Total Budget</CardDescription>
+              <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {formatCurrency(summary.total_budget)}
+              </CardTitle>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Across {summary.total_entities} entities
-            </p>
-          </CardContent>
+            <Badge variant="outline">
+              <Target className="h-3 w-3" />
+              {summary.total_entities} entities
+            </Badge>
+          </CardHeader>
+          <CardFooter className="flex-col items-start gap-1.5 text-sm">
+            <div className="line-clamp-1 flex gap-2 font-medium">
+              Total allocated budget <Wallet className="size-4" />
+            </div>
+            <div className="text-muted-foreground">
+              Across all teams and keys
+            </div>
+          </CardFooter>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(summary.total_spent)}
+        <Card className="@container/card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div className="space-y-1">
+              <CardDescription>Total Spent</CardDescription>
+              <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {formatCurrency(summary.total_spent)}
+              </CardTitle>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {((summary.total_spent / summary.total_budget) * 100).toFixed(1)}% of budget
-            </p>
+            <Badge variant="outline" className={summary.total_spent / summary.total_budget > 0.8 ? "border-orange-200 text-orange-700" : ""}>
+              {summary.total_spent > summary.total_budget ? (
+                <TrendingDown className="h-3 w-3" />
+              ) : (
+                <TrendingUp className="h-3 w-3" />
+              )}
+              {((summary.total_spent / summary.total_budget) * 100).toFixed(1)}%
+            </Badge>
+          </CardHeader>
+          <CardFooter className="flex-col items-start gap-1.5 text-sm">
             <Progress 
-              value={(summary.total_spent / summary.total_budget) * 100} 
-              className="mt-2"
+              value={Math.min((summary.total_spent / summary.total_budget) * 100, 100)} 
+              className="w-full h-2"
             />
-          </CardContent>
+            <div className="flex w-full justify-between text-xs text-muted-foreground">
+              <span>Used: {((summary.total_spent / summary.total_budget) * 100).toFixed(1)}%</span>
+              <span>{formatCurrency(summary.total_budget - summary.total_spent)} left</span>
+            </div>
+          </CardFooter>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Remaining</CardTitle>
-            <PiggyBank className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(summary.total_remaining)}
+        <Card className="@container/card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div className="space-y-1">
+              <CardDescription>Remaining Budget</CardDescription>
+              <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {formatCurrency(summary.total_remaining)}
+              </CardTitle>
             </div>
-            <p className="text-xs text-muted-foreground">Available to spend</p>
-          </CardContent>
+            <Badge variant="outline">
+              <PiggyBank className="h-3 w-3" />
+              Available
+            </Badge>
+          </CardHeader>
+          <CardFooter className="flex-col items-start gap-1.5 text-sm">
+            <div className="line-clamp-1 flex gap-2 font-medium">
+              Ready to spend <DollarSign className="size-4" />
+            </div>
+            <div className="text-muted-foreground">
+              {((summary.total_remaining / summary.total_budget) * 100).toFixed(1)}% of total budget
+            </div>
+          </CardFooter>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Budget Alerts</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {summary.alerting_count + summary.exceeded_count}
+        <Card className="@container/card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div className="space-y-1">
+              <CardDescription>Budget Alerts</CardDescription>
+              <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+                {summary.alerting_count + summary.exceeded_count}
+              </CardTitle>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <Badge variant={summary.exceeded_count > 0 ? "destructive" : summary.alerting_count > 0 ? "secondary" : "outline"}>
+              <AlertTriangle className="h-3 w-3" />
+              {summary.exceeded_count > 0 ? "Critical" : summary.alerting_count > 0 ? "Warning" : "Healthy"}
+            </Badge>
+          </CardHeader>
+          <CardFooter className="flex-col items-start gap-1.5 text-sm">
+            <div className="line-clamp-1 flex gap-2 font-medium">
+              {summary.exceeded_count > 0 ? (
+                <>{summary.exceeded_count} exceeded <TrendingUp className="size-4" /></>
+              ) : summary.alerting_count > 0 ? (
+                <>{summary.alerting_count} near limit <Activity className="size-4" /></>
+              ) : (
+                <>All budgets healthy <Activity className="size-4" /></>
+              )}
+            </div>
+            <div className="text-muted-foreground">
               {summary.exceeded_count} exceeded, {summary.alerting_count} warning
-            </p>
-            {summary.exceeded_count > 0 && (
-              <Badge variant="destructive" className="mt-2">
-                Action Required
-              </Badge>
-            )}
-          </CardContent>
+            </div>
+          </CardFooter>
         </Card>
       </div>
 
       {/* Charts Grid */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Budget Distribution */}
-        <Card>
-          <CardHeader>
+        <Card className="flex flex-col">
+          <CardHeader className="items-center pb-0">
             <CardTitle>Budget Distribution</CardTitle>
             <CardDescription>
               How budgets are allocated across entity types
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1 pb-0">
             {budgetDistributionData.length === 0 ? (
               <EmptyState
                 variant="chart"
@@ -215,50 +274,89 @@ export default function Budget() {
                 action={{ label: "Configure Budgets", href: "/ui/settings" }}
               />
             ) : (
-              <div className="space-y-4">
-                <ChartContainer config={chartConfig} className="h-[200px]">
-                  <PieChart>
-                    <ChartTooltip
-                      cursor={false}
-                      content={<ChartTooltipContent hideLabel />}
+              <ChartContainer
+                config={chartConfig}
+                className="mx-auto aspect-square max-h-[250px]"
+              >
+                <PieChart>
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent hideLabel />}
+                  />
+                  <Pie
+                    data={budgetDistributionData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={60}
+                    strokeWidth={5}
+                  >
+                    <Label
+                      content={({ viewBox }) => {
+                        if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                          const totalBudget = budgetDistributionData.reduce(
+                            (acc: number, curr: any) => acc + curr.value,
+                            0
+                          );
+                          return (
+                            <text
+                              x={viewBox.cx}
+                              y={viewBox.cy}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                            >
+                              <tspan
+                                x={viewBox.cx}
+                                y={viewBox.cy}
+                                className="fill-foreground text-2xl font-bold"
+                              >
+                                {formatCurrency(totalBudget)}
+                              </tspan>
+                              <tspan
+                                x={viewBox.cx}
+                                y={(viewBox.cy || 0) + 24}
+                                className="fill-muted-foreground"
+                              >
+                                Total Budget
+                              </tspan>
+                            </text>
+                          );
+                        }
+                      }}
                     />
-                    <Pie
-                      data={budgetDistributionData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={60}
-                      strokeWidth={5}
-                    />
-                  </PieChart>
-                </ChartContainer>
-                <div className="flex flex-wrap justify-center gap-4">
-                  {budgetDistributionData.map((item: any) => (
-                    <div key={item.name} className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: item.fill }}
-                      />
-                      <span className="text-sm font-medium">{item.name}</span>
-                      <span className="text-sm text-muted-foreground">
-                        ({formatCurrency(item.value)})
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
             )}
           </CardContent>
+          {budgetDistributionData.length > 0 && (
+            <CardFooter className="flex-col gap-2 text-sm">
+              <div className="flex flex-wrap justify-center gap-4">
+                {budgetDistributionData.map((item: any) => (
+                  <div key={item.name} className="flex items-center gap-2">
+                    <div 
+                      className="w-3 h-3 rounded-full" 
+                      style={{ backgroundColor: item.fill }}
+                    />
+                    <span className="text-sm font-medium">{item.name}</span>
+                    <span className="text-sm text-muted-foreground">
+                      ({formatCurrency(item.value)})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardFooter>
+          )}
         </Card>
 
         {/* Spending Distribution */}
-        <Card>
-          <CardHeader>
+        <Card className="flex flex-col">
+          <CardHeader className="items-center pb-0">
             <CardTitle>Spending Distribution</CardTitle>
             <CardDescription>
               Current spending breakdown by entity type
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1 pb-0">
             {spendingDistributionData.length === 0 ? (
               <EmptyState
                 variant="chart"
@@ -268,89 +366,177 @@ export default function Budget() {
                 action={{ label: "View Usage", href: "/ui/dashboard" }}
               />
             ) : (
-              <div className="space-y-4">
-                <ChartContainer config={chartConfig} className="h-[200px]">
-                  <PieChart>
-                    <ChartTooltip
-                      cursor={false}
-                      content={<ChartTooltipContent hideLabel />}
+              <ChartContainer
+                config={chartConfig}
+                className="mx-auto aspect-square max-h-[250px]"
+              >
+                <PieChart>
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent hideLabel />}
+                  />
+                  <Pie
+                    data={spendingDistributionData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={60}
+                    strokeWidth={5}
+                    activeIndex={0}
+                  >
+                    <Label
+                      content={({ viewBox }) => {
+                        if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                          const totalSpent = spendingDistributionData.reduce(
+                            (acc: number, curr: any) => acc + curr.value,
+                            0
+                          );
+                          return (
+                            <text
+                              x={viewBox.cx}
+                              y={viewBox.cy}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                            >
+                              <tspan
+                                x={viewBox.cx}
+                                y={viewBox.cy}
+                                className="fill-foreground text-2xl font-bold"
+                              >
+                                {formatCurrency(totalSpent)}
+                              </tspan>
+                              <tspan
+                                x={viewBox.cx}
+                                y={(viewBox.cy || 0) + 24}
+                                className="fill-muted-foreground"
+                              >
+                                Total Spent
+                              </tspan>
+                            </text>
+                          );
+                        }
+                      }}
                     />
-                    <Pie
-                      data={spendingDistributionData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={60}
-                      strokeWidth={5}
-                    />
-                  </PieChart>
-                </ChartContainer>
-                <div className="flex flex-wrap justify-center gap-4">
-                  {spendingDistributionData.map((item: any) => (
-                    <div key={item.name} className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: item.fill }}
-                      />
-                      <span className="text-sm font-medium">{item.name}</span>
-                      <span className="text-sm text-muted-foreground">
-                        ({formatCurrency(item.value)})
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
             )}
           </CardContent>
+          {spendingDistributionData.length > 0 && (
+            <CardFooter className="flex-col gap-2 text-sm">
+              <div className="flex flex-wrap justify-center gap-4">
+                {spendingDistributionData.map((item: any) => (
+                  <div key={item.name} className="flex items-center gap-2">
+                    <div 
+                      className="w-3 h-3 rounded-full" 
+                      style={{ backgroundColor: item.fill }}
+                    />
+                    <span className="text-sm font-medium">{item.name}</span>
+                    <span className="text-sm text-muted-foreground">
+                      ({formatCurrency(item.value)})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardFooter>
+          )}
         </Card>
       </div>
 
-      {/* Budget Usage by Period */}
+      {/* Budget Usage by Period - Enhanced Area Chart */}
       {periodData.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Budget Usage by Period</CardTitle>
+            <CardTitle>Budget Usage Trends</CardTitle>
             <CardDescription>
-              Spending patterns across different budget reset periods
+              Spending patterns and budget utilization over time
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[300px]">
-              <BarChart
+            <ChartContainer config={chartConfig} className="aspect-auto h-[300px] w-full">
+              <AreaChart
                 accessibilityLayer
                 data={periodData}
-                margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                margin={{
+                  left: 12,
+                  right: 12,
+                }}
               >
+                <defs>
+                  <linearGradient id="fillBudget" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="5%"
+                      stopColor="var(--color-budget)"
+                      stopOpacity={0.8}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="var(--color-budget)"
+                      stopOpacity={0.1}
+                    />
+                  </linearGradient>
+                  <linearGradient id="fillSpent" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="5%"
+                      stopColor="var(--color-spent)"
+                      stopOpacity={0.8}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="var(--color-spent)"
+                      stopOpacity={0.1}
+                    />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="period"
                   tickLine={false}
-                  tickMargin={10}
-                  axisLine={false}
-                />
-                <YAxis
-                  tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  tickFormatter={(value) => formatCurrency(value)}
                 />
                 <ChartTooltip
                   cursor={false}
-                  content={<ChartTooltipContent indicator="dashed" />}
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={(value) => {
+                        return `${value} Period`;
+                      }}
+                      indicator="dot"
+                    />
+                  }
+                />
+                <Area
+                  dataKey="budget"
+                  type="natural"
+                  fill="url(#fillBudget)"
+                  fillOpacity={0.4}
+                  stroke="var(--color-budget)"
+                  stackId="a"
+                />
+                <Area
+                  dataKey="spent"
+                  type="natural"
+                  fill="url(#fillSpent)"
+                  fillOpacity={0.4}
+                  stroke="var(--color-spent)"
+                  stackId="a"
                 />
                 <ChartLegend content={<ChartLegendContent />} />
-                <Bar
-                  dataKey="budget"
-                  fill="var(--color-budget)"
-                  radius={[4, 4, 0, 0]}
-                />
-                <Bar
-                  dataKey="spent"
-                  fill="var(--color-spent)"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
+              </AreaChart>
             </ChartContainer>
           </CardContent>
+          <CardFooter>
+            <div className="flex w-full items-start gap-2 text-sm">
+              <div className="grid gap-2">
+                <div className="flex items-center gap-2 leading-none font-medium">
+                  Budget utilization trends <BarChart3 className="h-4 w-4" />
+                </div>
+                <div className="text-muted-foreground flex items-center gap-2 leading-none">
+                  Tracking spending across reset periods
+                </div>
+              </div>
+            </div>
+          </CardFooter>
         </Card>
       )}
 
