@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Dashboard from '@/pages/Dashboard'
 import Models from '@/pages/Models'
+import ModelDetail from '@/pages/ModelDetail'
 import Users from '@/pages/Users'
 import Teams from '@/pages/Teams'
 import Keys from '@/pages/Keys'
@@ -15,6 +16,7 @@ import Layout from '@/components/Layout'
 import { Toaster } from '@/components/ui/toaster'
 import { OIDCAuthProvider } from '@/contexts/OIDCAuthContext'
 import { PermissionProvider } from '@/contexts/PermissionContext'
+import { ConfigProvider } from '@/contexts/ConfigContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 
@@ -32,21 +34,24 @@ function App() {
           <Route path="/unauthorized" element={<Unauthorized />} />
           <Route path="/*" element={
             <ProtectedRoute>
-              <PermissionProvider>
-                <Layout>
-                  <Routes>
-                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/chat" element={<Chat />} />
-                    <Route path="/models" element={<Models />} />
-                    <Route path="/users" element={<Users />} />
-                    <Route path="/teams" element={<Teams />} />
-                    <Route path="/keys" element={<Keys />} />
-                    <Route path="/budget" element={<Budget />} />
-                    <Route path="/settings" element={<Settings />} />
-                  </Routes>
-                </Layout>
-              </PermissionProvider>
+              <ConfigProvider>
+                <PermissionProvider>
+                  <Layout>
+                    <Routes>
+                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/chat" element={<Chat />} />
+                      <Route path="/models" element={<Models />} />
+                      <Route path="/models/:modelId" element={<ModelDetail />} />
+                      <Route path="/users" element={<Users />} />
+                      <Route path="/teams" element={<Teams />} />
+                      <Route path="/keys" element={<Keys />} />
+                      <Route path="/budget" element={<Budget />} />
+                      <Route path="/settings" element={<Settings />} />
+                    </Routes>
+                  </Layout>
+                </PermissionProvider>
+              </ConfigProvider>
             </ProtectedRoute>
           } />
         </Routes>

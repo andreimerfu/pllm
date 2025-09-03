@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/OIDCAuthContext";
+import { useConfig } from "@/contexts/ConfigContext";
 import { CanAccess } from "@/components/CanAccess";
 import { useState, useEffect } from "react";
 import {
@@ -100,6 +101,7 @@ const navigation = [
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
   const { logout, user } = useAuth();
+  const { config } = useConfig();
   const [isDark, setIsDark] = useState(false);
 
   // Extract user info from JWT
@@ -146,6 +148,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   };
 
+  // Filter navigation items based on dex configuration
+  const filteredNavigation = navigation.filter((item) => {
+    // Hide users section if dex is not enabled
+    if (item.name === "Users" && config && !config.dex_enabled) {
+      return false;
+    }
+    return true;
+  });
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -174,7 +185,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigation.map((item) => {
+              {filteredNavigation.map((item) => {
                 const isActive = location.pathname === item.href;
 
                 const NavigationItem = (
@@ -273,7 +284,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <a
-                    href="https://github.com/amerfu/pllm"
+                    href="https://github.com/andreimerfu/pllm"
                     target="_blank"
                     rel="noopener noreferrer"
                   >

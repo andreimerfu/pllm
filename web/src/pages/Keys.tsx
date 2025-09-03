@@ -64,11 +64,11 @@ const Keys: React.FC = () => {
           <div className="mt-2">
             <p className="mb-2">Save this key - it won't be shown again!</p>
             <code className="block p-2 bg-muted dark:bg-muted/50 dark:text-foreground rounded text-xs break-all border dark:border-border">
-              {data.key || data.key_value}
+              {data.key || data.plaintext_key || data.PlaintextKey}
             </code>
             <button
               className="mt-2 px-2 py-1 text-xs bg-secondary hover:bg-secondary/80 rounded"
-              onClick={() => navigator.clipboard.writeText(data.key || data.key_value)}
+              onClick={() => navigator.clipboard.writeText(data.key || data.plaintext_key || data.PlaintextKey)}
             >
               Copy Key
             </button>

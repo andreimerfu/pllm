@@ -43,6 +43,27 @@ export interface Model {
   owned_by: string;
 }
 
+export interface ModelUsageStats {
+  requests_today: number;
+  requests_total: number;
+  tokens_today: number;
+  tokens_total: number;
+  cost_today: number;
+  cost_total: number;
+  avg_latency: number;
+  error_rate: number;
+  cache_hit_rate: number;
+  health_score: number;
+  trend_data: number[]; // Last 30 days request count for sparkline
+  last_used: string | null;
+}
+
+export interface ModelWithUsage extends Model {
+  usage_stats?: ModelUsageStats;
+  is_active?: boolean;
+  provider?: string;
+}
+
 export interface User {
   id: string;
   dex_id: string;
