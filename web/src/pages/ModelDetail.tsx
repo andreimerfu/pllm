@@ -1,9 +1,17 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ExternalLink, Settings, Activity, DollarSign, Zap, Clock, AlertCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { ExternalLink, Settings, Activity, DollarSign, Zap, Clock, AlertCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import {
   Card,
   CardContent,
@@ -228,30 +236,43 @@ export default function ModelDetail() {
 
   return (
     <div className="space-y-6">
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/dashboard">Dashboard</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/models">Models</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{modelId}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/models">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Models
-            </Link>
-          </Button>
-          <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-xl border ${providerInfo.bgColor} ${providerInfo.borderColor}`}>
-              <Icon
-                icon={providerInfo.icon}
-                width="32"
-                height="32"
-                className={providerInfo.color}
-              />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">{model.id}</h1>
-              <p className={`text-lg ${providerInfo.color}`}>
-                {providerInfo.name}
-              </p>
-            </div>
+          <div className={`p-3 rounded-xl border ${providerInfo.bgColor} ${providerInfo.borderColor}`}>
+            <Icon
+              icon={providerInfo.icon}
+              width="32"
+              height="32"
+              className={providerInfo.color}
+            />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">{model.id}</h1>
+            <p className={`text-lg ${providerInfo.color}`}>
+              {providerInfo.name}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
