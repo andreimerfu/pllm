@@ -31,7 +31,7 @@ securityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-    - ALL
+      - ALL
   readOnlyRootFilesystem: false
   runAsNonRoot: true
   runAsUser: 1000
@@ -115,44 +115,45 @@ pllm:
   config:
     # Database configuration
     database:
-      host: ""  # Will be auto-configured if postgresql is enabled
+      host: "" # Will be auto-configured if postgresql is enabled
       port: 5432
       name: pllm
       user: pllm
-      password: ""  # Use secret
+      password: "" # Use secret
       sslMode: require
       maxOpenConns: 10
       maxIdleConns: 5
 
-    # Redis configuration  
+    # Redis configuration
     redis:
-      host: ""  # Will be auto-configured if redis is enabled
+      host: "" # Will be auto-configured if redis is enabled
       port: 6379
-      password: ""  # Use secret
+      password: "" # Use secret
       db: 0
 
     # Authentication configuration
     auth:
-      jwtSecret: ""  # Use secret
-      masterKey: ""  # Use secret
+      jwtSecret: "" # Use secret
+      masterKey: "" # Use secret
       dex:
-        issuer: ""  # Backend internal URL - Will be auto-configured if dex is enabled
-        publicIssuer: ""  # Frontend public URL - Defaults to issuer if not set
+        issuer: "" # Backend internal URL - Will be auto-configured if dex is enabled
+        publicIssuer: "" # Frontend public URL - Defaults to issuer if not set
         clientId: pllm
-        clientSecret: ""  # Use secret
+        clientSecret: "" # Use secret
+        enabledProviders: [] # OAuth providers to enable in login page, e.g., ["github", "google"]
 
     # Provider API keys
     providers:
       openai:
-        apiKey: ""  # Use secret
+        apiKey: "" # Use secret
       anthropic:
-        apiKey: ""  # Use secret
+        apiKey: "" # Use secret
       azure:
-        apiKey: ""  # Use secret
+        apiKey: "" # Use secret
         endpoint: ""
       bedrock:
-        accessKeyId: ""  # Use secret
-        secretAccessKey: ""  # Use secret
+        accessKeyId: "" # Use secret
+        secretAccessKey: "" # Use secret
         region: us-east-1
 
     # Rate limiting
@@ -172,9 +173,9 @@ pllm:
   # Secrets configuration
   secrets:
     # Database connection URL (for external databases)
-    databaseUrl: ""  # e.g., "postgres://user:pass@host:5432/db?sslmode=require"
-    # Redis connection URL (for external Redis)  
-    redisUrl: ""     # e.g., "redis://:password@host:6379/0"
+    databaseUrl: "" # e.g., "postgres://user:pass@host:5432/db?sslmode=require"
+    # Redis connection URL (for external Redis)
+    redisUrl: "" # e.g., "redis://:password@host:6379/0"
     # JWT secret for token signing
     jwtSecret: ""
     # Master key for admin access
@@ -217,19 +218,19 @@ dex:
   enabled: true
   # This will be templated to use the correct internal service name
   config:
-    issuer: http://pllm-dex.pllm.svc.cluster.local:5556/dex  # Will be overridden by template
+    issuer: http://pllm-dex.pllm.svc.cluster.local:5556/dex # Will be overridden by template
     storage:
       type: kubernetes
       config:
         inCluster: true
     web:
       http: 0.0.0.0:5556
-      allowedOrigins: ['*']
+      allowedOrigins: ["*"]
     staticClients:
       - id: pllm
         redirectURIs:
-          - 'http://localhost:3000/auth/callback'
-        name: 'PLLM'
+          - "http://localhost:3000/auth/callback"
+        name: "PLLM"
         secret: pllm-client-secret
     connectors:
       - type: mockCallback

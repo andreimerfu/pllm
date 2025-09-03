@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/OIDCAuthContext";
 import {
   Card,
@@ -22,13 +22,50 @@ import {
 import { Icon } from "@iconify/react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Github, Mail, Shield, Key } from "lucide-react";
+import { getAuthConfig } from "@/lib/api";
+
+interface AuthConfig {
+  master_key_enabled: boolean;
+  dex_enabled: boolean;
+  available_providers: string[];
+  dex_public_issuer?: string;
+}
 
 export default function Login() {
   const [masterKey, setMasterKey] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showMasterKeyDialog, setShowMasterKeyDialog] = useState(false);
+  const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
+  const [configLoading, setConfigLoading] = useState(true);
   const { loginWithMasterKey } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchAuthConfig = async () => {
+      try {
+        setConfigLoading(true);
+        const config = await getAuthConfig();
+        setAuthConfig(config);
+      } catch (error) {
+        console.error("Failed to fetch auth config:", error);
+        // Fallback to showing all options if config fetch fails
+        setAuthConfig({
+          master_key_enabled: true,
+          dex_enabled: true,
+          available_providers: ["github", "google", "microsoft"],
+        });
+        toast({
+          title: "Warning",
+          description: "Could not fetch auth configuration. Showing all options.",
+          variant: "destructive",
+        });
+      } finally {
+        setConfigLoading(false);
+      }
+    };
+
+    fetchAuthConfig();
+  }, [toast]);
 
   const handleMasterKeyLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +107,8 @@ export default function Login() {
   ) => {
     // Redirect directly to the specific OAuth provider through Dex
     // This bypasses the Dex UI selection screen
-    const returnUrl = window.location.pathname;
+    // Use relative path since router has basename="/ui"
+    const returnUrl = "/dashboard";
 
     // Generate PKCE challenge
     const codeVerifier = generateCodeVerifier();
@@ -136,84 +174,85 @@ export default function Login() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Primary Login Button */}
-          {/*<Button
-            className="w-full h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
-            onClick={handleDexLogin}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Connecting...
-              </>
-            ) : (
-              <>
-                <Shield className="mr-2 h-5 w-5" />
-                Login with Dex
-              </>
-            )}
-          </Button>*/}
-
-          {/* OAuth Provider Buttons */}
-          {/*<div className="space-y-2">*/}
-          {/*<p className="text-xs text-center text-muted-foreground mb-3">
-              Or choose a specific provider:
-            </p>*/}
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => handleOAuthLogin("github")}
-            disabled={isLoading}
-          >
-            <Github className="mr-2 h-4 w-4" />
-            Continue with GitHub
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => handleOAuthLogin("google")}
-            disabled={isLoading}
-          >
-            <Mail className="mr-2 h-4 w-4" />
-            Continue with Google
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => handleOAuthLogin("microsoft")}
-            disabled={isLoading}
-          >
-            <Icon icon="mdi:microsoft" className="mr-2 h-4 w-4" />
-            Continue with Microsoft
-          </Button>
-          {/*</div>*/}
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <Separator />
+          {configLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="ml-2">Loading authentication options...</span>
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Admin Access
-              </span>
-            </div>
-          </div>
+          ) : (
+            <>
+              {/* OAuth Provider Buttons - only show if dex is enabled and providers are available */}
+              {authConfig?.dex_enabled && authConfig.available_providers.length > 0 && (
+                <div className="space-y-2">
+                  {authConfig.available_providers.includes("github") && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleOAuthLogin("github")}
+                      disabled={isLoading}
+                    >
+                      <Github className="mr-2 h-4 w-4" />
+                      Continue with GitHub
+                    </Button>
+                  )}
+                  {authConfig.available_providers.includes("google") && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleOAuthLogin("google")}
+                      disabled={isLoading}
+                    >
+                      <Mail className="mr-2 h-4 w-4" />
+                      Continue with Google
+                    </Button>
+                  )}
+                  {authConfig.available_providers.includes("microsoft") && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleOAuthLogin("microsoft")}
+                      disabled={isLoading}
+                    >
+                      <Icon icon="mdi:microsoft" className="mr-2 h-4 w-4" />
+                      Continue with Microsoft
+                    </Button>
+                  )}
+                </div>
+              )}
 
-          {/* Master Key Access */}
-          <Dialog
-            open={showMasterKeyDialog}
-            onOpenChange={setShowMasterKeyDialog}
-          >
-            <DialogTrigger asChild>
-              <Button
-                variant="ghost"
-                className="w-full text-xs text-muted-foreground hover:text-foreground"
-              >
-                <Key className="mr-2 h-3 w-3" />
-                Admin Login with Master Key
-              </Button>
-            </DialogTrigger>
+              {/* Separator - only show if both OAuth and master key are available */}
+              {authConfig?.dex_enabled && 
+               authConfig.available_providers.length > 0 && 
+               authConfig.master_key_enabled && (
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <Separator />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      Admin Access
+                    </span>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Master Key Access - only show if enabled */}
+          {authConfig?.master_key_enabled && (
+            <Dialog
+              open={showMasterKeyDialog}
+              onOpenChange={setShowMasterKeyDialog}
+            >
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Key className="mr-2 h-3 w-3" />
+                  Admin Login with Master Key
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Admin Access</DialogTitle>
@@ -260,6 +299,7 @@ export default function Login() {
               </form>
             </DialogContent>
           </Dialog>
+          )}
         </CardContent>
       </Card>
     </div>

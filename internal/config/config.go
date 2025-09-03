@@ -76,14 +76,15 @@ type AuthConfig struct {
 }
 
 type DexConfig struct {
-	Enabled       bool              `mapstructure:"enabled"`
-	Issuer        string            `mapstructure:"issuer"`        // Backend connection URL
-	PublicIssuer  string            `mapstructure:"public_issuer"` // Frontend OAuth URL
-	ClientID      string            `mapstructure:"client_id"`
-	ClientSecret  string            `mapstructure:"client_secret"`
-	RedirectURL   string            `mapstructure:"redirect_url"`
-	Scopes        []string          `mapstructure:"scopes"`
-	GroupMappings map[string]string `mapstructure:"group_mappings"`
+	Enabled          bool              `mapstructure:"enabled"`
+	Issuer           string            `mapstructure:"issuer"`        // Backend connection URL
+	PublicIssuer     string            `mapstructure:"public_issuer"` // Frontend OAuth URL
+	ClientID         string            `mapstructure:"client_id"`
+	ClientSecret     string            `mapstructure:"client_secret"`
+	RedirectURL      string            `mapstructure:"redirect_url"`
+	Scopes           []string          `mapstructure:"scopes"`
+	GroupMappings    map[string]string `mapstructure:"group_mappings"`
+	EnabledProviders []string          `mapstructure:"enabled_providers"` // Which OAuth providers are enabled
 }
 
 type CacheConfig struct {
@@ -269,6 +270,7 @@ func setDefaults() {
 	viper.SetDefault("auth.require_auth", false)
 	viper.SetDefault("auth.dex.enabled", false)
 	viper.SetDefault("auth.dex.scopes", []string{"openid", "profile", "email", "groups"})
+	viper.SetDefault("auth.dex.enabled_providers", []string{})
 }
 
 func bindEnvVars() {
@@ -311,6 +313,7 @@ func bindEnvVars() {
 	_ = viper.BindEnv("auth.dex.client_id", "DEX_CLIENT_ID")
 	_ = viper.BindEnv("auth.dex.client_secret", "DEX_CLIENT_SECRET")
 	_ = viper.BindEnv("auth.dex.redirect_url", "DEX_REDIRECT_URL")
+	_ = viper.BindEnv("auth.dex.enabled_providers", "DEX_ENABLED_PROVIDERS")
 
 	// Cache
 	_ = viper.BindEnv("cache.ttl", "CACHE_TTL")

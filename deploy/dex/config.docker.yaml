@@ -15,7 +15,7 @@ storage:
 
 web:
   http: 0.0.0.0:5556
-  allowedOrigins: ['*']
+  allowedOrigins: ["*"]
 
 grpc:
   addr: 0.0.0.0:5557
@@ -83,13 +83,13 @@ connectors:
         - read:org
 
   # Google OAuth
-  - type: google
-    id: google
-    name: Google
-    config:
-      clientID: $GOOGLE_CLIENT_ID
-      clientSecret: $GOOGLE_CLIENT_SECRET
-      redirectURI: http://localhost:5556/dex/callback
+  # - type: google
+  #   id: google
+  #   name: Google
+  #   config:
+  #     clientID: $GOOGLE_CLIENT_ID
+  #     clientSecret: $GOOGLE_CLIENT_SECRET
+  #     redirectURI: http://localhost:5556/dex/callback
 
   # Microsoft OAuth
   - type: microsoft

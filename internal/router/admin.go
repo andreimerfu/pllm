@@ -64,6 +64,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	r.Post("/auth/login", authHandler.Login)
 	r.Post("/auth/master-key", authHandler.MasterKeyLogin) // Master key authentication
 	r.Get("/auth/validate", authHandler.Validate)
+	r.Get("/auth/config", systemHandler.GetAuthConfig) // Get available auth options
 	r.Post("/auth/token", oauthHandler.TokenExchange)
 	r.Get("/auth/userinfo", oauthHandler.UserInfo)
 

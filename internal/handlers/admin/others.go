@@ -900,11 +900,13 @@ func (h *AnalyticsHandler) GetTeamUserBreakdown(w http.ResponseWriter, r *http.R
 // SystemHandler handles system endpoints
 type SystemHandler struct {
 	baseHandler
+	config *config.Config
 }
 
 func NewSystemHandler(logger *zap.Logger) *SystemHandler {
 	return &SystemHandler{
 		baseHandler: baseHandler{logger: logger},
+		config:      config.Get(),
 	}
 }
 
@@ -930,6 +932,23 @@ func (h *SystemHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 }
+
+func (h *SystemHandler) GetAuthConfig(w http.ResponseWriter, r *http.Request) {
+	authConfig := map[string]interface{}{
+		"master_key_enabled": h.config.Auth.MasterKey != "",
+		"dex_enabled":        h.config.Auth.Dex.Enabled,
+		"available_providers": []string{},
+	}
+	
+	// Add available OAuth providers from config
+	if h.config.Auth.Dex.Enabled {
+		authConfig["available_providers"] = h.config.Auth.Dex.EnabledProviders
+		authConfig["dex_public_issuer"] = h.config.Auth.Dex.PublicIssuer
+	}
+	
+	h.sendJSON(w, http.StatusOK, authConfig)
+}
+
 
 func (h *SystemHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	cfg := config.Get()

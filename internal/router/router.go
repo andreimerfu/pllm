@@ -9,6 +9,7 @@ import (
 	"github.com/amerfu/pllm/internal/config"
 	"github.com/amerfu/pllm/internal/docs"
 	"github.com/amerfu/pllm/internal/handlers"
+	"github.com/amerfu/pllm/internal/handlers/admin"
 	"github.com/amerfu/pllm/internal/middleware"
 	"github.com/amerfu/pllm/internal/services"
 	"github.com/amerfu/pllm/internal/services/budget"
@@ -190,11 +191,15 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	}
 	authHandler := handlers.NewAuthHandler(logger, authService, masterKeyService, db)
 
+	// Initialize system handler for auth config
+	systemHandler := admin.NewSystemHandler(logger)
+
 	// Public routes
 	r.Group(func(r chi.Router) {
 		r.Post("/v1/register", authHandler.Register)
 		r.Post("/v1/login", authHandler.Login)
 		r.Post("/v1/refresh", authHandler.RefreshToken)
+		r.Get("/api/auth/config", systemHandler.GetAuthConfig) // Public auth config
 	})
 
 	// Protected routes

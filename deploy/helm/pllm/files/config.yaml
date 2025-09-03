@@ -69,6 +69,12 @@ auth:
     client_secret: ${DEX_CLIENT_SECRET}
     redirect_url: "http://localhost:8080/auth/callback"
     scopes: ["openid", "profile", "email", "groups"]
+    {{- if .Values.pllm.config.auth.dex.enabledProviders }}
+    enabled_providers:
+      {{- range .Values.pllm.config.auth.dex.enabledProviders }}
+      - {{ . }}
+      {{- end }}
+    {{- end }}
 
 # Logging Configuration
 logging:

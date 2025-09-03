@@ -36,7 +36,7 @@ const oidcConfig: UserManagerSettings = {
   
   // Redirect URIs
   redirect_uri: `${window.location.origin}/ui/callback`,
-  post_logout_redirect_uri: `${window.location.origin}/ui`,
+  post_logout_redirect_uri: `${window.location.origin}/ui/login`,
   silent_redirect_uri: `${window.location.origin}/ui/silent-renew`,
   
   // Response type for authorization code flow
