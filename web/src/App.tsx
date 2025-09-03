@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import Dashboard from '@/pages/Dashboard'
 import Models from '@/pages/Models'
+import ModelDetail from '@/pages/ModelDetail'
 import Users from '@/pages/Users'
 import Teams from '@/pages/Teams'
 import Keys from '@/pages/Keys'
@@ -41,6 +42,7 @@ function App() {
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/chat" element={<Chat />} />
                       <Route path="/models" element={<Models />} />
+                      <Route path="/models/:modelId" element={<ModelDetail />} />
                       <Route path="/users" element={<Users />} />
                       <Route path="/teams" element={<Teams />} />
                       <Route path="/keys" element={<Keys />} />

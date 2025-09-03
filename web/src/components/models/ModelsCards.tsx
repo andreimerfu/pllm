@@ -1,5 +1,6 @@
 import { Icon } from "@iconify/react";
 import { Activity, DollarSign, Zap, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -31,6 +32,12 @@ const formatCurrency = (amount: number): string => {
 };
 
 export default function ModelsCards({ models }: ModelsCardsProps) {
+  const navigate = useNavigate();
+
+  const handleModelClick = (modelId: string) => {
+    navigate(`/models/${encodeURIComponent(modelId)}`);
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
       {models.map((model) => {
@@ -42,6 +49,7 @@ export default function ModelsCards({ models }: ModelsCardsProps) {
           <Card 
             key={model.id} 
             className="transition-all hover:shadow-md group cursor-pointer relative overflow-hidden"
+            onClick={() => handleModelClick(model.id)}
           >
             {/* Background gradient overlay */}
             <div

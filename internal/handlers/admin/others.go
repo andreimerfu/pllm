@@ -934,12 +934,26 @@ func (h *SystemHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 func (h *SystemHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	cfg := config.Get()
 	
+	// Build router configuration including fallbacks
+	routerConfig := map[string]interface{}{
+		"routing_strategy":          cfg.Router.RoutingStrategy,
+		"circuit_breaker_enabled":   cfg.Router.CircuitBreakerEnabled,
+		"circuit_breaker_threshold": cfg.Router.CircuitBreakerThreshold,
+		"circuit_breaker_cooldown":  cfg.Router.CircuitBreakerCooldown,
+	}
+	
+	// Add fallbacks if they exist
+	if len(cfg.Router.Fallbacks) > 0 {
+		routerConfig["fallbacks"] = cfg.Router.Fallbacks
+	}
+	
 	h.sendJSON(w, http.StatusOK, map[string]interface{}{
 		"config": map[string]interface{}{
 			"master_key_configured": cfg.Auth.MasterKey != "",
 			"dex_enabled":           cfg.Auth.Dex.Enabled,
 			"database_connected":    true,
 		},
+		"router": routerConfig,
 	})
 }
 

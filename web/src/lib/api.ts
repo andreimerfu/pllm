@@ -130,8 +130,12 @@ export const getDatabaseStatus = () =>
   axiosInstance.get("/api/admin/system/health");
 export const getModels = () =>
   axiosInstance.get("/v1/models") as Promise<ModelsResponse>;
+export const getModel = (modelId: string) =>
+  axiosInstance.get(`/v1/models/${encodeURIComponent(modelId)}`);
 export const getModelStats = () =>
   axiosInstance.get("/api/admin/stats") as Promise<StatsResponse>;
+export const getSystemConfig = () => 
+  axiosInstance.get("/api/admin/system/config");
 export const getMetrics = () => axiosInstance.get("/metrics");
 
 // Historical metrics API
