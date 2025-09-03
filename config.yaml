@@ -110,6 +110,9 @@ auth:
     client_secret: "pllm-web-secret" # OAuth2 client secret
     redirect_url: "http://localhost:8080/auth/callback" # OAuth2 redirect URL
     scopes: ["openid", "profile", "email", "groups"] # OAuth2 scopes
+    # Enabled OAuth providers (must match connector IDs in your dex config)
+    # Comment out or remove providers you don't want to show in the login page
+    enabled_providers: ["github", "microsoft"]  # Removed "google"
 
 # ===========================
 # Logging Configuration

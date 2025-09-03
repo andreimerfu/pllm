@@ -124,6 +124,9 @@ const api = {
 
 export default api;
 
+// Auth API
+export const getAuthConfig = (): Promise<any> => axiosInstance.get("/api/auth/config");
+
 // Legacy exports for backward compatibility
 export const healthCheck = () => axiosInstance.get("/health");
 export const getDatabaseStatus = () =>

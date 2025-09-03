@@ -262,7 +262,7 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
       }
       
       // Get the return URL from state or default to dashboard
-      const returnUrl = parsedState?.returnUrl || "/ui/dashboard";
+      const returnUrl = parsedState?.returnUrl || "/dashboard";
       console.log("Navigating to:", returnUrl);
       
       // Use replace to avoid back button issues
@@ -283,7 +283,7 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
         variant: "destructive",
       });
       setIsLoading(false);
-      navigate("/ui/login", { replace: true });
+      navigate("/login", { replace: true });
     }
   };
 
@@ -378,7 +378,7 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
         description: "Logged in with master key",
       });
 
-      navigate("/ui/dashboard");
+      navigate("/dashboard");
     } catch (error) {
       console.error("Master key login error:", error);
       toast({
@@ -400,7 +400,7 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
       sessionStorage.clear();
       
       // Navigate to login page
-      navigate("/ui/login");
+      navigate("/login");
       
       toast({
         title: "Success",
@@ -412,7 +412,7 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       localStorage.removeItem("authToken");
       sessionStorage.clear();
-      navigate("/ui/login");
+      navigate("/login");
     }
   };
 
