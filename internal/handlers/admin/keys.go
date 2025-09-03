@@ -39,11 +39,13 @@ func NewKeyHandler(logger *zap.Logger, db *gorm.DB, budgetService budget.Service
 }
 
 type CreateKeyRequest struct {
-	Name      string     `json:"name" validate:"required,min=1,max=100"`
-	KeyType   string     `json:"key_type" validate:"required,oneof=api virtual system"`
-	UserID    *uuid.UUID `json:"user_id,omitempty"`
-	TeamID    *uuid.UUID `json:"team_id,omitempty"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	Name             string               `json:"name" validate:"required,min=1,max=100"`
+	KeyType          string               `json:"key_type" validate:"required,oneof=api virtual system"`
+	UserID           *uuid.UUID           `json:"user_id,omitempty"`
+	TeamID           *uuid.UUID           `json:"team_id,omitempty"`
+	ExpiresAt        *time.Time           `json:"expires_at,omitempty"`
+	MaxBudget        *float64             `json:"max_budget,omitempty"`
+	BudgetDuration   *models.BudgetPeriod `json:"budget_duration,omitempty"`
 }
 
 type KeyResponse struct {
@@ -100,16 +102,18 @@ func (h *KeyHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 	
 	// Create key record
 	k := models.Key{
-		BaseModel: models.BaseModel{ID: uuid.New()},
-		Key:       plaintextKey, // Store plaintext for unique constraint
-		Name:      req.Name,
-		KeyHash:   hashedKey,
-		Type:      models.KeyType(req.KeyType),
-		ExpiresAt: req.ExpiresAt,
-		IsActive:  true,
-		UserID:    req.UserID,    // Key owner (can be nil for system keys)
-		TeamID:    req.TeamID,
-		CreatedBy: nil, // Will be set below based on auth type
+		BaseModel:      models.BaseModel{ID: uuid.New()},
+		Key:            plaintextKey, // Store plaintext for unique constraint
+		Name:           req.Name,
+		KeyHash:        hashedKey,
+		Type:           models.KeyType(req.KeyType),
+		ExpiresAt:      req.ExpiresAt,
+		IsActive:       true,
+		UserID:         req.UserID,    // Key owner (can be nil for system keys)
+		TeamID:         req.TeamID,
+		MaxBudget:      req.MaxBudget,
+		BudgetDuration: req.BudgetDuration,
+		CreatedBy:      nil, // Will be set below based on auth type
 	}
 	
 	// Set CreatedBy based on authentication type
@@ -119,6 +123,11 @@ func (h *KeyHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 		// For master key authentication, leave CreatedBy as nil since there's no user
 		// This is acceptable for system keys created by master key
 		k.CreatedBy = nil
+	}
+	
+	// Set budget reset date if budget is provided
+	if req.MaxBudget != nil && *req.MaxBudget > 0 && req.BudgetDuration != nil {
+		k.ResetBudget()
 	}
 
 	if err := h.db.Create(&k).Error; err != nil {

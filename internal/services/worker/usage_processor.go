@@ -172,6 +172,7 @@ func (up *UsageProcessor) processBatchTransactional(ctx context.Context, records
 		budgetUpdates := make(map[uuid.UUID]float64)     // budget_id -> amount to add
 		userBudgetUpdates := make(map[uuid.UUID]float64) // user_id -> amount to add
 		teamBudgetUpdates := make(map[uuid.UUID]float64) // team_id -> amount to add
+		keyBudgetUpdates := make(map[uuid.UUID]float64)  // key_id -> amount to add
 
 		for _, record := range records {
 			// Convert to database model
@@ -206,6 +207,11 @@ func (up *UsageProcessor) processBatchTransactional(ctx context.Context, records
 			if usage.TeamID != nil {
 				teamBudgetUpdates[*usage.TeamID] += record.TotalCost
 			}
+
+			// Update key-level budgets (stored directly in keys table)
+			if usage.KeyID != nil {
+				keyBudgetUpdates[*usage.KeyID] += record.TotalCost
+			}
 		}
 
 		// Batch insert usage records
@@ -236,16 +242,25 @@ func (up *UsageProcessor) processBatchTransactional(ctx context.Context, records
 			}
 		}
 
+		// Batch update key-level budgets (keys.current_spend)
+		if len(keyBudgetUpdates) > 0 {
+			if err := up.updateKeyBudgetsBatch(tx, keyBudgetUpdates); err != nil {
+				return fmt.Errorf("failed to batch update key budgets: %w", err)
+			}
+		}
+
 		// Update cache with latest budget information
 		go up.refreshBudgetCaches(context.Background(), budgetUpdates)
 		go up.refreshUserBudgetCaches(context.Background(), userBudgetUpdates)
 		go up.refreshTeamBudgetCaches(context.Background(), teamBudgetUpdates)
+		go up.refreshKeyBudgetCaches(context.Background(), keyBudgetUpdates)
 
 		up.logger.Info("Successfully processed usage batch",
 			zap.Int("usage_records", len(usageModels)),
 			zap.Int("budget_updates", len(budgetUpdates)),
 			zap.Int("user_budget_updates", len(userBudgetUpdates)),
-			zap.Int("team_budget_updates", len(teamBudgetUpdates)))
+			zap.Int("team_budget_updates", len(teamBudgetUpdates)),
+			zap.Int("key_budget_updates", len(keyBudgetUpdates)))
 
 		return nil
 	})
@@ -586,6 +601,44 @@ func (up *UsageProcessor) refreshUserBudgetCaches(ctx context.Context, userUpdat
 	}
 }
 
+// updateKeyBudgetsBatch performs batch updates to key current_spend amounts
+func (up *UsageProcessor) updateKeyBudgetsBatch(tx *gorm.DB, updates map[uuid.UUID]float64) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	// Use a single UPDATE query with CASE statement for efficiency
+	keyIDs := make([]uuid.UUID, 0, len(updates))
+	for keyID := range updates {
+		keyIDs = append(keyIDs, keyID)
+	}
+
+	// Build CASE statement for atomic update
+	caseStmt := "CASE id "
+	args := []interface{}{}
+
+	for keyID, amount := range updates {
+		caseStmt += "WHEN ? THEN current_spend + ? "
+		args = append(args, keyID, amount)
+	}
+	caseStmt += "ELSE current_spend END"
+
+	// Execute batch update
+	result := tx.Model(&models.Key{}).
+		Where("id IN ?", keyIDs).
+		Update("current_spend", gorm.Expr(caseStmt, args...))
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	up.logger.Debug("Batch updated key budgets",
+		zap.Int("count", len(updates)),
+		zap.Int64("affected_rows", result.RowsAffected))
+
+	return nil
+}
+
 // refreshTeamBudgetCaches updates Redis cache with latest team budget information
 func (up *UsageProcessor) refreshTeamBudgetCaches(ctx context.Context, teamUpdates map[uuid.UUID]float64) {
 	for teamID := range teamUpdates {
@@ -607,6 +660,33 @@ func (up *UsageProcessor) refreshTeamBudgetCaches(ctx context.Context, teamUpdat
 			up.logger.Error("Failed to update team budget cache",
 				zap.String("team_id", teamID.String()),
 				zap.Error(err))
+		}
+	}
+}
+
+// refreshKeyBudgetCaches updates Redis cache with latest key budget information
+func (up *UsageProcessor) refreshKeyBudgetCaches(ctx context.Context, keyUpdates map[uuid.UUID]float64) {
+	for keyID := range keyUpdates {
+		// Fetch latest key from database
+		var key models.Key
+		if err := up.db.First(&key, "id = ?", keyID).Error; err != nil {
+			up.logger.Error("Failed to fetch key for cache refresh",
+				zap.String("key_id", keyID.String()),
+				zap.Error(err))
+			continue
+		}
+
+		// Update cache (only if key has budget)
+		if key.MaxBudget != nil && *key.MaxBudget > 0 {
+			available := *key.MaxBudget - key.CurrentSpend
+			isExceeded := key.CurrentSpend >= *key.MaxBudget
+
+			if err := up.budgetCache.UpdateBudgetCache(ctx, "key", keyID.String(),
+				available, key.CurrentSpend, *key.MaxBudget, isExceeded); err != nil {
+				up.logger.Error("Failed to update key budget cache",
+					zap.String("key_id", keyID.String()),
+					zap.Error(err))
+			}
 		}
 	}
 }
