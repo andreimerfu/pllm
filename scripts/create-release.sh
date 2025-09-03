@@ -77,12 +77,12 @@ else
     # Parse current version
     CURRENT_VERSION=${LATEST_TAG#v}
     IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-    
+
     # Handle pre-release versions
     if [[ "$PATCH" =~ ^([0-9]+)-.* ]]; then
         PATCH="${BASH_REMATCH[1]}"
     fi
-    
+
     case "$VERSION_TYPE" in
         patch)
             PATCH=$((PATCH + 1))
@@ -115,7 +115,7 @@ else
             usage
             ;;
     esac
-    
+
     echo -e "${BLUE}Calculated new version: $NEW_VERSION${NC}"
 fi
 
@@ -160,7 +160,7 @@ git push origin "$NEW_VERSION"
 
 echo -e "${GREEN}✅ Tag $NEW_VERSION created and pushed${NC}"
 echo -e "${BLUE}🚀 GitHub Actions will now build and publish the release${NC}"
-echo -e "${BLUE}📋 Check progress: https://github.com/amerfu/pllm/actions${NC}"
+echo -e "${BLUE}📋 Check progress: https://github.com/andreimerfu/pllm/actions${NC}"
 
 # Show the release URL once it's created
-echo -e "${GREEN}📦 Release will be available at: https://github.com/amerfu/pllm/releases/tag/$NEW_VERSION${NC}"
+echo -e "${GREEN}📦 Release will be available at: https://github.com/andreimerfu/pllm/releases/tag/$NEW_VERSION${NC}"

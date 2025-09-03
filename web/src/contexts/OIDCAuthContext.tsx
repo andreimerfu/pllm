@@ -48,12 +48,44 @@ userManager.events.addUserUnloaded(() => {
   console.log("User unloaded");
 });
 
-userManager.events.addAccessTokenExpired(() => {
+userManager.events.addAccessTokenExpired(async () => {
   console.log("Access token expired");
+  
+  // Check if current user is a master key user
+  try {
+    const currentUser = await userManager.getUser();
+    const isMasterKeyUser = currentUser?.profile?.master_key_auth === true || 
+                           currentUser?.profile?.sub === "master-key-user";
+    
+    if (isMasterKeyUser) {
+      console.log("Master key token expired, clearing session");
+      await userManager.removeUser();
+      localStorage.removeItem("authToken");
+      // Don't trigger automatic renewal for master key users
+      return;
+    }
+  } catch (error) {
+    console.error("Error checking user during token expiration:", error);
+  }
 });
 
-userManager.events.addSilentRenewError((error) => {
+userManager.events.addSilentRenewError(async (error) => {
   console.error("Silent renew error:", error);
+  
+  // Check if this is a master key user - if so, stop automatic renewal
+  try {
+    const currentUser = await userManager.getUser();
+    const isMasterKeyUser = currentUser?.profile?.master_key_auth === true || 
+                           currentUser?.profile?.sub === "master-key-user";
+    
+    if (isMasterKeyUser) {
+      console.log("Stopping silent renewal for master key user");
+      userManager.stopSilentRenew();
+      return;
+    }
+  } catch (err) {
+    console.error("Error checking user during silent renew error:", err);
+  }
 });
 
 export function OIDCAuthProvider({ children }: { children: ReactNode }) {
@@ -81,18 +113,35 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
         setUser(currentUser);
         // Set the token in localStorage for API calls
         localStorage.setItem("authToken", currentUser.access_token);
+        
+        // Stop automatic renewal for master key users
+        const isMasterKeyUser = currentUser.profile?.master_key_auth === true || 
+                               currentUser.profile?.sub === "master-key-user";
+        if (isMasterKeyUser) {
+          userManager.stopSilentRenew();
+        }
       } else if (currentUser?.expired) {
-        // Try to silently renew the token
-        try {
-          const renewedUser = await userManager.signinSilent();
-          if (renewedUser) {
-            setUser(renewedUser);
-            localStorage.setItem("authToken", renewedUser.access_token);
-          }
-        } catch (error) {
-          console.error("Silent renew failed:", error);
+        // Check if this is a master key user - they don't support token renewal
+        const isMasterKeyUser = currentUser.profile?.master_key_auth === true || 
+                                currentUser.profile?.sub === "master-key-user";
+        
+        if (isMasterKeyUser) {
+          console.log("Master key user session expired, redirecting to login");
           setUser(null);
           localStorage.removeItem("authToken");
+        } else {
+          // Try to silently renew the token for regular OAuth users
+          try {
+            const renewedUser = await userManager.signinSilent();
+            if (renewedUser) {
+              setUser(renewedUser);
+              localStorage.setItem("authToken", renewedUser.access_token);
+            }
+          } catch (error) {
+            console.error("Silent renew failed:", error);
+            setUser(null);
+            localStorage.removeItem("authToken");
+          }
         }
       }
     } catch (error) {
@@ -206,6 +255,12 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
       setUser(user);
       localStorage.setItem("authToken", user.access_token);
       
+      // Enable automatic renewal for OAuth users (not master key users)
+      if (user.refresh_token) {
+        // This user has a refresh token, start silent renewal manually
+        userManager.startSilentRenew();
+      }
+      
       // Get the return URL from state or default to dashboard
       const returnUrl = parsedState?.returnUrl || "/ui/dashboard";
       console.log("Navigating to:", returnUrl);
@@ -294,17 +349,19 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
         id_token: tokenResponse.id_token || "",
         token_type: "Bearer",
         scope: "admin",
-        expires_at: Math.floor(Date.now() / 1000) + (tokenResponse.expires_in || 3600),
+        expires_at: Math.floor(Date.now() / 1000) + (tokenResponse.expires_in || 86400), // 24 hours for master key
         profile: {
           sub: "master-key-user",
           iss: "pllm-master",
           aud: "pllm-admin",
-          exp: Math.floor(Date.now() / 1000) + (tokenResponse.expires_in || 3600),
+          exp: Math.floor(Date.now() / 1000) + (tokenResponse.expires_in || 86400),
           iat: Math.floor(Date.now() / 1000),
           name: "Admin (Master Key)",
           email: "admin@pllm.local",
           role: "admin",
           groups: ["admin"],
+          // Mark this as a master key user to skip renewal attempts
+          master_key_auth: true,
         } as any,
       });
 
@@ -312,6 +369,9 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
       await userManager.storeUser(user);
       setUser(user);
       localStorage.setItem("authToken", user.access_token);
+      
+      // Stop automatic renewal for master key users
+      userManager.stopSilentRenew();
 
       toast({
         title: "Success",
