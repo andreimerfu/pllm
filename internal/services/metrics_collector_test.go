@@ -85,7 +85,8 @@ func TestMetricsCollector_collectCurrentMetrics(t *testing.T) {
 	mockProvider.On("GetModelStats").Return(mockStats)
 
 	// Create some test usage data
-	now := time.Now()
+	// Use truncated time to align with the collectCurrentMetrics method
+	now := time.Now().Truncate(time.Minute)
 	testUsage := []models.Usage{
 		{
 			RequestID:    "req-1",
