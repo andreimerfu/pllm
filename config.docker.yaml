@@ -46,7 +46,7 @@ auth:
     scopes: ["openid", "profile", "email", "groups"]
     # Enabled OAuth providers (must match connector IDs in your dex config)
     # Remove providers you don't want to show in the login page
-    enabled_providers: ["github", "microsoft"]  # Removed "google"
+    enabled_providers: ["github", "microsoft"] # Removed "google"
 
 # Router configuration with adaptive routing for high-load scenarios
 router:
