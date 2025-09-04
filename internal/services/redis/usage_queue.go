@@ -20,6 +20,7 @@ type UsageRecord struct {
 	ActualUserID string     `json:"actual_user_id,omitempty"` // Who actually used the key (for team keys)
 	KeyID        string     `json:"key_id,omitempty"`
 	KeyOwnerID   string     `json:"key_owner_id,omitempty"` // Who owns the key
+	KeyType      string     `json:"key_type,omitempty"`     // Type of key (personal, team, system, etc.)
 	TeamID       string     `json:"team_id,omitempty"`
 	Model        string     `json:"model"`
 	Provider     string     `json:"provider"`

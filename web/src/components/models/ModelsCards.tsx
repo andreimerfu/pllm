@@ -111,23 +111,23 @@ export default function ModelsCards({ models }: ModelsCardsProps) {
               {usage ? (
                 <div className="grid grid-cols-2 gap-3">
                   <MetricCard
-                    label="Requests Today"
-                    value={formatNumber(usage.requests_today)}
+                    label="Total Requests"
+                    value={formatNumber(usage.requests_total)}
                     trend={usage.trend_data?.slice(-7)} // Last 7 days
                     icon={<Activity className="h-4 w-4 text-blue-500" />}
                     color="#3b82f6"
                   />
                   
                   <MetricCard
-                    label="Tokens Today"
-                    value={formatNumber(usage.tokens_today)}
+                    label="Total Tokens"
+                    value={formatNumber(usage.tokens_total)}
                     icon={<Zap className="h-4 w-4 text-purple-500" />}
                     color="#8b5cf6"
                   />
                   
                   <MetricCard
-                    label="Cost Today"
-                    value={formatCurrency(usage.cost_today)}
+                    label="Total Cost"
+                    value={formatCurrency(usage.cost_total)}
                     icon={<DollarSign className="h-4 w-4 text-green-500" />}
                     color="#10b981"
                   />

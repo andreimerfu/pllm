@@ -56,7 +56,7 @@ type Usage struct {
 	ResponseBody datatypes.JSON `json:"response_body,omitempty"`
 
 	// Metadata
-	Metadata map[string]interface{} `gorm:"type:jsonb" json:"metadata,omitempty"`
+	Metadata datatypes.JSON `json:"metadata,omitempty"`
 }
 
 type UsageStats struct {

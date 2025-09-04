@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LayoutGrid, Table as TableIcon } from "lucide-react";
 
-import { getModels } from "@/lib/api";
+import { getModels, getDashboardMetrics } from "@/lib/api";
 import type { ModelsResponse, ModelWithUsage } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -27,37 +27,47 @@ export default function Models() {
     queryFn: getModels,
   });
 
+  const { data: dashboardData } = useQuery({
+    queryKey: ["dashboard-metrics"],
+    queryFn: getDashboardMetrics,
+  });
+
   const rawModels = (data as ModelsResponse)?.data || [];
 
-  // Transform models and add mock usage data for demonstration
+  // Transform models and add real usage data from API
   const modelsWithUsage: ModelWithUsage[] = useMemo(() => {
+    const dashboard = (dashboardData as any) || {};
+    const topModels = dashboard.top_models || [];
+    
     return rawModels.map((model) => {
       const providerInfo = detectProvider(model.id, model.owned_by);
       
-      // Mock usage data - in real implementation, this would come from API
-      const mockUsage = {
-        requests_today: Math.floor(Math.random() * 1000),
-        requests_total: Math.floor(Math.random() * 10000) + 1000,
-        tokens_today: Math.floor(Math.random() * 100000),
-        tokens_total: Math.floor(Math.random() * 1000000) + 100000,
-        cost_today: Math.random() * 10,
-        cost_total: Math.random() * 100 + 10,
-        avg_latency: Math.floor(Math.random() * 500) + 100,
-        error_rate: Math.random() * 5,
-        cache_hit_rate: Math.random() * 100,
-        health_score: Math.floor(Math.random() * 30) + 70,
-        trend_data: Array.from({ length: 30 }, () => Math.floor(Math.random() * 100)),
-        last_used: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+      // Find usage data for this model from top_models
+      const modelUsage = topModels.find((tm: any) => tm.model === model.id);
+      
+      const usageData = {
+        requests_today: modelUsage?.requests || 0, // Use total as daily for now
+        requests_total: modelUsage?.requests || 0,
+        tokens_today: modelUsage?.tokens || 0, // Use total as daily for now  
+        tokens_total: modelUsage?.tokens || 0,
+        cost_today: modelUsage?.cost || 0, // Use total as daily for now
+        cost_total: modelUsage?.cost || 0,
+        avg_latency: modelUsage?.avg_latency || 0, // Use real latency data
+        error_rate: modelUsage?.success_rate ? (100 - modelUsage.success_rate) : 0, // Calculate from success_rate
+        cache_hit_rate: 0, // Not available from API yet
+        health_score: modelUsage ? 95 : 100, // Active models get 95, unused get 100
+        trend_data: [], // No daily trend data available from API yet
+        last_used: modelUsage ? new Date().toISOString() : null,
       };
 
       return {
         ...model,
         provider: providerInfo.name.toLowerCase(),
-        is_active: Math.random() > 0.1, // 90% active
-        usage_stats: Math.random() > 0.2 ? mockUsage : undefined, // 80% have usage data
+        is_active: Boolean(modelUsage), // Active if it has usage data
+        usage_stats: usageData,
       };
     });
-  }, [rawModels]);
+  }, [rawModels, dashboardData]);
 
   // Filter models based on current filters
   const filteredModels = useMemo(() => {

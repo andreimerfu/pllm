@@ -75,12 +75,12 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         className="gap-1"
       >
-        Requests Today
+        Total Requests
         <ArrowUpDown className="h-4 w-4" />
       </Button>
     ),
     cell: ({ row }) => {
-      const requests = row.original.usage_stats?.requests_today || 0;
+      const requests = row.original.usage_stats?.requests_total || 0;
       const trendData = row.original.usage_stats?.trend_data?.slice(-7); // Last 7 days
       
       return (
@@ -101,19 +101,19 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
     },
   },
   {
-    accessorKey: "usage_stats.tokens_today",
+    accessorKey: "usage_stats.tokens_total",
     header: ({ column }) => (
       <Button
         variant="ghost"
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         className="gap-1"
       >
-        Tokens Today
+        Total Tokens
         <ArrowUpDown className="h-4 w-4" />
       </Button>
     ),
     cell: ({ row }) => {
-      const tokens = row.original.usage_stats?.tokens_today || 0;
+      const tokens = row.original.usage_stats?.tokens_total || 0;
       return (
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -123,19 +123,19 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
     },
   },
   {
-    accessorKey: "usage_stats.cost_today",
+    accessorKey: "usage_stats.cost_total",
     header: ({ column }) => (
       <Button
         variant="ghost"
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         className="gap-1"
       >
-        Cost Today
+        Total Cost
         <ArrowUpDown className="h-4 w-4" />
       </Button>
     ),
     cell: ({ row }) => {
-      const cost = row.original.usage_stats?.cost_today || 0;
+      const cost = row.original.usage_stats?.cost_total || 0;
       return (
         <span className="font-medium">
           {formatCurrency(cost)}
