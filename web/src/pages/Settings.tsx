@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -5,67 +6,247 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Palette } from "lucide-react";
+import { Palette, Search, ChevronDown, ChevronRight, Settings as SettingsIcon, Shield, Zap, CheckCircle, Clock } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
+import type { ThemeCategory, ThemeKey } from "@/contexts/ThemeContext";
 
-// Theme selector component
-function ThemeSelector() {
-  const { currentTheme, setTheme, themes } = useTheme();
+// Enhanced theme gallery component
+function ThemeGallery() {
+  const { currentTheme, setTheme, themes, categories, getThemesByCategory, searchThemes } = useTheme();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [expandedCategories, setExpandedCategories] = useState<Set<ThemeCategory>>(new Set(['popular']));
   
+  const toggleCategory = (category: ThemeCategory) => {
+    const newExpanded = new Set(expandedCategories);
+    if (newExpanded.has(category)) {
+      newExpanded.delete(category);
+    } else {
+      newExpanded.add(category);
+    }
+    setExpandedCategories(newExpanded);
+  };
+
+  const searchResults = searchQuery ? searchThemes(searchQuery) : [];
+  const categoryOrder: ThemeCategory[] = ['popular', 'nature', 'corporate', 'vibrant', 'warm', 'cool', 'retro', 'monochrome', 'gradient'];
+
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label>Chart Theme</Label>
-        <Select value={currentTheme} onValueChange={setTheme}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select theme" />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(themes).map(([key, config]) => (
-              <SelectItem key={key} value={key}>
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    {Object.values(config.colors).slice(0, 3).map((color, i) => (
-                      <div
-                        key={i}
-                        className="w-3 h-3 rounded-full border border-border/20"
-                        style={{ backgroundColor: `hsl(${color})` }}
-                      />
+    <div className="space-y-6">
+      {/* Current theme display */}
+      <div className="space-y-4">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Label className="text-lg font-semibold">{themes[currentTheme].name}</Label>
+              <Badge variant="secondary" className="text-xs">
+                {categories[themes[currentTheme].category].name}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {themes[currentTheme].description}
+            </p>
+          </div>
+          <div className="flex gap-1.5">
+            {Object.values(themes[currentTheme].colors).map((color, i) => (
+              <div
+                key={i}
+                className="w-5 h-5 rounded-full border-2 border-background shadow-sm ring-1 ring-border/20"
+                style={{ backgroundColor: `hsl(${color})` }}
+                title={`Color ${i + 1}`}
+              />
+            ))}
+          </div>
+        </div>
+        
+        {/* Preview chart */}
+        <div className="p-4 bg-gradient-to-br from-muted/30 to-muted/50 rounded-xl border">
+          <div className="flex items-end justify-between gap-2 h-16 mb-2">
+            {Object.values(themes[currentTheme].colors).map((color, i) => (
+              <div
+                key={i}
+                className="flex-1 rounded-t-lg transition-all duration-300 hover:opacity-80 hover:scale-105"
+                style={{
+                  backgroundColor: `hsl(${color})`,
+                  height: `${50 + (i * 10)}%`,
+                  boxShadow: `0 2px 8px hsla(${color}, 0.3)`
+                }}
+              />
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground text-center font-medium">
+            Live Chart Preview
+          </p>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="space-y-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Search themes by name, description, or category..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-11"
+          />
+        </div>
+      </div>
+
+      <ScrollArea className="h-[600px] w-full">
+        <div className="space-y-6 pr-4">
+          {/* Search results */}
+          {searchQuery && (
+            <div className="space-y-3">
+              <Label className="text-base font-semibold flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Search Results ({searchResults.length})
+              </Label>
+              {searchResults.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {searchResults.map(({ key, config }) => (
+                    <ThemeCard key={key} themeKey={key} config={config} currentTheme={currentTheme} onSelect={setTheme} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  No themes found matching "{searchQuery}"
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Category sections */}
+          {!searchQuery && categoryOrder.map((category) => {
+            const categoryThemes = getThemesByCategory(category);
+            if (categoryThemes.length === 0) return null;
+            
+            const isExpanded = expandedCategories.has(category);
+            
+            return (
+              <Collapsible key={category} open={isExpanded} onOpenChange={() => toggleCategory(category)}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-muted/50 transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                      )}
+                      <Label className="text-base font-semibold cursor-pointer">
+                        {categories[category].name}
+                      </Label>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {categoryThemes.length}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground hidden sm:block">
+                    {categories[category].description}
+                  </p>
+                </CollapsibleTrigger>
+                
+                <CollapsibleContent className="space-y-3 pt-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {categoryThemes.map(({ key, config }) => (
+                      <ThemeCard key={key} themeKey={key} config={config} currentTheme={currentTheme} onSelect={setTheme} />
                     ))}
                   </div>
-                  {config.name}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-sm text-muted-foreground">
-          Choose a color theme for charts and data visualizations
-        </p>
-      </div>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
+
+// Individual theme card component
+function ThemeCard({ 
+  themeKey, 
+  config, 
+  currentTheme, 
+  onSelect 
+}: { 
+  themeKey: ThemeKey; 
+  config: any; 
+  currentTheme: ThemeKey; 
+  onSelect: (theme: ThemeKey) => void;
+}) {
+  const isSelected = currentTheme === themeKey;
+  
+  return (
+    <button
+      onClick={() => onSelect(themeKey)}
+      className={`group relative p-4 rounded-xl border-2 transition-all duration-200 text-left hover:shadow-lg ${
+        isSelected 
+          ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary/20' 
+          : 'border-border hover:border-muted-foreground/30 hover:bg-muted/30'
+      }`}
+    >
+      {isSelected && (
+        <div className="absolute -top-1 -right-1">
+          <div className="bg-primary rounded-full p-1">
+            <CheckCircle className="h-3 w-3 text-primary-foreground" />
+          </div>
+        </div>
+      )}
       
-      {/* Theme preview */}
-      <div className="grid grid-cols-5 gap-2">
-        {Object.values(themes[currentTheme].colors).map((color, i) => (
-          <div
-            key={i}
-            className="h-8 rounded-md border border-border/20 transition-all"
-            style={{ backgroundColor: `hsl(${color})` }}
-            title={`Chart ${i + 1}`}
-          />
-        ))}
+      <div className="space-y-3">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1 flex-1 min-w-0">
+            <div className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+              {config.name}
+            </div>
+            <p className="text-xs text-muted-foreground line-clamp-2">
+              {config.description}
+            </p>
+          </div>
+        </div>
+        
+        {/* Color preview */}
+        <div className="flex gap-1">
+          {Object.values(config.colors).map((color, i) => (
+            <div
+              key={i}
+              className="flex-1 h-6 first:rounded-l-md last:rounded-r-md transition-transform group-hover:scale-105"
+              style={{ 
+                backgroundColor: `hsl(${color as string})`,
+                boxShadow: `inset 0 0 0 1px hsla(${color as string}, 0.1)` 
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// Coming soon placeholder
+function ComingSoonTab({ icon: Icon, title, description }: { 
+  icon: React.ElementType; 
+  title: string; 
+  description: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+      <div className="p-4 rounded-full bg-muted/50">
+        <Icon className="h-8 w-8 text-muted-foreground" />
+      </div>
+      <div className="space-y-2">
+        <h3 className="text-lg font-semibold text-muted-foreground">{title}</h3>
+        <p className="text-sm text-muted-foreground max-w-md">
+          {description}
+        </p>
+        <div className="flex items-center gap-2 justify-center pt-2">
+          <Clock className="h-4 w-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Coming Soon</span>
+        </div>
       </div>
     </div>
   );
@@ -75,198 +256,87 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+        <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
           Settings
         </h1>
-        <p className="text-sm lg:text-base text-muted-foreground mt-1">
-          Configure gateway settings and preferences
+        <p className="text-muted-foreground mt-2">
+          Configure your dashboard preferences and customize your experience
         </p>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
-          <TabsTrigger value="general" className="text-xs lg:text-sm">General</TabsTrigger>
-          <TabsTrigger value="database" className="text-xs lg:text-sm">Database</TabsTrigger>
-          <TabsTrigger value="security" className="text-xs lg:text-sm">Security</TabsTrigger>
-          <TabsTrigger value="notifications" className="text-xs lg:text-sm">Notifications</TabsTrigger>
+      <Tabs defaultValue="appearance" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-11">
+          <TabsTrigger value="appearance" className="flex items-center gap-2 text-sm">
+            <Palette className="h-4 w-4" />
+            <span>Appearance</span>
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-green-100 text-green-800 border-green-200">
+              ✓
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="general" className="flex items-center gap-2 text-sm" disabled>
+            <SettingsIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">General</span>
+            <Badge variant="outline" className="ml-1 h-5 px-1.5 text-xs">
+              Soon
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="security" className="flex items-center gap-2 text-sm" disabled>
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Security</span>
+            <Badge variant="outline" className="ml-1 h-5 px-1.5 text-xs">
+              Soon
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="integrations" className="flex items-center gap-2 text-sm" disabled>
+            <Zap className="h-4 w-4" />
+            <span className="hidden sm:inline">Integrations</span>
+            <Badge variant="outline" className="ml-1 h-5 px-1.5 text-xs">
+              Soon
+            </Badge>
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="space-y-4">
-          <Card className="transition-theme">
+        <TabsContent value="appearance" className="space-y-0">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-lg lg:text-xl">General Settings</CardTitle>
-              <CardDescription>
-                Configure basic gateway settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="gateway-name">Gateway Name</Label>
-                <Input id="gateway-name" defaultValue="pLLM Gateway" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="api-url">API URL</Label>
-                <Input id="api-url" defaultValue="http://localhost:8080" />
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 border rounded-lg">
-                <div className="flex-1">
-                  <Label htmlFor="enable-logging" className="font-medium">Enable Logging</Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Log all API requests and responses
-                  </p>
+              <CardTitle className="text-2xl flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Palette className="h-6 w-6 text-primary" />
                 </div>
-                <Switch id="enable-logging" defaultChecked />
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all duration-200">
-                  Save Changes
-                </Button>
-                <Button variant="outline" className="w-full sm:w-auto hover:bg-muted transition-colors">
-                  Reset to Defaults
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Appearance Settings Card */}
-          <Card className="transition-theme">
-            <CardHeader>
-              <CardTitle className="text-lg lg:text-xl flex items-center gap-2">
-                <Palette className="h-5 w-5" />
-                Appearance
+                Dashboard Themes
               </CardTitle>
-              <CardDescription>
-                Customize the look and feel of your dashboard
+              <CardDescription className="text-base leading-relaxed">
+                Personalize your dashboard with beautiful color themes. Choose from 38 professionally designed themes across 9 categories.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ThemeSelector />
+              <ThemeGallery />
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="database" className="space-y-4">
-          <Card className="transition-theme">
-            <CardHeader>
-              <CardTitle className="text-lg lg:text-xl">Database Configuration</CardTitle>
-              <CardDescription>
-                Configure database connection settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="db-url">Database URL</Label>
-                <Input
-                  id="db-url"
-                  type="password"
-                  placeholder="postgresql://user:pass@localhost/db"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="max-connections">Max Connections</Label>
-                  <Input id="max-connections" type="number" defaultValue="10" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="connection-timeout">
-                    Connection Timeout (seconds)
-                  </Label>
-                  <Input
-                    id="connection-timeout"
-                    type="number"
-                    defaultValue="30"
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button variant="outline" className="w-full sm:w-auto hover:bg-muted transition-colors">
-                  Test Connection
-                </Button>
-                <Button className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all duration-200">
-                  Save Changes
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <TabsContent value="general">
+          <ComingSoonTab 
+            icon={SettingsIcon}
+            title="General Settings"
+            description="Configure basic gateway settings, API endpoints, logging preferences, and system-wide options."
+          />
         </TabsContent>
 
-        <TabsContent value="security" className="space-y-4">
-          <Card className="transition-theme">
-            <CardHeader>
-              <CardTitle className="text-lg lg:text-xl">Security Settings</CardTitle>
-              <CardDescription>
-                Configure security and authentication
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 border rounded-lg">
-                <div className="flex-1">
-                  <Label htmlFor="require-auth" className="font-medium">Require Authentication</Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Require API key for all requests
-                  </p>
-                </div>
-                <Switch id="require-auth" defaultChecked />
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 border rounded-lg">
-                <div className="flex-1">
-                  <Label htmlFor="enable-cors" className="font-medium">Enable CORS</Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Allow cross-origin requests
-                  </p>
-                </div>
-                <Switch id="enable-cors" defaultChecked />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="rate-limit">Rate Limit (requests/minute)</Label>
-                <Input id="rate-limit" type="number" defaultValue="60" className="max-w-xs" />
-              </div>
-              <Button className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all duration-200">
-                Save Changes
-              </Button>
-            </CardContent>
-          </Card>
+        <TabsContent value="security">
+          <ComingSoonTab 
+            icon={Shield}
+            title="Security Settings"
+            description="Manage authentication, authorization, rate limiting, CORS policies, and security configurations."
+          />
         </TabsContent>
 
-        <TabsContent value="notifications" className="space-y-4">
-          <Card className="transition-theme">
-            <CardHeader>
-              <CardTitle className="text-lg lg:text-xl">Notification Settings</CardTitle>
-              <CardDescription>
-                Configure alerts and notifications
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 border rounded-lg">
-                <div className="flex-1">
-                  <Label htmlFor="email-alerts" className="font-medium">Email Alerts</Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Send email for critical issues
-                  </p>
-                </div>
-                <Switch id="email-alerts" />
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 border rounded-lg">
-                <div className="flex-1">
-                  <Label htmlFor="slack-integration" className="font-medium">Slack Integration</Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Send notifications to Slack
-                  </p>
-                </div>
-                <Switch id="slack-integration" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="webhook-url">Webhook URL</Label>
-                <Input
-                  id="webhook-url"
-                  placeholder="https://hooks.slack.com/services/..."
-                />
-              </div>
-              <Button className="w-full sm:w-auto shadow-md hover:shadow-lg transition-all duration-200">
-                Save Changes
-              </Button>
-            </CardContent>
-          </Card>
+        <TabsContent value="integrations">
+          <ComingSoonTab 
+            icon={Zap}
+            title="Integrations"
+            description="Connect with external services, configure webhooks, email notifications, and third-party integrations."
+          />
         </TabsContent>
       </Tabs>
     </div>
