@@ -181,7 +181,7 @@ func (m *AsyncBudgetMiddleware) trackUsageAsync(ctx context.Context, request pro
 	outputTokens = 150 // Default estimate - will be reconciled by worker
 
 	// Get the actual user who made the request from context
-	actualUserID, _ := GetUserID(ctx)
+	actualUserID, hasUser := GetUserID(ctx)
 
 	// Create usage record for queue processing
 	usageRecord := &redisService.UsageRecord{
@@ -197,7 +197,11 @@ func (m *AsyncBudgetMiddleware) trackUsageAsync(ctx context.Context, request pro
 		TotalTokens:  inputTokens + outputTokens,
 		TotalCost:    actualCost,
 		Latency:      latency.Milliseconds(),
-		ActualUserID: actualUserID.String(), // Always track who made the request
+	}
+	
+	// Set ActualUserID only if user exists (not for system keys)
+	if hasUser {
+		usageRecord.ActualUserID = actualUserID.String()
 	}
 
 	// Set entity IDs and ownership information
@@ -207,6 +211,8 @@ func (m *AsyncBudgetMiddleware) trackUsageAsync(ctx context.Context, request pro
 			usageRecord.KeyID = keyUUID.String()
 			// Get key ownership details
 			if key, hasKey := GetKey(ctx); hasKey {
+				usageRecord.KeyType = string(key.Type) // Set key type
+				
 				// Set key owner (for personal keys)
 				if key.UserID != nil {
 					usageRecord.KeyOwnerID = key.UserID.String()
@@ -216,7 +222,9 @@ func (m *AsyncBudgetMiddleware) trackUsageAsync(ctx context.Context, request pro
 				if key.TeamID != nil {
 					usageRecord.TeamID = key.TeamID.String()
 					// For team keys, UserID is the key owner (team), ActualUserID is who made request
-					usageRecord.UserID = actualUserID.String()
+					if hasUser {
+						usageRecord.UserID = actualUserID.String()
+					}
 				}
 			}
 		}

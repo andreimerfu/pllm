@@ -191,12 +191,10 @@ services:
       - GROK_API_KEY_1=${GROK_API_KEY:-}
       - MISTRAL_API_KEY_1=${MISTRAL_API_KEY:-}
       # Dex Authentication - Use public URL for both (backend handles internal routing)
-      - DEX_ENABLED=${DEX_ENABLED:-true}
       - DEX_ISSUER=http://localhost:5556/dex
       - DEX_PUBLIC_ISSUER=http://localhost:5556/dex
       - DEX_CLIENT_ID=pllm-web
       - DEX_CLIENT_SECRET=pllm-web-secret
-      - DEX_ENABLED_PROVIDERS=${DEX_ENABLED_PROVIDERS:-github,microsoft}
       # Master Key for bootstrap admin access
       - PLLM_MASTER_KEY=${PLLM_MASTER_KEY:-sk-master-dev-key-change-in-production}
       - AUTH_MASTER_KEY=${PLLM_MASTER_KEY:-sk-master-dev-key-change-in-production}

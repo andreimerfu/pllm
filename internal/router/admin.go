@@ -6,6 +6,7 @@ import (
 
 	"github.com/amerfu/pllm/internal/auth"
 	"github.com/amerfu/pllm/internal/config"
+	"github.com/amerfu/pllm/internal/handlers"
 	"github.com/amerfu/pllm/internal/handlers/admin"
 	"github.com/amerfu/pllm/internal/middleware"
 	"github.com/amerfu/pllm/internal/services/budget"
@@ -51,6 +52,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB, cfg.BudgetService)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger)
+	dashboardHandler := handlers.NewDashboardHandler(cfg.DB, cfg.Logger)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(&middleware.AuthConfig{
@@ -77,6 +79,11 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	// Stats endpoint (commonly accessed by dashboard)
 	r.Get("/stats", analyticsHandler.GetStats)
 	r.Get("/dashboard", analyticsHandler.GetDashboard)
+
+	// Dashboard metrics endpoints
+	r.Get("/dashboard/metrics", dashboardHandler.GetDashboardMetrics)
+	r.Get("/dashboard/models/{model}", dashboardHandler.GetModelMetrics)
+	r.Get("/dashboard/usage-trends", dashboardHandler.GetUsageTrends)
 
 	// Protected admin routes - require authentication and admin role
 	r.Group(func(r chi.Router) {

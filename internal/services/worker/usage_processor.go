@@ -326,7 +326,8 @@ func (up *UsageProcessor) convertToUsageModel(record *redisService.UsageRecord) 
 	// We need either:
 	// 1. Both actual_user_id and key_id (for API key authentication)
 	// 2. Just actual_user_id with no key_id (for JWT authentication)
-	if usage.ActualUserID == uuid.Nil {
+	// 3. System keys can have nil actual_user_id since they don't belong to users
+	if usage.ActualUserID == uuid.Nil && record.KeyType != "system" {
 		return nil, fmt.Errorf("actual_user_id is required for usage record")
 	}
 

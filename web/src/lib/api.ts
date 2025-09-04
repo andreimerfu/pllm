@@ -149,6 +149,25 @@ export const getHistoricalSystemMetrics = (interval = "hourly", hours = 24) =>
 export const getHistoricalModelLatencies = (models: string[], interval = "hourly", hours = 24) =>
   axiosInstance.get(`/api/admin/analytics/historical/model-latencies?models=${models.join(",")}&interval=${interval}&hours=${hours}`);
 
+// Dashboard metrics API
+export const getDashboardMetrics = (): Promise<{
+  total_requests: number;
+  total_tokens: number; 
+  total_cost: number;
+  active_keys: number;
+  active_models: number;
+  top_models?: Array<{
+    model: string;
+    requests: number;
+    cost: number;
+  }>;
+}> => axiosInstance.get("/api/admin/dashboard/metrics");
+export const getModelMetrics = (model: string) => axiosInstance.get(`/api/admin/dashboard/models/${encodeURIComponent(model)}`);
+export const getUsageTrends = (days = 30) => axiosInstance.get(`/api/admin/dashboard/usage-trends?days=${days}`);
+
+// Legacy dashboard API (renamed to avoid conflict)
+export const getLegacyDashboard = () => axiosInstance.get("/api/admin/dashboard");
+
 // Users (legacy exports)
 export const getUsers = () => axiosInstance.get("/api/admin/users");
 export const getUser = (id: string) =>
@@ -218,7 +237,7 @@ export const getPerformance = () =>
 export const getErrors = () => axiosInstance.get("/api/admin/analytics/errors");
 export const getCacheStats = () =>
   axiosInstance.get("/api/admin/analytics/cache");
-export const getDashboard = () => axiosInstance.get("/api/admin/dashboard");
+// Removed duplicate getDashboard - using getDashboardMetrics for new API
 
 // System
 export const getConfig = () => axiosInstance.get("/api/admin/system/config");

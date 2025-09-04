@@ -143,7 +143,7 @@ func (mc *MetricsCollector) collectSystemMetrics(timestamp time.Time, systemStat
 			SUM(CASE WHEN cache_hit THEN 1 ELSE 0 END) as cache_hits,
 			SUM(CASE WHEN NOT cache_hit THEN 1 ELSE 0 END) as cache_misses
 		FROM usage_logs 
-		WHERE created_at >= ? AND created_at < ?
+		WHERE timestamp >= ? AND timestamp < ?
 	`, since, timestamp).Scan(&requestMetrics).Error
 
 	if err != nil {
@@ -200,7 +200,6 @@ func (mc *MetricsCollector) collectModelMetrics(timestamp time.Time, loadBalance
 			InputTokens    int64
 			OutputTokens   int64
 			TotalCost      float64
-			LatencyData    []int64
 		}
 
 		since := timestamp.Add(-1 * time.Minute)
@@ -213,7 +212,7 @@ func (mc *MetricsCollector) collectModelMetrics(timestamp time.Time, loadBalance
 				SUM(output_tokens) as output_tokens,
 				SUM(total_cost) as total_cost
 			FROM usage_logs 
-			WHERE model = ? AND created_at >= ? AND created_at < ?
+			WHERE model = ? AND timestamp >= ? AND timestamp < ?
 		`, modelName, since, timestamp).Scan(&requestMetrics).Error
 
 		if err != nil {
@@ -228,17 +227,30 @@ func (mc *MetricsCollector) collectModelMetrics(timestamp time.Time, loadBalance
 		mc.db.Raw(`
 			SELECT latency 
 			FROM usage_logs 
-			WHERE model = ? AND created_at >= ? AND created_at < ? 
+			WHERE model = ? AND timestamp >= ? AND timestamp < ? 
 			AND latency IS NOT NULL AND latency > 0
 			ORDER BY latency
 		`, modelName, since, timestamp).Scan(&latencies)
 
-		avgLatency := getInt64Value(modelMap, "avg_latency")
-		p95Latency := getInt64Value(modelMap, "p95_latency")
+		avgLatency := int64(0)
+		p95Latency := int64(0)
 		p99Latency := int64(0)
 
 		if len(latencies) > 0 {
 			sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
+
+			// Calculate average latency
+			var sum int64
+			for _, lat := range latencies {
+				sum += lat
+			}
+			avgLatency = sum / int64(len(latencies))
+
+			// Calculate P95 latency
+			p95Index := int(math.Ceil(float64(len(latencies))*0.95)) - 1
+			if p95Index >= 0 && p95Index < len(latencies) {
+				p95Latency = latencies[p95Index]
+			}
 
 			// Calculate P99 latency
 			p99Index := int(math.Ceil(float64(len(latencies))*0.99)) - 1
@@ -312,7 +324,7 @@ func (mc *MetricsCollector) collectUsageMetrics(timestamp time.Time) {
 				model,
 				COUNT(*) as model_count
 			FROM usage_logs 
-			WHERE created_at >= ? AND created_at < ?
+			WHERE timestamp >= ? AND timestamp < ?
 			GROUP BY actual_user_id, team_id, model
 		) subq
 		GROUP BY actual_user_id
@@ -373,7 +385,7 @@ func (mc *MetricsCollector) collectUsageMetrics(timestamp time.Time) {
 				COUNT(*) as model_count
 			FROM usage_logs ul
 			JOIN teams t ON ul.team_id = t.id
-			WHERE ul.created_at >= ? AND ul.created_at < ?
+			WHERE ul.timestamp >= ? AND ul.timestamp < ?
 			GROUP BY ul.team_id, ul.actual_user_id, ul.model, t.current_spend
 		) subq
 		WHERE team_id IS NOT NULL
