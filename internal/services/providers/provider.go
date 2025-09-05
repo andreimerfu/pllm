@@ -18,6 +18,13 @@ type Provider interface {
 	// Embeddings
 	Embeddings(ctx context.Context, request *EmbeddingsRequest) (*EmbeddingsResponse, error)
 
+	// Audio
+	AudioTranscription(ctx context.Context, request *TranscriptionRequest) (*TranscriptionResponse, error)
+	AudioSpeech(ctx context.Context, request *SpeechRequest) ([]byte, error)
+
+	// Images
+	ImageGeneration(ctx context.Context, request *ImageRequest) (*ImageResponse, error)
+
 	// Provider info
 	GetType() string
 	GetName() string

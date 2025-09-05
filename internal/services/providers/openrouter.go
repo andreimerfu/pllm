@@ -496,3 +496,15 @@ func (p *OpenRouterProvider) UpdateModels(ctx context.Context) error {
 	p.models = models
 	return nil
 }
+
+func (p *OpenRouterProvider) AudioTranscription(ctx context.Context, request *TranscriptionRequest) (*TranscriptionResponse, error) {
+	return nil, fmt.Errorf("audio transcription not currently supported through OpenRouter - use OpenAI directly")
+}
+
+func (p *OpenRouterProvider) AudioSpeech(ctx context.Context, request *SpeechRequest) ([]byte, error) {
+	return nil, fmt.Errorf("text-to-speech not currently supported through OpenRouter - use OpenAI directly")
+}
+
+func (p *OpenRouterProvider) ImageGeneration(ctx context.Context, request *ImageRequest) (*ImageResponse, error) {
+	return nil, fmt.Errorf("image generation not currently supported through OpenRouter - use OpenAI directly")
+}

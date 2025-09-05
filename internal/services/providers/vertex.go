@@ -385,9 +385,89 @@ func (p *VertexProvider) transformClaudeRequest(request *ChatRequest) ([]byte, e
 
 // transformGeminiRequest transforms request for Gemini models
 func (p *VertexProvider) transformGeminiRequest(request *ChatRequest) ([]byte, error) {
+	// Convert OpenAI messages to Gemini format
+	contents := make([]map[string]interface{}, 0)
+	
+	for _, msg := range request.Messages {
+		if msg.Role == "system" {
+			// System messages in Gemini are handled differently
+			// We'll add them as user messages with special formatting
+			content := map[string]interface{}{
+				"role": "user",
+				"parts": []map[string]interface{}{
+					{
+						"text": fmt.Sprintf("System: %s", msg.Content),
+					},
+				},
+			}
+			contents = append(contents, content)
+			continue
+		}
+
+		// Convert message content
+		parts := make([]map[string]interface{}, 0)
+		
+		// Handle different content types
+		switch content := msg.Content.(type) {
+		case string:
+			// Simple text content
+			parts = append(parts, map[string]interface{}{
+				"text": content,
+			})
+		case []interface{}:
+			// Multimodal content (text + images)
+			for _, item := range content {
+				if itemMap, ok := item.(map[string]interface{}); ok {
+					itemType, _ := itemMap["type"].(string)
+					
+					switch itemType {
+					case "text":
+						if text, ok := itemMap["text"].(string); ok {
+							parts = append(parts, map[string]interface{}{
+								"text": text,
+							})
+						}
+					case "image_url":
+						if imageURL, ok := itemMap["image_url"].(map[string]interface{}); ok {
+							if url, ok := imageURL["url"].(string); ok {
+								// Convert image URL to Gemini format
+								if strings.HasPrefix(url, "data:") {
+									// Handle base64 data URLs
+									urlParts := strings.SplitN(url, ",", 2)
+									if len(urlParts) == 2 {
+										headerParts := strings.Split(urlParts[0], ";")
+										mimeType := strings.TrimPrefix(headerParts[0], "data:")
+										
+										parts = append(parts, map[string]interface{}{
+											"inline_data": map[string]interface{}{
+												"mime_type": mimeType,
+												"data":      urlParts[1],
+											},
+										})
+									}
+								}
+								// Note: URL-based images would need to be downloaded and converted to base64
+							}
+						}
+					}
+				}
+			}
+		}
+
+		geminiRole := msg.Role
+		if geminiRole == "assistant" {
+			geminiRole = "model"
+		}
+
+		geminiContent := map[string]interface{}{
+			"role":  geminiRole,
+			"parts": parts,
+		}
+		contents = append(contents, geminiContent)
+	}
+
 	geminiReq := map[string]interface{}{
-		"model":    request.Model,
-		"messages": request.Messages,
+		"contents": contents,
 	}
 
 	// Add generation config
@@ -684,4 +764,21 @@ func (p *VertexProvider) HealthCheck(ctx context.Context) error {
 	p.mu.Unlock()
 
 	return nil
+}
+
+func (p *VertexProvider) AudioTranscription(ctx context.Context, request *TranscriptionRequest) (*TranscriptionResponse, error) {
+	// Vertex AI supports audio transcription through Gemini multimodal models
+	// For now, return not implemented - would require complex multimodal request transformation
+	return nil, fmt.Errorf("audio transcription not yet implemented for Vertex AI - use OpenAI instead")
+}
+
+func (p *VertexProvider) AudioSpeech(ctx context.Context, request *SpeechRequest) ([]byte, error) {
+	// Vertex AI does not have a direct text-to-speech API equivalent to OpenAI
+	return nil, fmt.Errorf("text-to-speech not available through Vertex AI - use Google Cloud Text-to-Speech API or OpenAI instead")
+}
+
+func (p *VertexProvider) ImageGeneration(ctx context.Context, request *ImageRequest) (*ImageResponse, error) {
+	// Vertex AI has Imagen models, but different API structure
+	// For now, return not implemented - would require Imagen-specific request format
+	return nil, fmt.Errorf("image generation not yet implemented for Vertex AI - use OpenAI DALL-E instead")
 }

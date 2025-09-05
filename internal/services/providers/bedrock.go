@@ -661,3 +661,15 @@ func (p *BedrockProvider) HealthCheck(ctx context.Context) error {
 
 	return nil
 }
+
+func (p *BedrockProvider) AudioTranscription(ctx context.Context, request *TranscriptionRequest) (*TranscriptionResponse, error) {
+	return nil, fmt.Errorf("audio transcription not available for Bedrock - use OpenAI instead")
+}
+
+func (p *BedrockProvider) AudioSpeech(ctx context.Context, request *SpeechRequest) ([]byte, error) {
+	return nil, fmt.Errorf("text-to-speech not available for Bedrock - use Amazon Polly or OpenAI instead")
+}
+
+func (p *BedrockProvider) ImageGeneration(ctx context.Context, request *ImageRequest) (*ImageResponse, error) {
+	return nil, fmt.Errorf("image generation not yet implemented for Bedrock - use OpenAI DALL-E instead")
+}
