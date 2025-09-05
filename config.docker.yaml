@@ -70,6 +70,13 @@ model_list:
     rpm: 60
     tpm: 90000
 
+  - model_name: gpt-4o
+    params:
+      model: gpt-4o
+      api_key: ${OPENAI_API_KEY}
+    rpm: 60
+    tpm: 90000
+
   # Primary GPT-3.5-Turbo instance
   - model_name: my-gpt-35-turbo
     params:

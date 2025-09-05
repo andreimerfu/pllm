@@ -3,13 +3,17 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/amerfu/pllm/internal/middleware"
 	"github.com/amerfu/pllm/internal/services"
 	"github.com/amerfu/pllm/internal/services/models"
 	"github.com/amerfu/pllm/internal/services/providers"
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 )
 
@@ -56,6 +60,19 @@ func (h *LLMHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("Failed to decode request body", zap.Error(err))
 		h.sendError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
+	}
+
+	// Debug logging
+	h.logger.Info("Received chat completion request",
+		zap.String("model", request.Model),
+		zap.Int("num_messages", len(request.Messages)),
+		zap.Bool("stream", request.Stream))
+	
+	for i, msg := range request.Messages {
+		h.logger.Info("Message content",
+			zap.Int("index", i),
+			zap.String("role", msg.Role),
+			zap.String("content_type", fmt.Sprintf("%T", msg.Content)))
 	}
 
 	// Populate metrics context if available
@@ -174,16 +191,130 @@ func (h *LLMHandler) GetModel(w http.ResponseWriter, r *http.Request) {
 	h.sendError(w, http.StatusNotImplemented, "Get model endpoint not yet implemented")
 }
 
+// UploadFile handles file uploads for chat attachments
+// @Summary Upload file
+// @Description Upload a file for use in chat messages
+// @Tags Files
+// @Accept multipart/form-data
+// @Produce json
+// @Param X-API-Key header string false "API Key for authentication"
+// @Param Authorization header string false "Bearer token for authentication"
+// @Param file formData file true "File to upload"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} providers.ErrorResponse
+// @Failure 413 {object} providers.ErrorResponse
+// @Failure 500 {object} providers.ErrorResponse
+// @Router /files [post]
 func (h *LLMHandler) UploadFile(w http.ResponseWriter, r *http.Request) {
-	h.sendError(w, http.StatusNotImplemented, "File upload not yet implemented")
+	// Parse multipart form (limit to 32MB)
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		h.sendError(w, http.StatusBadRequest, "Failed to parse form: "+err.Error())
+		return
+	}
+
+	file, fileHeader, err := r.FormFile("file")
+	if err != nil {
+		h.sendError(w, http.StatusBadRequest, "No file provided or invalid file")
+		return
+	}
+	defer func() { _ = file.Close() }()
+
+	// Validate file size (max 10MB)
+	if fileHeader.Size > 10<<20 {
+		h.sendError(w, http.StatusRequestEntityTooLarge, "File too large (max 10MB)")
+		return
+	}
+
+	// Validate file type (images only for now)
+	contentType := fileHeader.Header.Get("Content-Type")
+	if contentType == "" {
+		// Try to detect from extension
+		contentType = http.DetectContentType(make([]byte, 512))
+	}
+	
+	if !strings.HasPrefix(contentType, "image/") {
+		h.sendError(w, http.StatusBadRequest, "Only image files are supported")
+		return
+	}
+
+	// Generate unique filename
+	fileID := fmt.Sprintf("%d_%s", time.Now().Unix(), fileHeader.Filename)
+	uploadDir := "./uploads"
+	
+	// Create upload directory if it doesn't exist
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		h.logger.Error("Failed to create upload directory", zap.Error(err))
+		h.sendError(w, http.StatusInternalServerError, "Failed to create upload directory")
+		return
+	}
+
+	// Save file to disk
+	filepath := fmt.Sprintf("%s/%s", uploadDir, fileID)
+	dst, err := os.Create(filepath)
+	if err != nil {
+		h.logger.Error("Failed to create file", zap.Error(err))
+		h.sendError(w, http.StatusInternalServerError, "Failed to save file")
+		return
+	}
+	defer func() { _ = dst.Close() }()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		h.logger.Error("Failed to write file", zap.Error(err))
+		h.sendError(w, http.StatusInternalServerError, "Failed to save file")
+		return
+	}
+
+	// Return file info
+	response := map[string]interface{}{
+		"id":       fileID,
+		"filename": fileHeader.Filename,
+		"size":     fileHeader.Size,
+		"type":     contentType,
+		"url":      fmt.Sprintf("/files/%s", fileID),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("Failed to encode upload response", zap.Error(err))
+	}
 }
 
 func (h *LLMHandler) ListFiles(w http.ResponseWriter, r *http.Request) {
 	h.sendError(w, http.StatusNotImplemented, "List files not yet implemented")
 }
 
+// GetFile serves uploaded files
+// @Summary Get file
+// @Description Serve an uploaded file
+// @Tags Files
+// @Param fileID path string true "File ID"
+// @Success 200 {file} binary
+// @Failure 404 {object} providers.ErrorResponse
+// @Router /files/{fileID} [get]
 func (h *LLMHandler) GetFile(w http.ResponseWriter, r *http.Request) {
-	h.sendError(w, http.StatusNotImplemented, "Get file not yet implemented")
+	// Extract file ID from URL parameter
+	fileID := chi.URLParam(r, "fileID")
+	if fileID == "" {
+		h.sendError(w, http.StatusBadRequest, "File ID required")
+		return
+	}
+
+	// Basic security: prevent directory traversal
+	if strings.Contains(fileID, "..") || strings.Contains(fileID, "/") {
+		h.sendError(w, http.StatusBadRequest, "Invalid file ID")
+		return
+	}
+
+	filepath := fmt.Sprintf("./uploads/%s", fileID)
+	
+	// Check if file exists
+	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+		h.sendError(w, http.StatusNotFound, "File not found")
+		return
+	}
+
+	// Serve the file
+	http.ServeFile(w, r, filepath)
 }
 
 func (h *LLMHandler) DeleteFile(w http.ResponseWriter, r *http.Request) {

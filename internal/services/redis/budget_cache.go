@@ -71,13 +71,19 @@ func (bc *BudgetCache) CheckBudgetAvailable(ctx context.Context, entityType, ent
 func (bc *BudgetCache) UpdateBudgetCache(ctx context.Context, entityType, entityID string, available, spent, limit float64, isExceeded bool) error {
 	cacheKey := bc.budgetKey(entityType, entityID)
 
+	// Calculate percentage, handling zero limit case
+	var percentage float64
+	if limit > 0 {
+		percentage = (spent / limit) * 100
+	}
+
 	status := &BudgetStatus{
 		EntityID:    entityID,
 		EntityType:  entityType,
 		Available:   available,
 		Spent:       spent,
 		Limit:       limit,
-		Percentage:  (spent / limit) * 100,
+		Percentage:  percentage,
 		IsExceeded:  isExceeded,
 		LastUpdated: time.Now(),
 		TTL:         int64(bc.ttl.Seconds()),
