@@ -16,7 +16,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
@@ -101,12 +100,12 @@ function BudgetMetricsCards({ summary }: { summary: any }) {
           <CardTitle className="text-2xl font-semibold tabular-nums">
             ${summary.total_budget?.toFixed(2) || '0.00'}
           </CardTitle>
-          <CardAction>
+          <div>
             <Badge variant="outline">
               <Users className="h-3 w-3" />
               {summary.total_entities || 0} entities
             </Badge>
-          </CardAction>
+          </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="text-muted-foreground">
@@ -121,12 +120,12 @@ function BudgetMetricsCards({ summary }: { summary: any }) {
           <CardTitle className="text-2xl font-semibold tabular-nums">
             ${summary.total_spent?.toFixed(2) || '0.00'}
           </CardTitle>
-          <CardAction>
+          <div>
             <Badge variant={utilizationRate > 90 ? "destructive" : utilizationRate > 70 ? "secondary" : "outline"}>
               <TrendingUp className="h-3 w-3" />
               {utilizationRate.toFixed(1)}%
             </Badge>
-          </CardAction>
+          </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
@@ -144,12 +143,12 @@ function BudgetMetricsCards({ summary }: { summary: any }) {
           <CardTitle className="text-2xl font-semibold tabular-nums">
             ${summary.total_remaining?.toFixed(2) || '0.00'}
           </CardTitle>
-          <CardAction>
+          <div>
             <Badge variant="outline">
               <DollarSign className="h-3 w-3" />
               Available
             </Badge>
-          </CardAction>
+          </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
@@ -167,12 +166,12 @@ function BudgetMetricsCards({ summary }: { summary: any }) {
           <CardTitle className="text-2xl font-semibold tabular-nums">
             {summary.exceeded_count + summary.alerting_count}
           </CardTitle>
-          <CardAction>
+          <div>
             <Badge variant={summary.exceeded_count > 0 ? "destructive" : summary.alerting_count > 0 ? "secondary" : "outline"}>
               <AlertTriangle className="h-3 w-3" />
               Need attention
             </Badge>
-          </CardAction>
+          </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
@@ -280,14 +279,14 @@ function BudgetEntitiesTable({ teamBudgets, keyBudgets }: { teamBudgets: any[], 
         <CardHeader>
           <CardTitle>Budget Entities</CardTitle>
           <CardDescription>Teams and keys with budget allocation</CardDescription>
-          <CardAction>
+          <div>
             <Button variant="outline" size="sm" asChild>
               <a href="/ui/teams">
                 <Plus className="h-4 w-4" />
                 Create Team
               </a>
             </Button>
-          </CardAction>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -309,14 +308,14 @@ function BudgetEntitiesTable({ teamBudgets, keyBudgets }: { teamBudgets: any[], 
         <CardDescription>
           {sortedBudgets.length} entities with budget tracking
         </CardDescription>
-        <CardAction>
+        <div>
           <Button variant="outline" size="sm" asChild>
             <a href="/ui/teams">
               <Settings className="h-4 w-4" />
               Manage
             </a>
           </Button>
-        </CardAction>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="rounded-lg border">
