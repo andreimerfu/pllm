@@ -53,10 +53,23 @@ type ChatRequest struct {
 
 type Message struct {
 	Role       string      `json:"role"`
-	Content    interface{} `json:"content"`
+	Content    interface{} `json:"content"` // Can be string or []MessageContent for vision
 	Name       string      `json:"name,omitempty"`
 	ToolCalls  []ToolCall  `json:"tool_calls,omitempty"`
 	ToolCallID string      `json:"tool_call_id,omitempty"`
+}
+
+// MessageContent represents individual content blocks for vision messages
+type MessageContent struct {
+	Type     string    `json:"type"`     // "text" or "image_url"
+	Text     string    `json:"text,omitempty"`
+	ImageURL *ImageURL `json:"image_url,omitempty"`
+}
+
+// ImageURL represents image content
+type ImageURL struct {
+	URL    string `json:"url"`
+	Detail string `json:"detail,omitempty"` // "low", "high", or "auto"
 }
 
 type ResponseFormat struct {

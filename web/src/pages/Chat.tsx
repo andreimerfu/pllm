@@ -33,9 +33,27 @@ import { cn } from '../lib/utils'
 interface Message {
   id: string
   role: 'user' | 'assistant' | 'system'
-  content: string
+  content: string | MessageContent[]
   timestamp: Date
   model?: string
+  attachments?: UploadedFile[]
+}
+
+interface MessageContent {
+  type: 'text' | 'image_url'
+  text?: string
+  image_url?: {
+    url: string
+    detail?: string
+  }
+}
+
+interface UploadedFile {
+  id: string
+  filename: string
+  size: number
+  type: string
+  url: string
 }
 
 interface Conversation {
@@ -341,10 +359,66 @@ function RightSidebar({
   )
 }
 
-function MessageContent({ content }: { content: string }) {
+function MessageContent({ content }: { content: string | MessageContent[] }) {
   // Detect theme for syntax highlighting
   const isDark = document.documentElement.classList.contains('dark')
   
+  // Handle vision content format
+  if (Array.isArray(content)) {
+    return (
+      <div className="space-y-3">
+        {content.map((item, index) => (
+          <div key={index}>
+            {item.type === 'text' && (
+              <div className="prose prose-sm max-w-none dark:prose-invert">
+                <ReactMarkdown
+                  components={{
+                    code({ className, children }) {
+                      const match = /language-(\w+)/.exec(className || '')
+                      const language = match ? match[1] : ''
+                      const isInline = !match
+                      
+                      return !isInline ? (
+                        <SyntaxHighlighter
+                          style={isDark ? vscDarkPlus : oneLight}
+                          language={language}
+                          PreTag="div"
+                          customStyle={{
+                            borderRadius: '0.375rem',
+                            fontSize: '0.875rem'
+                          }}
+                        >
+                          {String(children).replace(/\n$/, '')}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono">
+                          {children}
+                        </code>
+                      )
+                    }
+                  }}
+                >
+                  {item.text || ''}
+                </ReactMarkdown>
+              </div>
+            )}
+            {item.type === 'image_url' && item.image_url && (
+              <div className="rounded-lg overflow-hidden border bg-muted/20">
+                <img 
+                  src={item.image_url.url} 
+                  alt="User uploaded image"
+                  className="max-w-full h-auto max-h-96 object-contain"
+                  loading="lazy"
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
+  
+  // Handle regular string content
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
       <ReactMarkdown
@@ -402,20 +476,67 @@ function MessageInput({
   onChange, 
   onSubmit, 
   disabled,
-  onStop 
+  onStop,
+  attachments,
+  onAttachmentAdd,
+  onAttachmentRemove
 }: {
   value: string
   onChange: (value: string) => void
   onSubmit: () => void
   disabled: boolean
   onStop: () => void
+  attachments?: UploadedFile[]
+  onAttachmentAdd?: (file: File) => void
+  onAttachmentRemove?: (fileId: string) => void
 }) {
   const [webSearchEnabled, setWebSearchEnabled] = useState(true)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       onSubmit()
+    }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0 || !onAttachmentAdd) return
+
+    const file = files[0]
+    
+    // Validate file type (images only for now)
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Only image files are supported",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "File size must be less than 10MB",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Pass the file directly to be processed in the parent component
+    onAttachmentAdd(file)
+    
+    toast({
+      title: "Image added",
+      description: `${file.name} ready to send`
+    })
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
     }
   }
 
@@ -453,6 +574,28 @@ function MessageInput({
           </Button>
         </div>
 
+        {/* Attachments preview */}
+        {attachments && attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {attachments.map((file) => (
+              <div key={file.id} className="relative group">
+                <div className="flex items-center gap-2 bg-muted rounded-md p-2 pr-8">
+                  <Icon icon="lucide:image" className="h-4 w-4" />
+                  <span className="text-sm truncate max-w-32">{file.filename}</span>
+                </div>
+                {onAttachmentRemove && (
+                  <button
+                    onClick={() => onAttachmentRemove(file.id)}
+                    className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-destructive/80"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="relative">
           <Textarea
             value={value}
@@ -482,7 +625,19 @@ function MessageInput({
 
         <div className="flex items-center justify-between mt-3">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" disabled>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              style={{ display: 'none' }}
+            />
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+            >
               <Icon icon="lucide:paperclip" className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="sm" disabled>
@@ -514,6 +669,7 @@ export default function Chat() {
   const [maxTokens, setMaxTokens] = useState(2048)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true) // Start collapsed on mobile
   const [availableModels, setAvailableModels] = useState<any[]>([])
+  const [currentAttachments, setCurrentAttachments] = useState<UploadedFile[]>([])
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -563,24 +719,89 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  const handleAttachmentAdd = (file: File) => {
+    // Convert file to base64 immediately and store locally
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const base64Data = e.target?.result as string
+      const uploadedFile: UploadedFile = {
+        id: Date.now().toString(),
+        filename: file.name,
+        size: file.size,
+        type: file.type,
+        url: base64Data // Store base64 directly instead of server URL
+      }
+      setCurrentAttachments(prev => [...prev, uploadedFile])
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleAttachmentRemove = (fileId: string) => {
+    setCurrentAttachments(prev => prev.filter(f => f.id !== fileId))
+  }
+
+
   const handleSubmit = async () => {
-    if (!input.trim() || isLoading || !selectedModel) return
+    if ((!input.trim() && currentAttachments.length === 0) || isLoading || !selectedModel) return
+
+    // Create message content in vision format if attachments exist
+    let messageContent: string | MessageContent[]
+    if (currentAttachments.length > 0) {
+      const contentArray: MessageContent[] = []
+      if (input.trim()) {
+        contentArray.push({
+          type: 'text',
+          text: input.trim()
+        })
+      }
+      // Add attachments (already in base64 format)
+      currentAttachments.forEach(attachment => {
+        contentArray.push({
+          type: 'image_url',
+          image_url: {
+            url: attachment.url // Already base64 data URL
+          }
+        })
+      })
+      messageContent = contentArray
+    } else {
+      messageContent = input.trim()
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
-      timestamp: new Date()
+      content: messageContent,
+      timestamp: new Date(),
+      attachments: currentAttachments.length > 0 ? [...currentAttachments] : undefined
     }
 
     setMessages(prev => [...prev, userMessage])
     setInput('')
+    setCurrentAttachments([]) // Clear attachments after sending
     setIsLoading(true)
 
     try {
       abortControllerRef.current = new AbortController()
       
       const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      
+      const requestPayload = {
+        model: selectedModel,
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant.' },
+          ...messages.map(m => ({ 
+            role: m.role, 
+            content: m.content 
+          })),
+          { role: 'user', content: userMessage.content }
+        ],
+        temperature: temperature,
+        max_tokens: maxTokens,
+        stream: true
+      }
+      
+      console.log('Sending request:', JSON.stringify(requestPayload, null, 2))
       
       const response = await fetch('/v1/chat/completions', {
         method: 'POST',
@@ -589,17 +810,7 @@ export default function Chat() {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
         signal: abortControllerRef.current.signal,
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: [
-            { role: 'system', content: 'You are a helpful assistant.' },
-            ...messages.map(m => ({ role: m.role, content: m.content })),
-            { role: 'user', content: userMessage.content }
-          ],
-          temperature: temperature,
-          max_tokens: maxTokens,
-          stream: true
-        })
+        body: JSON.stringify(requestPayload)
       })
 
       if (!response.ok) {
@@ -702,6 +913,9 @@ export default function Chat() {
                   onSubmit={handleSubmit}
                   disabled={isLoading}
                   onStop={handleStop}
+                  attachments={currentAttachments}
+                  onAttachmentAdd={handleAttachmentAdd}
+                  onAttachmentRemove={handleAttachmentRemove}
                 />
               </div>
             </>
@@ -748,9 +962,13 @@ export default function Chat() {
                         )}>
                           <CardContent className="p-4">
                             {message.role === 'user' ? (
-                              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                                {message.content}
-                              </p>
+                              Array.isArray(message.content) ? (
+                                <MessageContent content={message.content} />
+                              ) : (
+                                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                  {message.content}
+                                </p>
+                              )
                             ) : (
                               <MessageContent content={message.content} />
                             )}
@@ -790,6 +1008,9 @@ export default function Chat() {
                 onSubmit={handleSubmit}
                 disabled={isLoading}
                 onStop={handleStop}
+                attachments={currentAttachments}
+                onAttachmentAdd={handleAttachmentAdd}
+                onAttachmentRemove={handleAttachmentRemove}
               />
             </div>
             </>

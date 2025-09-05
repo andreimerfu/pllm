@@ -422,6 +422,9 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		logger.Info("UI routes enabled")
 	}
 
+	// Static file serving for uploads
+	r.Get("/files/{fileID}", llmHandler.GetFile)
+
 	// Not found handler
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

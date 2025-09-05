@@ -44,11 +44,26 @@ func NewOpenAIProvider(name string, cfg ProviderConfig) (*OpenAIProvider, error)
 }
 
 func (p *OpenAIProvider) ChatCompletion(ctx context.Context, request *ChatRequest) (*ChatResponse, error) {
+	// Debug logging for vision content
+	for i, msg := range request.Messages {
+		if msg.Content != nil {
+			log.Printf("Message %d (%s): content type = %T", i, msg.Role, msg.Content)
+			if contentArray, ok := msg.Content.([]interface{}); ok {
+				log.Printf("Message %d has %d content parts", i, len(contentArray))
+				for j, part := range contentArray {
+					log.Printf("  Part %d: %+v", j, part)
+				}
+			}
+		}
+	}
+
 	// Prepare the request body
 	reqBody, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
+	
+	log.Printf("Sending to OpenAI: %s", string(reqBody))
 
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/chat/completions", bytes.NewBuffer(reqBody))
@@ -106,11 +121,21 @@ func (p *OpenAIProvider) ChatCompletionStream(ctx context.Context, request *Chat
 		// Enable streaming in request
 		request.Stream = true
 
+		// Debug logging for vision content in streaming
+		log.Printf("Streaming request for model: %s", request.Model)
+		for i, msg := range request.Messages {
+			if msg.Content != nil {
+				log.Printf("Stream Message %d (%s): content type = %T", i, msg.Role, msg.Content)
+			}
+		}
+
 		// Prepare the request body
 		reqBody, err := json.Marshal(request)
 		if err != nil {
 			return // Just close channel on error
 		}
+		
+		log.Printf("Streaming to OpenAI: %s", string(reqBody))
 
 		// Create HTTP request
 		req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/chat/completions", bytes.NewBuffer(reqBody))
