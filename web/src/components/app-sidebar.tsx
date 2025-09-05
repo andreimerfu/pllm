@@ -170,7 +170,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Activity className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">pLLM Gateway</span>
+                <span className="truncate font-semibold">pLLM</span>
                 <span className="truncate text-xs opacity-70">
                   AI Model Router
                 </span>
@@ -310,7 +310,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   Version 1.0.0
                 </p>
                 <p className="group-data-[collapsible=icon]:hidden">
-                  © 2025 pLLM Gateway
+                  © 2025 pLLM
                 </p>
               </div>
             </div>

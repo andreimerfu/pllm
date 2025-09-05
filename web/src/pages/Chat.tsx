@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Icon } from '@iconify/react'
 import { Check, ChevronsUpDown } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Textarea } from '../components/ui/textarea'
@@ -337,6 +340,46 @@ function RightSidebar({
     </div>
   )
 }
+
+function MessageContent({ content }: { content: string }) {
+  // Detect theme for syntax highlighting
+  const isDark = document.documentElement.classList.contains('dark')
+  
+  return (
+    <div className="prose prose-sm max-w-none dark:prose-invert">
+      <ReactMarkdown
+        components={{
+          code({ className, children }) {
+            const match = /language-(\w+)/.exec(className || '')
+            const language = match ? match[1] : ''
+            const isInline = !match
+            
+            return !isInline ? (
+              <SyntaxHighlighter
+                style={isDark ? vscDarkPlus : oneLight}
+                language={language}
+                PreTag="div"
+                customStyle={{
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem'
+                }}
+              >
+                {String(children).replace(/\n$/, '')}
+              </SyntaxHighlighter>
+            ) : (
+              <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono">
+                {children}
+              </code>
+            )
+          }
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
+}
+
 
 function EmptyState() {
   return (
@@ -704,9 +747,13 @@ export default function Chat() {
                             : "bg-card"
                         )}>
                           <CardContent className="p-4">
-                            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                              {message.content}
-                            </p>
+                            {message.role === 'user' ? (
+                              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                {message.content}
+                              </p>
+                            ) : (
+                              <MessageContent content={message.content} />
+                            )}
                           </CardContent>
                         </Card>
                       </div>
