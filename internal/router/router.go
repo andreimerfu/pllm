@@ -186,6 +186,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	// Initialize specialized handlers
 	var (
 		chatHandler          *handlers.ChatHandler
+		messagesHandler      *handlers.MessagesHandler
 		embeddingsHandler    *handlers.EmbeddingsHandler
 		modelsHandler        *handlers.ModelsHandler
 		filesHandler         *handlers.FilesHandler
@@ -198,6 +199,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 
 	if metricsEmitter != nil {
 		chatHandler = handlers.NewChatHandlerWithMetrics(logger, modelManager, metricsEmitter)
+		messagesHandler = handlers.NewMessagesHandlerWithMetrics(logger, modelManager, metricsEmitter)
 		embeddingsHandler = handlers.NewEmbeddingsHandlerWithMetrics(logger, modelManager, metricsEmitter)
 		modelsHandler = handlers.NewModelsHandlerWithMetrics(logger, modelManager, pricingManager, metricsEmitter)
 		filesHandler = handlers.NewFilesHandlerWithMetrics(logger, modelManager, metricsEmitter)
@@ -207,6 +209,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		adminHandler = handlers.NewAdminHandlerWithMetrics(logger, modelManager, metricsEmitter)
 	} else {
 		chatHandler = handlers.NewChatHandler(logger, modelManager)
+		messagesHandler = handlers.NewMessagesHandler(logger, modelManager)
 		embeddingsHandler = handlers.NewEmbeddingsHandler(logger, modelManager)
 		modelsHandler = handlers.NewModelsHandler(logger, modelManager, pricingManager)
 		filesHandler = handlers.NewFilesHandler(logger, modelManager)
@@ -272,6 +275,9 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		r.Route("/v1", func(r chi.Router) {
 			// Chat completions - use a custom handler that preserves Flusher
 			r.HandleFunc("/chat/completions", chatHandler.ChatCompletions)
+
+			// Anthropic Messages API format (LiteLLM compatible)
+			r.HandleFunc("/messages", messagesHandler.AnthropicMessages)
 
 			// Completions (legacy)
 			r.Post("/completions", chatHandler.Completions)
@@ -380,6 +386,9 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		r.Route("/api/v1", func(r chi.Router) {
 			// Chat completions
 			r.Post("/chat/completions", chatHandler.ChatCompletions)
+
+			// Anthropic Messages API format (LiteLLM compatible)
+			r.Post("/messages", messagesHandler.AnthropicMessages)
 
 			// Completions (legacy)
 			r.Post("/completions", chatHandler.Completions)
