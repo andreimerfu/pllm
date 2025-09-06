@@ -10,8 +10,11 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type OpenAIProvider struct {
@@ -490,4 +493,103 @@ func (p *OpenAIProvider) HealthCheck(ctx context.Context) error {
 
 	p.SetHealthy(true)
 	return nil
+}
+
+// Realtime API implementation
+
+// ConnectRealtime establishes WebSocket connection to OpenAI realtime API
+func (p *OpenAIProvider) ConnectRealtime(ctx context.Context, config *RealtimeConnectionConfig) (*websocket.Conn, error) {
+	if config == nil {
+		return nil, fmt.Errorf("realtime connection config is required")
+	}
+
+	// Prepare WebSocket URL
+	wsURL, err := p.buildRealtimeURL(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build realtime URL: %w", err)
+	}
+
+	// Prepare headers
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer "+config.APIKey)
+	headers.Set("OpenAI-Beta", "realtime=v1")
+	
+	if config.Headers != nil {
+		for key, value := range config.Headers {
+			headers.Set(key, value)
+		}
+	}
+
+	// Configure WebSocket dialer
+	dialer := &websocket.Dialer{
+		HandshakeTimeout: 45 * time.Second,
+		ReadBufferSize:   4096,
+		WriteBufferSize:  4096,
+	}
+
+	// Establish WebSocket connection
+	conn, resp, err := dialer.DialContext(ctx, wsURL, headers)
+	if err != nil {
+		if resp != nil {
+			return nil, fmt.Errorf("failed to connect to OpenAI realtime API (status: %d): %w", resp.StatusCode, err)
+		}
+		return nil, fmt.Errorf("failed to connect to OpenAI realtime API: %w", err)
+	}
+
+	// Close the HTTP response body
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+
+	return conn, nil
+}
+
+// SupportsRealtime indicates OpenAI supports realtime API
+func (p *OpenAIProvider) SupportsRealtime() bool {
+	return true
+}
+
+// buildRealtimeURL constructs the WebSocket URL for OpenAI realtime API
+func (p *OpenAIProvider) buildRealtimeURL(config *RealtimeConnectionConfig) (string, error) {
+	baseURL := config.BaseURL
+	if baseURL == "" {
+		baseURL = p.baseURL
+	}
+	if baseURL == "" {
+		baseURL = "https://api.openai.com"
+	}
+
+	// Convert HTTP URL to WebSocket URL
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid base URL: %w", err)
+	}
+
+	switch parsedURL.Scheme {
+	case "https":
+		parsedURL.Scheme = "wss"
+	case "http":
+		parsedURL.Scheme = "ws"
+	default:
+		return "", fmt.Errorf("unsupported URL scheme: %s", parsedURL.Scheme)
+	}
+
+	// Set realtime endpoint path
+	parsedURL.Path = "/v1/realtime"
+
+	// Add query parameters
+	query := parsedURL.Query()
+	if config.Model != "" {
+		query.Set("model", config.Model)
+	}
+	
+	if config.QueryParams != nil {
+		for key, value := range config.QueryParams {
+			query.Set(key, value)
+		}
+	}
+	
+	parsedURL.RawQuery = query.Encode()
+
+	return parsedURL.String(), nil
 }

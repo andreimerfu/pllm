@@ -163,3 +163,5 @@ deploy/helm/values-test.yaml
 
 AGENTS.md
 .mcp.json
+
+.serena/

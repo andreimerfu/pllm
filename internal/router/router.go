@@ -16,6 +16,7 @@ import (
 	"github.com/amerfu/pllm/internal/services/cache"
 	"github.com/amerfu/pllm/internal/services/key"
 	"github.com/amerfu/pllm/internal/services/models"
+	"github.com/amerfu/pllm/internal/services/realtime"
 	redisService "github.com/amerfu/pllm/internal/services/redis"
 	"github.com/amerfu/pllm/internal/services/team"
 	"github.com/amerfu/pllm/internal/ui"
@@ -195,6 +196,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		moderationHandler    *handlers.ModerationHandler
 		adminHandler         *handlers.AdminHandler
 		modelMgmtHandler     *handlers.ModelManagementHandler
+		realtimeHandler      *handlers.RealtimeHandler
 	)
 
 	if metricsEmitter != nil {
@@ -219,6 +221,23 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		adminHandler = handlers.NewAdminHandler(logger, modelManager)
 	}
 	modelMgmtHandler = handlers.NewModelManagementHandler(pricingManager)
+
+	// Initialize realtime session manager and handler
+	sessionConfig := &realtime.SessionConfig{
+		MaxSessions:     100,
+		SessionTimeout:  30 * time.Minute,
+		CleanupInterval: 5 * time.Minute,
+	}
+	sessionManager := realtime.NewSessionManager(logger, db, sessionConfig)
+	
+	handlerConfig := &handlers.RealtimeHandlerConfig{
+		ReadBufferSize:    4096,
+		WriteBufferSize:   4096,
+		HandshakeTimeout:  45 * time.Second,
+		CheckOrigin:       false,
+		EnableCompression: true,
+	}
+	realtimeHandler = handlers.NewRealtimeHandler(logger, sessionManager, modelManager, handlerConfig)
 	authHandler := handlers.NewAuthHandler(logger, authService, masterKeyService, db)
 
 	// Initialize system handler for auth config
@@ -314,6 +333,14 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 
 			// Moderations
 			r.Post("/moderations", moderationHandler.CreateModeration)
+
+			// Realtime API (WebSocket)
+			r.Get("/realtime", realtimeHandler.ConnectRealtime)
+			r.Route("/realtime/sessions", func(r chi.Router) {
+				r.Post("/", realtimeHandler.CreateSession)
+				r.Get("/", realtimeHandler.ListSessions)
+				r.Get("/{id}", realtimeHandler.GetSession)
+			})
 		})
 
 		// User management
@@ -410,6 +437,14 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 
 			// Moderations
 			r.Post("/moderations", moderationHandler.CreateModeration)
+
+			// Realtime API (WebSocket) - authenticated
+			r.Get("/realtime", realtimeHandler.ConnectRealtime)
+			r.Route("/realtime/sessions", func(r chi.Router) {
+				r.Post("/", realtimeHandler.CreateSession)
+				r.Get("/", realtimeHandler.ListSessions)
+				r.Get("/{id}", realtimeHandler.GetSession)
+			})
 		})
 	})
 

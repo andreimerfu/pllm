@@ -23,3 +23,15 @@ data:
   # Logging
   log-level: {{ .Values.pllm.config.logging.level }}
   log-format: {{ .Values.pllm.config.logging.format }}
+
+  # Realtime WebSocket configuration
+  realtime-enabled: {{ .Values.pllm.config.realtime.enabled | quote }}
+  realtime-max-sessions: {{ .Values.pllm.config.realtime.maxSessions | quote }}
+  realtime-session-timeout: {{ .Values.pllm.config.realtime.sessionTimeout | quote }}
+  realtime-cleanup-interval: {{ .Values.pllm.config.realtime.cleanupInterval | quote }}
+  realtime-max-connections-per-ip: {{ .Values.pllm.config.realtime.maxConnectionsPerIP | quote }}
+  realtime-max-message-size: {{ .Values.pllm.config.realtime.maxMessageSize | quote }}
+  realtime-read-buffer-size: {{ .Values.pllm.config.realtime.readBufferSize | quote }}
+  realtime-write-buffer-size: {{ .Values.pllm.config.realtime.writeBufferSize | quote }}
+  realtime-session-store-type: {{ .Values.pllm.config.realtime.sessionStoreType | quote }}
+  realtime-redis-prefix: {{ .Values.pllm.config.realtime.redisPrefix | quote }}

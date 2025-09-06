@@ -48,6 +48,30 @@ ingress:
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
+    
+    # WebSocket support examples for different ingress controllers:
+    # 
+    # NGINX Ingress Controller:
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # nginx.ingress.kubernetes.io/server-snippets: |
+    #   location ~* /v1/realtime {
+    #     proxy_set_header Upgrade $http_upgrade;
+    #     proxy_set_header Connection "upgrade";
+    #     proxy_cache_bypass $http_upgrade;
+    #     proxy_http_version 1.1;
+    #     proxy_buffering off;
+    #   }
+    #
+    # Traefik:
+    # traefik.ingress.kubernetes.io/router.middlewares: "websocket-headers@kubernetescrd"
+    #
+    # Kong:
+    # konghq.com/protocols: "http,https,ws,wss"
+    #
+    # HAProxy:
+    # haproxy.org/timeout-tunnel: "3600s"
+    
   hosts:
     - host: chart-example.local
       paths:
@@ -166,6 +190,19 @@ pllm:
     logging:
       level: info
       format: json
+
+    # Realtime WebSocket configuration
+    realtime:
+      enabled: true
+      maxSessions: 1000
+      sessionTimeout: 1800s # 30 minutes
+      cleanupInterval: 300s # 5 minutes
+      maxConnectionsPerIP: 10
+      maxMessageSize: 1048576 # 1MB
+      readBufferSize: 4096
+      writeBufferSize: 4096
+      sessionStoreType: "redis" # "memory" or "redis"
+      redisPrefix: "pllm:realtime:"
 
   # Environment variables
   env: []
