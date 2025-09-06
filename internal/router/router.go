@@ -13,6 +13,7 @@ import (
 	"github.com/amerfu/pllm/internal/middleware"
 	"github.com/amerfu/pllm/internal/services"
 	"github.com/amerfu/pllm/internal/services/budget"
+	"github.com/amerfu/pllm/internal/services/cache"
 	"github.com/amerfu/pllm/internal/services/key"
 	"github.com/amerfu/pllm/internal/services/models"
 	redisService "github.com/amerfu/pllm/internal/services/redis"
@@ -28,7 +29,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.ModelManager, db *gorm.DB) http.Handler {
+func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.ModelManager, db *gorm.DB, pricingManager *config.ModelPricingManager) http.Handler {
 	r := chi.NewRouter()
 
 	// Initialize Redis client
@@ -184,20 +185,21 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 
 	// Initialize specialized handlers
 	var (
-		chatHandler       *handlers.ChatHandler
-		embeddingsHandler *handlers.EmbeddingsHandler
-		modelsHandler     *handlers.ModelsHandler
-		filesHandler      *handlers.FilesHandler
-		imagesHandler     *handlers.ImagesHandler
-		audioHandler      *handlers.AudioHandler
-		moderationHandler *handlers.ModerationHandler
-		adminHandler      *handlers.AdminHandler
+		chatHandler          *handlers.ChatHandler
+		embeddingsHandler    *handlers.EmbeddingsHandler
+		modelsHandler        *handlers.ModelsHandler
+		filesHandler         *handlers.FilesHandler
+		imagesHandler        *handlers.ImagesHandler
+		audioHandler         *handlers.AudioHandler
+		moderationHandler    *handlers.ModerationHandler
+		adminHandler         *handlers.AdminHandler
+		modelMgmtHandler     *handlers.ModelManagementHandler
 	)
 
 	if metricsEmitter != nil {
 		chatHandler = handlers.NewChatHandlerWithMetrics(logger, modelManager, metricsEmitter)
 		embeddingsHandler = handlers.NewEmbeddingsHandlerWithMetrics(logger, modelManager, metricsEmitter)
-		modelsHandler = handlers.NewModelsHandlerWithMetrics(logger, modelManager, metricsEmitter)
+		modelsHandler = handlers.NewModelsHandlerWithMetrics(logger, modelManager, pricingManager, metricsEmitter)
 		filesHandler = handlers.NewFilesHandlerWithMetrics(logger, modelManager, metricsEmitter)
 		imagesHandler = handlers.NewImagesHandlerWithMetrics(logger, modelManager, metricsEmitter)
 		audioHandler = handlers.NewAudioHandlerWithMetrics(logger, modelManager, metricsEmitter)
@@ -206,13 +208,14 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	} else {
 		chatHandler = handlers.NewChatHandler(logger, modelManager)
 		embeddingsHandler = handlers.NewEmbeddingsHandler(logger, modelManager)
-		modelsHandler = handlers.NewModelsHandler(logger, modelManager)
+		modelsHandler = handlers.NewModelsHandler(logger, modelManager, pricingManager)
 		filesHandler = handlers.NewFilesHandler(logger, modelManager)
 		imagesHandler = handlers.NewImagesHandler(logger, modelManager)
 		audioHandler = handlers.NewAudioHandler(logger, modelManager)
 		moderationHandler = handlers.NewModerationHandler(logger, modelManager)
 		adminHandler = handlers.NewAdminHandler(logger, modelManager)
 	}
+	modelMgmtHandler = handlers.NewModelManagementHandler(pricingManager)
 	authHandler := handlers.NewAuthHandler(logger, authService, masterKeyService, db)
 
 	// Initialize system handler for auth config
@@ -237,19 +240,29 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		})
 		r.Use(authMiddleware.Authenticate)
 
+		// Initialize pricing cache for better performance
+		pricingCache := cache.NewPricingCache(redisClient, logger, pricingManager)
+		
+		// Load all pricing data to Redis cache on startup
+		if err := pricingCache.LoadAllPricingToCache(context.Background()); err != nil {
+			logger.Warn("Failed to load pricing data to cache", zap.Error(err))
+		}
+
 		// Use async budget middleware with Redis for high performance
 		asyncBudgetMiddleware := middleware.NewAsyncBudgetMiddleware(&middleware.AsyncBudgetConfig{
-			Logger:      logger,
-			AuthService: authService,
-			BudgetCache: redisService.NewBudgetCache(redisClient, logger, 5*time.Minute),
-			EventPub:    redisService.NewEventPublisher(redisClient, logger),
-			UsageQueue: redisService.NewUsageQueue(&redisService.UsageQueueConfig{
+			Logger:         logger,
+			AuthService:    authService,
+			BudgetCache:    redisService.NewBudgetCache(redisClient, logger, 5*time.Minute),
+			EventPub:       redisService.NewEventPublisher(redisClient, logger),
+			UsageQueue:     redisService.NewUsageQueue(&redisService.UsageQueueConfig{
 				Client:     redisClient,
 				Logger:     logger,
 				QueueName:  "usage_processing_queue",
 				BatchSize:  50,
 				MaxRetries: 3,
 			}),
+			PricingManager: pricingManager,
+			PricingCache:   pricingCache,
 		})
 		r.Use(asyncBudgetMiddleware.EnforceBudgetAsync)
 
@@ -269,6 +282,13 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			// Models
 			r.Get("/models", modelsHandler.ListModels)
 			r.Get("/models/{model}", modelsHandler.GetModel)
+			
+			// Model Management (LiteLLM-compatible)
+			r.Get("/model/info", modelMgmtHandler.GetModelInfo)
+			r.Post("/model/register", modelMgmtHandler.RegisterModel)
+			r.Post("/model/calculate-cost", modelMgmtHandler.CalculateCost)
+			r.Get("/model/{model_name}/cost", modelMgmtHandler.GetModelCost)
+			r.Patch("/model/{model_name}/pricing", modelMgmtHandler.UpdateModelPricing)
 
 			// Files (for fine-tuning, not implemented yet)
 			r.Post("/files", filesHandler.UploadFile)
@@ -328,19 +348,29 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		})
 		r.Use(authMiddleware.Authenticate)
 
+		// Initialize pricing cache for better performance
+		pricingCache := cache.NewPricingCache(redisClient, logger, pricingManager)
+		
+		// Load all pricing data to Redis cache on startup
+		if err := pricingCache.LoadAllPricingToCache(context.Background()); err != nil {
+			logger.Warn("Failed to load pricing data to cache", zap.Error(err))
+		}
+
 		// Use async budget middleware with Redis for high performance
 		asyncBudgetMiddleware := middleware.NewAsyncBudgetMiddleware(&middleware.AsyncBudgetConfig{
-			Logger:      logger,
-			AuthService: authService,
-			BudgetCache: redisService.NewBudgetCache(redisClient, logger, 5*time.Minute),
-			EventPub:    redisService.NewEventPublisher(redisClient, logger),
-			UsageQueue: redisService.NewUsageQueue(&redisService.UsageQueueConfig{
+			Logger:         logger,
+			AuthService:    authService,
+			BudgetCache:    redisService.NewBudgetCache(redisClient, logger, 5*time.Minute),
+			EventPub:       redisService.NewEventPublisher(redisClient, logger),
+			UsageQueue:     redisService.NewUsageQueue(&redisService.UsageQueueConfig{
 				Client:     redisClient,
 				Logger:     logger,
 				QueueName:  "usage_processing_queue",
 				BatchSize:  50,
 				MaxRetries: 3,
 			}),
+			PricingManager: pricingManager,
+			PricingCache:   pricingCache,
 		})
 		r.Use(asyncBudgetMiddleware.EnforceBudgetAsync)
 

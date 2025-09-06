@@ -144,6 +144,12 @@ func main() {
 		log.Fatal("Failed to load model instances", zap.Error(err))
 	}
 
+	// Initialize pricing manager (always needed for cost calculations)
+	pricingManager := config.GetPricingManager()
+	if err := pricingManager.LoadDefaultPricing("internal/config"); err != nil {
+		log.Warn("Failed to load default pricing, will use config-only pricing", zap.Error(err))
+	}
+
 	// Create routers based on mode
 	var servers []*http.Server
 
@@ -153,7 +159,7 @@ func main() {
 	if !appMode.IsLiteMode && appMode.DatabaseAvailable {
 		db = database.GetDB()
 	}
-	mainRouter := router.NewRouter(cfg, log, modelManager, db)
+	mainRouter := router.NewRouter(cfg, log, modelManager, db, pricingManager)
 
 	// Initialize background worker for async usage processing (if Redis available)
 	var usageProcessor *worker.UsageProcessor

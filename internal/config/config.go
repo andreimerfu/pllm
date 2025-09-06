@@ -213,6 +213,16 @@ func Load(configPath string) (*Config, error) {
 	// Set the converted models
 	config.ModelList = convertedModels
 
+	// Initialize and load pricing manager
+	pricingManager := GetPricingManager()
+	if err := pricingManager.LoadDefaultPricing("internal/config"); err != nil {
+		// Log warning but don't fail - pricing can work without default file
+		fmt.Printf("Warning: Failed to load default pricing: %v\n", err)
+	}
+	
+	// Add config overrides from model instances
+	pricingManager.AddConfigOverrides(convertedModels)
+
 	cfg = &config
 	return cfg, nil
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/amerfu/pllm/internal/services"
 	"github.com/amerfu/pllm/internal/services/models"
-	"github.com/amerfu/pllm/internal/services/providers"
 	"go.uber.org/zap"
 )
 
@@ -47,15 +46,3 @@ func (h *AdminHandler) ModelStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *AdminHandler) sendError(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(providers.ErrorResponse{
-		Error: providers.APIError{
-			Message: message,
-			Type:    "invalid_request_error",
-		},
-	}); err != nil {
-		h.logger.Error("Failed to encode admin error response", zap.Error(err))
-	}
-}

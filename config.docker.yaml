@@ -62,66 +62,184 @@ router:
 
 # Model list - Users call these model names in API requests
 model_list:
-  # Primary GPT-4 instance
+  # Primary OpenAI GPT-4 instance with custom pricing
   - model_name: my-gpt-4
-    params:
+    provider:
+      type: openai
       model: gpt-4
       api_key: ${OPENAI_API_KEY}
+    model_info:
+      mode: chat
+      supports_functions: true
+      supports_vision: false
+      max_tokens: 8192
+      max_input_tokens: 8192
+      max_output_tokens: 4096
+    # Custom pricing override for production environment
+    input_cost_per_token: 0.00003   # Standard GPT-4 rate
+    output_cost_per_token: 0.00006  # Standard GPT-4 rate
     rpm: 60
     tpm: 90000
+    priority: 100
+    enabled: true
+    tags: ["production", "openai", "gpt-4"]
 
+  # GPT-4o with updated pricing
   - model_name: gpt-4o
-    params:
+    provider:
+      type: openai
       model: gpt-4o
       api_key: ${OPENAI_API_KEY}
+    model_info:
+      mode: chat
+      supports_functions: true
+      supports_vision: true
+      supports_audio_input: true
+      max_tokens: 128000
+      max_input_tokens: 128000
+      max_output_tokens: 16384
+    # GPT-4o pricing (more cost-effective than GPT-4)
+    input_cost_per_token: 0.0000025  # Lower than GPT-4
+    output_cost_per_token: 0.00001   # Lower than GPT-4
     rpm: 60
     tpm: 90000
+    priority: 95
+    enabled: true
+    tags: ["production", "openai", "gpt-4o", "multimodal"]
 
   # Primary GPT-3.5-Turbo instance
   - model_name: my-gpt-35-turbo
-    params:
+    provider:
+      type: openai
       model: gpt-3.5-turbo
       api_key: ${OPENAI_API_KEY}
+    model_info:
+      mode: chat
+      supports_functions: true
+      supports_vision: false
+      max_tokens: 16385
+      max_input_tokens: 16385
+      max_output_tokens: 4096
+    # GPT-3.5-Turbo pricing (budget-friendly)
+    input_cost_per_token: 0.0000015  # Very cost-effective
+    output_cost_per_token: 0.000002  # Very cost-effective
     rpm: 200
     tpm: 90000
+    priority: 80
+    enabled: true
+    tags: ["production", "openai", "gpt-3.5", "budget"]
 
   # GPT-3.5-Turbo-16K as fallback
   - model_name: my-gpt-35-turbo-16k
-    params:
+    provider:
+      type: openai
       model: gpt-3.5-turbo-16k
       api_key: ${OPENAI_API_KEY}
+    model_info:
+      mode: chat
+      supports_functions: true
+      supports_vision: false
+      max_tokens: 16385
+      max_input_tokens: 16385
+      max_output_tokens: 4096
+    # Same as regular GPT-3.5-Turbo
+    input_cost_per_token: 0.0000015
+    output_cost_per_token: 0.000002
     rpm: 200
     tpm: 180000
+    priority: 75
+    enabled: true
+    tags: ["fallback", "openai", "gpt-3.5", "budget"]
 
-  # OpenRouter models - uses full model path as OpenRouter expects
+  # OpenRouter DeepSeek V3 (Free tier)
   - model_name: deepseek-v3-free
-    params:
-      model: deepseek/deepseek-chat-v3-0324:free # OpenRouter format: provider/model
+    provider:
+      type: openai  # OpenRouter uses OpenAI-compatible API
+      model: deepseek/deepseek-chat-v3-0324:free
       api_key: ${OPENROUTER_API_KEY}
-      api_base: https://openrouter.ai/api/v1
+      base_url: https://openrouter.ai/api/v1
+    model_info:
+      mode: chat
+      supports_functions: true
+      supports_vision: false
+      max_tokens: 64000
+      max_input_tokens: 64000
+      max_output_tokens: 8192
+    # Free tier - no cost but rate limited
+    input_cost_per_token: 0.0   # Free tier
+    output_cost_per_token: 0.0  # Free tier
     rpm: 60
     tpm: 50000
+    priority: 60
+    enabled: true
+    tags: ["openrouter", "deepseek", "free", "experimental"]
 
+  # OpenRouter Gemini 2.0 Flash (Free tier)
   - model_name: gemini-2.0-flash-exp-free
-    params:
-      model: google/gemini-2.0-flash-exp:free # OpenRouter format: provider/model
+    provider:
+      type: openai  # OpenRouter uses OpenAI-compatible API
+      model: google/gemini-2.0-flash-exp:free
       api_key: ${OPENROUTER_API_KEY}
-      api_base: https://openrouter.ai/api/v1
+      base_url: https://openrouter.ai/api/v1
+    model_info:
+      mode: chat
+      supports_functions: true
+      supports_vision: true
+      supports_audio_input: true
+      max_tokens: 1048576  # 1M context window
+      max_input_tokens: 1048576
+      max_output_tokens: 8192
+    # Free tier - no cost but rate limited
+    input_cost_per_token: 0.0   # Free tier
+    output_cost_per_token: 0.0  # Free tier
     rpm: 60
     tpm: 50000
+    priority: 55
+    enabled: true
+    tags: ["openrouter", "google", "gemini", "free", "multimodal"]
 
+  # OpenRouter GPT OSS 20B (Free tier)
   - model_name: gpt-oss-20b-free
-    params:
-      model: openai/gpt-oss-20b:free # OpenRouter format: provider/model
+    provider:
+      type: openai  # OpenRouter uses OpenAI-compatible API
+      model: openai/gpt-oss-20b:free
       api_key: ${OPENROUTER_API_KEY}
-      api_base: https://openrouter.ai/api/v1
+      base_url: https://openrouter.ai/api/v1
+    model_info:
+      mode: chat
+      supports_functions: false
+      supports_vision: false
+      max_tokens: 8192
+      max_input_tokens: 8192
+      max_output_tokens: 2048
+    # Free tier - no cost but rate limited
+    input_cost_per_token: 0.0   # Free tier
+    output_cost_per_token: 0.0  # Free tier
     rpm: 60
     tpm: 50000
+    priority: 50
+    enabled: true
+    tags: ["openrouter", "oss", "free", "experimental"]
 
+  # OpenRouter Claude 3 Haiku (Paid tier)
   - model_name: claude-3-haiku
-    params:
+    provider:
+      type: openai  # OpenRouter uses OpenAI-compatible API
       model: anthropic/claude-3-haiku
       api_key: ${OPENROUTER_API_KEY}
-      api_base: https://openrouter.ai/api/v1
+      base_url: https://openrouter.ai/api/v1
+    model_info:
+      mode: chat
+      supports_functions: false
+      supports_vision: true
+      max_tokens: 200000
+      max_input_tokens: 200000
+      max_output_tokens: 4096
+    # Claude 3 Haiku pricing via OpenRouter
+    input_cost_per_token: 0.00000025  # Very cost-effective
+    output_cost_per_token: 0.00000125 # Very cost-effective
     rpm: 60
     tpm: 50000
+    priority: 70
+    enabled: true
+    tags: ["openrouter", "anthropic", "claude", "budget", "multimodal"]

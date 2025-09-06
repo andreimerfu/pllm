@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/amerfu/pllm/internal/config"
 	"github.com/amerfu/pllm/internal/services"
 	"github.com/amerfu/pllm/internal/services/models"
 	"github.com/amerfu/pllm/internal/services/providers"
@@ -13,27 +14,30 @@ import (
 type ModelsHandler struct {
 	logger         *zap.Logger
 	modelManager   *models.ModelManager
+	pricingManager *config.ModelPricingManager
 	metricsEmitter *services.MetricEventEmitter
 }
 
-func NewModelsHandler(logger *zap.Logger, modelManager *models.ModelManager) *ModelsHandler {
-	return &ModelsHandler{
-		logger:       logger,
-		modelManager: modelManager,
-	}
-}
-
-func NewModelsHandlerWithMetrics(logger *zap.Logger, modelManager *models.ModelManager, metricsEmitter *services.MetricEventEmitter) *ModelsHandler {
+func NewModelsHandler(logger *zap.Logger, modelManager *models.ModelManager, pricingManager *config.ModelPricingManager) *ModelsHandler {
 	return &ModelsHandler{
 		logger:         logger,
 		modelManager:   modelManager,
+		pricingManager: pricingManager,
+	}
+}
+
+func NewModelsHandlerWithMetrics(logger *zap.Logger, modelManager *models.ModelManager, pricingManager *config.ModelPricingManager, metricsEmitter *services.MetricEventEmitter) *ModelsHandler {
+	return &ModelsHandler{
+		logger:         logger,
+		modelManager:   modelManager,
+		pricingManager: pricingManager,
 		metricsEmitter: metricsEmitter,
 	}
 }
 
 // ListModels lists available models
 // @Summary List available models
-// @Description Lists all available models from configured providers
+// @Description Lists all available models from configured providers with pricing information
 // @Tags Models
 // @Accept json
 // @Produce json
@@ -45,9 +49,40 @@ func NewModelsHandlerWithMetrics(logger *zap.Logger, modelManager *models.ModelM
 func (h *ModelsHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 	models := h.modelManager.GetDetailedModelInfo()
 
+	// Enhance models with pricing information
+	enhancedModels := make([]map[string]interface{}, 0, len(models))
+	for _, model := range models {
+		// Convert ModelInfo struct to map with pricing
+		modelMap := map[string]interface{}{
+			"id":       model.ID,
+			"object":   model.Object,
+			"owned_by": model.OwnedBy,
+		}
+
+		// Add pricing information if available
+		if h.pricingManager != nil && model.ID != "" {
+			if pricingInfo := h.pricingManager.GetModelInfo(model.ID); pricingInfo != nil {
+				// Add pricing fields to the model
+				if inputCost, exists := pricingInfo["input_cost_per_token"]; exists {
+					modelMap["input_cost_per_token"] = inputCost
+				}
+				if outputCost, exists := pricingInfo["output_cost_per_token"]; exists {
+					modelMap["output_cost_per_token"] = outputCost
+				}
+				if maxTokens, exists := pricingInfo["max_tokens"]; exists {
+					modelMap["max_tokens"] = maxTokens
+				}
+				if provider, exists := pricingInfo["provider"]; exists {
+					modelMap["provider"] = provider
+				}
+			}
+		}
+		enhancedModels = append(enhancedModels, modelMap)
+	}
+
 	response := map[string]interface{}{
 		"object": "list",
-		"data":   models,
+		"data":   enhancedModels,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
