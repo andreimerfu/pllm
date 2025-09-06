@@ -18,6 +18,13 @@ type Provider interface {
 	// Embeddings
 	Embeddings(ctx context.Context, request *EmbeddingsRequest) (*EmbeddingsResponse, error)
 
+	// Audio
+	AudioTranscription(ctx context.Context, request *TranscriptionRequest) (*TranscriptionResponse, error)
+	AudioSpeech(ctx context.Context, request *SpeechRequest) ([]byte, error)
+
+	// Images
+	ImageGeneration(ctx context.Context, request *ImageRequest) (*ImageResponse, error)
+
 	// Provider info
 	GetType() string
 	GetName() string
@@ -230,6 +237,10 @@ type TranscriptionResponse struct {
 	Text string `json:"text"`
 }
 
+type TranslationResponse struct {
+	Text string `json:"text"`
+}
+
 type SpeechRequest struct {
 	Model          string   `json:"model"`
 	Input          string   `json:"input"`
@@ -334,4 +345,71 @@ func generateRandomString(length int) string {
 		b[i] = charset[time.Now().UnixNano()%int64(len(charset))]
 	}
 	return string(b)
+}
+
+// Anthropic Messages API format types for public endpoint
+
+type MessagesAPIMessage struct {
+	Role    string      `json:"role"`
+	Content interface{} `json:"content"` // Can be string or []MessagesAPIContent
+}
+
+type MessagesAPIContent struct {
+	Type   string                   `json:"type"`
+	Text   string                   `json:"text,omitempty"`
+	Source *MessagesAPIImageSource `json:"source,omitempty"`
+}
+
+type MessagesAPIImageSource struct {
+	Type      string `json:"type"`
+	MediaType string `json:"media_type"`
+	Data      string `json:"data"`
+	URL       string `json:"url,omitempty"`
+}
+
+type MessagesAPIRequest struct {
+	Model         string                `json:"model"`
+	MaxTokens     int                   `json:"max_tokens"`
+	Messages      []MessagesAPIMessage  `json:"messages"`
+	System        string                `json:"system,omitempty"`
+	Temperature   *float32              `json:"temperature,omitempty"`
+	TopP          *float32              `json:"top_p,omitempty"`
+	TopK          *int                  `json:"top_k,omitempty"`
+	Stream        bool                  `json:"stream,omitempty"`
+	StopSequences []string              `json:"stop_sequences,omitempty"`
+	Tools         []MessagesAPITool     `json:"tools,omitempty"`
+	ToolChoice    interface{}           `json:"tool_choice,omitempty"`
+}
+
+type MessagesAPITool struct {
+	Name        string      `json:"name"`
+	Description string      `json:"description,omitempty"`
+	InputSchema interface{} `json:"input_schema,omitempty"`
+}
+
+type MessagesAPIResponse struct {
+	ID           string                `json:"id"`
+	Type         string                `json:"type"`
+	Role         string                `json:"role"`
+	Content      []MessagesAPIContent  `json:"content"`
+	Model        string                `json:"model"`
+	StopReason   string                `json:"stop_reason,omitempty"`
+	StopSequence string                `json:"stop_sequence,omitempty"`
+	Usage        MessagesAPIUsage      `json:"usage"`
+}
+
+type MessagesAPIUsage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+}
+
+type MessagesAPIStreamResponse struct {
+	Type  string              `json:"type"`
+	Index int                 `json:"index,omitempty"`
+	Delta interface{}         `json:"delta,omitempty"`
+	Usage *MessagesAPIUsage   `json:"usage,omitempty"`
+}
+
+func GenerateMessagesAPIID() string {
+	return "msg_" + generateRandomString(25)
 }

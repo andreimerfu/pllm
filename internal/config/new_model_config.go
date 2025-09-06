@@ -8,8 +8,18 @@ import (
 // ModelConfig represents a model configuration
 type ModelConfig struct {
 	// Required fields
-	ModelName string      `mapstructure:"model_name" json:"model_name"` // User-facing name (e.g., "my-gpt-4")
-	Params    ModelParams `mapstructure:"params" json:"params"`         // Provider configuration
+	ModelName string `mapstructure:"model_name" json:"model_name"` // User-facing name (e.g., "my-gpt-4")
+	
+	// Provider configuration (supports both old and new format)
+	Params   ModelParams      `mapstructure:"params" json:"params"`     // Old format (deprecated)
+	Provider ProviderParams   `mapstructure:"provider" json:"provider"` // New format
+	
+	// Model information
+	ModelInfo ModelInfo `mapstructure:"model_info" json:"model_info"`
+	
+	// Cost tracking (pricing overrides)
+	InputCostPerToken  float64 `mapstructure:"input_cost_per_token" json:"input_cost_per_token"`
+	OutputCostPerToken float64 `mapstructure:"output_cost_per_token" json:"output_cost_per_token"`
 
 	// Optional fields
 	RPM      int           `mapstructure:"rpm" json:"rpm"`           // Requests per minute
@@ -43,20 +53,51 @@ type ModelParams struct {
 
 // ConvertToModelInstance converts new config format to internal ModelInstance
 func ConvertToModelInstance(cfg ModelConfig) ModelInstance {
-	// Detect provider type
-	providerType := "openai" // default
-	modelName := cfg.Params.Model
+	var provider ProviderParams
+	
+	// Support both new and old format
+	if cfg.Provider.Type != "" {
+		// New format - use provider directly
+		provider = cfg.Provider
+	} else {
+		// Old format - convert params to provider
+		providerType := "openai" // default
+		modelName := cfg.Params.Model
 
-	// Check if it's OpenRouter based on API base URL
-	if cfg.Params.APIBase != "" && strings.Contains(cfg.Params.APIBase, "openrouter.ai") {
-		providerType = "openrouter"
-		// Keep the full model name for OpenRouter
-		modelName = cfg.Params.Model
-	} else if strings.Contains(modelName, "/") {
-		// Parse provider type from model string (e.g., "azure/gpt-4" -> provider: azure, model: gpt-4)
-		parts := strings.SplitN(modelName, "/", 2)
-		providerType = parts[0]
-		modelName = parts[1]
+		// Check if it's OpenRouter based on API base URL
+		if cfg.Params.APIBase != "" && strings.Contains(cfg.Params.APIBase, "openrouter.ai") {
+			providerType = "openrouter"
+			// Keep the full model name for OpenRouter
+			modelName = cfg.Params.Model
+		} else if strings.Contains(modelName, "/") {
+			// Parse provider type from model string (e.g., "azure/gpt-4" -> provider: azure, model: gpt-4)
+			parts := strings.SplitN(modelName, "/", 2)
+			providerType = parts[0]
+			modelName = parts[1]
+		}
+
+		// Build provider params from old format
+		provider = ProviderParams{
+			Type:       providerType,
+			Model:      modelName,
+			APIKey:     cfg.Params.APIKey,
+			BaseURL:    cfg.Params.APIBase,
+			APIVersion: cfg.Params.APIVersion,
+			OrgID:      cfg.Params.OrgID,
+			ProjectID:  cfg.Params.ProjectID,
+		}
+
+		// Handle Azure-specific configuration
+		if providerType == "azure" {
+			provider.AzureDeployment = modelName
+			provider.AzureEndpoint = cfg.Params.APIBase
+		}
+
+		// Handle OpenRouter-specific configuration
+		if providerType == "openrouter" {
+			// For OpenRouter, keep the full model name (e.g., "openai/gpt-4")
+			provider.Model = cfg.Params.Model
+		}
 	}
 
 	// Set defaults
@@ -90,49 +131,36 @@ func ConvertToModelInstance(cfg ModelConfig) ModelInstance {
 		weight = 1.0
 	}
 
-	// Build provider params
-	provider := ProviderParams{
-		Type:       providerType,
-		Model:      modelName,
-		APIKey:     cfg.Params.APIKey,
-		BaseURL:    cfg.Params.APIBase,
-		APIVersion: cfg.Params.APIVersion,
-		OrgID:      cfg.Params.OrgID,
-		ProjectID:  cfg.Params.ProjectID,
-	}
-
-	// Handle Azure-specific configuration
-	if providerType == "azure" {
-		provider.AzureDeployment = modelName
-		provider.AzureEndpoint = cfg.Params.APIBase
-	}
-
-	// Handle OpenRouter-specific configuration
-	if providerType == "openrouter" {
-		// For OpenRouter, keep the full model name (e.g., "openai/gpt-4")
-		provider.Model = cfg.Params.Model
+	// Use provided ModelInfo or set defaults
+	modelInfo := cfg.ModelInfo
+	if modelInfo.Mode == "" {
+		modelInfo.Mode = "chat"
+		modelInfo.SupportsStreaming = true
+		modelInfo.SupportsFunctions = true
+		if modelInfo.MaxTokens == 0 {
+			modelInfo.MaxTokens = 128000 // Default large context
+		}
+		if modelInfo.DefaultMaxTokens == 0 {
+			modelInfo.DefaultMaxTokens = 2000
+		}
 	}
 
 	// Create ModelInstance
 	return ModelInstance{
-		ID:             cfg.ModelName, // Use model_name as ID
-		ModelName:      cfg.ModelName,
-		Provider:       provider,
-		RPM:            rpm,
-		TPM:            tpm,
-		Priority:       priority,
-		Weight:         weight,
-		Timeout:        timeout,
-		Tags:           cfg.Tags,
-		Enabled:        enabled,
-		MaxRetries:     3,                // Default
-		CooldownPeriod: 30 * time.Second, // Default
-		ModelInfo: ModelInfo{
-			Mode:              "chat",
-			SupportsStreaming: true,
-			SupportsFunctions: true,
-			MaxTokens:         128000, // Default large context
-			DefaultMaxTokens:  2000,
-		},
+		ID:                 cfg.ModelName, // Use model_name as ID
+		ModelName:          cfg.ModelName,
+		Provider:           provider,
+		ModelInfo:          modelInfo,
+		InputCostPerToken:  cfg.InputCostPerToken,
+		OutputCostPerToken: cfg.OutputCostPerToken,
+		RPM:                rpm,
+		TPM:                tpm,
+		Priority:           priority,
+		Weight:             weight,
+		Timeout:            timeout,
+		Tags:               cfg.Tags,
+		Enabled:            enabled,
+		MaxRetries:         3,                // Default
+		CooldownPeriod:     30 * time.Second, // Default
 	}
 }

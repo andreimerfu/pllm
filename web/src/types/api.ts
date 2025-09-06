@@ -36,11 +36,31 @@ export interface StatsResponse {
   };
 }
 
+export interface ModelCapabilities {
+  function_calling?: boolean;
+  parallel_function_calling?: boolean;
+  vision?: boolean;
+  audio_input?: boolean;
+  audio_output?: boolean;
+  prompt_caching?: boolean;
+  response_schema?: boolean;
+  system_messages?: boolean;
+  reasoning?: boolean;
+  web_search?: boolean;
+}
+
 export interface Model {
   id: string;
   object: string;
   created: number;
   owned_by: string;
+  tags?: string[];
+  capabilities?: ModelCapabilities;
+  provider?: string;
+  max_tokens?: number;
+  input_cost_per_token?: number;
+  output_cost_per_token?: number;
+  supported_regions?: string[];
 }
 
 export interface ModelUsageStats {
@@ -130,4 +150,43 @@ export interface VirtualKey {
   expires_at?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface AuditLog {
+  id: string;
+  event_type: string;
+  event_action: string;
+  event_result: 'success' | 'failure' | 'error' | 'warning';
+  user_id?: string;
+  user?: User;
+  team_id?: string;
+  team?: Team;
+  key_id?: string;
+  key?: VirtualKey;
+  ip_address: string;
+  user_agent: string;
+  request_id: string;
+  method: string;
+  path: string;
+  auth_method?: string;
+  auth_provider?: string;
+  resource_type?: string;
+  resource_id?: string;
+  old_values?: any;
+  new_values?: any;
+  message?: string;
+  error_code?: string;
+  metadata?: any;
+  duration?: number;
+  timestamp: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuditLogsResponse {
+  audit_logs: AuditLog[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
 }

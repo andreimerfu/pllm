@@ -246,7 +246,27 @@ export const updateConfig = (data: any) =>
 export const getSystemHealth = () =>
   axiosInstance.get("/api/admin/system/health");
 export const getLogs = () => axiosInstance.get("/api/admin/system/logs");
-export const getAuditLogs = () => axiosInstance.get("/api/admin/system/audit");
+export const getAuditLogs = (filters?: {
+  action?: string;
+  resource?: string;
+  user_id?: string;
+  team_id?: string;
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  offset?: number;
+}) => {
+  const params = new URLSearchParams();
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, value.toString());
+      }
+    });
+  }
+  const queryString = params.toString();
+  return axiosInstance.get(`/api/admin/system/audit${queryString ? `?${queryString}` : ''}`);
+};
 export const clearCache = () =>
   axiosInstance.post("/api/admin/system/cache/clear");
 export const setMaintenance = (enabled: boolean) =>

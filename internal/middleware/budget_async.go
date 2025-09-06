@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/amerfu/pllm/internal/auth"
+	"github.com/amerfu/pllm/internal/config"
+	"github.com/amerfu/pllm/internal/services/cache"
 	"github.com/amerfu/pllm/internal/services/providers"
 	redisService "github.com/amerfu/pllm/internal/services/redis"
 	"github.com/google/uuid"
@@ -41,28 +43,34 @@ func EstimateTokens(text string) int {
 
 // AsyncBudgetMiddleware provides high-performance budget checking with Redis
 type AsyncBudgetMiddleware struct {
-	logger      *zap.Logger
-	authService *auth.AuthService
-	budgetCache *redisService.BudgetCache
-	eventPub    *redisService.EventPublisher
-	usageQueue  *redisService.UsageQueue
+	logger         *zap.Logger
+	authService    *auth.AuthService
+	budgetCache    *redisService.BudgetCache
+	eventPub       *redisService.EventPublisher
+	usageQueue     *redisService.UsageQueue
+	pricingManager *config.ModelPricingManager
+	pricingCache   *cache.PricingCache
 }
 
 type AsyncBudgetConfig struct {
-	Logger      *zap.Logger
-	AuthService *auth.AuthService
-	BudgetCache *redisService.BudgetCache
-	EventPub    *redisService.EventPublisher
-	UsageQueue  *redisService.UsageQueue
+	Logger         *zap.Logger
+	AuthService    *auth.AuthService
+	BudgetCache    *redisService.BudgetCache
+	EventPub       *redisService.EventPublisher
+	UsageQueue     *redisService.UsageQueue
+	PricingManager *config.ModelPricingManager
+	PricingCache   *cache.PricingCache
 }
 
 func NewAsyncBudgetMiddleware(cfg *AsyncBudgetConfig) *AsyncBudgetMiddleware {
 	return &AsyncBudgetMiddleware{
-		logger:      cfg.Logger,
-		authService: cfg.AuthService,
-		budgetCache: cfg.BudgetCache,
-		eventPub:    cfg.EventPub,
-		usageQueue:  cfg.UsageQueue,
+		logger:         cfg.Logger,
+		authService:    cfg.AuthService,
+		budgetCache:    cfg.BudgetCache,
+		eventPub:       cfg.EventPub,
+		usageQueue:     cfg.UsageQueue,
+		pricingManager: cfg.PricingManager,
+		pricingCache:   cfg.PricingCache,
 	}
 }
 
@@ -288,21 +296,51 @@ func (m *AsyncBudgetMiddleware) isLLMEndpoint(path string) bool {
 }
 
 func (m *AsyncBudgetMiddleware) estimateCost(request *providers.ChatRequest) float64 {
-	pricing, exists := ModelPricing[request.Model]
-	if !exists {
-		pricing = ModelPricing["gpt-4"] // Conservative default
+	// Try to use cached pricing first for better performance
+	if m.pricingCache != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		calculation, err := m.pricingCache.CalculateCost(ctx, request.Model, 
+			m.estimateInputTokens(request.Messages), 
+			m.estimateOutputTokens(request))
+		
+		if err == nil {
+			return calculation.TotalCost
+		}
+
+		m.logger.Warn("Failed to calculate cost using pricing cache, falling back to pricing manager", 
+			zap.String("model", request.Model),
+			zap.Error(err))
 	}
 
-	inputTokens := m.estimateInputTokens(request.Messages)
+	// Fallback to pricing manager
+	if m.pricingManager == nil {
+		m.logger.Warn("Neither pricing cache nor pricing manager available, using default cost")
+		return 0.01 // Conservative default
+	}
+
+	// Use our pricing manager to calculate cost
+	calculation, err := m.pricingManager.CalculateCost(request.Model, 
+		m.estimateInputTokens(request.Messages), 
+		m.estimateOutputTokens(request))
+	
+	if err != nil {
+		m.logger.Warn("Failed to calculate cost using pricing manager", 
+			zap.String("model", request.Model),
+			zap.Error(err))
+		return 0.01 // Conservative default
+	}
+
+	return calculation.TotalCost
+}
+
+func (m *AsyncBudgetMiddleware) estimateOutputTokens(request *providers.ChatRequest) int {
 	outputTokens := 150 // Default estimate
 	if request.MaxTokens != nil && *request.MaxTokens > 0 {
 		outputTokens = *request.MaxTokens
 	}
-
-	inputCost := float64(inputTokens) / pricing.InputTokensPerDollar
-	outputCost := float64(outputTokens) / pricing.OutputTokensPerDollar
-
-	return inputCost + outputCost
+	return outputTokens
 }
 
 func (m *AsyncBudgetMiddleware) estimateInputTokens(messages []providers.Message) int {

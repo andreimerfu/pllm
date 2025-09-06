@@ -93,6 +93,19 @@ monitoring:
   tracing:
     enabled: false
 
+# Realtime WebSocket Configuration
+realtime:
+  enabled: {{ .Values.pllm.config.realtime.enabled }}
+  max_sessions: {{ .Values.pllm.config.realtime.maxSessions }}
+  session_timeout: {{ .Values.pllm.config.realtime.sessionTimeout }}
+  cleanup_interval: {{ .Values.pllm.config.realtime.cleanupInterval }}
+  max_connections_per_ip: {{ .Values.pllm.config.realtime.maxConnectionsPerIP }}
+  max_message_size: {{ .Values.pllm.config.realtime.maxMessageSize }}
+  read_buffer_size: {{ .Values.pllm.config.realtime.readBufferSize }}
+  write_buffer_size: {{ .Values.pllm.config.realtime.writeBufferSize }}
+  session_store_type: {{ .Values.pllm.config.realtime.sessionStoreType }}
+  redis_prefix: {{ .Values.pllm.config.realtime.redisPrefix }}
+
 # Router Configuration
 router:
   routing_strategy: "latency-based"

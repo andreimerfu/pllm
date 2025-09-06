@@ -13,8 +13,10 @@ import (
 	"github.com/amerfu/pllm/internal/middleware"
 	"github.com/amerfu/pllm/internal/services"
 	"github.com/amerfu/pllm/internal/services/budget"
+	"github.com/amerfu/pllm/internal/services/cache"
 	"github.com/amerfu/pllm/internal/services/key"
 	"github.com/amerfu/pllm/internal/services/models"
+	"github.com/amerfu/pllm/internal/services/realtime"
 	redisService "github.com/amerfu/pllm/internal/services/redis"
 	"github.com/amerfu/pllm/internal/services/team"
 	"github.com/amerfu/pllm/internal/ui"
@@ -28,7 +30,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.ModelManager, db *gorm.DB) http.Handler {
+func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.ModelManager, db *gorm.DB, pricingManager *config.ModelPricingManager) http.Handler {
 	r := chi.NewRouter()
 
 	// Initialize Redis client
@@ -182,17 +184,64 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	// Swagger documentation
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
-	// Initialize handlers
-	var llmHandler *handlers.LLMHandler
+	// Initialize specialized handlers
+	var (
+		chatHandler          *handlers.ChatHandler
+		messagesHandler      *handlers.MessagesHandler
+		embeddingsHandler    *handlers.EmbeddingsHandler
+		modelsHandler        *handlers.ModelsHandler
+		filesHandler         *handlers.FilesHandler
+		imagesHandler        *handlers.ImagesHandler
+		audioHandler         *handlers.AudioHandler
+		moderationHandler    *handlers.ModerationHandler
+		adminHandler         *handlers.AdminHandler
+		modelMgmtHandler     *handlers.ModelManagementHandler
+		realtimeHandler      *handlers.RealtimeHandler
+	)
+
 	if metricsEmitter != nil {
-		llmHandler = handlers.NewLLMHandlerWithMetrics(logger, modelManager, metricsEmitter)
+		chatHandler = handlers.NewChatHandlerWithMetrics(logger, modelManager, metricsEmitter)
+		messagesHandler = handlers.NewMessagesHandlerWithMetrics(logger, modelManager, metricsEmitter)
+		embeddingsHandler = handlers.NewEmbeddingsHandlerWithMetrics(logger, modelManager, metricsEmitter)
+		modelsHandler = handlers.NewModelsHandlerWithMetrics(logger, modelManager, pricingManager, metricsEmitter)
+		filesHandler = handlers.NewFilesHandlerWithMetrics(logger, modelManager, metricsEmitter)
+		imagesHandler = handlers.NewImagesHandlerWithMetrics(logger, modelManager, metricsEmitter)
+		audioHandler = handlers.NewAudioHandlerWithMetrics(logger, modelManager, metricsEmitter)
+		moderationHandler = handlers.NewModerationHandlerWithMetrics(logger, modelManager, metricsEmitter)
+		adminHandler = handlers.NewAdminHandlerWithMetrics(logger, modelManager, metricsEmitter)
 	} else {
-		llmHandler = handlers.NewLLMHandler(logger, modelManager)
+		chatHandler = handlers.NewChatHandler(logger, modelManager)
+		messagesHandler = handlers.NewMessagesHandler(logger, modelManager)
+		embeddingsHandler = handlers.NewEmbeddingsHandler(logger, modelManager)
+		modelsHandler = handlers.NewModelsHandler(logger, modelManager, pricingManager)
+		filesHandler = handlers.NewFilesHandler(logger, modelManager)
+		imagesHandler = handlers.NewImagesHandler(logger, modelManager)
+		audioHandler = handlers.NewAudioHandler(logger, modelManager)
+		moderationHandler = handlers.NewModerationHandler(logger, modelManager)
+		adminHandler = handlers.NewAdminHandler(logger, modelManager)
 	}
+	modelMgmtHandler = handlers.NewModelManagementHandler(pricingManager)
+
+	// Initialize realtime session manager and handler
+	sessionConfig := &realtime.SessionConfig{
+		MaxSessions:     100,
+		SessionTimeout:  30 * time.Minute,
+		CleanupInterval: 5 * time.Minute,
+	}
+	sessionManager := realtime.NewSessionManager(logger, db, sessionConfig)
+	
+	handlerConfig := &handlers.RealtimeHandlerConfig{
+		ReadBufferSize:    4096,
+		WriteBufferSize:   4096,
+		HandshakeTimeout:  45 * time.Second,
+		CheckOrigin:       false,
+		EnableCompression: true,
+	}
+	realtimeHandler = handlers.NewRealtimeHandler(logger, sessionManager, modelManager, handlerConfig)
 	authHandler := handlers.NewAuthHandler(logger, authService, masterKeyService, db)
 
 	// Initialize system handler for auth config
-	systemHandler := admin.NewSystemHandler(logger)
+	systemHandler := admin.NewSystemHandler(logger, db)
 
 	// Public routes
 	r.Group(func(r chi.Router) {
@@ -213,19 +262,29 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		})
 		r.Use(authMiddleware.Authenticate)
 
+		// Initialize pricing cache for better performance
+		pricingCache := cache.NewPricingCache(redisClient, logger, pricingManager)
+		
+		// Load all pricing data to Redis cache on startup
+		if err := pricingCache.LoadAllPricingToCache(context.Background()); err != nil {
+			logger.Warn("Failed to load pricing data to cache", zap.Error(err))
+		}
+
 		// Use async budget middleware with Redis for high performance
 		asyncBudgetMiddleware := middleware.NewAsyncBudgetMiddleware(&middleware.AsyncBudgetConfig{
-			Logger:      logger,
-			AuthService: authService,
-			BudgetCache: redisService.NewBudgetCache(redisClient, logger, 5*time.Minute),
-			EventPub:    redisService.NewEventPublisher(redisClient, logger),
-			UsageQueue: redisService.NewUsageQueue(&redisService.UsageQueueConfig{
+			Logger:         logger,
+			AuthService:    authService,
+			BudgetCache:    redisService.NewBudgetCache(redisClient, logger, 5*time.Minute),
+			EventPub:       redisService.NewEventPublisher(redisClient, logger),
+			UsageQueue:     redisService.NewUsageQueue(&redisService.UsageQueueConfig{
 				Client:     redisClient,
 				Logger:     logger,
 				QueueName:  "usage_processing_queue",
 				BatchSize:  50,
 				MaxRetries: 3,
 			}),
+			PricingManager: pricingManager,
+			PricingCache:   pricingCache,
 		})
 		r.Use(asyncBudgetMiddleware.EnforceBudgetAsync)
 
@@ -234,36 +293,54 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		// OpenAI-compatible endpoints
 		r.Route("/v1", func(r chi.Router) {
 			// Chat completions - use a custom handler that preserves Flusher
-			r.HandleFunc("/chat/completions", llmHandler.ChatCompletions)
+			r.HandleFunc("/chat/completions", chatHandler.ChatCompletions)
+
+			// Anthropic Messages API format (LiteLLM compatible)
+			r.HandleFunc("/messages", messagesHandler.AnthropicMessages)
 
 			// Completions (legacy)
-			r.Post("/completions", llmHandler.Completions)
+			r.Post("/completions", chatHandler.Completions)
 
 			// Embeddings
-			r.Post("/embeddings", llmHandler.Embeddings)
+			r.Post("/embeddings", embeddingsHandler.Embeddings)
 
 			// Models
-			r.Get("/models", llmHandler.ListModels)
-			r.Get("/models/{model}", llmHandler.GetModel)
+			r.Get("/models", modelsHandler.ListModels)
+			r.Get("/models/{model}", modelsHandler.GetModel)
+			
+			// Model Management (LiteLLM-compatible)
+			r.Get("/model/info", modelMgmtHandler.GetModelInfo)
+			r.Post("/model/register", modelMgmtHandler.RegisterModel)
+			r.Post("/model/calculate-cost", modelMgmtHandler.CalculateCost)
+			r.Get("/model/{model_name}/cost", modelMgmtHandler.GetModelCost)
+			r.Patch("/model/{model_name}/pricing", modelMgmtHandler.UpdateModelPricing)
 
 			// Files (for fine-tuning, not implemented yet)
-			r.Post("/files", llmHandler.UploadFile)
-			r.Get("/files", llmHandler.ListFiles)
-			r.Get("/files/{file_id}", llmHandler.GetFile)
-			r.Delete("/files/{file_id}", llmHandler.DeleteFile)
+			r.Post("/files", filesHandler.UploadFile)
+			r.Get("/files", filesHandler.ListFiles)
+			r.Get("/files/{file_id}", filesHandler.GetFile)
+			r.Delete("/files/{file_id}", filesHandler.DeleteFile)
 
 			// Images
-			r.Post("/images/generations", llmHandler.GenerateImage)
-			r.Post("/images/edits", llmHandler.EditImage)
-			r.Post("/images/variations", llmHandler.CreateImageVariation)
+			r.Post("/images/generations", imagesHandler.GenerateImage)
+			r.Post("/images/edits", imagesHandler.EditImage)
+			r.Post("/images/variations", imagesHandler.CreateImageVariation)
 
 			// Audio
-			r.Post("/audio/transcriptions", llmHandler.CreateTranscription)
-			r.Post("/audio/translations", llmHandler.CreateTranslation)
-			r.Post("/audio/speech", llmHandler.CreateSpeech)
+			r.Post("/audio/transcriptions", audioHandler.CreateTranscription)
+			r.Post("/audio/translations", audioHandler.CreateTranslation)
+			r.Post("/audio/speech", audioHandler.CreateSpeech)
 
 			// Moderations
-			r.Post("/moderations", llmHandler.CreateModeration)
+			r.Post("/moderations", moderationHandler.CreateModeration)
+
+			// Realtime API (WebSocket)
+			r.Get("/realtime", realtimeHandler.ConnectRealtime)
+			r.Route("/realtime/sessions", func(r chi.Router) {
+				r.Post("/", realtimeHandler.CreateSession)
+				r.Get("/", realtimeHandler.ListSessions)
+				r.Get("/{id}", realtimeHandler.GetSession)
+			})
 		})
 
 		// User management
@@ -289,7 +366,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		// Admin routes for monitoring
 		r.Route("/v1/admin", func(r chi.Router) {
 			// Model performance statistics
-			r.Get("/models/stats", llmHandler.ModelStats)
+			r.Get("/models/stats", adminHandler.ModelStats)
 		})
 	})
 
@@ -304,19 +381,29 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		})
 		r.Use(authMiddleware.Authenticate)
 
+		// Initialize pricing cache for better performance
+		pricingCache := cache.NewPricingCache(redisClient, logger, pricingManager)
+		
+		// Load all pricing data to Redis cache on startup
+		if err := pricingCache.LoadAllPricingToCache(context.Background()); err != nil {
+			logger.Warn("Failed to load pricing data to cache", zap.Error(err))
+		}
+
 		// Use async budget middleware with Redis for high performance
 		asyncBudgetMiddleware := middleware.NewAsyncBudgetMiddleware(&middleware.AsyncBudgetConfig{
-			Logger:      logger,
-			AuthService: authService,
-			BudgetCache: redisService.NewBudgetCache(redisClient, logger, 5*time.Minute),
-			EventPub:    redisService.NewEventPublisher(redisClient, logger),
-			UsageQueue: redisService.NewUsageQueue(&redisService.UsageQueueConfig{
+			Logger:         logger,
+			AuthService:    authService,
+			BudgetCache:    redisService.NewBudgetCache(redisClient, logger, 5*time.Minute),
+			EventPub:       redisService.NewEventPublisher(redisClient, logger),
+			UsageQueue:     redisService.NewUsageQueue(&redisService.UsageQueueConfig{
 				Client:     redisClient,
 				Logger:     logger,
 				QueueName:  "usage_processing_queue",
 				BatchSize:  50,
 				MaxRetries: 3,
 			}),
+			PricingManager: pricingManager,
+			PricingCache:   pricingCache,
 		})
 		r.Use(asyncBudgetMiddleware.EnforceBudgetAsync)
 
@@ -325,28 +412,39 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		// OpenAI-compatible endpoints with API key
 		r.Route("/api/v1", func(r chi.Router) {
 			// Chat completions
-			r.Post("/chat/completions", llmHandler.ChatCompletions)
+			r.Post("/chat/completions", chatHandler.ChatCompletions)
+
+			// Anthropic Messages API format (LiteLLM compatible)
+			r.Post("/messages", messagesHandler.AnthropicMessages)
 
 			// Completions (legacy)
-			r.Post("/completions", llmHandler.Completions)
+			r.Post("/completions", chatHandler.Completions)
 
 			// Embeddings
-			r.Post("/embeddings", llmHandler.Embeddings)
+			r.Post("/embeddings", embeddingsHandler.Embeddings)
 
 			// Models
-			r.Get("/models", llmHandler.ListModels)
-			r.Get("/models/{model}", llmHandler.GetModel)
+			r.Get("/models", modelsHandler.ListModels)
+			r.Get("/models/{model}", modelsHandler.GetModel)
 
 			// Images
-			r.Post("/images/generations", llmHandler.GenerateImage)
+			r.Post("/images/generations", imagesHandler.GenerateImage)
 
 			// Audio
-			r.Post("/audio/transcriptions", llmHandler.CreateTranscription)
-			r.Post("/audio/translations", llmHandler.CreateTranslation)
-			r.Post("/audio/speech", llmHandler.CreateSpeech)
+			r.Post("/audio/transcriptions", audioHandler.CreateTranscription)
+			r.Post("/audio/translations", audioHandler.CreateTranslation)
+			r.Post("/audio/speech", audioHandler.CreateSpeech)
 
 			// Moderations
-			r.Post("/moderations", llmHandler.CreateModeration)
+			r.Post("/moderations", moderationHandler.CreateModeration)
+
+			// Realtime API (WebSocket) - authenticated
+			r.Get("/realtime", realtimeHandler.ConnectRealtime)
+			r.Route("/realtime/sessions", func(r chi.Router) {
+				r.Post("/", realtimeHandler.CreateSession)
+				r.Get("/", realtimeHandler.ListSessions)
+				r.Get("/{id}", realtimeHandler.GetSession)
+			})
 		})
 	})
 
@@ -423,7 +521,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	}
 
 	// Static file serving for uploads
-	r.Get("/files/{fileID}", llmHandler.GetFile)
+	r.Get("/files/{fileID}", filesHandler.GetFile)
 
 	// Not found handler
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {

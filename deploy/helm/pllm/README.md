@@ -161,6 +161,23 @@ helm install pllm pllm/pllm -f values.yaml
 | `dex.config.issuer` | Dex issuer URL | Auto-configured |
 | `dex.config.staticClients` | Static client configuration | Pre-configured for PLLM |
 
+#### Realtime WebSocket Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `pllm.config.realtime.enabled` | Enable realtime WebSocket support | `true` |
+| `pllm.config.realtime.maxSessions` | Maximum concurrent WebSocket sessions | `1000` |
+| `pllm.config.realtime.sessionTimeout` | Session timeout duration | `1800s` |
+| `pllm.config.realtime.cleanupInterval` | Session cleanup interval | `300s` |
+| `pllm.config.realtime.maxConnectionsPerIP` | Max connections per IP address | `10` |
+| `pllm.config.realtime.maxMessageSize` | Maximum WebSocket message size (bytes) | `1048576` |
+| `pllm.config.realtime.readBufferSize` | WebSocket read buffer size (bytes) | `4096` |
+| `pllm.config.realtime.writeBufferSize` | WebSocket write buffer size (bytes) | `4096` |
+| `pllm.config.realtime.sessionStoreType` | Session store type (`memory` or `redis`) | `redis` |
+| `pllm.config.realtime.redisPrefix` | Redis key prefix for realtime sessions | `pllm:realtime:` |
+
+**Note:** For production deployments with multiple replicas, use `sessionStoreType: "redis"` to ensure WebSocket sessions work correctly across pods.
+
 ## Examples
 
 ### Minimal Production Setup
@@ -267,6 +284,56 @@ pllm:
     jwtSecret: "your-jwt-secret"
     masterKey: "sk-master-your-key"
     dexClientSecret: "your-dex-client-secret"
+```
+
+### Realtime WebSocket Configuration
+
+```yaml
+# Enable realtime with custom settings for high-load scenarios
+pllm:
+  config:
+    realtime:
+      enabled: true
+      maxSessions: 5000
+      sessionTimeout: 3600s # 1 hour
+      cleanupInterval: 600s  # 10 minutes  
+      maxConnectionsPerIP: 50
+      maxMessageSize: 2097152 # 2MB
+      sessionStoreType: "redis" # Required for multi-pod deployments
+      redisPrefix: "pllm:realtime:prod:"
+
+# Multi-pod deployment for WebSocket load balancing
+replicaCount: 3
+
+# WebSocket-optimized ingress with session affinity
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    # Required for WebSocket support
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Session affinity for WebSocket connections
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/affinity-mode: "persistent"
+    nginx.ingress.kubernetes.io/session-cookie-name: "pllm-realtime"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "3600"
+  hosts:
+    - host: pllm-realtime.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+# Ensure Redis is available for session storage
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "secure-redis-password"
+  master:
+    persistence:
+      enabled: true
+      size: 16Gi
 ```
 
 ## Upgrading

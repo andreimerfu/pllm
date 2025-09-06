@@ -8,9 +8,13 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type OpenAIProvider struct {
@@ -183,8 +187,238 @@ func (p *OpenAIProvider) CompletionStream(ctx context.Context, request *Completi
 }
 
 func (p *OpenAIProvider) Embeddings(ctx context.Context, request *EmbeddingsRequest) (*EmbeddingsResponse, error) {
-	// Not implemented yet
-	return nil, fmt.Errorf("embeddings endpoint not implemented")
+	// Prepare the request body
+	reqBody, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/embeddings", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	if p.orgID != "" && p.orgID != "0" && p.orgID != "null" {
+		req.Header.Set("OpenAI-Organization", p.orgID)
+	}
+
+	// Make the request
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Check for errors
+	if resp.StatusCode != http.StatusOK {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err != nil {
+			return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
+		}
+		return nil, fmt.Errorf("OpenAI API error: %s", errResp.Error.Message)
+	}
+
+	// Parse successful response
+	var embResp EmbeddingsResponse
+	if err := json.Unmarshal(body, &embResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &embResp, nil
+}
+
+func (p *OpenAIProvider) AudioTranscription(ctx context.Context, request *TranscriptionRequest) (*TranscriptionResponse, error) {
+	// Create multipart form
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// Add file field
+	fileWriter, err := writer.CreateFormFile("file", "audio.wav")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create form file: %w", err)
+	}
+	if _, err := io.Copy(fileWriter, request.File); err != nil {
+		return nil, fmt.Errorf("failed to copy file: %w", err)
+	}
+
+	// Add other fields
+	if err := writer.WriteField("model", request.Model); err != nil {
+		return nil, fmt.Errorf("failed to write model field: %w", err)
+	}
+	if request.Language != "" {
+		if err := writer.WriteField("language", request.Language); err != nil {
+			return nil, fmt.Errorf("failed to write language field: %w", err)
+		}
+	}
+	if request.Prompt != "" {
+		if err := writer.WriteField("prompt", request.Prompt); err != nil {
+			return nil, fmt.Errorf("failed to write prompt field: %w", err)
+		}
+	}
+	if request.ResponseFormat != "" {
+		if err := writer.WriteField("response_format", request.ResponseFormat); err != nil {
+			return nil, fmt.Errorf("failed to write response_format field: %w", err)
+		}
+	}
+	if request.Temperature != nil {
+		if err := writer.WriteField("temperature", fmt.Sprintf("%.2f", *request.Temperature)); err != nil {
+			return nil, fmt.Errorf("failed to write temperature field: %w", err)
+		}
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/audio/transcriptions", &buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	if p.orgID != "" && p.orgID != "0" && p.orgID != "null" {
+		req.Header.Set("OpenAI-Organization", p.orgID)
+	}
+
+	// Make the request
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Check for errors
+	if resp.StatusCode != http.StatusOK {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err != nil {
+			return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
+		}
+		return nil, fmt.Errorf("OpenAI API error: %s", errResp.Error.Message)
+	}
+
+	// Parse successful response
+	var transcResp TranscriptionResponse
+	if err := json.Unmarshal(body, &transcResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &transcResp, nil
+}
+
+func (p *OpenAIProvider) AudioSpeech(ctx context.Context, request *SpeechRequest) ([]byte, error) {
+	// Prepare the request body
+	reqBody, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/audio/speech", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	if p.orgID != "" && p.orgID != "0" && p.orgID != "null" {
+		req.Header.Set("OpenAI-Organization", p.orgID)
+	}
+
+	// Make the request
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Check for errors first
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err != nil {
+			return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
+		}
+		return nil, fmt.Errorf("OpenAI API error: %s", errResp.Error.Message)
+	}
+
+	// Read audio data
+	audioData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read audio data: %w", err)
+	}
+
+	return audioData, nil
+}
+
+func (p *OpenAIProvider) ImageGeneration(ctx context.Context, request *ImageRequest) (*ImageResponse, error) {
+	// Prepare the request body
+	reqBody, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/images/generations", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+p.apiKey)
+	if p.orgID != "" && p.orgID != "0" && p.orgID != "null" {
+		req.Header.Set("OpenAI-Organization", p.orgID)
+	}
+
+	// Make the request
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Check for errors
+	if resp.StatusCode != http.StatusOK {
+		var errResp ErrorResponse
+		if err := json.Unmarshal(body, &errResp); err != nil {
+			return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
+		}
+		return nil, fmt.Errorf("OpenAI API error: %s", errResp.Error.Message)
+	}
+
+	// Parse successful response
+	var imgResp ImageResponse
+	if err := json.Unmarshal(body, &imgResp); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &imgResp, nil
 }
 
 // parseStreamResponse parses the SSE stream response from OpenAI
@@ -259,4 +493,103 @@ func (p *OpenAIProvider) HealthCheck(ctx context.Context) error {
 
 	p.SetHealthy(true)
 	return nil
+}
+
+// Realtime API implementation
+
+// ConnectRealtime establishes WebSocket connection to OpenAI realtime API
+func (p *OpenAIProvider) ConnectRealtime(ctx context.Context, config *RealtimeConnectionConfig) (*websocket.Conn, error) {
+	if config == nil {
+		return nil, fmt.Errorf("realtime connection config is required")
+	}
+
+	// Prepare WebSocket URL
+	wsURL, err := p.buildRealtimeURL(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build realtime URL: %w", err)
+	}
+
+	// Prepare headers
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer "+config.APIKey)
+	headers.Set("OpenAI-Beta", "realtime=v1")
+	
+	if config.Headers != nil {
+		for key, value := range config.Headers {
+			headers.Set(key, value)
+		}
+	}
+
+	// Configure WebSocket dialer
+	dialer := &websocket.Dialer{
+		HandshakeTimeout: 45 * time.Second,
+		ReadBufferSize:   4096,
+		WriteBufferSize:  4096,
+	}
+
+	// Establish WebSocket connection
+	conn, resp, err := dialer.DialContext(ctx, wsURL, headers)
+	if err != nil {
+		if resp != nil {
+			return nil, fmt.Errorf("failed to connect to OpenAI realtime API (status: %d): %w", resp.StatusCode, err)
+		}
+		return nil, fmt.Errorf("failed to connect to OpenAI realtime API: %w", err)
+	}
+
+	// Close the HTTP response body
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+
+	return conn, nil
+}
+
+// SupportsRealtime indicates OpenAI supports realtime API
+func (p *OpenAIProvider) SupportsRealtime() bool {
+	return true
+}
+
+// buildRealtimeURL constructs the WebSocket URL for OpenAI realtime API
+func (p *OpenAIProvider) buildRealtimeURL(config *RealtimeConnectionConfig) (string, error) {
+	baseURL := config.BaseURL
+	if baseURL == "" {
+		baseURL = p.baseURL
+	}
+	if baseURL == "" {
+		baseURL = "https://api.openai.com"
+	}
+
+	// Convert HTTP URL to WebSocket URL
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid base URL: %w", err)
+	}
+
+	switch parsedURL.Scheme {
+	case "https":
+		parsedURL.Scheme = "wss"
+	case "http":
+		parsedURL.Scheme = "ws"
+	default:
+		return "", fmt.Errorf("unsupported URL scheme: %s", parsedURL.Scheme)
+	}
+
+	// Set realtime endpoint path
+	parsedURL.Path = "/v1/realtime"
+
+	// Add query parameters
+	query := parsedURL.Query()
+	if config.Model != "" {
+		query.Set("model", config.Model)
+	}
+	
+	if config.QueryParams != nil {
+		for key, value := range config.QueryParams {
+			query.Set(key, value)
+		}
+	}
+	
+	parsedURL.RawQuery = query.Encode()
+
+	return parsedURL.String(), nil
 }

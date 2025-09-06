@@ -30,6 +30,7 @@ type Config struct {
 	Monitoring MonitoringConfig `mapstructure:"monitoring"`
 	Logging    LoggingConfig    `mapstructure:"logging"`
 	CORS       CORSConfig       `mapstructure:"cors"`
+	Realtime   RealtimeConfig   `mapstructure:"realtime"`
 }
 
 type ServerConfig struct {
@@ -127,6 +128,21 @@ type CORSConfig struct {
 	MaxAge           int      `mapstructure:"max_age"`
 }
 
+type RealtimeConfig struct {
+	Enabled          bool          `mapstructure:"enabled"`
+	MaxSessions      int           `mapstructure:"max_sessions"`
+	SessionTimeout   time.Duration `mapstructure:"session_timeout"`
+	MaxMessageSize   int64         `mapstructure:"max_message_size"`
+	WriteTimeout     time.Duration `mapstructure:"write_timeout"`
+	ReadTimeout      time.Duration `mapstructure:"read_timeout"`
+	PingInterval     time.Duration `mapstructure:"ping_interval"`
+	PongTimeout      time.Duration `mapstructure:"pong_timeout"`
+	BufferSize       int           `mapstructure:"buffer_size"`
+	EnableCompression bool         `mapstructure:"enable_compression"`
+	AudioFormat      string        `mapstructure:"audio_format"`
+	AudioSampleRate  int           `mapstructure:"audio_sample_rate"`
+}
+
 var cfg *Config
 
 func Load(configPath string) (*Config, error) {
@@ -213,6 +229,16 @@ func Load(configPath string) (*Config, error) {
 	// Set the converted models
 	config.ModelList = convertedModels
 
+	// Initialize and load pricing manager
+	pricingManager := GetPricingManager()
+	if err := pricingManager.LoadDefaultPricing("internal/config"); err != nil {
+		// Log warning but don't fail - pricing can work without default file
+		fmt.Printf("Warning: Failed to load default pricing: %v\n", err)
+	}
+	
+	// Add config overrides from model instances
+	pricingManager.AddConfigOverrides(convertedModels)
+
 	cfg = &config
 	return cfg, nil
 }
@@ -271,6 +297,20 @@ func setDefaults() {
 	viper.SetDefault("auth.dex.enabled", false)
 	viper.SetDefault("auth.dex.scopes", []string{"openid", "profile", "email", "groups"})
 	viper.SetDefault("auth.dex.enabled_providers", []string{})
+
+	// Realtime defaults
+	viper.SetDefault("realtime.enabled", false)
+	viper.SetDefault("realtime.max_sessions", 1000)
+	viper.SetDefault("realtime.session_timeout", "30m")
+	viper.SetDefault("realtime.max_message_size", 1048576) // 1MB
+	viper.SetDefault("realtime.write_timeout", "10s")
+	viper.SetDefault("realtime.read_timeout", "60s")
+	viper.SetDefault("realtime.ping_interval", "30s")
+	viper.SetDefault("realtime.pong_timeout", "10s")
+	viper.SetDefault("realtime.buffer_size", 4096)
+	viper.SetDefault("realtime.enable_compression", false)
+	viper.SetDefault("realtime.audio_format", "pcm16")
+	viper.SetDefault("realtime.audio_sample_rate", 24000)
 }
 
 func bindEnvVars() {
@@ -336,6 +376,20 @@ func bindEnvVars() {
 	_ = viper.BindEnv("cors.allowed_origins", "CORS_ALLOWED_ORIGINS")
 	_ = viper.BindEnv("cors.allowed_methods", "CORS_ALLOWED_METHODS")
 	_ = viper.BindEnv("cors.allowed_headers", "CORS_ALLOWED_HEADERS")
+
+	// Realtime
+	_ = viper.BindEnv("realtime.enabled", "REALTIME_ENABLED")
+	_ = viper.BindEnv("realtime.max_sessions", "REALTIME_MAX_SESSIONS")
+	_ = viper.BindEnv("realtime.session_timeout", "REALTIME_SESSION_TIMEOUT")
+	_ = viper.BindEnv("realtime.max_message_size", "REALTIME_MAX_MESSAGE_SIZE")
+	_ = viper.BindEnv("realtime.write_timeout", "REALTIME_WRITE_TIMEOUT")
+	_ = viper.BindEnv("realtime.read_timeout", "REALTIME_READ_TIMEOUT")
+	_ = viper.BindEnv("realtime.ping_interval", "REALTIME_PING_INTERVAL")
+	_ = viper.BindEnv("realtime.pong_timeout", "REALTIME_PONG_TIMEOUT")
+	_ = viper.BindEnv("realtime.buffer_size", "REALTIME_BUFFER_SIZE")
+	_ = viper.BindEnv("realtime.enable_compression", "REALTIME_ENABLE_COMPRESSION")
+	_ = viper.BindEnv("realtime.audio_format", "REALTIME_AUDIO_FORMAT")
+	_ = viper.BindEnv("realtime.audio_sample_rate", "REALTIME_AUDIO_SAMPLE_RATE")
 }
 
 func Get() *Config {

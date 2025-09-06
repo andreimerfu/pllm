@@ -51,7 +51,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB, cfg.BudgetService)
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB, cfg.BudgetService)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
-	systemHandler := admin.NewSystemHandler(cfg.Logger)
+	systemHandler := admin.NewSystemHandler(cfg.Logger, cfg.DB)
 	dashboardHandler := handlers.NewDashboardHandler(cfg.DB, cfg.Logger)
 
 	// Initialize auth middleware
@@ -245,7 +245,7 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB, cfg.BudgetService)
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB, cfg.BudgetService)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
-	systemHandler := admin.NewSystemHandler(cfg.Logger)
+	systemHandler := admin.NewSystemHandler(cfg.Logger, cfg.DB)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(&middleware.AuthConfig{

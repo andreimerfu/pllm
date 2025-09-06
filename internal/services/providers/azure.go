@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"sync"
@@ -268,12 +269,16 @@ func (p *AzureProvider) getDeploymentName(model string) string {
 
 	// Some common default mappings
 	defaultMappings := map[string]string{
-		"gpt-4":                  "gpt-4",
-		"gpt-4-turbo":            "gpt-4-turbo",
-		"gpt-3.5-turbo":          "gpt-35-turbo", // Azure uses different naming
-		"text-embedding-ada-002": "text-embedding-ada-002",
-		"text-embedding-3-small": "text-embedding-3-small",
-		"text-embedding-3-large": "text-embedding-3-large",
+		"gpt-4":                         "gpt-4",
+		"gpt-4-turbo":                   "gpt-4-turbo",
+		"gpt-4-vision-preview":          "gpt-4-vision-preview",
+		"gpt-4-turbo-vision-preview":    "gpt-4-turbo-vision-preview",
+		"gpt-4o":                        "gpt-4o",
+		"gpt-4o-mini":                   "gpt-4o-mini",
+		"gpt-3.5-turbo":                 "gpt-35-turbo", // Azure uses different naming
+		"text-embedding-ada-002":        "text-embedding-ada-002",
+		"text-embedding-3-small":        "text-embedding-3-small",
+		"text-embedding-3-large":        "text-embedding-3-large",
 	}
 
 	if deployment, ok := defaultMappings[model]; ok {
@@ -424,6 +429,182 @@ func (p *AzureProvider) Embeddings(ctx context.Context, request *EmbeddingsReque
 	return &azureResp, nil
 }
 
+func (p *AzureProvider) AudioTranscription(ctx context.Context, request *TranscriptionRequest) (*TranscriptionResponse, error) {
+	// Get deployment name
+	deployment := p.getDeploymentName(request.Model)
+	if deployment == "" {
+		return nil, fmt.Errorf("no deployment configured for model: %s", request.Model)
+	}
+
+	// Build URL
+	url := fmt.Sprintf("%s/openai/deployments/%s/audio/transcriptions?api-version=%s",
+		p.config.BaseURL, deployment, p.apiVersion)
+
+	// Create multipart form
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// Add file field
+	fileWriter, err := writer.CreateFormFile("file", "audio.wav")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create form file: %w", err)
+	}
+	if _, err := io.Copy(fileWriter, request.File); err != nil {
+		return nil, fmt.Errorf("failed to copy file: %w", err)
+	}
+
+	// Add other fields
+	if err := writer.WriteField("model", request.Model); err != nil {
+		return nil, fmt.Errorf("failed to write model field: %w", err)
+	}
+	if request.Language != "" {
+		if err := writer.WriteField("language", request.Language); err != nil {
+			return nil, fmt.Errorf("failed to write language field: %w", err)
+		}
+	}
+	if request.Prompt != "" {
+		if err := writer.WriteField("prompt", request.Prompt); err != nil {
+			return nil, fmt.Errorf("failed to write prompt field: %w", err)
+		}
+	}
+	if request.ResponseFormat != "" {
+		if err := writer.WriteField("response_format", request.ResponseFormat); err != nil {
+			return nil, fmt.Errorf("failed to write response_format field: %w", err)
+		}
+	}
+	if request.Temperature != nil {
+		if err := writer.WriteField("temperature", fmt.Sprintf("%.2f", *request.Temperature)); err != nil {
+			return nil, fmt.Errorf("failed to write temperature field: %w", err)
+		}
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", url, &buf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	p.setHeaders(req, ctx)
+
+	// Send request
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("azure OpenAI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Parse response
+	var transcResp TranscriptionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&transcResp); err != nil {
+		return nil, err
+	}
+
+	return &transcResp, nil
+}
+
+func (p *AzureProvider) AudioSpeech(ctx context.Context, request *SpeechRequest) ([]byte, error) {
+	// Get deployment name  
+	deployment := p.getDeploymentName(request.Model)
+	if deployment == "" {
+		return nil, fmt.Errorf("no deployment configured for model: %s", request.Model)
+	}
+
+	// Build URL
+	url := fmt.Sprintf("%s/openai/deployments/%s/audio/speech?api-version=%s",
+		p.config.BaseURL, deployment, p.apiVersion)
+
+	body, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+
+	// Set headers
+	p.setHeaders(req, ctx)
+
+	// Send request
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("azure OpenAI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Read audio data
+	audioData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read audio data: %w", err)
+	}
+
+	return audioData, nil
+}
+
+func (p *AzureProvider) ImageGeneration(ctx context.Context, request *ImageRequest) (*ImageResponse, error) {
+	// Get deployment name
+	deployment := p.getDeploymentName(request.Model)
+	if deployment == "" {
+		return nil, fmt.Errorf("no deployment configured for model: %s", request.Model)
+	}
+
+	// Build URL
+	url := fmt.Sprintf("%s/openai/deployments/%s/images/generations?api-version=%s",
+		p.config.BaseURL, deployment, p.apiVersion)
+
+	body, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+
+	// Set headers
+	p.setHeaders(req, ctx)
+
+	// Send request
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("azure OpenAI API error: status %d, body: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Parse response
+	var imgResp ImageResponse
+	if err := json.NewDecoder(resp.Body).Decode(&imgResp); err != nil {
+		return nil, err
+	}
+
+	return &imgResp, nil
+}
+
 // Provider info methods
 func (p *AzureProvider) GetType() string {
 	return "azure"
@@ -457,6 +638,10 @@ func (p *AzureProvider) SupportsModel(model string) bool {
 	supportedModels := []string{
 		"gpt-4",
 		"gpt-4-turbo",
+		"gpt-4-vision-preview",
+		"gpt-4-turbo-vision-preview",
+		"gpt-4o",
+		"gpt-4o-mini",
 		"gpt-3.5-turbo",
 		"text-embedding-ada-002",
 		"text-embedding-3-small",
@@ -488,6 +673,8 @@ func (p *AzureProvider) ListModels() []string {
 	defaultModels := []string{
 		"gpt-4",
 		"gpt-4-turbo",
+		"gpt-4o",
+		"gpt-4o-mini",
 		"gpt-3.5-turbo",
 	}
 

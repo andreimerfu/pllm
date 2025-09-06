@@ -25,7 +25,7 @@ import { ModelWithUsage } from "@/types/api";
 import { detectProvider } from "@/lib/providers";
 import { SparklineChart, MetricCard } from "@/components/models/ModelCharts";
 import { FallbackDiagram } from "@/components/models/FallbackDiagram";
-import { getSystemConfig, getDashboardMetrics } from "@/lib/api";
+import { getSystemConfig, getDashboardMetrics, getModels } from "@/lib/api";
 
 // Mock data - in real app this would come from API
 const getMockModelDetail = (modelId: string): ModelWithUsage & {
@@ -101,6 +101,7 @@ const formatCurrency = (amount: number): string => {
 export default function ModelDetail() {
   const { modelId } = useParams<{ modelId: string }>();
   const [model, setModel] = useState<ModelWithUsage | null>(null);
+  const [modelPricing, setModelPricing] = useState<any>(null);
   const [fallbacks, setFallbacks] = useState<string[]>([]);
   const [allFallbacksConfig, setAllFallbacksConfig] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
@@ -118,10 +119,11 @@ export default function ModelDetail() {
         setLoading(true);
         const decodedModelId = decodeURIComponent(modelId);
         
-        // Fetch dashboard metrics to get real usage data
-        const [dashboardResponse, configResponse] = await Promise.allSettled([
+        // Fetch dashboard metrics and models data to get real usage data and pricing
+        const [dashboardResponse, configResponse, modelsResponse] = await Promise.allSettled([
           getDashboardMetrics(),
-          getSystemConfig()
+          getSystemConfig(),
+          getModels()
         ]);
 
         // Handle dashboard data and create model with real usage stats
@@ -182,6 +184,17 @@ export default function ModelDetail() {
           console.warn('Failed to fetch dashboard metrics:', dashboardResponse.reason);
           // Fallback to mock data if API fails
           setModel(getMockModelDetail(decodedModelId));
+        }
+
+        // Handle models data for pricing information
+        if (modelsResponse.status === 'fulfilled') {
+          const modelsData = modelsResponse.value as any;
+          const modelPricingData = modelsData.data?.find((m: any) => m.id === decodedModelId);
+          if (modelPricingData) {
+            setModelPricing(modelPricingData);
+          }
+        } else {
+          console.warn('Failed to fetch models data:', modelsResponse.reason);
         }
 
         // Handle config data for fallbacks
@@ -528,15 +541,35 @@ export default function ModelDetail() {
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span>Max Tokens</span>
-                  <span className="font-medium">{getMockModelDetail(model.id).configuration.maxTokens}</span>
+                  <span className="font-medium">{modelPricing?.max_tokens || getMockModelDetail(model.id).configuration.maxTokens}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Temperature</span>
-                  <span className="font-medium">{getMockModelDetail(model.id).configuration.temperature}</span>
+                  <span>Provider</span>
+                  <span className="font-medium capitalize">{modelPricing?.provider || model.owned_by}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Top P</span>
-                  <span className="font-medium">{getMockModelDetail(model.id).configuration.topP}</span>
+                  <span>Input Cost (per token)</span>
+                  <span className="font-medium">
+                    {modelPricing?.input_cost_per_token ? `$${modelPricing.input_cost_per_token.toFixed(6)}` : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Output Cost (per token)</span>
+                  <span className="font-medium">
+                    {modelPricing?.output_cost_per_token ? `$${modelPricing.output_cost_per_token.toFixed(6)}` : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Input Cost (per 1K tokens)</span>
+                  <span className="font-medium">
+                    {modelPricing?.input_cost_per_token ? `$${(modelPricing.input_cost_per_token * 1000).toFixed(4)}` : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Output Cost (per 1K tokens)</span>
+                  <span className="font-medium">
+                    {modelPricing?.output_cost_per_token ? `$${(modelPricing.output_cost_per_token * 1000).toFixed(4)}` : 'N/A'}
+                  </span>
                 </div>
               </CardContent>
             </Card>

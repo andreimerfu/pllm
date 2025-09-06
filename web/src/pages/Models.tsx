@@ -139,7 +139,6 @@ export default function Models() {
           type="single" 
           value={viewMode} 
           onValueChange={(value: string) => value && setViewMode(value as ViewMode)}
-          className="border"
         >
           <ToggleGroupItem value="cards" aria-label="Card view" className="gap-2">
             <LayoutGrid className="h-4 w-4" />
