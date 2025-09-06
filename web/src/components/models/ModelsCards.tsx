@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { ModelWithUsage } from "@/types/api";
 import { detectProvider } from "@/lib/providers";
 import { SparklineChart, MetricCard } from "./ModelCharts";
+import ModelTags from "./ModelTags";
+import ModelCapabilities from "./ModelCapabilities";
 
 interface ModelsCardsProps {
   models: ModelWithUsage[];
@@ -107,6 +109,27 @@ export default function ModelsCards({ models }: ModelsCardsProps) {
             </CardHeader>
 
             <CardContent className="space-y-4 relative z-10">
+              {/* Tags and Capabilities */}
+              {(model.tags?.length || model.capabilities) && (
+                <div className="space-y-3 pb-4 border-b border-border/50">
+                  {model.tags && model.tags.length > 0 && (
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-2 font-medium">
+                        Tags
+                      </div>
+                      <ModelTags tags={model.tags} maxVisible={3} />
+                    </div>
+                  )}
+                  {model.capabilities && (
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-2 font-medium">
+                        Capabilities
+                      </div>
+                      <ModelCapabilities capabilities={model.capabilities} maxVisible={6} />
+                    </div>
+                  )}
+                </div>
+              )}
               {/* Usage Metrics */}
               {usage ? (
                 <div className="grid grid-cols-2 gap-3">

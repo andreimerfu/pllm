@@ -292,6 +292,9 @@ func (l *Logger) GetAuditLogs(ctx context.Context, filters AuditLogFilters) ([]m
 	if filters.ResourceID != nil {
 		query = query.Where("resource_id = ?", *filters.ResourceID)
 	}
+	if filters.Result != "" {
+		query = query.Where("event_result = ?", filters.Result)
+	}
 	if !filters.StartDate.IsZero() {
 		query = query.Where("timestamp >= ?", filters.StartDate)
 	}
@@ -305,9 +308,9 @@ func (l *Logger) GetAuditLogs(ctx context.Context, filters AuditLogFilters) ([]m
 		return nil, 0, fmt.Errorf("failed to count audit logs: %w", err)
 	}
 
-	// Apply pagination and ordering
+	// Apply pagination and ordering with preloading
 	var logs []models.Audit
-	query = query.Order("timestamp DESC")
+	query = query.Preload("User").Preload("Team").Preload("Key").Order("timestamp DESC")
 
 	if filters.Offset > 0 {
 		query = query.Offset(filters.Offset)
@@ -330,6 +333,7 @@ type AuditLogFilters struct {
 	Action     string     `json:"action,omitempty"`
 	Resource   string     `json:"resource,omitempty"`
 	ResourceID *uuid.UUID `json:"resource_id,omitempty"`
+	Result     string     `json:"result,omitempty"`
 	StartDate  time.Time  `json:"start_date,omitempty"`
 	EndDate    time.Time  `json:"end_date,omitempty"`
 	Offset     int        `json:"offset,omitempty"`

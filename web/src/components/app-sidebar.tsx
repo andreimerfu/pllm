@@ -21,6 +21,7 @@ import {
   LogOut,
   Activity,
   ChevronUp,
+  FileText,
 } from "lucide-react";
 
 import {
@@ -89,6 +90,12 @@ const navigation = [
     href: "/budget",
     icon: Wallet,
     permission: "admin.budget.read",
+  },
+  {
+    name: "Audit Logs",
+    href: "/audit-logs",
+    icon: FileText,
+    permission: "admin.audit.read",
   },
   {
     name: "Settings",

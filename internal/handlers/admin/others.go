@@ -7,11 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"github.com/amerfu/pllm/internal/config"
 	"github.com/amerfu/pllm/internal/models"
+	"github.com/amerfu/pllm/internal/services/audit"
 )
 
 // AnalyticsHandler handles analytics endpoints
@@ -900,13 +902,17 @@ func (h *AnalyticsHandler) GetTeamUserBreakdown(w http.ResponseWriter, r *http.R
 // SystemHandler handles system endpoints
 type SystemHandler struct {
 	baseHandler
-	config *config.Config
+	config      *config.Config
+	db          *gorm.DB
+	auditLogger *audit.Logger
 }
 
-func NewSystemHandler(logger *zap.Logger) *SystemHandler {
+func NewSystemHandler(logger *zap.Logger, db *gorm.DB) *SystemHandler {
 	return &SystemHandler{
 		baseHandler: baseHandler{logger: logger},
 		config:      config.Get(),
+		db:          db,
+		auditLogger: audit.NewLogger(db),
 	}
 }
 
@@ -989,7 +995,84 @@ func (h *SystemHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SystemHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
-	h.sendJSON(w, http.StatusOK, map[string]interface{}{"audit_logs": []interface{}{}})
+	// Parse query parameters for filtering
+	query := r.URL.Query()
+	
+	// Parse pagination parameters with reasonable defaults
+	limit := 50 // default limit
+	if l := query.Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+	// Ensure we never return more than 100 records at once
+	if limit > 100 {
+		limit = 100
+	}
+	
+	offset := 0
+	if o := query.Get("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+	
+	// Parse time range filters
+	var startTime, endTime time.Time
+	if start := query.Get("start_date"); start != "" {
+		if parsed, err := time.Parse(time.RFC3339, start); err == nil {
+			startTime = parsed
+		}
+	}
+	if end := query.Get("end_date"); end != "" {
+		if parsed, err := time.Parse(time.RFC3339, end); err == nil {
+			endTime = parsed
+		}
+	}
+	
+	// Build filters
+	filters := audit.AuditLogFilters{
+		Action:    query.Get("action"),
+		Resource:  query.Get("resource"),
+		Result:    query.Get("result"),
+		StartDate: startTime,
+		EndDate:   endTime,
+		Limit:     limit,
+		Offset:    offset,
+	}
+	
+	// Parse user_id filter if provided
+	if userIDStr := query.Get("user_id"); userIDStr != "" {
+		if userID, err := uuid.Parse(userIDStr); err == nil {
+			filters.UserID = &userID
+		}
+	}
+	
+	// Parse team_id filter if provided
+	if teamIDStr := query.Get("team_id"); teamIDStr != "" {
+		if teamID, err := uuid.Parse(teamIDStr); err == nil {
+			filters.TeamID = &teamID
+		}
+	}
+	
+	// Get audit logs with filters
+	logs, total, err := h.auditLogger.GetAuditLogs(r.Context(), filters)
+	if err != nil {
+		h.logger.Error("Failed to fetch audit logs", zap.Error(err))
+		h.sendError(w, http.StatusInternalServerError, "Failed to fetch audit logs")
+		return
+	}
+	
+	// Build response
+	response := map[string]interface{}{
+		"audit_logs": logs,
+		"total":      total,
+		"limit":      limit,
+		"offset":     offset,
+		"has_more":   int64(offset+len(logs)) < total,
+	}
+	
+	h.sendJSON(w, http.StatusOK, response)
 }
 
 func (h *SystemHandler) ClearCache(w http.ResponseWriter, r *http.Request) {

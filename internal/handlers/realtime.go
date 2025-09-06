@@ -84,10 +84,10 @@ func NewRealtimeHandler(
 // @Security BearerAuth
 // @Security ApiKeyAuth
 // @Success 101 {string} string "Switching Protocols"
-// @Failure 400 {object} ErrorResponse "Bad Request"
-// @Failure 401 {object} ErrorResponse "Unauthorized"
-// @Failure 403 {object} ErrorResponse "Forbidden"
-// @Failure 500 {object} ErrorResponse "Internal Server Error"
+// @Failure 400 {object} providers.ErrorResponse "Bad Request"
+// @Failure 401 {object} providers.ErrorResponse "Unauthorized"
+// @Failure 403 {object} providers.ErrorResponse "Forbidden"
+// @Failure 500 {object} providers.ErrorResponse "Internal Server Error"
 // @Router /v1/realtime [get]
 func (h *RealtimeHandler) ConnectRealtime(w http.ResponseWriter, r *http.Request) {
 	// Get model from query parameters
@@ -239,9 +239,9 @@ func (h *RealtimeHandler) ConnectRealtime(w http.ResponseWriter, r *http.Request
 // @Security BearerAuth
 // @Security ApiKeyAuth
 // @Success 201 {object} CreateSessionResponse "Session created"
-// @Failure 400 {object} ErrorResponse "Bad Request"
-// @Failure 401 {object} ErrorResponse "Unauthorized"
-// @Failure 500 {object} ErrorResponse "Internal Server Error"
+// @Failure 400 {object} providers.ErrorResponse "Bad Request"
+// @Failure 401 {object} providers.ErrorResponse "Unauthorized"
+// @Failure 500 {object} providers.ErrorResponse "Internal Server Error"
 // @Router /v1/realtime/sessions [post]
 func (h *RealtimeHandler) CreateSession(w http.ResponseWriter, r *http.Request) {
 	var req CreateSessionRequest
@@ -328,8 +328,8 @@ func (h *RealtimeHandler) CreateSession(w http.ResponseWriter, r *http.Request) 
 // @Security BearerAuth
 // @Security ApiKeyAuth
 // @Success 200 {object} GetSessionResponse "Session information"
-// @Failure 404 {object} ErrorResponse "Session not found"
-// @Failure 500 {object} ErrorResponse "Internal Server Error"
+// @Failure 404 {object} providers.ErrorResponse "Session not found"
+// @Failure 500 {object} providers.ErrorResponse "Internal Server Error"
 // @Router /v1/realtime/sessions/{id} [get]
 func (h *RealtimeHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 	sessionID := chi.URLParam(r, "id")
@@ -365,7 +365,7 @@ func (h *RealtimeHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 // @Security BearerAuth
 // @Security ApiKeyAuth
 // @Success 200 {object} ListSessionsResponse "List of sessions"
-// @Failure 500 {object} ErrorResponse "Internal Server Error"
+// @Failure 500 {object} providers.ErrorResponse "Internal Server Error"
 // @Router /v1/realtime/sessions [get]
 func (h *RealtimeHandler) ListSessions(w http.ResponseWriter, r *http.Request) {
 	sessions := h.sessionManager.ListSessions()

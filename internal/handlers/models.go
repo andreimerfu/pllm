@@ -62,20 +62,16 @@ func (h *ModelsHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 		// Add pricing information if available
 		if h.pricingManager != nil && model.ID != "" {
 			if pricingInfo := h.pricingManager.GetModelInfo(model.ID); pricingInfo != nil {
-				// Add pricing fields to the model
-				if inputCost, exists := pricingInfo["input_cost_per_token"]; exists {
-					modelMap["input_cost_per_token"] = inputCost
-				}
-				if outputCost, exists := pricingInfo["output_cost_per_token"]; exists {
-					modelMap["output_cost_per_token"] = outputCost
-				}
-				if maxTokens, exists := pricingInfo["max_tokens"]; exists {
-					modelMap["max_tokens"] = maxTokens
-				}
-				if provider, exists := pricingInfo["provider"]; exists {
-					modelMap["provider"] = provider
+				// Add all pricing fields to the model
+				for key, value := range pricingInfo {
+					modelMap[key] = value
 				}
 			}
+		}
+		
+		// Add tags from model manager if available
+		if tags := h.modelManager.GetModelTags(model.ID); len(tags) > 0 {
+			modelMap["tags"] = tags
 		}
 		enhancedModels = append(enhancedModels, modelMap)
 	}

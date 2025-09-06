@@ -241,7 +241,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	authHandler := handlers.NewAuthHandler(logger, authService, masterKeyService, db)
 
 	// Initialize system handler for auth config
-	systemHandler := admin.NewSystemHandler(logger)
+	systemHandler := admin.NewSystemHandler(logger, db)
 
 	// Public routes
 	r.Group(func(r chi.Router) {

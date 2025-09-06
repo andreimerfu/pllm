@@ -314,6 +314,31 @@ func (m *ModelManager) GetDetailedModelInfo() []ModelInfo {
 	return result
 }
 
+// GetModelTags returns tags associated with a model
+func (m *ModelManager) GetModelTags(modelName string) []string {
+	allInstances := m.registry.GetAllInstances()
+	
+	// Collect tags from all instances of this model
+	tagSet := make(map[string]bool)
+	for _, instance := range allInstances {
+		if instance.Config.ModelName == modelName {
+			for _, tag := range instance.Config.Tags {
+				if tag != "" {
+					tagSet[tag] = true
+				}
+			}
+		}
+	}
+	
+	// Convert to slice
+	tags := make([]string, 0, len(tagSet))
+	for tag := range tagSet {
+		tags = append(tags, tag)
+	}
+	
+	return tags
+}
+
 // ModelInfo represents detailed model information for API responses
 type ModelInfo struct {
 	ID      string `json:"id"`

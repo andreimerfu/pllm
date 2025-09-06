@@ -15,6 +15,8 @@ import {
 import { ModelWithUsage } from "@/types/api";
 import { detectProvider } from "@/lib/providers";
 import { SparklineChart } from "./ModelCharts";
+import ModelTags from "./ModelTags";
+import ModelCapabilities from "./ModelCapabilities";
 
 export const formatNumber = (num: number): string => {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -66,6 +68,30 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
         {row.getValue("object")}
       </Badge>
     ),
+  },
+  {
+    accessorKey: "tags",
+    header: "Tags",
+    cell: ({ row }) => {
+      const model = row.original;
+      return (
+        <div className="min-w-0 max-w-32">
+          <ModelTags tags={model.tags} maxVisible={2} />
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "capabilities",
+    header: "Capabilities",
+    cell: ({ row }) => {
+      const model = row.original;
+      return (
+        <div className="min-w-0 max-w-40">
+          <ModelCapabilities capabilities={model.capabilities} maxVisible={4} />
+        </div>
+      );
+    },
   },
   {
     accessorKey: "usage_stats.requests_today",

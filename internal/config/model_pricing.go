@@ -354,7 +354,7 @@ func (pm *ModelPricingManager) GetModelInfo(modelName string) map[string]interfa
 		return nil
 	}
 	
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"model_name":                    modelName,
 		"max_tokens":                    pricingInfo.MaxTokens,
 		"max_input_tokens":              pricingInfo.MaxInputTokens,
@@ -363,10 +363,26 @@ func (pm *ModelPricingManager) GetModelInfo(modelName string) map[string]interfa
 		"output_cost_per_token":         pricingInfo.OutputCostPerToken,
 		"provider":                      pricingInfo.Provider,
 		"mode":                          pricingInfo.Mode,
-		"supports_function_calling":     pricingInfo.SupportsFunctionCalling,
-		"supports_vision":               pricingInfo.SupportsVision,
 		"supports_streaming":            true, // Default to true for most models
 		"source":                        pricingInfo.Source,
 		"last_updated":                  pricingInfo.LastUpdated,
+		
+		// All capabilities
+		"capabilities": map[string]interface{}{
+			"function_calling":          pricingInfo.SupportsFunctionCalling,
+			"parallel_function_calling": pricingInfo.SupportsParallelFunctionCalling,
+			"vision":                    pricingInfo.SupportsVision,
+			"audio_input":               pricingInfo.SupportsAudioInput,
+			"audio_output":              pricingInfo.SupportsAudioOutput,
+			"prompt_caching":            pricingInfo.SupportsPromptCaching,
+			"response_schema":           pricingInfo.SupportsResponseSchema,
+			"system_messages":           pricingInfo.SupportsSystemMessages,
+			"reasoning":                 pricingInfo.SupportsReasoning,
+			"web_search":                pricingInfo.SupportsWebSearch,
+		},
+		
+		"supported_regions":             pricingInfo.SupportedRegions,
 	}
+	
+	return result
 }
