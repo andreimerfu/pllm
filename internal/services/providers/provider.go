@@ -237,6 +237,10 @@ type TranscriptionResponse struct {
 	Text string `json:"text"`
 }
 
+type TranslationResponse struct {
+	Text string `json:"text"`
+}
+
 type SpeechRequest struct {
 	Model          string   `json:"model"`
 	Input          string   `json:"input"`

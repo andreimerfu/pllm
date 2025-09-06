@@ -185,8 +185,8 @@ func TestChatCompletions_AuthenticationTypes(t *testing.T) {
 	modelManager := createMockModelManager()
 	authSvc, masterKeySvc, testKeys := setupTestAuth(t, db)
 
-	// Create LLM handler
-	llmHandler := NewLLMHandler(logger, modelManager)
+	// Create Chat handler
+	chatHandler := NewChatHandler(logger, modelManager)
 
 	// Create auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(&middleware.AuthConfig{
@@ -312,7 +312,7 @@ func TestChatCompletions_AuthenticationTypes(t *testing.T) {
 				}
 
 				// Call the actual LLM handler
-				llmHandler.ChatCompletions(w, r)
+				chatHandler.ChatCompletions(w, r)
 			}))
 
 			// Execute request
@@ -376,8 +376,8 @@ func TestChatCompletions_KeyRestrictions(t *testing.T) {
 	}
 	require.NoError(t, db.Create(&restrictedKey).Error)
 
-	// Create LLM handler
-	llmHandler := NewLLMHandler(logger, modelManager)
+	// Create Chat handler
+	chatHandler := NewChatHandler(logger, modelManager)
 
 	// Create auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(&middleware.AuthConfig{
@@ -452,7 +452,7 @@ func TestChatCompletions_KeyRestrictions(t *testing.T) {
 				}
 
 				// Call the actual LLM handler
-				llmHandler.ChatCompletions(w, r)
+				chatHandler.ChatCompletions(w, r)
 			}))
 
 			handler.ServeHTTP(w, req)
