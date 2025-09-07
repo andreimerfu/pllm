@@ -284,3 +284,14 @@ export const getCacheSettings = () =>
   axiosInstance.get("/api/admin/settings/cache");
 export const updateCacheSettings = (data: any) =>
   axiosInstance.put("/api/admin/settings/cache", data);
+
+// Guardrails
+export const getGuardrails = () => axiosInstance.get("/api/admin/guardrails");
+export const getGuardrail = (name: string) => 
+  axiosInstance.get(`/api/admin/guardrails/${name}`);
+export const getGuardrailStats = () => 
+  axiosInstance.get("/api/admin/guardrails/stats");
+export const checkGuardrailHealth = () => 
+  axiosInstance.get("/api/admin/guardrails/health");
+export const testGuardrail = (name: string, data: { text: string; messages?: any[] }) =>
+  axiosInstance.post(`/api/admin/guardrails/${name}/test`, data);

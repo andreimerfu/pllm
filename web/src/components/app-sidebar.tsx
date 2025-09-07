@@ -22,6 +22,7 @@ import {
   Activity,
   ChevronUp,
   FileText,
+  Shield,
 } from "lucide-react";
 
 import {
@@ -96,6 +97,12 @@ const navigation = [
     href: "/audit-logs",
     icon: FileText,
     permission: "admin.audit.read",
+  },
+  {
+    name: "Guardrails",
+    href: "/guardrails",
+    icon: Shield,
+    permission: "admin.guardrails.read",
   },
   {
     name: "Settings",

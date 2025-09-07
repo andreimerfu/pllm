@@ -10,6 +10,7 @@ import (
 	"github.com/amerfu/pllm/internal/handlers/admin"
 	"github.com/amerfu/pllm/internal/middleware"
 	"github.com/amerfu/pllm/internal/services/budget"
+	"github.com/amerfu/pllm/internal/services/guardrails"
 	"github.com/amerfu/pllm/internal/services/team"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
@@ -19,13 +20,14 @@ import (
 )
 
 type AdminRouterConfig struct {
-	Config           *config.Config
-	Logger           *zap.Logger
-	DB               *gorm.DB
-	AuthService      *auth.AuthService
-	MasterKeyService *auth.MasterKeyService
-	BudgetService    budget.Service
-	ModelManager     interface {
+	Config              *config.Config
+	Logger              *zap.Logger
+	DB                  *gorm.DB
+	AuthService         *auth.AuthService
+	MasterKeyService    *auth.MasterKeyService
+	BudgetService       budget.Service
+	GuardrailsExecutor  *guardrails.Executor
+	ModelManager        interface {
 		GetModelStats() map[string]interface{}
 	}
 }
@@ -53,6 +55,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger, cfg.DB)
 	dashboardHandler := handlers.NewDashboardHandler(cfg.DB, cfg.Logger)
+	guardrailsHandler := admin.NewGuardrailsHandler(cfg.Logger, cfg.Config, cfg.GuardrailsExecutor)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(&middleware.AuthConfig{
@@ -167,6 +170,15 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Get("/cache", systemHandler.GetCacheSettings)
 			r.Put("/cache", systemHandler.UpdateCacheSettings)
 		})
+
+		// Guardrails management
+		r.Route("/guardrails", func(r chi.Router) {
+			r.Get("/", guardrailsHandler.ListGuardrails)
+			r.Get("/{guardrailName}", guardrailsHandler.GetGuardrail)
+			r.Get("/{guardrailName}/stats", guardrailsHandler.GetGuardrailStats)
+			r.Get("/{guardrailName}/health", guardrailsHandler.CheckGuardrailHealth)
+			r.Post("/test", guardrailsHandler.TestGuardrail)
+		})
 	})
 
 	// User self-service routes (authenticated users, not necessarily admin)
@@ -246,6 +258,7 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB, cfg.BudgetService)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger, cfg.DB)
+	guardrailsHandler := admin.NewGuardrailsHandler(cfg.Logger, cfg.Config, cfg.GuardrailsExecutor)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(&middleware.AuthConfig{
@@ -355,6 +368,15 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 				r.Put("/rate-limits", systemHandler.UpdateRateLimits)
 				r.Get("/cache", systemHandler.GetCacheSettings)
 				r.Put("/cache", systemHandler.UpdateCacheSettings)
+			})
+
+			// Guardrails management
+			r.Route("/guardrails", func(r chi.Router) {
+				r.Get("/", guardrailsHandler.ListGuardrails)
+				r.Get("/{guardrailName}", guardrailsHandler.GetGuardrail)
+				r.Get("/{guardrailName}/stats", guardrailsHandler.GetGuardrailStats)
+				r.Get("/{guardrailName}/health", guardrailsHandler.CheckGuardrailHealth)
+				r.Post("/test", guardrailsHandler.TestGuardrail)
 			})
 		})
 	})

@@ -14,6 +14,7 @@ import (
 	"github.com/amerfu/pllm/internal/services"
 	"github.com/amerfu/pllm/internal/services/budget"
 	"github.com/amerfu/pllm/internal/services/cache"
+	"github.com/amerfu/pllm/internal/services/guardrails"
 	"github.com/amerfu/pllm/internal/services/key"
 	"github.com/amerfu/pllm/internal/services/models"
 	"github.com/amerfu/pllm/internal/services/realtime"
@@ -135,6 +136,26 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		logger.Info("Historical metrics collector started")
 	} else {
 		logger.Warn("Cannot start historical metrics collector - missing prerequisites")
+	}
+
+	// Initialize guardrails
+	var guardrailsExecutor *guardrails.Executor
+	guardrailsFactory := guardrails.NewFactory(cfg, logger)
+	
+	// Validate guardrails configuration
+	if err := guardrailsFactory.ValidateConfiguration(); err != nil {
+		logger.Error("Invalid guardrails configuration", zap.Error(err))
+	} else {
+		// Create guardrails executor
+		var err error
+		guardrailsExecutor, err = guardrailsFactory.CreateExecutor()
+		if err != nil {
+			logger.Error("Failed to create guardrails executor", zap.Error(err))
+		} else {
+			logger.Info("Guardrails executor initialized successfully",
+				zap.Bool("enabled", cfg.Guardrails.Enabled),
+				zap.Int("guardrails_count", len(cfg.Guardrails.Guardrails)))
+		}
 	}
 
 	// Legacy synchronous budget/usage systems removed in favor of async Redis-based system
@@ -262,6 +283,12 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		})
 		r.Use(authMiddleware.Authenticate)
 
+		// Guardrails middleware (after auth, before budget)
+		if guardrailsExecutor != nil {
+			guardrailsMiddleware := middleware.NewGuardrailsMiddleware(guardrailsExecutor, logger)
+			r.Use(guardrailsMiddleware.Middleware)
+		}
+
 		// Initialize pricing cache for better performance
 		pricingCache := cache.NewPricingCache(redisClient, logger, pricingManager)
 		
@@ -381,6 +408,12 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		})
 		r.Use(authMiddleware.Authenticate)
 
+		// Guardrails middleware (after auth, before budget)
+		if guardrailsExecutor != nil {
+			guardrailsMiddleware := middleware.NewGuardrailsMiddleware(guardrailsExecutor, logger)
+			r.Use(guardrailsMiddleware.Middleware)
+		}
+
 		// Initialize pricing cache for better performance
 		pricingCache := cache.NewPricingCache(redisClient, logger, pricingManager)
 		
@@ -467,13 +500,14 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 
 		// Create admin sub-router configuration
 		adminConfig := &AdminRouterConfig{
-			Config:           cfg,
-			Logger:           logger,
-			DB:               db,
-			AuthService:      authService,
-			MasterKeyService: masterKeyService,
-			ModelManager:     modelManager,
-			BudgetService:    budgetService,
+			Config:              cfg,
+			Logger:              logger,
+			DB:                  db,
+			AuthService:         authService,
+			MasterKeyService:    masterKeyService,
+			ModelManager:        modelManager,
+			BudgetService:       budgetService,
+			GuardrailsExecutor:  guardrailsExecutor,
 		}
 
 		// Mount admin routes at /api/admin
