@@ -88,6 +88,44 @@ guardrails:
         # Return decision scores
         return_decision_process: true
 
+    # Post-call guardrail - scans LLM responses for PII leaks
+    - guardrail_name: "presidio-pii-response-scan"
+      provider: "presidio"
+      mode: ["post_call"]  # Run after LLM responds to detect leaked PII
+      enabled: true
+      config:
+        analyzer_url: "http://presidio-analyzer:3000"
+        anonymizer_url: "http://presidio-anonymizer:3000"
+        entities:
+          - "PERSON"
+          - "EMAIL_ADDRESS"
+          - "PHONE_NUMBER"
+          - "CREDIT_CARD"
+          - "SSN"
+        threshold: 0.8  # Higher threshold for post-call detection
+        mask_pii: false  # Don't mask, just detect and log violations
+        anonymize_method: "replace"
+        language: "en"
+        return_decision_process: true
+
+    # During-call guardrail - parallel monitoring (logging only for testing)
+    - guardrail_name: "presidio-pii-monitoring"
+      provider: "presidio"
+      mode: ["during_call", "logging_only"]  # Run in parallel with LLM call
+      enabled: true
+      config:
+        analyzer_url: "http://presidio-analyzer:3000"
+        anonymizer_url: "http://presidio-anonymizer:3000"
+        entities:
+          - "PERSON"
+          - "EMAIL_ADDRESS"
+          - "PHONE_NUMBER"
+        threshold: 0.6  # Lower threshold for monitoring
+        mask_pii: false  # Monitoring only
+        anonymize_method: "replace"
+        language: "en"
+        return_decision_process: true
+
 # Router configuration with adaptive routing for high-load scenarios
 router:
   routing_strategy: "latency-based"
