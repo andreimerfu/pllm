@@ -8,6 +8,7 @@ import Keys from '@/pages/Keys'
 import Budget from '@/pages/Budget'
 import Settings from '@/pages/Settings'
 import AuditLogs from '@/pages/AuditLogs'
+import Guardrails from '@/pages/Guardrails'
 import Chat from '@/pages/Chat'
 import Login from '@/pages/Login'
 import Callback from '@/pages/Callback'
@@ -49,6 +50,7 @@ function App() {
                       <Route path="/keys" element={<Keys />} />
                       <Route path="/budget" element={<Budget />} />
                       <Route path="/audit-logs" element={<AuditLogs />} />
+                      <Route path="/guardrails" element={<Guardrails />} />
                       <Route path="/settings" element={<Settings />} />
                     </Routes>
                   </Layout>
