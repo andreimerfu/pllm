@@ -162,7 +162,9 @@ func (m *GuardrailsMiddleware) sendGuardrailError(w http.ResponseWriter, err err
 		},
 	}
 	
-	json.NewEncoder(w).Encode(errorResponse)
+	if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
+		http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+	}
 }
 
 // Extract auth context helpers
