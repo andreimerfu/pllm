@@ -48,6 +48,46 @@ auth:
     # Remove providers you don't want to show in the login page
     enabled_providers: ["github", "microsoft"] # Removed "google"
 
+# Guardrails configuration
+guardrails:
+  enabled: true
+  guardrails:
+    - guardrail_name: "presidio-pii-detection"
+      provider: "presidio"
+      mode: ["pre_call", "logging_only"]  # Run before LLM calls and for logging
+      enabled: true
+      config:
+        analyzer_url: "http://presidio-analyzer:3000"
+        anonymizer_url: "http://presidio-anonymizer:3000"
+        # PII entities to detect
+        entities:
+          - "PERSON"
+          - "EMAIL_ADDRESS"
+          - "PHONE_NUMBER"
+          - "CREDIT_CARD"
+          - "SSN"
+          - "IP_ADDRESS"
+          - "US_DRIVER_LICENSE"
+          - "US_PASSPORT"
+          - "US_BANK_NUMBER"
+        # Detection threshold (0.0-1.0, higher = more strict)
+        threshold: 0.7
+        # Whether to mask PII in pre_call mode
+        mask_pii: true
+        # Masking method: "replace", "redact", "encrypt", "hash"
+        anonymize_method: "replace"
+        # Custom anonymization config
+        anonymizers:
+          PERSON: "replace"
+          EMAIL_ADDRESS: "replace" 
+          PHONE_NUMBER: "mask"
+          CREDIT_CARD: "mask"
+          SSN: "redact"
+        # Language for analysis (default: "en")
+        language: "en"
+        # Return decision scores
+        return_decision_process: true
+
 # Router configuration with adaptive routing for high-load scenarios
 router:
   routing_strategy: "latency-based"

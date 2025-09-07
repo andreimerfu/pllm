@@ -31,6 +31,7 @@ type Config struct {
 	Logging    LoggingConfig    `mapstructure:"logging"`
 	CORS       CORSConfig       `mapstructure:"cors"`
 	Realtime   RealtimeConfig   `mapstructure:"realtime"`
+	Guardrails GuardrailsConfig `mapstructure:"guardrails"`
 }
 
 type ServerConfig struct {
@@ -311,6 +312,18 @@ func setDefaults() {
 	viper.SetDefault("realtime.enable_compression", false)
 	viper.SetDefault("realtime.audio_format", "pcm16")
 	viper.SetDefault("realtime.audio_sample_rate", 24000)
+
+	// Guardrails defaults
+	viper.SetDefault("guardrails.enabled", false)
+	viper.SetDefault("guardrails.providers.presidio.analyzer_url", "http://localhost:5002")
+	viper.SetDefault("guardrails.providers.presidio.anonymizer_url", "http://localhost:5001")
+	viper.SetDefault("guardrails.providers.presidio.language", "en")
+	viper.SetDefault("guardrails.providers.presidio.timeout", "10s")
+	viper.SetDefault("guardrails.providers.lakera.base_url", "https://api.lakera.ai")
+	viper.SetDefault("guardrails.providers.lakera.timeout", "5s")
+	viper.SetDefault("guardrails.providers.openai.base_url", "https://api.openai.com/v1")
+	viper.SetDefault("guardrails.providers.openai.timeout", "30s")
+	viper.SetDefault("guardrails.providers.aporia.timeout", "10s")
 }
 
 func bindEnvVars() {
