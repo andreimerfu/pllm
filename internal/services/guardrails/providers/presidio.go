@@ -163,16 +163,17 @@ func (p *PresidioGuardrail) Execute(ctx context.Context, input *types.GuardrailI
 	}
 	
 	if hasEntities {
-		if p.mode == types.PreCall {
+		switch p.mode {
+		case types.PreCall:
 			// For pre_call, mask PII but allow request
 			result.Modified = true
 			result.ModifiedRequest = modifiedRequest
 			result.Reason = fmt.Sprintf("PII detected and masked (%d entities)", totalEntities)
-		} else if p.mode == types.PostCall {
+		case types.PostCall:
 			// For post_call, we could either block or just log
 			// For now, just log the detection
 			result.Reason = fmt.Sprintf("PII detected in response (%d entities)", totalEntities)
-		} else if p.mode == types.LoggingOnly {
+		case types.LoggingOnly:
 			// For logging_only, always mask
 			result.Modified = true
 			result.ModifiedRequest = modifiedRequest
@@ -245,7 +246,12 @@ func (p *PresidioGuardrail) analyzeText(ctx context.Context, text string) ([]Pre
 	if err != nil {
 		return nil, fmt.Errorf("failed to call analyzer: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail the request
+			fmt.Printf("Warning: failed to close response body: %v\n", err)
+		}
+	}()
 	
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("analyzer returned status %d", resp.StatusCode)
@@ -322,7 +328,12 @@ func (p *PresidioGuardrail) anonymizeText(ctx context.Context, text string, enti
 	if err != nil {
 		return text, fmt.Errorf("failed to call anonymizer: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail the request
+			fmt.Printf("Warning: failed to close response body: %v\n", err)
+		}
+	}()
 	
 	if resp.StatusCode != http.StatusOK {
 		return text, fmt.Errorf("anonymizer returned status %d", resp.StatusCode)
@@ -405,7 +416,12 @@ func (p *PresidioGuardrail) checkEndpoint(ctx context.Context, url string) error
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail the request
+			fmt.Printf("Warning: failed to close response body: %v\n", err)
+		}
+	}()
 	
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("endpoint returned status %d", resp.StatusCode)
