@@ -1,0 +1,148 @@
+name: Update Helm Repository
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Chart version to package (e.g., 1.0.0). Leave empty to use Chart.yaml version.'
+        required: false
+        type: string
+      force_rebuild:
+        description: 'Force rebuild of all charts'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  update-helm-repo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.12.0'
+
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo add dexidp https://charts.dexidp.io
+          helm repo update
+
+      - name: Get chart version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(grep '^version:' deploy/helm/pllm/Chart.yaml | cut -d' ' -f2)
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Chart version: $VERSION"
+
+      - name: Update Helm dependencies
+        run: |
+          cd deploy/helm/pllm
+          helm dependency update
+
+      - name: Package Helm chart
+        run: |
+          cd deploy/helm
+          helm package pllm --version ${{ env.VERSION }}
+          ls -la *.tgz
+
+      - name: Setup or update gh-pages branch
+        run: |
+          # Check if gh-pages branch exists
+          if git ls-remote --exit-code --heads origin gh-pages; then
+            echo "gh-pages branch exists, checking it out"
+            git fetch origin gh-pages:gh-pages
+            git checkout gh-pages
+          else
+            echo "Creating new gh-pages branch"
+            git checkout --orphan gh-pages
+            git rm -rf .
+            echo "# PLLM Helm Repository" > README.md
+            echo "" >> README.md
+            echo "This repository serves Helm charts for PLLM via GitHub Pages." >> README.md
+            echo "" >> README.md
+            echo "## Usage" >> README.md
+            echo "" >> README.md
+            echo '```bash' >> README.md
+            echo "helm repo add pllm https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> README.md
+            echo "helm repo update" >> README.md
+            echo "helm install pllm pllm/pllm" >> README.md
+            echo '```' >> README.md
+            git add README.md
+            git commit -m "Initial gh-pages setup"
+            git push origin gh-pages
+          fi
+
+      - name: Copy packaged chart to gh-pages
+        run: |
+          cp deploy/helm/pllm-${{ env.VERSION }}.tgz .
+          echo "Chart file copied: pllm-${{ env.VERSION }}.tgz"
+
+      - name: Generate or update Helm repository index
+        run: |
+          if [ "${{ github.event.inputs.force_rebuild }}" == "true" ]; then
+            echo "Force rebuilding repository index"
+            helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+          else
+            # Try to update existing index
+            if [ -f index.yaml ]; then
+              echo "Updating existing repository index"
+              helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ --merge index.yaml
+            else
+              echo "Creating new repository index"
+              helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+            fi
+          fi
+
+      - name: Commit and push changes
+        run: |
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Add/update Helm chart version ${{ env.VERSION }}"
+            git push origin gh-pages
+          fi
+
+      - name: Upload chart to GitHub Release (if exists)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG="v${{ env.VERSION }}"
+          if gh release view $RELEASE_TAG > /dev/null 2>&1; then
+            echo "Release $RELEASE_TAG exists, uploading chart"
+            gh release upload $RELEASE_TAG pllm-${{ env.VERSION }}.tgz --clobber || true
+          else
+            echo "Release $RELEASE_TAG does not exist, skipping upload"
+          fi
+
+      - name: Verify repository
+        run: |
+          echo "🎉 Helm repository updated successfully!"
+          echo ""
+          echo "📦 Chart: pllm-${{ env.VERSION }}.tgz"
+          echo "🔗 Repository URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          echo ""
+          echo "📋 Usage:"
+          echo "helm repo add pllm https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          echo "helm repo update"
+          echo "helm install pllm pllm/pllm --version ${{ env.VERSION }}"
