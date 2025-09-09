@@ -165,3 +165,4 @@ AGENTS.md
 .mcp.json
 
 .serena/
+node_modules/

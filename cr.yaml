@@ -1,5 +1,0 @@
-owner: andreimerfu
-git-repo: pllm
-charts-repo: https://andreimerfu.github.io/pllm
-release-name-template: "{{ .Name }}-{{ .Version }}"
-skip-existing: true

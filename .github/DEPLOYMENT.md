@@ -71,40 +71,46 @@ Enable GitHub Pages for Helm chart repository:
 
 | Workflow | Trigger | Description |
 |----------|---------|-------------|
-| `ci.yml` | Push to `main`/`develop`, PRs | Run tests and security scans |
-| `docker-build.yml` | Push to `main`/`develop`, tags `v*` | Build and push Docker images |
-| `helm-release.yml` | Tags `v*` | Release Helm charts |
-| `release.yml` | Tags `v*` | Create GitHub releases |
+| `ci.yml` | PRs to `main`/`develop`, push to `develop` | Run tests and security scans |
+| `semantic-release.yml` | Push to `main` | Analyze commits and create releases |
+| `docker-latest.yml` | Manual trigger | Build latest Docker image |
 
 ### Manual Triggers
 
 Some workflows support manual triggering:
 
 ```bash
-# Trigger Helm release manually
-gh workflow run helm-release.yml
+# Trigger latest Docker build manually
+gh workflow run docker-latest.yml
 
-# Trigger full release process
-gh workflow run release.yml
+# Trigger semantic release manually (if needed)
+gh workflow run semantic-release.yml
 ```
 
 ## Release Process
 
-### Automatic Release (Recommended)
+### Automatic Release (Semantic Release - Recommended)
 
-1. **Create Release Tag:**
+1. **Use Conventional Commits:**
    ```bash
-   git tag v1.2.3
-   git push origin v1.2.3
+   feat: ✨ add OpenAI GPT-4 provider support
+   fix: 🐛 resolve memory leak in streaming responses
+   feat!: 💥 redesign configuration file format  # Breaking change
    ```
 
-2. **Automated Steps:**
-   - Creates GitHub release with changelog
-   - Builds and pushes Docker images (`amerfu/pllm:1.2.3`)
-   - Packages and publishes Helm chart
-   - Updates chart repository index
-   - Publishes to ArtifactHub (if configured)
-   - Sends notifications (if configured)
+2. **Push to Main Branch:**
+   ```bash
+   git push origin main
+   ```
+
+3. **Automated Steps (semantic-release):**
+   - Analyzes commit messages since last release
+   - Determines version bump (patch/minor/major)
+   - Generates changelog automatically
+   - Creates Git tag and GitHub release
+   - Builds and pushes Docker images with version tags
+   - Packages and publishes Helm chart to GitHub Pages
+   - Updates Helm repository index
 
 ### Manual Release
 
