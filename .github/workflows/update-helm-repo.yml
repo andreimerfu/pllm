@@ -103,10 +103,16 @@ jobs:
             echo "Force rebuilding repository index"
             helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
           else
-            # Try to update existing index
+            # Try to update existing index, but validate it first
             if [ -f index.yaml ]; then
-              echo "Updating existing repository index"
-              helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ --merge index.yaml
+              echo "Checking existing index.yaml"
+              if helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ --merge index.yaml 2>/dev/null; then
+                echo "Successfully updated existing repository index"
+              else
+                echo "Existing index.yaml is invalid, rebuilding from scratch"
+                rm -f index.yaml
+                helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+              fi
             else
               echo "Creating new repository index"
               helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
