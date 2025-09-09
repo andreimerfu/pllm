@@ -12,7 +12,11 @@ server:
 
 # Database Configuration
 database:
-  url: ${DATABASE_URL}
+  {{- if .Values.postgresql.enabled }}
+  url: "postgres://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "pllm.fullname" . }}-postgresql:5432/{{ .Values.postgresql.auth.database }}?sslmode=disable"
+  {{- else }}
+  url: {{ .Values.pllm.secrets.databaseUrl | quote }}
+  {{- end }}
   max_open_conns: {{ .Values.pllm.config.database.maxOpenConns }}
   max_idle_conns: {{ .Values.pllm.config.database.maxIdleConns }}
   conn_max_lifetime: 300s
@@ -20,7 +24,11 @@ database:
 
 # Redis Configuration
 redis:
-  url: ${REDIS_URL}
+  {{- if .Values.redis.enabled }}
+  url: "redis://:{{ .Values.redis.auth.password }}@{{ include "pllm.fullname" . }}-redis-master:6379/0"
+  {{- else }}
+  url: {{ .Values.pllm.secrets.redisUrl | quote }}
+  {{- end }}
   pool_size: 10
   min_idle_conns: 5
   dial_timeout: 5s
@@ -46,7 +54,7 @@ rate_limit:
 
 # JWT Configuration
 jwt:
-  secret_key: ${JWT_SECRET_KEY}
+  secret_key: {{ .Values.pllm.secrets.jwtSecret | quote }}
   expiry: 24h
   refresh_expiry: 168h
 
@@ -58,15 +66,22 @@ admin:
 
 # Authentication Configuration
 auth:
-  master_key: ${PLLM_MASTER_KEY}
+  master_key: {{ .Values.pllm.secrets.masterKey | quote }}
   require_auth: true
   api_key_header: "Authorization"
   dex:
     enabled: {{ .Values.dex.enabled }}
-    issuer: ${DEX_ISSUER}
-    public_issuer: ${DEX_PUBLIC_ISSUER}
-    client_id: ${DEX_CLIENT_ID}
-    client_secret: ${DEX_CLIENT_SECRET}
+    {{- if .Values.dex.enabled }}
+    issuer: {{ printf "http://%s-dex.%s.svc.cluster.local:5556/dex" (include "pllm.fullname" .) .Release.Namespace | quote }}
+    public_issuer: {{ .Values.pllm.config.auth.dex.publicIssuer | default (printf "http://%s-dex.%s.svc.cluster.local:5556/dex" (include "pllm.fullname" .) .Release.Namespace) | quote }}
+    client_id: {{ .Values.pllm.config.auth.dex.clientId | quote }}
+    client_secret: {{ index .Values.dex.config.staticClients 0 "secret" | quote }}
+    {{- else }}
+    issuer: {{ .Values.pllm.config.auth.dex.issuer | quote }}
+    public_issuer: {{ .Values.pllm.config.auth.dex.publicIssuer | quote }}
+    client_id: {{ .Values.pllm.config.auth.dex.clientId | quote }}
+    client_secret: {{ .Values.pllm.secrets.dexClientSecret | quote }}
+    {{- end }}
     redirect_url: "http://localhost:8080/auth/callback"
     scopes: ["openid", "profile", "email", "groups"]
     {{- if .Values.pllm.config.auth.dex.enabledProviders }}
@@ -150,7 +165,7 @@ model_list:
   - model_name: default-gpt-3.5-turbo
     params:
       model: gpt-3.5-turbo
-      api_key: ${OPENAI_API_KEY}
+      api_key: {{ .Values.pllm.secrets.openaiApiKey | quote }}
     rpm: 500
     tpm: 90000
 {{- end }}
