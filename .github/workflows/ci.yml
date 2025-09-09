@@ -87,6 +87,7 @@ jobs:
         run: make build
 
       - name: Upload coverage reports to Codecov
+        if: secrets.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

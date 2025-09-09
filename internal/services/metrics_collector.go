@@ -134,7 +134,7 @@ func (mc *MetricsCollector) collectSystemMetrics(timestamp time.Time, systemStat
 	}
 
 	since := timestamp.Add(-1 * time.Minute)
-	err := mc.db.Raw(`
+	err := mc.db.WithContext(mc.ctx).Raw(`
 		SELECT 
 			COUNT(*) as total_requests,
 			SUM(CASE WHEN error != '' AND error IS NOT NULL THEN 1 ELSE 0 END) as failed_requests,
@@ -179,7 +179,7 @@ func (mc *MetricsCollector) collectSystemMetrics(timestamp time.Time, systemStat
 		CacheHitRate:   cacheHitRate,
 	}
 
-	if err := mc.db.Create(&systemMetrics).Error; err != nil {
+	if err := mc.db.WithContext(mc.ctx).Create(&systemMetrics).Error; err != nil {
 		mc.logger.Error("Failed to save system metrics", zap.Error(err))
 	}
 }
@@ -203,7 +203,7 @@ func (mc *MetricsCollector) collectModelMetrics(timestamp time.Time, loadBalance
 		}
 
 		since := timestamp.Add(-1 * time.Minute)
-		err := mc.db.Raw(`
+		err := mc.db.WithContext(mc.ctx).Raw(`
 			SELECT 
 				COUNT(*) as total_requests,
 				SUM(CASE WHEN error != '' AND error IS NOT NULL THEN 1 ELSE 0 END) as failed_requests,
@@ -224,7 +224,7 @@ func (mc *MetricsCollector) collectModelMetrics(timestamp time.Time, loadBalance
 
 		// Get latency data for percentile calculations
 		var latencies []int64
-		mc.db.Raw(`
+		mc.db.WithContext(mc.ctx).Raw(`
 			SELECT latency 
 			FROM usage_logs 
 			WHERE model = ? AND timestamp >= ? AND timestamp < ? 
@@ -283,7 +283,7 @@ func (mc *MetricsCollector) collectModelMetrics(timestamp time.Time, loadBalance
 			CircuitFailures: getInt64Value(modelMap, "failed_requests"),
 		}
 
-		if err := mc.db.Create(&modelMetrics).Error; err != nil {
+		if err := mc.db.WithContext(mc.ctx).Create(&modelMetrics).Error; err != nil {
 			mc.logger.Error("Failed to save model metrics",
 				zap.String("model", modelName),
 				zap.Error(err))
@@ -306,7 +306,7 @@ func (mc *MetricsCollector) collectUsageMetrics(timestamp time.Time) {
 		ModelUsage    string
 	}
 
-	err := mc.db.Raw(`
+	err := mc.db.WithContext(mc.ctx).Raw(`
 		SELECT 
 			actual_user_id as user_id,
 			COUNT(*) as total_requests,
@@ -346,7 +346,7 @@ func (mc *MetricsCollector) collectUsageMetrics(timestamp time.Time) {
 				ModelUsage:    stat.ModelUsage,
 			}
 
-			if err := mc.db.Create(&userMetrics).Error; err != nil {
+			if err := mc.db.WithContext(mc.ctx).Create(&userMetrics).Error; err != nil {
 				mc.logger.Error("Failed to save user metrics",
 					zap.String("user_id", stat.UserID),
 					zap.Error(err))
@@ -365,7 +365,7 @@ func (mc *MetricsCollector) collectUsageMetrics(timestamp time.Time) {
 		ModelUsage    string
 	}
 
-	err = mc.db.Raw(`
+	err = mc.db.WithContext(mc.ctx).Raw(`
 		SELECT 
 			team_id,
 			COUNT(*) as total_requests,
@@ -399,7 +399,7 @@ func (mc *MetricsCollector) collectUsageMetrics(timestamp time.Time) {
 			budgetUsed := 0.0
 			// Get team budget info to calculate budget usage
 			var team models.Team
-			if err := mc.db.First(&team, "id = ?", stat.TeamID).Error; err == nil {
+			if err := mc.db.WithContext(mc.ctx).First(&team, "id = ?", stat.TeamID).Error; err == nil {
 				if team.MaxBudget > 0 {
 					budgetUsed = (stat.CurrentSpend / team.MaxBudget) * 100
 				}
@@ -418,7 +418,7 @@ func (mc *MetricsCollector) collectUsageMetrics(timestamp time.Time) {
 				ModelUsage:    stat.ModelUsage,
 			}
 
-			if err := mc.db.Create(&teamMetrics).Error; err != nil {
+			if err := mc.db.WithContext(mc.ctx).Create(&teamMetrics).Error; err != nil {
 				mc.logger.Error("Failed to save team metrics",
 					zap.String("team_id", stat.TeamID),
 					zap.Error(err))
