@@ -61,7 +61,8 @@ userManager.events.addAccessTokenExpired(async () => {
       console.log("Master key token expired, clearing session");
       await userManager.removeUser();
       localStorage.removeItem("authToken");
-      // Don't trigger automatic renewal for master key users
+      // Redirect to login page
+      window.location.href = "/ui/login";
       return;
     }
   } catch (error) {
@@ -126,9 +127,13 @@ export function OIDCAuthProvider({ children }: { children: ReactNode }) {
                                 currentUser.profile?.sub === "master-key-user";
         
         if (isMasterKeyUser) {
-          console.log("Master key user session expired, redirecting to login");
+          console.log("Master key user session expired, clearing session and redirecting to login");
           setUser(null);
           localStorage.removeItem("authToken");
+          await userManager.removeUser();
+          // Use window.location for immediate redirect since we're in an async context
+          window.location.href = "/ui/login";
+          return;
         } else {
           // Try to silently renew the token for regular OAuth users
           try {
