@@ -7,24 +7,6 @@ help: ## Show this help message
 
 ##@ Development
 
-##@ Helm
-
-.PHONY: helm-validate
-helm-validate: ## Validate Helm chart
-	@./scripts/helm-validate.sh
-
-.PHONY: helm-package
-helm-package: ## Package Helm chart
-	@cd deploy/helm && helm package pllm
-
-.PHONY: helm-install
-helm-install: ## Install Helm chart locally (requires k8s cluster)
-	@helm upgrade --install pllm deploy/helm/pllm --create-namespace --namespace pllm-system
-
-.PHONY: helm-uninstall
-helm-uninstall: ## Uninstall Helm chart
-	@helm uninstall pllm --namespace pllm-system
-
 .PHONY: deps
 deps: ## Install Go dependencies
 	go mod download
@@ -353,7 +335,7 @@ redis-shell: ## Open Redis shell
 ##@ Testing
 
 .PHONY: test
-test:
+test: swagger ## Run tests (generates swagger docs first)
 	mkdir -p internal/ui/dist
 	mkdir -p internal/docs/dist
 	touch internal/ui/dist/index.html
@@ -361,7 +343,7 @@ test:
 	go test -v ./...
 
 .PHONY: test-coverage
-test-coverage: ## Run tests with coverage
+test-coverage: swagger ## Run tests with coverage
 	mkdir -p internal/ui/dist
 	mkdir -p internal/docs/dist
 	touch internal/ui/dist/index.html
