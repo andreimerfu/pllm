@@ -48,9 +48,9 @@ ingress:
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
-    
+
     # WebSocket support examples for different ingress controllers:
-    # 
+    #
     # NGINX Ingress Controller:
     # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     # nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
@@ -71,7 +71,7 @@ ingress:
     #
     # HAProxy:
     # haproxy.org/timeout-tunnel: "3600s"
-    
+
   hosts:
     - host: chart-example.local
       paths:
@@ -161,9 +161,10 @@ pllm:
       masterKey: "" # Use secret
       dex:
         issuer: "" # Backend internal URL - Will be auto-configured if dex is enabled
-        publicIssuer: "" # Frontend public URL - Defaults to issuer if not set
-        clientId: pllm
+        publicIssuer: "" # Frontend public URL - e.g., "https://auth.your-domain.com/dex"
+        clientId: pllm-web
         clientSecret: "" # Use secret
+        redirectUrl: "" # OAuth callback URL - e.g., "https://your-domain.com/auth/callback"
         enabledProviders: [] # OAuth providers to enable in login page, e.g., ["github", "google"]
 
     # Provider API keys
@@ -202,7 +203,7 @@ pllm:
       readBufferSize: 4096
       writeBufferSize: 4096
       sessionStoreType: "redis" # "memory" or "redis"
-      redisPrefix: "pllm:realtime:"
+      redisPrefix: "pllm:realtime"
 
   # Environment variables
   env: []
@@ -264,11 +265,25 @@ dex:
       http: 0.0.0.0:5556
       allowedOrigins: ["*"]
     staticClients:
-      - id: pllm
+      - id: pllm-web
         redirectURIs:
-          - "http://localhost:3000/auth/callback"
-        name: "PLLM"
-        secret: pllm-client-secret
+          {{- if .Values.pllm.config.auth.dex.redirectUrl }}
+          - {{ .Values.pllm.config.auth.dex.redirectUrl | quote }}
+          {{- end }}
+          # Add your actual redirect URLs here when deploying:
+          # - "https://your-domain.com/auth/callback"  
+          # - "https://your-domain.com/ui/callback"
+        name: "PLLM Web UI"
+        secret: pllm-web-secret
+        grantTypes:
+          - authorization_code
+          - refresh_token
+        scopes:
+          - openid
+          - profile
+          - email
+          - groups
+          - offline_access
     connectors:
       - type: mockCallback
         id: mock

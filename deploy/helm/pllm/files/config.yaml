@@ -72,7 +72,9 @@ auth:
   dex:
     enabled: {{ .Values.dex.enabled }}
     {{- if .Values.dex.enabled }}
+    # Internal service URL for backend token validation
     issuer: {{ printf "http://%s-dex.%s.svc.cluster.local:5556/dex" (include "pllm.fullname" .) .Release.Namespace | quote }}
+    # Public URL for browser OAuth flows (should be your ingress URL)
     public_issuer: {{ .Values.pllm.config.auth.dex.publicIssuer | default (printf "http://%s-dex.%s.svc.cluster.local:5556/dex" (include "pllm.fullname" .) .Release.Namespace) | quote }}
     client_id: {{ .Values.pllm.config.auth.dex.clientId | quote }}
     client_secret: {{ index .Values.dex.config.staticClients 0 "secret" | quote }}
@@ -82,7 +84,7 @@ auth:
     client_id: {{ .Values.pllm.config.auth.dex.clientId | quote }}
     client_secret: {{ .Values.pllm.secrets.dexClientSecret | quote }}
     {{- end }}
-    redirect_url: "http://localhost:8080/auth/callback"
+    redirect_url: {{ .Values.pllm.config.auth.dex.redirectUrl | default "http://localhost:8080/auth/callback" | quote }}
     scopes: ["openid", "profile", "email", "groups"]
     {{- if .Values.pllm.config.auth.dex.enabledProviders }}
     enabled_providers:
