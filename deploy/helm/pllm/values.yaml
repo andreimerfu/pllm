@@ -267,9 +267,6 @@ dex:
     staticClients:
       - id: pllm-web
         redirectURIs:
-          {{- if .Values.pllm.config.auth.dex.redirectUrl }}
-          - {{ .Values.pllm.config.auth.dex.redirectUrl | quote }}
-          {{- end }}
           # Add your actual redirect URLs here when deploying:
           # - "https://your-domain.com/auth/callback"  
           # - "https://your-domain.com/ui/callback"
