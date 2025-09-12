@@ -1,6 +1,9 @@
 package models
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,7 +29,7 @@ type Budget struct {
 	Team   *Team      `gorm:"foreignKey:TeamID" json:"-"`
 
 	// Actions
-	Actions []BudgetAction `gorm:"type:jsonb" json:"actions,omitempty"`
+	Actions BudgetActions `gorm:"type:jsonb" json:"actions,omitempty"`
 
 	// Metadata
 	Metadata map[string]interface{} `gorm:"type:jsonb" json:"metadata,omitempty"`
@@ -55,6 +58,32 @@ type BudgetAction struct {
 	Action     string     `json:"action"`
 	Executed   bool       `json:"executed"`
 	ExecutedAt *time.Time `json:"executed_at,omitempty"`
+}
+
+// BudgetActions is a custom type that implements GORM interfaces for JSONB
+type BudgetActions []BudgetAction
+
+// Value implements driver.Valuer interface for GORM
+func (a BudgetActions) Value() (driver.Value, error) {
+	if len(a) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(a)
+}
+
+// Scan implements sql.Scanner interface for GORM
+func (a *BudgetActions) Scan(value interface{}) error {
+	if value == nil {
+		*a = nil
+		return nil
+	}
+	
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.New("cannot scan non-byte value into BudgetActions")
+	}
+	
+	return json.Unmarshal(bytes, a)
 }
 
 func (b *Budget) GetRemainingBudget() float64 {

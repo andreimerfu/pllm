@@ -405,7 +405,7 @@ func (s *Seeder) SeedBudgets() error {
 			EndsAt:   time.Now().AddDate(0, 1, 0),
 			IsActive: true,
 			AlertAt:  80,
-			Actions: []models.BudgetAction{
+			Actions: models.BudgetActions{
 				{
 					Threshold: 50,
 					Action:    "alert",
