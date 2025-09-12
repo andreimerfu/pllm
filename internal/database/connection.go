@@ -106,13 +106,13 @@ func Initialize(cfg *Config) error {
 func shouldAutoSeed() bool {
 	// Skip seeding if disabled via environment variable
 	if os.Getenv("DB_AUTO_SEED") == "true" {
-		return true
+		// Check if database has any users
+		var count int64
+		DB.Model(&models.User{}).Count(&count)
+		return count == 0
 	}
 
-	// Check if database has any users
-	var count int64
-	DB.Model(&models.User{}).Count(&count)
-	return count == 0
+	return false
 }
 
 func RunInitialSeed() error {
