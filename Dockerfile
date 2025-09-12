@@ -93,6 +93,9 @@ COPY --from=builder /app/docs ./docs
 # Copy config file (if exists)
 COPY --chown=pllm:pllm config.yaml* ./
 
+# Copy pricing file
+COPY --from=builder --chown=pllm:pllm /app/internal/config/model_prices_and_context_window.json ./internal/config/
+
 # Change ownership
 RUN chown -R pllm:pllm /app
 
