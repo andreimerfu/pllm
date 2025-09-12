@@ -105,8 +105,8 @@ func Initialize(cfg *Config) error {
 
 func shouldAutoSeed() bool {
 	// Skip seeding if disabled via environment variable
-	if os.Getenv("DB_AUTO_SEED") == "false" {
-		return false
+	if os.Getenv("DB_AUTO_SEED") == "true" {
+		return true
 	}
 
 	// Check if database has any users
