@@ -397,6 +397,9 @@ func (s *Seeder) SeedBudgets() error {
 
 	budgets := []models.Budget{
 		{
+			BaseModel: models.BaseModel{
+				ID: uuid.MustParse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+			},
 			Name:     "Global Monthly Budget",
 			Type:     models.BudgetTypeGlobal,
 			Amount:   100000,
@@ -425,6 +428,9 @@ func (s *Seeder) SeedBudgets() error {
 			},
 		},
 		{
+			BaseModel: models.BaseModel{
+				ID: uuid.MustParse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+			},
 			Name:     "User Daily Budget",
 			Type:     models.BudgetTypeUser,
 			UserID:   &userID,
@@ -436,6 +442,9 @@ func (s *Seeder) SeedBudgets() error {
 			AlertAt:  75,
 		},
 		{
+			BaseModel: models.BaseModel{
+				ID: uuid.MustParse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
+			},
 			Name:     "Engineering Team Budget",
 			Type:     models.BudgetTypeTeam,
 			TeamID:   &teamID,
