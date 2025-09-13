@@ -172,10 +172,10 @@ func createIndexes() error {
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_keys_is_active ON keys(is_active)")
 
 	// Virtual Key indexes (legacy, for backward compatibility)
-	DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_key ON virtual_keys(key)")
-	DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_user_id ON virtual_keys(user_id)")
-	DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_team_id ON virtual_keys(team_id)")
-	DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_is_active ON virtual_keys(is_active)")
+	// DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_key ON virtual_keys(key)")
+	// DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_user_id ON virtual_keys(user_id)")
+	// DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_team_id ON virtual_keys(team_id)")
+	// DB.Exec("CREATE INDEX IF NOT EXISTS idx_virtual_keys_is_active ON virtual_keys(is_active)")
 
 	// Team indexes
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_teams_name ON teams(name)")
@@ -187,10 +187,10 @@ func createIndexes() error {
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_team_members_team_user ON team_members(team_id, user_id)")
 
 	// API Key indexes (legacy, kept for backward compatibility)
-	DB.Exec("CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)")
-	DB.Exec("CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix)")
-	DB.Exec("CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)")
-	DB.Exec("CREATE INDEX IF NOT EXISTS idx_api_keys_group_id ON api_keys(group_id)")
+	// DB.Exec("CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)")
+	// DB.Exec("CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix)")
+	// DB.Exec("CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)")
+	// DB.Exec("CREATE INDEX IF NOT EXISTS idx_api_keys_group_id ON api_keys(group_id)")
 
 	// Usage indexes for analytics
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_logs(timestamp)")
