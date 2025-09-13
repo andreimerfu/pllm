@@ -130,7 +130,8 @@ export default function Login() {
       connector_id: provider,
     });
 
-    const authUrl = `http://localhost:5556/dex/auth?${params.toString()}`;
+    const dexIssuer = authConfig?.dex_public_issuer || "http://localhost:5556/dex";
+    const authUrl = `${dexIssuer}/auth?${params.toString()}`;
     console.log(`Redirecting to ${provider}:`, authUrl);
 
     // Redirect to the authorization endpoint

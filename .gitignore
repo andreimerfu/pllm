@@ -160,6 +160,7 @@ web/node_modules/*
 
 
 deploy/helm/values-test.yaml
+deploy/helm/values-minikube.yaml
 
 AGENTS.md
 .mcp.json
