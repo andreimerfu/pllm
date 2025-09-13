@@ -62,6 +62,47 @@ type ModelPricingInfo struct {
 	CustomData  map[string]interface{} `json:"custom_data,omitempty"`
 }
 
+// UnmarshalJSON implements custom JSON unmarshaling to handle mixed data types
+// for max_tokens fields that can be either integers (for real models) or strings (for documentation)
+func (m *ModelPricingInfo) UnmarshalJSON(data []byte) error {
+	// Create a temporary struct with interface{} types for problematic fields
+	type Alias ModelPricingInfo
+	aux := &struct {
+		MaxTokens       interface{} `json:"max_tokens"`
+		MaxInputTokens  interface{} `json:"max_input_tokens"`
+		MaxOutputTokens interface{} `json:"max_output_tokens"`
+		*Alias
+	}{
+		Alias: (*Alias)(m),
+	}
+
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+
+	// Helper function to convert interface{} to int, treating strings as 0
+	convertToInt := func(val interface{}) int {
+		switch v := val.(type) {
+		case float64:
+			return int(v)
+		case int:
+			return v
+		case string:
+			// If it's a string (documentation), treat as 0
+			return 0
+		default:
+			return 0
+		}
+	}
+
+	// Convert the interface{} values to int
+	m.MaxTokens = convertToInt(aux.MaxTokens)
+	m.MaxInputTokens = convertToInt(aux.MaxInputTokens)
+	m.MaxOutputTokens = convertToInt(aux.MaxOutputTokens)
+
+	return nil
+}
+
 // ModelPricingManager handles model pricing information with override support
 type ModelPricingManager struct {
 	mu             sync.RWMutex
@@ -140,9 +181,14 @@ func (pm *ModelPricingManager) LoadDefaultPricing(configDir string) error {
 		return fmt.Errorf("failed to parse pricing JSON: %w", err)
 	}
 	
-	// Set source for all default pricing
-	for _, info := range pricingData {
+	// Filter out documentation entries and set source for all default pricing
+	for modelName, info := range pricingData {
 		if info != nil {
+			// Skip documentation entries
+			if modelName == "sample_spec" {
+				delete(pricingData, modelName)
+				continue
+			}
 			info.Source = "default"
 			info.LastUpdated = time.Now()
 		}
