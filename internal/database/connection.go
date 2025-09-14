@@ -195,13 +195,13 @@ func createIndexes() error {
 	// Usage indexes for analytics
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_logs(timestamp)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_usage_user_id_timestamp ON usage_logs(user_id, timestamp)")
-	DB.Exec("CREATE INDEX IF NOT EXISTS idx_usage_group_id_timestamp ON usage_logs(group_id, timestamp)")
+	// DB.Exec("CREATE INDEX IF NOT EXISTS idx_usage_group_id_timestamp ON usage_logs(group_id, timestamp)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_usage_provider_model ON usage_logs(provider, model)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_usage_request_id ON usage_logs(request_id)")
 
 	// Budget indexes
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id)")
-	DB.Exec("CREATE INDEX IF NOT EXISTS idx_budgets_group_id ON budgets(group_id)")
+	// DB.Exec("CREATE INDEX IF NOT EXISTS idx_budgets_group_id ON budgets(group_id)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_budgets_type_period ON budgets(type, period)")
 
 	// Provider indexes
