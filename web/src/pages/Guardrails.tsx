@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Shield, Activity, Clock, AlertTriangle, CheckCircle, XCircle, Plus, Settings, Trash2, Edit3, MoreHorizontal, ArrowUpDown } from "lucide-react";
 import { Bar, BarChart } from "recharts";
 import {
@@ -16,13 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import {
   Table,
@@ -41,9 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChartConfig, ChartContainer } from "@/components/ui/chart";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+
 
 interface GuardrailInfo {
   name: string;
@@ -65,22 +58,7 @@ interface GuardrailInfo {
   healthy: boolean;
 }
 
-// Form schema for adding/editing guardrails
-const guardrailFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  provider: z.string().min(1, "Provider is required"),
-  modes: z.array(z.string()).min(1, "At least one execution mode is required"),
-  enabled: z.boolean().default(true),
-  analyzer_url: z.string().url("Must be a valid URL"),
-  anonymizer_url: z.string().url("Must be a valid URL").optional(),
-  threshold: z.number().min(0).max(1).default(0.7),
-  entities: z.array(z.string()).min(1, "At least one PII entity is required"),
-  anonymize_method: z.string().default("replace"),
-  mask_pii: z.boolean().default(true),
-  language: z.string().default("en")
-});
 
-type GuardrailFormData = z.infer<typeof guardrailFormSchema>;
 
 // Microsoft icon component for Presidio
 const MicrosoftIcon = () => (
@@ -88,13 +66,6 @@ const MicrosoftIcon = () => (
     <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z" fill="#00BCF2"/>
   </svg>
 );
-
-const EXECUTION_MODES = [
-  { value: "pre_call", label: "Pre-call", description: "Execute before sending to LLM" },
-  { value: "post_call", label: "Post-call", description: "Execute after LLM response" },
-  { value: "during_call", label: "During-call", description: "Execute in parallel with LLM" },
-  { value: "logging_only", label: "Logging only", description: "Log violations without blocking" }
-];
 
 const PII_ENTITIES = [
   { value: "PERSON", label: "Person Names" },
@@ -106,18 +77,6 @@ const PII_ENTITIES = [
   { value: "US_DRIVER_LICENSE", label: "US Driver Licenses" },
   { value: "US_PASSPORT", label: "US Passports" },
   { value: "US_BANK_NUMBER", label: "US Bank Numbers" }
-];
-
-const ANONYMIZE_METHODS = [
-  { value: "replace", label: "Replace", description: "Replace with generic tokens" },
-  { value: "mask", label: "Mask", description: "Partially hide content" },
-  { value: "redact", label: "Redact", description: "Remove completely" },
-  { value: "encrypt", label: "Encrypt", description: "Encrypt the content" },
-  { value: "hash", label: "Hash", description: "Hash the content" }
-];
-
-const PROVIDERS = [
-  { value: "presidio", label: "Microsoft Presidio", icon: <MicrosoftIcon /> }
 ];
 
 // Microchart component for performance visualization
@@ -448,315 +407,10 @@ function GuardrailsTable({
 }
 
 
-// Add Guardrail Dialog Component
-function AddGuardrailDialog() {
-  const [open, setOpen] = useState(false);
-  const form = useForm<GuardrailFormData>({
-    resolver: zodResolver(guardrailFormSchema),
-    defaultValues: {
-      enabled: true,
-      threshold: 0.7,
-      anonymize_method: "replace",
-      mask_pii: true,
-      language: "en",
-      modes: ["pre_call"],
-      entities: ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER"]
-    }
-  });
 
-  const onSubmit = (data: GuardrailFormData) => {
-    console.log("Guardrail data:", data);
-    // TODO: Implement API call to create guardrail
-    setOpen(false);
-    form.reset();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Guardrail
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Add New Guardrail</DialogTitle>
-          <DialogDescription>
-            Create a new guardrail to protect your LLM interactions
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }: { field: any }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="my-pii-guardrail" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Unique name for this guardrail
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="provider"
-                render={({ field }: { field: any }) => (
-                  <FormItem>
-                    <FormLabel>Provider</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select provider" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {PROVIDERS.map((provider) => (
-                          <SelectItem key={provider.value} value={provider.value}>
-                            <div className="flex items-center gap-2">
-                              {provider.icon}
-                              {provider.label}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="enabled"
-              render={({ field }: { field: any }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <FormLabel className="text-base">Enable Guardrail</FormLabel>
-                    <FormDescription>
-                      Whether this guardrail should be active
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            <div className="space-y-4">
-              <FormLabel className="text-base font-semibold">Execution Modes</FormLabel>
-              <FormField
-                control={form.control}
-                name="modes"
-                render={() => (
-                  <FormItem>
-                    <div className="grid grid-cols-2 gap-4">
-                      {EXECUTION_MODES.map((mode) => (
-                        <FormField
-                          key={mode.value}
-                          control={form.control}
-                          name="modes"
-                          render={({ field }: { field: any }) => (
-                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value?.includes(mode.value)}
-                                  onCheckedChange={(checked: boolean) => {
-                                    return checked
-                                      ? field.onChange([...field.value, mode.value])
-                                      : field.onChange(field.value?.filter((value: string) => value !== mode.value));
-                                  }}
-                                />
-                              </FormControl>
-                              <div className="space-y-1 leading-none">
-                                <FormLabel>{mode.label}</FormLabel>
-                                <FormDescription className="text-xs">
-                                  {mode.description}
-                                </FormDescription>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-                      ))}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <Separator />
-
-            <div className="space-y-4">
-              <FormLabel className="text-base font-semibold">Presidio Configuration</FormLabel>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="analyzer_url"
-                  render={({ field }: { field: any }) => (
-                    <FormItem>
-                      <FormLabel>Analyzer URL</FormLabel>
-                      <FormControl>
-                        <Input placeholder="http://presidio-analyzer:3000" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Presidio analyzer service URL
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="anonymizer_url"
-                  render={({ field }: { field: any }) => (
-                    <FormItem>
-                      <FormLabel>Anonymizer URL (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="http://presidio-anonymizer:3000" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Presidio anonymizer service URL
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="threshold"
-                  render={({ field }: { field: any }) => (
-                    <FormItem>
-                      <FormLabel>Detection Threshold</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="1"
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Confidence threshold (0.0-1.0)
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="anonymize_method"
-                  render={({ field }: { field: any }) => (
-                    <FormItem>
-                      <FormLabel>Anonymization Method</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {ANONYMIZE_METHODS.map((method) => (
-                            <SelectItem key={method.value} value={method.value}>
-                              <div className="space-y-1">
-                                <div className="font-medium">{method.label}</div>
-                                <div className="text-xs text-muted-foreground">{method.description}</div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <FormLabel className="text-base font-semibold">PII Entities to Detect</FormLabel>
-              <FormField
-                control={form.control}
-                name="entities"
-                render={() => (
-                  <FormItem>
-                    <div className="grid grid-cols-3 gap-4">
-                      {PII_ENTITIES.map((entity) => (
-                        <FormField
-                          key={entity.value}
-                          control={form.control}
-                          name="entities"
-                          render={({ field }: { field: any }) => (
-                            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value?.includes(entity.value)}
-                                  onCheckedChange={(checked: boolean) => {
-                                    return checked
-                                      ? field.onChange([...field.value, entity.value])
-                                      : field.onChange(field.value?.filter((value: string) => value !== entity.value));
-                                  }}
-                                />
-                              </FormControl>
-                              <FormLabel className="text-sm font-normal">
-                                {entity.label}
-                              </FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                      ))}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="mask_pii"
-              render={({ field }: { field: any }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <FormLabel className="text-base">Mask PII</FormLabel>
-                    <FormDescription>
-                      Whether to mask detected PII in requests
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">Create Guardrail</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 export default function Guardrails() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedGuardrail, setSelectedGuardrail] = useState<GuardrailInfo | null>(null);
   
@@ -851,7 +505,19 @@ export default function Guardrails() {
           <Badge variant={systemEnabled ? "default" : "secondary"}>
             {systemEnabled ? "Enabled" : "Disabled"}
           </Badge>
-          <AddGuardrailDialog />
+          <Button 
+            variant="outline" 
+            onClick={() => navigate("/guardrails/marketplace")}
+          >
+            <Shield className="h-4 w-4 mr-2" />
+            Browse Marketplace
+          </Button>
+          <Button 
+            onClick={() => navigate("/guardrails/config/new")}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Guardrail
+          </Button>
         </div>
       </div>
 

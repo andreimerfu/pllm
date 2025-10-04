@@ -354,6 +354,14 @@ test-coverage: swagger ## Run tests with coverage
 test-integration: ## Run integration tests
 	go test -v -tags=integration ./...
 
+.PHONY: test-failover
+test-failover: ## Run failover and performance integration tests
+	go test -v -timeout=60s ./internal/services/integration/ -run="Test"
+
+.PHONY: test-performance
+test-performance: ## Run performance benchmarks and validate banking requirements
+	go test -v -timeout=60s ./internal/services/integration/ -run="TestPerformanceBenchmarks"
+
 .PHONY: lint
 lint: ## Run linter
 	@which golangci-lint > /dev/null || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
