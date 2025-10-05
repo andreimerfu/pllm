@@ -11,7 +11,7 @@ import (
 
 	"github.com/amerfu/pllm/internal/core/config"
 	"github.com/amerfu/pllm/internal/core/database"
-	"github.com/amerfu/pllm/internal/infrastructure/logger"
+	"github.com/amerfu/pllm/pkg/logger"
 	"github.com/amerfu/pllm/internal/api/router"
 	"github.com/amerfu/pllm/internal/services/data/cache"
 	"github.com/amerfu/pllm/internal/services/llm/models"

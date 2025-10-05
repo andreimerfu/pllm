@@ -11,7 +11,7 @@ import (
 
 	"github.com/amerfu/pllm/internal/core/auth"
 	"github.com/amerfu/pllm/internal/core/config"
-	"github.com/amerfu/pllm/internal/infrastructure/logger"
+	"github.com/amerfu/pllm/pkg/logger"
 	redisService "github.com/amerfu/pllm/internal/services/data/redis"
 	"github.com/amerfu/pllm/internal/services/monitoring/metrics"
 	"github.com/amerfu/pllm/internal/infrastructure/testutil"

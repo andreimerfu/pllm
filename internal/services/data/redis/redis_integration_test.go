@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/amerfu/pllm/internal/infrastructure/logger"
+	"github.com/amerfu/pllm/pkg/logger"
 	"github.com/amerfu/pllm/internal/infrastructure/testutil"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
