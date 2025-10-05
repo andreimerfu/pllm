@@ -9,6 +9,8 @@ import Budget from '@/pages/Budget'
 import Settings from '@/pages/Settings'
 import AuditLogs from '@/pages/AuditLogs'
 import Guardrails from '@/pages/Guardrails'
+import GuardrailConfig from '@/pages/GuardrailConfig'
+import GuardrailMarketplace from '@/pages/GuardrailMarketplace'
 import Chat from '@/pages/Chat'
 import Login from '@/pages/Login'
 import Callback from '@/pages/Callback'
@@ -51,6 +53,9 @@ function App() {
                       <Route path="/budget" element={<Budget />} />
                       <Route path="/audit-logs" element={<AuditLogs />} />
                       <Route path="/guardrails" element={<Guardrails />} />
+                      <Route path="/guardrails/marketplace" element={<GuardrailMarketplace />} />
+                      <Route path="/guardrails/config/new" element={<GuardrailConfig />} />
+                      <Route path="/guardrails/config/:id" element={<GuardrailConfig />} />
                       <Route path="/settings" element={<Settings />} />
                     </Routes>
                   </Layout>

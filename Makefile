@@ -27,10 +27,10 @@ web-build: ## Build frontend assets
 	cd web && npm run build
 
 .PHONY: ui-build
-ui-build: web-build ## Copy built frontend to internal/ui/dist for embedding
-	@mkdir -p internal/ui/dist
-	@cp -r web/dist/* internal/ui/dist/
-	@echo "✅ Frontend copied to internal/ui/dist/"
+ui-build: web-build ## Copy built frontend to internal/api/ui/dist for embedding
+	@mkdir -p internal/api/ui/dist
+	@cp -r web/dist/* internal/api/ui/dist/
+	@echo "✅ Frontend copied to internal/api/ui/dist/"
 
 .PHONY: build-worker
 build-worker: ## Build the worker binary for background processing
@@ -336,23 +336,31 @@ redis-shell: ## Open Redis shell
 
 .PHONY: test
 test: swagger ## Run tests (generates swagger docs first)
-	mkdir -p internal/ui/dist
-	mkdir -p internal/docs/dist
-	touch internal/ui/dist/index.html
-	touch internal/docs/dist/index.html
+	mkdir -p internal/api/ui/dist
+	mkdir -p internal/api/docs/dist
+	touch internal/api/ui/dist/index.html
+	touch internal/api/docs/dist/index.html
 	go test -v ./...
 
 .PHONY: test-coverage
 test-coverage: swagger ## Run tests with coverage
-	mkdir -p internal/ui/dist
-	mkdir -p internal/docs/dist
-	touch internal/ui/dist/index.html
-	touch internal/docs/dist/index.html
+	mkdir -p internal/api/ui/dist
+	mkdir -p internal/api/docs/dist
+	touch internal/api/ui/dist/index.html
+	touch internal/api/docs/dist/index.html
 	go test -v -cover -coverprofile=coverage.txt ./...
 
 .PHONY: test-integration
 test-integration: ## Run integration tests
 	go test -v -tags=integration ./...
+
+.PHONY: test-failover
+test-failover: ## Run failover and performance integration tests
+	go test -v -timeout=60s ./internal/services/integration/ -run="Test"
+
+.PHONY: test-performance
+test-performance: ## Run performance benchmarks and validate banking requirements
+	go test -v -timeout=60s ./internal/services/integration/ -run="TestPerformanceBenchmarks"
 
 .PHONY: lint
 lint: ## Run linter
@@ -375,7 +383,7 @@ install-tools: ## Install development tools
 .PHONY: swagger
 swagger: ## Generate Swagger documentation
 	@which swag > /dev/null || go install github.com/swaggo/swag/cmd/swag@latest
-	swag init -g cmd/server/main.go -o internal/handlers/swagger
+	swag init -g cmd/server/main.go -o internal/api/handlers/swagger
 
 ##@ Documentation
 
@@ -386,8 +394,8 @@ docs-dev: ## Run VitePress documentation in development mode
 .PHONY: docs-build
 docs-build: ## Build VitePress documentation
 	cd docs && npm run build
-	mkdir -p internal/docs/dist
-	cp -r docs/.vitepress/dist/* internal/docs/dist/
+	mkdir -p internal/api/docs/dist
+	cp -r docs/.vitepress/dist/* internal/api/docs/dist/
 
 .PHONY: docs-preview
 docs-preview: ## Preview built documentation
@@ -395,7 +403,7 @@ docs-preview: ## Preview built documentation
 
 .PHONY: clean
 clean: ## Clean build artifacts
-	rm -rf bin/ tmp/ coverage.* *.out internal/docs/dist
+	rm -rf bin/ tmp/ coverage.* *.out internal/api/docs/dist
 
 .PHONY: env-setup
 env-setup: ## Create .env file from example

@@ -57,7 +57,7 @@ docker-compose.override.yml
 *.db
 *.sqlite
 *.sqlite3
-data/
+
 
 # Cache and temporary files
 .cache/
@@ -94,12 +94,13 @@ docs/.vitepress/dist/
 docs/.vitepress/cache/
 
 # Generated Swagger documentation
-internal/handlers/swagger/docs.go
-internal/handlers/swagger/swagger.json
-internal/handlers/swagger/swagger.yaml
+internal/api/handlers/swagger/docs.go
+internal/api/handlers/swagger/swagger.json
+internal/api/handlers/swagger/swagger.yaml
 
 # Embedded documentation dist
-internal/docs/dist/
+internal/api/docs/dist/
+internal/api/ui/dist/
 
 # Claude specific files
 .claude/

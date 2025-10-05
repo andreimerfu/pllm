@@ -239,5 +239,3 @@ For production deployments:
 5. **Enable audit logging**
 6. **Use PostgreSQL with SSL**
 7. **Secure Redis connection**
-
-For detailed implementation, see [AUTH_IMPLEMENTATION_PLAN.md](AUTH_IMPLEMENTATION_PLAN.md).

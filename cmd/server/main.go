@@ -9,20 +9,20 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/amerfu/pllm/internal/config"
-	"github.com/amerfu/pllm/internal/database"
-	"github.com/amerfu/pllm/internal/logger"
-	"github.com/amerfu/pllm/internal/router"
-	"github.com/amerfu/pllm/internal/services/cache"
-	"github.com/amerfu/pllm/internal/services/models"
-	redisService "github.com/amerfu/pllm/internal/services/redis"
+	"github.com/amerfu/pllm/internal/core/config"
+	"github.com/amerfu/pllm/internal/core/database"
+	"github.com/amerfu/pllm/pkg/logger"
+	"github.com/amerfu/pllm/internal/api/router"
+	"github.com/amerfu/pllm/internal/services/data/cache"
+	"github.com/amerfu/pllm/internal/services/llm/models"
+	redisService "github.com/amerfu/pllm/internal/services/data/redis"
 	"github.com/amerfu/pllm/internal/services/worker"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	_ "github.com/amerfu/pllm/internal/handlers/swagger"
+	// _ "github.com/amerfu/pllm/internal/api/handlers/swagger" // TODO: Generate swagger docs
 )
 
 // @title pllm - Blazing Fast LLM Gateway
@@ -138,8 +138,38 @@ func main() {
 	// Services are now initialized in the router
 	// All authentication and management functionality is handled by the unified auth service
 
+	// Initialize Redis client early for model manager and worker
+	var redisClient *redis.Client
+	if appMode.RedisAvailable {
+		opt, err := redis.ParseURL(cfg.Redis.URL)
+		if err != nil {
+			log.Warn("Failed to parse Redis URL, continuing without Redis", zap.Error(err))
+			appMode.RedisAvailable = false
+		} else {
+			// Override with explicit password and DB if provided
+			if cfg.Redis.Password != "" {
+				opt.Password = cfg.Redis.Password
+			}
+			if cfg.Redis.DB != 0 {
+				opt.DB = cfg.Redis.DB
+			}
+
+			redisClient = redis.NewClient(opt)
+
+			// Test Redis connection
+			if err := redisClient.Ping(context.Background()).Err(); err != nil {
+				log.Warn("Redis not available, continuing without Redis features", zap.Error(err))
+				redisClient = nil
+				appMode.RedisAvailable = false
+			} else {
+				log.Info("Redis connected successfully")
+			}
+		}
+	}
+
 	// Initialize model manager (always needed)
-	modelManager := models.NewModelManager(log, cfg.Router)
+	// Pass Redis client for distributed latency tracking (nil if Redis not available)
+	modelManager := models.NewModelManager(log, cfg.Router, redisClient)
 	if err := modelManager.LoadModelInstances(cfg.ModelList); err != nil {
 		log.Fatal("Failed to load model instances", zap.Error(err))
 	}
@@ -166,27 +196,10 @@ func main() {
 	var workerCtx context.Context
 	var workerCancel context.CancelFunc
 
-	if !appMode.IsLiteMode && appMode.RedisAvailable && db != nil {
-		// Initialize Redis client for worker
-		opt, err := redis.ParseURL(cfg.Redis.URL)
-		if err != nil {
-			log.Fatal("Failed to parse Redis URL", zap.Error(err))
-		}
-
-		// Override with explicit password and DB if provided
-		if cfg.Redis.Password != "" {
-			opt.Password = cfg.Redis.Password
-		}
-		if cfg.Redis.DB != 0 {
-			opt.DB = cfg.Redis.DB
-		}
-
-		redisClient := redis.NewClient(opt)
-
-		// Test Redis connection for worker
-		if err := redisClient.Ping(context.Background()).Err(); err != nil {
-			log.Warn("Redis not available for background worker", zap.Error(err))
-		} else {
+	if !appMode.IsLiteMode && appMode.RedisAvailable && db != nil && redisClient != nil {
+		// Use the Redis client initialized earlier
+		// Redis connection already verified above
+		{
 			// Initialize Redis services for worker
 			usageQueue := redisService.NewUsageQueue(&redisService.UsageQueueConfig{
 				Client:     redisClient,

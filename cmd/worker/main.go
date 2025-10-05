@@ -14,8 +14,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/amerfu/pllm/internal/config"
-	redisService "github.com/amerfu/pllm/internal/services/redis"
+	"github.com/amerfu/pllm/internal/core/config"
+	redisService "github.com/amerfu/pllm/internal/services/data/redis"
 	"github.com/amerfu/pllm/internal/services/worker"
 )
 

@@ -43,7 +43,7 @@ COPY docs/ ./
 RUN npm run build
 
 # Go Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git gcc musl-dev
@@ -61,14 +61,14 @@ RUN go mod download
 COPY . .
 
 # Copy built UI from ui-builder stage
-COPY --from=ui-builder /app/web/dist ./internal/ui/dist
+COPY --from=ui-builder /app/web/dist ./internal/api/ui/dist
 
 # Copy built docs from docs-builder stage
-COPY --from=docs-builder /app/docs/.vitepress/dist ./internal/docs/dist
+COPY --from=docs-builder /app/docs/.vitepress/dist ./internal/api/docs/dist
 
 # Generate Swagger documentation
 RUN go install github.com/swaggo/swag/cmd/swag@latest
-RUN swag init -g cmd/server/main.go -o internal/handlers/swagger
+RUN swag init -g cmd/server/main.go -o internal/api/handlers/swagger
 
 # Build the application with embedded UI
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o pllm cmd/server/main.go
@@ -88,13 +88,12 @@ WORKDIR /app
 
 # Copy binary from builder
 COPY --from=builder /app/pllm .
-COPY --from=builder /app/docs ./docs
 
 # Copy config file (if exists)
 COPY --chown=pllm:pllm config.yaml* ./
 
 # Copy pricing file
-COPY --from=builder --chown=pllm:pllm /app/internal/config/model_prices_and_context_window.json ./internal/config/
+COPY --from=builder --chown=pllm:pllm /app/internal/core/config/model_prices_and_context_window.json ./internal/core/config/
 
 # Change ownership
 RUN chown -R pllm:pllm /app

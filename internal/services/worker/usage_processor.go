@@ -9,8 +9,8 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"github.com/amerfu/pllm/internal/models"
-	redisService "github.com/amerfu/pllm/internal/services/redis"
+	"github.com/amerfu/pllm/internal/core/models"
+	redisService "github.com/amerfu/pllm/internal/services/data/redis"
 )
 
 // UsageProcessor handles batch processing of usage records from Redis queue

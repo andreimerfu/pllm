@@ -27,7 +27,7 @@ features:
 
   - icon: ⚖️
     title: Smart Load Balancing
-    details: Intelligent routing with round-robin, least-latency, weighted, and priority-based strategies.
+    details: Intelligent routing with distributed latency tracking, automatic failover, and multi-instance support.
 
   - icon: 🛡️
     title: Rate Limiting
