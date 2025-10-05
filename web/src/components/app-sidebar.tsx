@@ -35,8 +35,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
+
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -48,67 +50,82 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-// Navigation items configuration
+// Navigation items configuration with submenus
 const navigation = [
   {
-    name: "Dashboard",
-    href: "/dashboard",
-    icon: Home,
-    permission: null,
+    title: "Core",
+    items: [
+      {
+        title: "Dashboard",
+        href: "/dashboard",
+        icon: Home,
+        permission: null,
+      },
+      {
+        title: "Chat",
+        href: "/chat",
+        icon: MessageSquare,
+        permission: null,
+      },
+      {
+        title: "Models",
+        href: "/models",
+        icon: Brain,
+        permission: null,
+      },
+    ],
   },
   {
-    name: "Chat",
-    href: "/chat",
-    icon: MessageSquare,
-    permission: null,
+    title: "Management",
+    items: [
+      {
+        title: "API Keys",
+        href: "/keys",
+        icon: Key,
+        permission: null,
+      },
+      {
+        title: "Teams",
+        href: "/teams",
+        icon: Users2,
+        permission: "admin.teams.read",
+      },
+      {
+        title: "Users",
+        href: "/users",
+        icon: Users,
+        permission: "admin.users.read",
+      },
+    ],
   },
   {
-    name: "Models",
-    href: "/models",
-    icon: Brain,
-    permission: null,
-  },
-  {
-    name: "Teams",
-    href: "/teams",
-    icon: Users2,
-    permission: "admin.teams.read",
-  },
-  {
-    name: "API Keys",
-    href: "/keys",
-    icon: Key,
-    permission: null,
-  },
-  {
-    name: "Users",
-    href: "/users",
-    icon: Users,
-    permission: "admin.users.read",
-  },
-  {
-    name: "Budget",
-    href: "/budget",
-    icon: Wallet,
-    permission: "admin.budget.read",
-  },
-  {
-    name: "Audit Logs",
-    href: "/audit-logs",
-    icon: FileText,
-    permission: "admin.audit.read",
-  },
-  {
-    name: "Guardrails",
-    href: "/guardrails",
-    icon: Shield,
-    permission: "admin.guardrails.read",
-  },
-  {
-    name: "Settings",
-    href: "/settings",
-    icon: Settings,
-    permission: "admin.settings.read",
+    title: "Administration",
+    items: [
+      {
+        title: "Budget",
+        href: "/budget",
+        icon: Wallet,
+        permission: "admin.budget.read",
+      },
+      {
+        title: "Audit Logs",
+        href: "/audit-logs",
+        icon: FileText,
+        permission: "admin.audit.read",
+      },
+      {
+        title: "Guardrails",
+        href: "/guardrails",
+        icon: Shield,
+        permission: "admin.guardrails.read",
+      },
+      {
+        title: "Settings",
+        href: "/settings",
+        icon: Settings,
+        permission: "admin.settings.read",
+      },
+    ],
   },
 ];
 
@@ -162,14 +179,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   };
 
-  // Filter navigation items based on dex configuration
-  const filteredNavigation = navigation.filter((item) => {
-    // Hide users section if dex is not enabled
-    if (item.name === "Users" && config && !config.dex_enabled) {
-      return false;
-    }
-    return true;
-  });
+  // Filter navigation groups based on dex configuration
+  const filteredNavigation = navigation.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => {
+      // Hide users section if dex is not enabled
+      if (item.title === "Users" && config && !config.dex_enabled) {
+        return false;
+      }
+      return true;
+    }),
+  })).filter((group) => group.items.length > 0); // Remove empty groups
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -196,41 +216,46 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {filteredNavigation.map((item) => {
-                const isActive = location.pathname === item.href;
+          <SidebarMenu>
+            {filteredNavigation.map((section) => (
+              <SidebarMenuItem key={section.title}>
+                <SidebarMenuButton asChild>
+                  <div className="font-medium cursor-default">
+                    {section.title}
+                  </div>
+                </SidebarMenuButton>
+                {section.items?.length ? (
+                  <SidebarMenuSub>
+                    {section.items.map((item) => {
+                      const isActive = location.pathname === item.href;
+                      
+                      const NavigationSubItem = (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild isActive={isActive}>
+                            <Link to={item.href}>
+                              <item.icon />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      );
 
-                const NavigationItem = (
-                  <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.name}
-                    >
-                      <Link to={item.href}>
-                        <item.icon />
-                        <span>{item.name}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
+                      // If item has a permission requirement, wrap with CanAccess
+                      if (item.permission) {
+                        return (
+                          <CanAccess key={item.title} permission={item.permission}>
+                            {NavigationSubItem}
+                          </CanAccess>
+                        );
+                      }
 
-                // If item has a permission requirement, wrap with CanAccess
-                if (item.permission) {
-                  return (
-                    <CanAccess key={item.name} permission={item.permission}>
-                      {NavigationItem}
-                    </CanAccess>
-                  );
-                }
-
-                // If no permission required, render directly
-                return NavigationItem;
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
+                      return NavigationSubItem;
+                    })}
+                  </SidebarMenuSub>
+                ) : null}
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
 
