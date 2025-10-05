@@ -98,6 +98,10 @@ internal/api/handlers/swagger/docs.go
 internal/api/handlers/swagger/swagger.json
 internal/api/handlers/swagger/swagger.yaml
 
+internal/api/handlers/swagger/docs.go
+internal/api/handlers/swagger/swagger.json
+internal/api/handlers/swagger/swagger.yaml
+
 # Embedded documentation dist
 internal/api/docs/dist/
 internal/api/ui/dist/
