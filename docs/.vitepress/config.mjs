@@ -16,37 +16,39 @@ export default withMermaid(
       ],
       sidebar: [
         {
-          text: "Getting Started",
+          text: "Introduction",
           items: [
-            { text: "What is pllm?", link: "/" },
-            { text: "Installation & Setup", link: "/guide/getting-started" },
-            { text: "Quick Start Guide", link: "/guide/quickstart" },
+            { text: "What is PLLM?", link: "/" },
+            { text: "Quick Start", link: "/guide/quickstart" },
+            { text: "Installation", link: "/guide/getting-started" },
           ],
         },
         {
-          text: "Core Features",
+          text: "Configuration",
           items: [
-            { text: "System Architecture", link: "/guide/architecture" },
-            { text: "Multi-Provider Support", link: "/providers" },
+            { text: "Configuration Guide", link: "/config" },
+            { text: "Model Routing & Load Balancing", link: "/guide/routing" },
+            { text: "Provider Setup", link: "/providers" },
             { text: "Authentication", link: "/auth" },
-            { text: "Configuration", link: "/config" },
+          ],
+        },
+        {
+          text: "Architecture",
+          items: [
+            { text: "System Overview", link: "/guide/architecture" },
+            { text: "Resilience & Reliability", link: "/guide/resilience" },
           ],
         },
         {
           text: "API Reference",
           items: [
             { text: "OpenAI Compatible API", link: "/api" },
-            { text: "Chat Completions", link: "/api#chat-completions" },
-            { text: "Models", link: "/api#models" },
-            { text: "Health Checks", link: "/api#health-checks" },
           ],
         },
         {
           text: "Deployment",
           items: [
-            { text: "Docker Deployment", link: "/deployment" },
-            { text: "Kubernetes", link: "/deployment#kubernetes" },
-            { text: "Production Setup", link: "/deployment#production" },
+            { text: "Docker & Kubernetes", link: "/deployment" },
           ],
         },
       ],

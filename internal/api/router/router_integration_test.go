@@ -76,15 +76,13 @@ func TestRouterIntegration(t *testing.T) {
 
 	// Setup model manager with test models
 	routerSettings := config.RouterSettings{
-		RoutingStrategy:         "weighted",
-		HealthCheckInterval:     30 * time.Second,
-		EnableLoadBalancing:     true,
-		MaxRetries:             3,
-		DefaultTimeout:         5 * time.Second,
-		CircuitBreakerEnabled:   true,
-		CircuitBreakerThreshold: 5,
+		RoutingStrategy:     "weighted",
+		HealthCheckInterval: 30 * time.Second,
+		EnableLoadBalancing: true,
+		MaxRetries:          3,
+		DefaultTimeout:      5 * time.Second,
 	}
-	modelManager := models.NewModelManager(logger, routerSettings)
+	modelManager := models.NewModelManager(logger, routerSettings, nil)
 	
 	// Load test model instances
 	testInstances := []config.ModelInstance{
@@ -136,10 +134,6 @@ func TestRouterIntegration(t *testing.T) {
 
 	t.Run("Concurrent Request Handling", func(t *testing.T) {
 		testConcurrentRequests(t, router, db)
-	})
-
-	t.Run("Circuit Breaker Integration", func(t *testing.T) {
-		testCircuitBreakerIntegration(t, router)
 	})
 
 	t.Run("Redis Integration", func(t *testing.T) {
@@ -273,32 +267,6 @@ func testConcurrentRequests(t *testing.T, router http.Handler, db *gorm.DB) {
 	t.Logf("Handled %d concurrent requests in %v (%.2f RPS)", numRequests, duration, rps)
 }
 
-func testCircuitBreakerIntegration(t *testing.T, router http.Handler) {
-	// Test circuit breaker behavior under failure conditions
-	t.Run("Circuit Breaker Trigger", func(t *testing.T) {
-		// Make requests that would trigger circuit breaker
-		for i := 0; i < 10; i++ {
-			chatRequest := map[string]interface{}{
-				"model": "nonexistent-model",
-				"messages": []map[string]interface{}{
-					{"role": "user", "content": "test"},
-				},
-			}
-
-			body, _ := json.Marshal(chatRequest)
-			req := httptest.NewRequest("POST", "/v1/chat/completions", bytes.NewReader(body))
-			req.Header.Set("Authorization", "Bearer test-master-key-123")
-			req.Header.Set("Content-Type", "application/json")
-			
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			
-			// Should get error responses
-			assert.True(t, w.Code >= 400, "Request %d should fail with status %d", i, w.Code)
-		}
-	})
-}
-
 func testRedisIntegration(t *testing.T, router http.Handler) {
 	// Test Redis connectivity and caching
 	t.Run("Redis Health", func(t *testing.T) {
@@ -337,15 +305,13 @@ func TestRouterLatencyRequirements(t *testing.T) {
 
 	logger := logger.NewLogger("test", "info")
 	routerSettings := config.RouterSettings{
-		RoutingStrategy:         "weighted",
-		HealthCheckInterval:     30 * time.Second,
-		EnableLoadBalancing:     true,
-		MaxRetries:             3,
-		DefaultTimeout:         5 * time.Second,
-		CircuitBreakerEnabled:   true,
-		CircuitBreakerThreshold: 5,
+		RoutingStrategy:     "weighted",
+		HealthCheckInterval: 30 * time.Second,
+		EnableLoadBalancing: true,
+		MaxRetries:          3,
+		DefaultTimeout:      5 * time.Second,
 	}
-	modelManager := models.NewModelManager(logger, routerSettings)
+	modelManager := models.NewModelManager(logger, routerSettings, nil)
 	pricingManager := config.GetPricingManager()
 	router := NewRouter(cfg, logger, modelManager, db, pricingManager)
 
@@ -422,15 +388,13 @@ func TestRouterFailover(t *testing.T) {
 
 	logger := logger.NewLogger("test", "info")
 	routerSettings := config.RouterSettings{
-		RoutingStrategy:         "weighted",
-		HealthCheckInterval:     30 * time.Second,
-		EnableLoadBalancing:     true,
-		MaxRetries:             3,
-		DefaultTimeout:         5 * time.Second,
-		CircuitBreakerEnabled:   true,
-		CircuitBreakerThreshold: 5,
+		RoutingStrategy:     "weighted",
+		HealthCheckInterval: 30 * time.Second,
+		EnableLoadBalancing: true,
+		MaxRetries:          3,
+		DefaultTimeout:      5 * time.Second,
 	}
-	modelManager := models.NewModelManager(logger, routerSettings)
+	modelManager := models.NewModelManager(logger, routerSettings, nil)
 	pricingManager := config.GetPricingManager()
 
 	// Load test model instances for failover testing

@@ -53,6 +53,18 @@ func NewModelInstance(cfg config.ModelInstance, provider providers.Provider) *Mo
 	return instance
 }
 
+// Interface implementations for routing.ModelInstance
+
+// GetConfig returns the model instance configuration
+func (m *ModelInstance) GetConfig() config.ModelInstance {
+	return m.Config
+}
+
+// GetAverageLatency returns a pointer to the average latency atomic value
+func (m *ModelInstance) GetAverageLatency() *atomic.Int64 {
+	return &m.AverageLatency
+}
+
 // Legacy methods for backward compatibility with handlers
 // TODO: Update handlers to use manager methods instead
 

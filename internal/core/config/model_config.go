@@ -98,20 +98,18 @@ type ModelInfo struct {
 type RouterSettings struct {
 	RoutingStrategy     string        `mapstructure:"routing_strategy" json:"routing_strategy"` // "simple", "least-busy", "usage-based", "latency-based", "priority", "weighted"
 	AllowedFailures     int           `mapstructure:"allowed_failures" json:"allowed_failures"` // Before marking unhealthy
-	FallbackModels      []string      `mapstructure:"fallback_models" json:"fallback_models"`   // Model names to fallback to
 	CacheTTL            time.Duration `mapstructure:"cache_ttl" json:"cache_ttl"`               // Cache duration
 	DefaultTimeout      time.Duration `mapstructure:"default_timeout" json:"default_timeout"`
 	MaxRetries          int           `mapstructure:"max_retries" json:"max_retries"`
 	EnableLoadBalancing bool          `mapstructure:"enable_load_balancing" json:"enable_load_balancing"`
 	HealthCheckInterval time.Duration `mapstructure:"health_check_interval" json:"health_check_interval"`
 
-	// Simple fallback configuration: model -> list of fallback models
-	Fallbacks map[string][]string `mapstructure:"fallbacks" json:"fallbacks"`
-
-	// Circuit breaker settings
-	CircuitBreakerEnabled   bool          `mapstructure:"circuit_breaker_enabled" json:"circuit_breaker_enabled"`
-	CircuitBreakerThreshold int           `mapstructure:"circuit_breaker_threshold" json:"circuit_breaker_threshold"` // Failures before opening
-	CircuitBreakerCooldown  time.Duration `mapstructure:"circuit_breaker_cooldown" json:"circuit_breaker_cooldown"`   // Time before retry
+	// Failover configuration
+	EnableFailover          bool              `mapstructure:"enable_failover" json:"enable_failover"`                       // Enable automatic failover
+	InstanceRetryAttempts   int               `mapstructure:"instance_retry_attempts" json:"instance_retry_attempts"`       // Retry attempts per instance (default: 2)
+	ModelFallbacks          map[string]string `mapstructure:"model_fallbacks" json:"model_fallbacks"`                       // Map of model -> fallback model
+	FailoverTimeoutMultiple float64           `mapstructure:"failover_timeout_multiple" json:"failover_timeout_multiple"`   // Timeout multiplier for failover attempts (default: 1.5)
+	EnableModelFallback     bool              `mapstructure:"enable_model_fallback" json:"enable_model_fallback"`           // Enable fallback to different models
 }
 
 // ModelGroup represents a logical grouping of model instances

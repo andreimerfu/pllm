@@ -97,26 +97,33 @@ model_aliases:
 
 ### Router Configuration
 
-Control request routing and failover:
+Control request routing, load balancing, and failover:
 
 ```yaml
 router:
-  routing_strategy: "latency-based"    # priority, round-robin, latency-based
-  circuit_breaker_enabled: true       # Enable circuit breaker
-  max_retries: 3                      # Retry attempts
-  default_timeout: 60s                # Request timeout
-  health_check_interval: 30s          # Provider health checks
+  # Routing strategy (see Routing Guide for details)
+  routing_strategy: "least-latency"  # priority | least-latency | weighted-round-robin | random
 
-  # Model fallbacks (when primary model fails)
+  # Failover settings
+  fallback_enabled: true
+  circuit_breaker_enabled: true
+  circuit_breaker_threshold: 3       # Failures before opening circuit
+  circuit_breaker_cooldown: 30s      # Cooldown before retry
+
+  # Request settings
+  retry_attempts: 2
+  timeout: 30s
+  health_check_interval: 30s
+
+  # Fallback chains (model -> list of fallbacks)
   fallbacks:
-    my-gpt-4: ["my-gpt-35-turbo", "azure-gpt-4"]
-    my-gpt-35-turbo: ["my-gpt-35-turbo-16k"]
-
-  # Context window fallbacks (when request is too large)
-  context_window_fallbacks:
-    my-gpt-35-turbo: ["my-gpt-35-turbo-16k"]
-    my-gpt-4: ["my-gpt-4-32k"]
+    gpt-4-openai: ["gpt-4-azure", "gpt-4-openrouter"]
+    claude-3-opus: ["claude-3-sonnet"]
 ```
+
+::: tip
+For production multi-instance deployments, use `routing_strategy: "least-latency"` with Redis to share performance metrics across pods. See [Routing Guide](/guide/routing) for details.
+:::
 
 ## Authentication Configuration
 

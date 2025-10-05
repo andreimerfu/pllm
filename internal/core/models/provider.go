@@ -193,8 +193,6 @@ type RouterSettings struct {
 	Timeout                int                   `json:"timeout"`
 	AllowedFails           int                   `json:"allowed_fails"`
 	CooldownTime           int                   `json:"cooldown_time"`
-	Fallbacks              map[string][]string   `json:"fallbacks"`
-	ContextWindowFallbacks map[string][]string   `json:"context_window_fallbacks"`
 	ModelGroupAlias        map[string]string     `json:"model_group_alias"`
 	RedisHost              string                `json:"redis_host,omitempty"`
 	RedisPassword          string                `json:"-"`

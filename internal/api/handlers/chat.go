@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -80,57 +81,82 @@ func (h *ChatHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	// Track request start for adaptive routing
 	h.modelManager.RecordRequestStart(request.Model)
-
-	// Get best instance for the model
-	// Use adaptive routing for better high-load handling
 	startTime := time.Now()
-	instance, err := h.modelManager.GetBestInstanceAdaptive(r.Context(), request.Model)
+
+	// Execute with automatic failover
+	result, err := h.modelManager.ExecuteWithFailover(r.Context(), &models.FailoverRequest{
+		ModelName: request.Model,
+		ExecuteFunc: func(ctx context.Context, instance *models.ModelInstance) (interface{}, error) {
+			// Create a copy of the request with the provider's actual model name
+			providerRequest := request
+			providerRequest.Model = instance.Config.Provider.Model
+
+			// Handle streaming separately
+			if request.Stream {
+				// For streaming, we return a special marker that tells the handler to stream
+				return map[string]interface{}{
+					"__streaming__": true,
+					"instance":      instance,
+					"request":       &providerRequest,
+				}, nil
+			}
+
+			// Forward request to provider (non-streaming)
+			response, err := instance.Provider.ChatCompletion(ctx, &providerRequest)
+			if err != nil {
+				instance.RecordError(err)
+				return nil, err
+			}
+
+			// Record successful request
+			totalTokens := int32(response.Usage.TotalTokens)
+			latencyMs := time.Since(startTime).Milliseconds()
+			instance.RecordRequest(totalTokens, latencyMs)
+
+			return response, nil
+		},
+	})
+
 	if err != nil {
-		// Record failure for adaptive components
+		// All failover attempts failed
 		h.modelManager.RecordRequestEnd(request.Model, time.Since(startTime), false, err)
-		h.logger.Error("Failed to get model instance",
+		h.logger.Error("Request failed after all failover attempts",
 			zap.String("model", request.Model),
 			zap.Error(err))
-		h.sendError(w, http.StatusServiceUnavailable, "No instance available for model: "+request.Model)
+		h.sendError(w, http.StatusServiceUnavailable, "Request failed: "+err.Error())
 		return
 	}
 
-	h.logger.Info("Selected instance for request",
-		zap.String("requested_model", request.Model),
-		zap.String("instance_id", instance.Config.ID),
-		zap.String("provider_model", instance.Config.Provider.Model),
-		zap.Bool("stream", request.Stream))
-
-	// Handle streaming
-	if request.Stream {
-		h.logger.Info("Routing to streaming handler")
-		h.handleStreamingChat(w, r, &request, instance, startTime)
-		return
+	// Log failover information if any failovers occurred
+	if len(result.Failovers) > 0 {
+		h.logger.Info("Request succeeded after failover",
+			zap.String("requested_model", request.Model),
+			zap.String("final_instance", result.Instance.Config.ID),
+			zap.Int("attempts", result.AttemptCount),
+			zap.Strings("failovers", result.Failovers))
 	}
 
-	// Create a copy of the request with the provider's actual model name
-	// Users call with their custom model name (e.g., "my-gpt-4")
-	// But we need to send the actual provider model name (e.g., "gpt-4")
-	providerRequest := request
-	providerRequest.Model = instance.Config.Provider.Model
+	// Check if this is a streaming request
+	if responseMap, ok := result.Response.(map[string]interface{}); ok {
+		if isStreaming, exists := responseMap["__streaming__"]; exists && isStreaming == true {
+			// Extract instance and request from response
+			instance := responseMap["instance"].(*models.ModelInstance)
+			providerRequest := responseMap["request"].(*providers.ChatRequest)
+			
+			h.logger.Info("Routing to streaming handler after failover",
+				zap.String("requested_model", request.Model),
+				zap.String("instance_id", instance.Config.ID),
+				zap.Int("failover_attempts", result.AttemptCount))
+			
+			h.handleStreamingChat(w, r, providerRequest, instance, startTime)
+			return
+		}
+	}
 
-	// Forward request to provider
-	response, err := instance.Provider.ChatCompletion(r.Context(), &providerRequest)
+	// Non-streaming response
+	response := result.Response.(*providers.ChatResponse)
 	latency := time.Since(startTime)
-	latencyMs := latency.Milliseconds()
 
-	if err != nil {
-		instance.RecordError(err)
-		// Record failure for adaptive components
-		h.modelManager.RecordRequestEnd(request.Model, latency, false, err)
-		h.logger.Error("Provider request failed", zap.Error(err))
-		h.sendError(w, http.StatusInternalServerError, "Provider request failed")
-		return
-	}
-
-	// Record successful request
-	totalTokens := int32(response.Usage.TotalTokens)
-	instance.RecordRequest(totalTokens, latencyMs)
 	// Record success for adaptive components
 	h.modelManager.RecordRequestEnd(request.Model, latency, true, nil)
 

@@ -38,10 +38,8 @@ func newTestLoggerLLM(t *testing.T) *zap.Logger {
 func createMockModelManager() *modelsService.ModelManager {
 	// Create a minimal mock that won't panic
 	logger, _ := zap.NewDevelopment()
-	router := config.RouterSettings{
-		CircuitBreakerEnabled: false,
-	}
-	manager := modelsService.NewModelManager(logger, router)
+	router := config.RouterSettings{}
+	manager := modelsService.NewModelManager(logger, router, nil)
 	return manager
 }
 

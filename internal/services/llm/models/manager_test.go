@@ -6,128 +6,24 @@ import (
 	"time"
 
 	"github.com/amerfu/pllm/internal/core/config"
-	"github.com/amerfu/pllm/pkg/circuitbreaker"
-	"github.com/amerfu/pllm/pkg/loadbalancer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
-func TestAdaptiveBreaker(t *testing.T) {
-	breaker := circuitbreaker.NewAdaptiveBreaker(
-		3,             // failure threshold
-		1*time.Second, // latency threshold
-		2,             // slow request limit
-	)
+// TestAdaptiveBreaker REMOVED
+// AdaptiveBreaker was removed in favor of simple circuit breaker in Manager
 
-	// Test normal requests
-	t.Run("Normal requests keep circuit closed", func(t *testing.T) {
-		for i := 0; i < 10; i++ {
-			breaker.StartRequest()
-			breaker.EndRequest()
-			breaker.RecordSuccess(100 * time.Millisecond)
-		}
-		assert.True(t, breaker.CanRequest())
-		state := breaker.GetState()
-		assert.Equal(t, "CLOSED", state["state"])
-	})
-
-	// Test slow requests
-	t.Run("Slow requests open circuit", func(t *testing.T) {
-		breaker := circuitbreaker.NewAdaptiveBreaker(3, 500*time.Millisecond, 2)
-
-		// Record slow requests
-		for i := 0; i < 3; i++ {
-			breaker.StartRequest()
-			breaker.EndRequest()
-			breaker.RecordSuccess(2 * time.Second) // Slow!
-		}
-
-		assert.False(t, breaker.CanRequest())
-		state := breaker.GetState()
-		assert.Equal(t, "OPEN", state["state"])
-	})
-
-	// Test failures
-	t.Run("Failures open circuit", func(t *testing.T) {
-		breaker := circuitbreaker.NewAdaptiveBreaker(3, 1*time.Second, 2)
-
-		// Record failures
-		for i := 0; i < 4; i++ {
-			breaker.StartRequest()
-			breaker.EndRequest()
-			breaker.RecordFailure()
-		}
-
-		assert.False(t, breaker.CanRequest())
-		state := breaker.GetState()
-		assert.Equal(t, "OPEN", state["state"])
-	})
-}
-
-func TestAdaptiveLoadBalancer(t *testing.T) {
-	lb := loadbalancer.NewAdaptiveLoadBalancer()
-
-	// Register models
-	lb.RegisterModel("model-a", 2*time.Second)
-	lb.RegisterModel("model-b", 2*time.Second)
-	lb.RegisterModel("model-c", 2*time.Second)
-
-	// Set fallbacks
-	lb.SetFallbacks("model-a", []string{"model-b", "model-c"})
-
-	t.Run("Select primary model when healthy", func(t *testing.T) {
-		ctx := context.Background()
-		selected, err := lb.SelectModel(ctx, "model-a")
-		require.NoError(t, err)
-		assert.Equal(t, "model-a", selected)
-	})
-
-	t.Run("Select fallback when primary fails", func(t *testing.T) {
-		ctx := context.Background()
-
-		// Make model-a unhealthy
-		for i := 0; i < 5; i++ {
-			lb.RecordRequestStart("model-a")
-			lb.RecordRequestEnd("model-a", 100*time.Millisecond, false)
-		}
-
-		selected, err := lb.SelectModel(ctx, "model-a")
-		require.NoError(t, err)
-		// Should select a fallback
-		assert.Contains(t, []string{"model-a", "model-b", "model-c"}, selected)
-	})
-
-	t.Run("Track health scores", func(t *testing.T) {
-		lb := loadbalancer.NewAdaptiveLoadBalancer()
-		lb.RegisterModel("test-model", 1*time.Second)
-
-		// Record successful requests
-		for i := 0; i < 3; i++ {
-			lb.RecordRequestStart("test-model")
-			lb.RecordRequestEnd("test-model", 200*time.Millisecond, true)
-		}
-
-		stats := lb.GetModelStats()
-		modelStats := stats["test-model"]
-		assert.Equal(t, float64(100), modelStats["health_score"])
-		assert.Equal(t, int64(3), modelStats["total_requests"])
-	})
-}
+// TestAdaptiveLoadBalancer REMOVED
+// Routing is now handled by internal/services/llm/models/routing package
 
 func TestModelManager_AdaptiveRouting(t *testing.T) {
 	logger := zap.NewNop()
 	router := config.RouterSettings{
-		RoutingStrategy:         "latency-based",
-		CircuitBreakerEnabled:   true,
-		CircuitBreakerThreshold: 3,
-		CircuitBreakerCooldown:  1 * time.Second,
-		Fallbacks: map[string][]string{
-			"primary": {"fallback1", "fallback2"},
-		},
+		RoutingStrategy: "latency-based",
 	}
 
-	manager := NewModelManager(logger, router)
+	manager := NewModelManager(logger, router, nil)
 
 	// Mock model instances
 	instances := []config.ModelInstance{
@@ -207,7 +103,7 @@ func TestModelManager_AdaptiveRouting(t *testing.T) {
 func TestModelNameMapping(t *testing.T) {
 	logger := zap.NewNop()
 	router := config.RouterSettings{}
-	manager := NewModelManager(logger, router)
+	manager := NewModelManager(logger, router, nil)
 
 	instances := []config.ModelInstance{
 		{
