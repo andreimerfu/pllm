@@ -101,7 +101,7 @@ func NewTestRedis(t *testing.T) (*redis.Client, func()) {
 
 	// Return cleanup function that terminates the container
 	cleanup := func() {
-		client.Close()
+		_ = client.Close()
 		if err := container.Terminate(ctx); err != nil {
 			t.Logf("Failed to terminate Redis container: %v", err)
 		}
@@ -144,7 +144,7 @@ func NewTestRedisWithURL(t *testing.T) (*redis.Client, string, func()) {
 	require.NoError(t, err, "Failed to ping Redis")
 
 	cleanup := func() {
-		client.Close()
+		_ = client.Close()
 		if err := container.Terminate(ctx); err != nil {
 			t.Logf("Failed to terminate Redis container: %v", err)
 		}

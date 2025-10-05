@@ -54,7 +54,7 @@ func TestAuthMiddleware(t *testing.T) {
 	// Test handler
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	})
 
 	t.Run("Valid Master Key", func(t *testing.T) {
@@ -226,7 +226,7 @@ func TestBudgetMiddleware(t *testing.T) {
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	})
 
 	// Setup auth middleware to set context
@@ -316,7 +316,7 @@ func TestCacheMiddleware(t *testing.T) {
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(responseContent))
+		_, _ = w.Write([]byte(responseContent))
 	})
 
 	t.Run("Cache Miss and Hit", func(t *testing.T) {
@@ -400,7 +400,7 @@ func TestMiddlewareChain(t *testing.T) {
 
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("success"))
+		_, _ = w.Write([]byte("success"))
 	})
 
 	t.Run("Full Middleware Chain", func(t *testing.T) {

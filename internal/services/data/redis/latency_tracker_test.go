@@ -26,7 +26,7 @@ func setupTestRedis(t *testing.T) (*redis.Client, *miniredis.Miniredis) {
 func TestLatencyTracker_RecordAndRetrieve(t *testing.T) {
 	client, mr := setupTestRedis(t)
 	defer mr.Close()
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	logger, _ := zap.NewDevelopment()
 	tracker := NewLatencyTracker(client, logger)
@@ -68,7 +68,7 @@ func TestLatencyTracker_RecordAndRetrieve(t *testing.T) {
 func TestLatencyTracker_Percentiles(t *testing.T) {
 	client, mr := setupTestRedis(t)
 	defer mr.Close()
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	logger, _ := zap.NewDevelopment()
 	tracker := NewLatencyTracker(client, logger)
@@ -98,7 +98,7 @@ func TestLatencyTracker_Percentiles(t *testing.T) {
 func TestLatencyTracker_HealthScore(t *testing.T) {
 	client, mr := setupTestRedis(t)
 	defer mr.Close()
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	logger, _ := zap.NewDevelopment()
 	tracker := NewLatencyTracker(client, logger)
@@ -156,7 +156,7 @@ func TestLatencyTracker_HealthScore(t *testing.T) {
 func TestLatencyTracker_WindowExpiry(t *testing.T) {
 	client, mr := setupTestRedis(t)
 	defer mr.Close()
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	logger, _ := zap.NewDevelopment()
 	tracker := NewLatencyTracker(client, logger)
@@ -189,7 +189,7 @@ func TestLatencyTracker_MultiInstance(t *testing.T) {
 	// This simulates multiple PLLM instances sharing Redis
 	client, mr := setupTestRedis(t)
 	defer mr.Close()
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	logger, _ := zap.NewDevelopment()
 
@@ -236,7 +236,7 @@ func TestLatencyTracker_MultiInstance(t *testing.T) {
 func TestLatencyTracker_MaxSamples(t *testing.T) {
 	client, mr := setupTestRedis(t)
 	defer mr.Close()
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	logger, _ := zap.NewDevelopment()
 	tracker := NewLatencyTracker(client, logger)
@@ -264,7 +264,7 @@ func TestLatencyTracker_MaxSamples(t *testing.T) {
 func TestLatencyTracker_ClearLatencies(t *testing.T) {
 	client, mr := setupTestRedis(t)
 	defer mr.Close()
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	logger, _ := zap.NewDevelopment()
 	tracker := NewLatencyTracker(client, logger)
@@ -289,7 +289,7 @@ func TestLatencyTracker_ClearLatencies(t *testing.T) {
 func TestLatencyTracker_GetAllModelStats(t *testing.T) {
 	client, mr := setupTestRedis(t)
 	defer mr.Close()
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	logger, _ := zap.NewDevelopment()
 	tracker := NewLatencyTracker(client, logger)
@@ -318,7 +318,7 @@ func TestLatencyTracker_GetAllModelStats(t *testing.T) {
 func BenchmarkLatencyTracker_RecordLatency(b *testing.B) {
 	client, mr := setupTestRedis(&testing.T{})
 	defer mr.Close()
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	logger := zap.NewNop()
 	tracker := NewLatencyTracker(client, logger)
@@ -335,7 +335,7 @@ func BenchmarkLatencyTracker_RecordLatency(b *testing.B) {
 func BenchmarkLatencyTracker_GetAverageLatency(b *testing.B) {
 	client, mr := setupTestRedis(&testing.T{})
 	defer mr.Close()
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	logger := zap.NewNop()
 	tracker := NewLatencyTracker(client, logger)

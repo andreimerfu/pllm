@@ -36,7 +36,7 @@ func TestRouterIntegration(t *testing.T) {
 	defer redisCleanup()
 
 	// Initialize cache for health checks
-	cache.Initialize(&cache.Config{
+	_ = cache.Initialize(&cache.Config{
 		RedisURL: redisURL,
 		TTL:      5 * time.Minute,
 	})
@@ -291,7 +291,7 @@ func TestRouterLatencyRequirements(t *testing.T) {
 	defer redisCleanup()
 
 	// Initialize cache for health checks
-	cache.Initialize(&cache.Config{
+	_ = cache.Initialize(&cache.Config{
 		RedisURL: redisURL,
 		TTL:      5 * time.Minute,
 	})
@@ -375,7 +375,7 @@ func TestRouterFailover(t *testing.T) {
 	defer redisCleanup()
 
 	// Initialize cache for health checks
-	cache.Initialize(&cache.Config{
+	_ = cache.Initialize(&cache.Config{
 		RedisURL: redisURL,
 		TTL:      5 * time.Minute,
 	})
