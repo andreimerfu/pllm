@@ -9,20 +9,20 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/amerfu/pllm/internal/config"
-	"github.com/amerfu/pllm/internal/database"
-	"github.com/amerfu/pllm/internal/logger"
-	"github.com/amerfu/pllm/internal/router"
-	"github.com/amerfu/pllm/internal/services/cache"
-	"github.com/amerfu/pllm/internal/services/models"
-	redisService "github.com/amerfu/pllm/internal/services/redis"
+	"github.com/amerfu/pllm/internal/core/config"
+	"github.com/amerfu/pllm/internal/core/database"
+	"github.com/amerfu/pllm/internal/infrastructure/logger"
+	"github.com/amerfu/pllm/internal/api/router"
+	"github.com/amerfu/pllm/internal/services/data/cache"
+	"github.com/amerfu/pllm/internal/services/llm/models"
+	redisService "github.com/amerfu/pllm/internal/services/data/redis"
 	"github.com/amerfu/pllm/internal/services/worker"
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	_ "github.com/amerfu/pllm/internal/handlers/swagger"
+	// _ "github.com/amerfu/pllm/internal/api/handlers/swagger" // TODO: Generate swagger docs
 )
 
 // @title pllm - Blazing Fast LLM Gateway
