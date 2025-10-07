@@ -13,8 +13,8 @@ import { Avatar, AvatarFallback } from '../components/ui/avatar'
 import { Switch } from '../components/ui/switch'
 import { Slider } from '../components/ui/slider'
 import { Separator } from '../components/ui/separator'
-import { toast } from '../components/ui/use-toast'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip'
+import { toast } from '../components/ui/use-toast'
 import {
   Command,
   CommandEmpty,
@@ -30,95 +30,9 @@ import {
 } from '../components/ui/popover'
 import { getModels } from '../lib/api'
 import { cn } from '../lib/utils'
-
-interface Message {
-  id: string
-  role: 'user' | 'assistant' | 'system'
-  content: string | MessageContent[]
-  timestamp: Date
-  model?: string
-  attachments?: UploadedFile[]
-}
-
-interface MessageContent {
-  type: 'text' | 'image_url'
-  text?: string
-  image_url?: {
-    url: string
-    detail?: string
-  }
-}
-
-interface UploadedFile {
-  id: string
-  filename: string
-  size: number
-  type: string
-  url: string
-}
-
-interface Conversation {
-  id: string
-  title: string
-  updatedAt: Date
-}
-
-// Mock conversations data
-const mockConversations: Conversation[] = [
-  { id: '1', title: 'React Component Design', updatedAt: new Date('2025-01-10') },
-  { id: '2', title: 'API Integration Help', updatedAt: new Date('2025-01-09') },
-  { id: '3', title: 'Database Schema Questions', updatedAt: new Date('2025-01-08') },
-  { id: '4', title: 'UI/UX Best Practices', updatedAt: new Date('2025-01-07') },
-  { id: '5', title: 'Performance Optimization', updatedAt: new Date('2025-01-06') },
-]
-
-// Model icon mapping function
-function getModelIcon(modelId: string): string {
-  const id = modelId.toLowerCase()
-
-  // OpenAI models
-  if (id.includes('gpt-4') || id.includes('gpt-3.5') || id.includes('gpt-o1')) {
-    return 'simple-icons:openai'
-  }
-
-  // Anthropic models
-  if (id.includes('claude')) {
-    return 'simple-icons:anthropic'
-  }
-
-  // Google models
-  if (id.includes('gemini') || id.includes('bard') || id.includes('palm')) {
-    return 'simple-icons:google'
-  }
-
-  // Meta models
-  if (id.includes('llama') || id.includes('meta')) {
-    return 'simple-icons:meta'
-  }
-
-  // Mistral models
-  if (id.includes('mistral') || id.includes('mixtral')) {
-    return 'simple-icons:mistral'
-  }
-
-  // Cohere models
-  if (id.includes('cohere') || id.includes('command')) {
-    return 'simple-icons:cohere'
-  }
-
-  // Perplexity models
-  if (id.includes('perplexity') || id.includes('pplx')) {
-    return 'simple-icons:perplexity'
-  }
-
-  // xAI models (Grok)
-  if (id.includes('grok')) {
-    return 'simple-icons:x'
-  }
-
-  // Default AI icon
-  return 'lucide:bot'
-}
+import { getModelIcon } from '../lib/chat-utils'
+import { useChatMessages, type MessageContent, type UploadedFile } from '../hooks/useChatMessages'
+import { useChatConversations } from '../hooks/useChatConversations'
 
 // Model Combobox Component
 function ModelCombobox({
@@ -218,7 +132,8 @@ function RightSidebar({
   setMaxTokens,
   isCollapsed,
   onToggle,
-  availableModels
+  availableModels,
+  conversations
 }: {
   selectedModel: string
   setSelectedModel: (model: string) => void
@@ -231,10 +146,9 @@ function RightSidebar({
   isCollapsed: boolean
   onToggle: () => void
   availableModels: any[]
+  conversations: any[]
 }) {
-  const filteredConversations = mockConversations.filter(conv =>
-    conv.title.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredConversations = conversations
 
   return (
     <div className={cn(
@@ -714,11 +628,8 @@ function MessageInput({
 }
 
 export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   const [selectedModel, setSelectedModel] = useState('gpt-4o')
-  const [searchQuery, setSearchQuery] = useState('')
   const [temperature, setTemperature] = useState(0.7)
   const [maxTokens, setMaxTokens] = useState(2048)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true) // Start collapsed on mobile
@@ -726,7 +637,15 @@ export default function Chat() {
   const [currentAttachments, setCurrentAttachments] = useState<UploadedFile[]>([])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Use custom hooks
+  const { messages, isLoading, sendMessage, stopGeneration } = useChatMessages({
+    selectedModel,
+    temperature,
+    maxTokens,
+  })
+
+  const { conversations, searchQuery, setSearchQuery } = useChatConversations()
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -796,145 +715,13 @@ export default function Chat() {
 
 
   const handleSubmit = async () => {
-    if ((!input.trim() && currentAttachments.length === 0) || isLoading || !selectedModel) return
-
-    // Create message content in vision format if attachments exist
-    let messageContent: string | MessageContent[]
-    if (currentAttachments.length > 0) {
-      const contentArray: MessageContent[] = []
-      if (input.trim()) {
-        contentArray.push({
-          type: 'text',
-          text: input.trim()
-        })
-      }
-      // Add attachments (already in base64 format)
-      currentAttachments.forEach(attachment => {
-        contentArray.push({
-          type: 'image_url',
-          image_url: {
-            url: attachment.url // Already base64 data URL
-          }
-        })
-      })
-      messageContent = contentArray
-    } else {
-      messageContent = input.trim()
-    }
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: messageContent,
-      timestamp: new Date(),
-      attachments: currentAttachments.length > 0 ? [...currentAttachments] : undefined
-    }
-
-    setMessages(prev => [...prev, userMessage])
+    await sendMessage(input, currentAttachments)
     setInput('')
-    setCurrentAttachments([]) // Clear attachments after sending
-    setIsLoading(true)
-
-    try {
-      abortControllerRef.current = new AbortController()
-
-      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-
-      const requestPayload = {
-        model: selectedModel,
-        messages: [
-          { role: 'system', content: 'You are a helpful assistant.' },
-          ...messages.map(m => ({
-            role: m.role,
-            content: m.content
-          })),
-          { role: 'user', content: userMessage.content }
-        ],
-        temperature: temperature,
-        max_tokens: maxTokens,
-        stream: true
-      }
-
-      console.log('Sending request:', JSON.stringify(requestPayload, null, 2))
-
-      const response = await fetch('/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        signal: abortControllerRef.current.signal,
-        body: JSON.stringify(requestPayload)
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-
-      let assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-        model: selectedModel
-      }
-
-      setMessages(prev => [...prev, assistantMessage])
-
-      while (reader) {
-        const { value, done } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') continue
-
-            try {
-              const parsed = JSON.parse(data)
-              const content = parsed.choices?.[0]?.delta?.content
-              if (content) {
-                assistantMessage.content += content
-                setMessages(prev => {
-                  const newMessages = [...prev]
-                  const lastMessage = newMessages[newMessages.length - 1]
-                  if (lastMessage.id === assistantMessage.id) {
-                    lastMessage.content = assistantMessage.content
-                  }
-                  return newMessages
-                })
-              }
-            } catch (e) {
-              // Ignore parsing errors
-            }
-          }
-        }
-      }
-    } catch (error: any) {
-      if (error.name !== 'AbortError') {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to send message",
-          variant: "destructive"
-        })
-      }
-    } finally {
-      setIsLoading(false)
-      abortControllerRef.current = null
-    }
+    setCurrentAttachments([])
   }
 
   const handleStop = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-      setIsLoading(false)
-    }
+    stopGeneration()
   }
 
   return (
@@ -1094,6 +881,7 @@ export default function Chat() {
         isCollapsed={isSidebarCollapsed}
         onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         availableModels={availableModels}
+        conversations={conversations}
       />
     </div>
   )
