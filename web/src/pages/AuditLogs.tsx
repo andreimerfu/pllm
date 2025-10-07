@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import {
-  ColumnDef,
   ColumnFiltersState,
   flexRender,
   getCoreRowModel,
@@ -12,13 +11,13 @@ import {
   useReactTable,
   VisibilityState,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, Calendar, Filter, RefreshCw, Search, X } from "lucide-react"
-import { format, subDays, startOfDay, endOfDay } from "date-fns"
-import { DateRange } from "react-day-picker"
+import { ChevronDown, Calendar, Filter, RefreshCw, Search, X } from "lucide-react"
+import { format } from "date-fns"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -55,237 +54,52 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useToast } from "@/hooks/use-toast"
-import { AuditLog, AuditLogsResponse } from "@/types/api"
-import { getAuditLogs } from "@/lib/api"
-
-const getStatusBadge = (result: string) => {
-  switch (result) {
-    case 'success':
-      return <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">Success</Badge>
-    case 'failure':
-      return <Badge variant="destructive">Failure</Badge>
-    case 'error':
-      return <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">Error</Badge>
-    case 'warning':
-      return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200">Warning</Badge>
-    default:
-      return <Badge variant="outline">{result}</Badge>
-  }
-}
-
-const getSeverityColor = (eventType: string) => {
-  const securityEvents = ['auth', 'login', 'logout', 'password_change', 'security_alert', 'access_denied']
-  const highRiskEvents = ['budget_exceeded', 'key_revoke', 'user_delete']
-  
-  if (securityEvents.includes(eventType)) return 'text-red-600'
-  if (highRiskEvents.includes(eventType)) return 'text-orange-600'
-  return 'text-gray-600'
-}
-
-export const auditColumns: ColumnDef<AuditLog>[] = [
-  {
-    accessorKey: "timestamp",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="p-0 h-auto"
-      >
-        Time
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const timestamp = new Date(row.getValue("timestamp"))
-      return (
-        <div className="text-sm">
-          <div>{format(timestamp, "MMM dd, yyyy")}</div>
-          <div className="text-muted-foreground text-xs">{format(timestamp, "HH:mm:ss")}</div>
-        </div>
-      )
-    },
-  },
-  {
-    accessorKey: "user",
-    header: "User",
-    cell: ({ row }) => {
-      const auditLog = row.original
-      return (
-        <div className="text-sm">
-          {auditLog.user ? (
-            <>
-              <div>{auditLog.user.name || auditLog.user.email || 'Unknown User'}</div>
-              {auditLog.user.email && <div className="text-muted-foreground text-xs">{auditLog.user.email}</div>}
-            </>
-          ) : (
-            <span className="text-muted-foreground">System</span>
-          )}
-        </div>
-      )
-    },
-  },
-  {
-    accessorKey: "event_action",
-    header: "Action",
-    cell: ({ row }) => {
-      const auditLog = row.original
-      return (
-        <div className="text-sm">
-          <div className={`font-medium ${getSeverityColor(auditLog.event_type)}`}>
-            {auditLog.event_action}
-          </div>
-          <div className="text-muted-foreground text-xs capitalize">
-            {auditLog.event_type.replace(/_/g, ' ')}
-          </div>
-        </div>
-      )
-    },
-  },
-  {
-    accessorKey: "resource_type",
-    header: "Resource",
-    cell: ({ row }) => {
-      const auditLog = row.original
-      return auditLog.resource_type ? (
-        <div className="text-sm">
-          <div className="font-medium capitalize">{auditLog.resource_type}</div>
-          {auditLog.resource_id && (
-            <div className="text-muted-foreground text-xs font-mono">
-              {auditLog.resource_id.slice(0, 8)}...
-            </div>
-          )}
-        </div>
-      ) : (
-        <span className="text-muted-foreground">-</span>
-      )
-    },
-  },
-  {
-    accessorKey: "event_result",
-    header: "Result",
-    cell: ({ row }) => getStatusBadge(row.getValue("event_result")),
-  },
-  {
-    accessorKey: "ip_address",
-    header: "IP Address",
-    cell: ({ row }) => (
-      <div className="text-sm font-mono">{row.getValue("ip_address") || "-"}</div>
-    ),
-  },
-  {
-    accessorKey: "method",
-    header: "Method",
-    cell: ({ row }) => {
-      const method = row.getValue("method") as string
-      if (!method) return <span className="text-muted-foreground">-</span>
-      
-      const methodColors = {
-        GET: "bg-blue-100 text-blue-800 border-blue-200",
-        POST: "bg-green-100 text-green-800 border-green-200",
-        PUT: "bg-yellow-100 text-yellow-800 border-yellow-200",
-        DELETE: "bg-red-100 text-red-800 border-red-200",
-      }
-      
-      return (
-        <Badge variant="outline" className={methodColors[method as keyof typeof methodColors] || ""}>
-          {method}
-        </Badge>
-      )
-    },
-  },
-]
+import { AuditLog } from "@/types/api"
+import { useAuditLogs } from "@/hooks/useAuditLogs"
+import { createAuditColumns, getStatusBadge, getSeverityColor } from "@/components/audit-logs/columns"
 
 export default function AuditLogs() {
+  // Use the extracted hook for data management
+  const {
+    auditLogs,
+    isLoading,
+    total,
+    currentPage,
+    pageSize,
+    filters,
+    dateRange,
+    setFilters,
+    setDateRange,
+    clearFilters,
+    handlePageChange,
+    refetch,
+    pageCount,
+  } = useAuditLogs()
+
+  // UI state
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: "timestamp", desc: true }
   ])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [globalFilter, setGlobalFilter] = React.useState("")
-  
-  // Data and loading state
-  const [auditLogs, setAuditLogs] = React.useState<AuditLog[]>([])
-  const [isLoading, setIsLoading] = React.useState(true)
-  const [total, setTotal] = React.useState(0)
-  const [currentPage, setCurrentPage] = React.useState(0)
-  const [pageSize] = React.useState(50)
-  
-  // Filters state
-  const [filters, setFilters] = React.useState({
-    action: "",
-    resource: "",
-    user_id: "",
-    result: "",
-  })
-  const [dateRange, setDateRange] = React.useState<DateRange | undefined>({
-    from: subDays(new Date(), 30),
-    to: new Date(),
-  })
-  
+
   // Drawer state
   const [selectedAuditLog, setSelectedAuditLog] = React.useState<AuditLog | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = React.useState(false)
-  
-  const { toast } = useToast()
 
-  const fetchAuditLogs = React.useCallback(async () => {
-    try {
-      setIsLoading(true)
-      
-      const apiFilters = {
-        ...filters,
-        start_date: dateRange?.from ? startOfDay(dateRange.from).toISOString() : undefined,
-        end_date: dateRange?.to ? endOfDay(dateRange.to).toISOString() : undefined,
-        limit: pageSize,
-        offset: currentPage * pageSize,
-      }
-      
-      // Remove empty filters
-      Object.keys(apiFilters).forEach(key => {
-        if (apiFilters[key as keyof typeof apiFilters] === "" || 
-            apiFilters[key as keyof typeof apiFilters] === undefined) {
-          delete apiFilters[key as keyof typeof apiFilters]
-        }
-      })
-      
-      const response = await getAuditLogs(apiFilters) as unknown as AuditLogsResponse
-      setAuditLogs(response.audit_logs)
-      setTotal(response.total)
-    } catch (error) {
-      console.error('Failed to fetch audit logs:', error)
-      toast({
-        title: 'Error',
-        description: 'Failed to load audit logs',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }, [filters, dateRange, currentPage, pageSize, toast])
-
-  React.useEffect(() => {
-    fetchAuditLogs()
-  }, [fetchAuditLogs])
-
-  const clearFilters = () => {
-    setFilters({
-      action: "",
-      resource: "",
-      user_id: "",
-      result: "",
-    })
-    setDateRange({
-      from: subDays(new Date(), 30),
-      to: new Date(),
-    })
-    setCurrentPage(0)
-  }
+  // Create columns with row click handler
+  const columns = React.useMemo(
+    () => createAuditColumns((log) => {
+      setSelectedAuditLog(log)
+      setIsDrawerOpen(true)
+    }),
+    []
+  )
 
   const table = useReactTable({
     data: auditLogs,
-    columns: auditColumns,
+    columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -301,12 +115,8 @@ export default function AuditLogs() {
       globalFilter,
     },
     manualPagination: true,
-    pageCount: Math.ceil(total / pageSize),
+    pageCount,
   })
-
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage)
-  }
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -317,7 +127,7 @@ export default function AuditLogs() {
             View and search through system audit logs and security events
           </p>
         </div>
-        <Button onClick={fetchAuditLogs} disabled={isLoading}>
+        <Button onClick={refetch} disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
@@ -439,7 +249,7 @@ export default function AuditLogs() {
 
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="flex items-center gap-2">
-              <Button onClick={fetchAuditLogs} disabled={isLoading}>
+              <Button onClick={refetch} disabled={isLoading}>
                 <Search className="h-4 w-4 mr-2" />
                 Apply Filters
               </Button>
@@ -518,7 +328,7 @@ export default function AuditLogs() {
                 {isLoading ? (
                   Array(pageSize).fill(0).map((_, i) => (
                     <TableRow key={i}>
-                      {auditColumns.map((_, j) => (
+                      {columns.map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-4 w-full" />
                         </TableCell>
@@ -548,7 +358,7 @@ export default function AuditLogs() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={auditColumns.length}
+                      colSpan={columns.length}
                       className="h-24 text-center"
                     >
                       No audit logs found.

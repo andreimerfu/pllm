@@ -1,61 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
+import React from 'react';
 import { useToast } from '../components/ui/use-toast';
 import { usePermissions } from '../contexts/PermissionContext';
 import { DataTable } from '../components/keys/data-table';
 import { createColumns, ApiKey } from '../components/keys/columns';
 import { CreateKeyDialog } from '../components/keys/create-key-dialog';
-import api from '../lib/api';
-
-// Using ApiKey interface from columns.tsx
+import { LoadingState } from '../components/common/LoadingState';
+import { PageHeader } from '../components/common/PageHeader';
+import { StatCard } from '../components/common/StatCard';
+import { Key, Activity, DollarSign, CheckCircle } from 'lucide-react';
+import { useKeys, useUserTeams } from '../hooks/useKeys';
 
 const Keys: React.FC = () => {
-  const [keys, setKeys] = useState<ApiKey[]>([]);
-  const [userTeams, setUserTeams] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { hasRole, hasPermission } = usePermissions();
-  
+
   // Check if user is admin
   const isAdmin = hasRole('admin') || hasPermission('admin.*');
 
-  useEffect(() => {
-    fetchKeys();
-    if (!isAdmin) {
-      fetchUserTeams();
-    }
-  }, [isAdmin]);
+  const { keys, isLoading, generateKey: generateKeyMutation, revokeKey: revokeKeyMutation, toggleKeyStatus: toggleKeyStatusMutation, deleteKey: deleteKeyMutation } = useKeys(isAdmin);
+  const { teams: userTeams } = useUserTeams();
 
-  const fetchKeys = async () => {
+  const handleGenerateKey = async (keyData: any) => {
     try {
-      const data = await api.keys.list(!isAdmin) as any;
-      setKeys(data.keys || []);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to fetch keys',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUserTeams = async () => {
-    try {
-      // For non-admin users, we need to fetch their teams
-      const data = await api.userProfile.getTeams() as any;
-      setUserTeams(data.teams || []);
-    } catch (error) {
-      console.error('Failed to fetch user teams:', error);
-      // Not critical, so don't show error toast
-    }
-  };
-
-  const generateKey = async (keyData: any) => {
-    try {
-      const data = await api.keys.generate(keyData, !isAdmin) as any;
+      const data: any = await generateKeyMutation(keyData);
       
       // Show the new key in a toast
       toast({
@@ -76,8 +43,6 @@ const Keys: React.FC = () => {
         ),
         duration: 30000, // Show for 30 seconds
       });
-      
-      fetchKeys(); // Refresh the list
     } catch (error) {
       toast({
         title: 'Error',
@@ -87,18 +52,17 @@ const Keys: React.FC = () => {
     }
   };
 
-  const revokeKey = async (keyId: string) => {
+  const handleRevokeKey = async (keyId: string) => {
     if (!confirm('Are you sure you want to revoke this key? This will make it unusable immediately.')) {
       return;
     }
 
     try {
-      await api.keys.revoke(keyId, { reason: 'Revoked by admin' });
+      await revokeKeyMutation(keyId);
       toast({
         title: 'Success',
         description: 'Key revoked successfully',
       });
-      fetchKeys();
     } catch (error) {
       toast({
         title: 'Error',
@@ -108,18 +72,17 @@ const Keys: React.FC = () => {
     }
   };
 
-  const toggleKeyStatus = async (keyId: string, isActive: boolean) => {
+  const handleToggleKeyStatus = async (keyId: string, isActive: boolean) => {
     if (!confirm(`Are you sure you want to ${isActive ? 'disable' : 'enable'} this key?`)) {
       return;
     }
 
     try {
-      await api.keys.update(keyId, { is_active: !isActive });
+      await toggleKeyStatusMutation({ keyId, isActive });
       toast({
         title: 'Success',
         description: `Key ${!isActive ? 'enabled' : 'disabled'} successfully`,
       });
-      fetchKeys();
     } catch (error) {
       toast({
         title: 'Error',
@@ -129,7 +92,7 @@ const Keys: React.FC = () => {
     }
   };
 
-  const deleteKey = async (keyId: string, key: ApiKey) => {
+  const handleDeleteKey = async (keyId: string, key: ApiKey) => {
     // Check if user has permission to delete this key
     const canDelete = isAdmin || (key.user_id && !key.team_id); // Users can only delete their own personal keys
     if (!canDelete) {
@@ -146,12 +109,11 @@ const Keys: React.FC = () => {
     }
 
     try {
-      await api.keys.delete(keyId, !isAdmin);
+      await deleteKeyMutation(keyId);
       toast({
         title: 'Success',
         description: 'Key deleted successfully',
       });
-      setKeys(keys.filter(k => k.id !== keyId));
     } catch (error) {
       toast({
         title: 'Error',
@@ -168,77 +130,54 @@ const Keys: React.FC = () => {
     return 'active';
   };
 
-  if (loading) {
-    return <div className="flex items-center justify-center h-96">Loading...</div>;
+  if (isLoading) {
+    return <LoadingState text="Loading API keys..." />;
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-bold">
-            {isAdmin ? 'All API Keys' : 'My API Keys'}
-          </h1>
-          {isAdmin && <Badge variant="secondary">Admin View</Badge>}
-        </div>
-        <CreateKeyDialog 
-          isAdmin={isAdmin}
-          userTeams={userTeams}
-          onCreateKey={generateKey}
-        />
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title={isAdmin ? 'All API Keys' : 'My API Keys'}
+        description="Manage API keys and monitor usage"
+        actions={
+          <CreateKeyDialog
+            isAdmin={isAdmin}
+            userTeams={userTeams}
+            onCreateKey={handleGenerateKey}
+          />
+        }
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Keys</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{keys.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Keys</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-              {keys.filter(k => getKeyStatus(k) === 'active').length}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {keys.filter(k => getKeyStatus(k) === 'inactive').length} inactive
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Usage</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {keys.reduce((sum, k) => sum + k.usage_count, 0).toLocaleString()}
-            </div>
-            <div className="text-xs text-muted-foreground">requests</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Spend</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              ${keys.reduce((sum, k) => sum + k.current_spend, 0).toFixed(2)}
-            </div>
-            <div className="text-xs text-muted-foreground">cumulative</div>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Total Keys"
+          value={keys.length.toString()}
+          icon={Key}
+        />
+        <StatCard
+          title="Active Keys"
+          value={keys.filter(k => getKeyStatus(k) === 'active').length.toString()}
+          description={`${keys.filter(k => getKeyStatus(k) === 'inactive').length} inactive`}
+          icon={CheckCircle}
+        />
+        <StatCard
+          title="Total Usage"
+          value={keys.reduce((sum, k) => sum + k.usage_count, 0).toLocaleString()}
+          description="requests"
+          icon={Activity}
+        />
+        <StatCard
+          title="Total Spend"
+          value={`$${keys.reduce((sum, k) => sum + k.current_spend, 0).toFixed(2)}`}
+          description="cumulative"
+          icon={DollarSign}
+        />
       </div>
 
       {/* Data Table */}
-      <DataTable 
-        columns={createColumns(toggleKeyStatus, revokeKey, deleteKey)}
+      <DataTable
+        columns={createColumns(handleToggleKeyStatus, handleRevokeKey, handleDeleteKey)}
         data={keys}
       />
     </div>

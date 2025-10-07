@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-  Shield, 
-  Save, 
-  ArrowLeft, 
+import {
+  Shield,
+  Save,
+  ArrowLeft,
   TestTube,
   AlertTriangle,
   CheckCircle,
@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/hooks/use-toast";
 
 // Types and validation schemas
@@ -40,7 +41,7 @@ const guardrailConfigSchema = z.object({
   enabled: z.boolean().default(true),
   default_on: z.boolean().default(false),
   execution_modes: z.array(z.string()).min(1, "At least one execution mode is required"),
-  
+
   // Provider-specific configurations
   analyzer_url: z.string().url("Must be a valid URL"),
   anonymizer_url: z.string().url("Must be a valid URL").optional(),
@@ -49,7 +50,7 @@ const guardrailConfigSchema = z.object({
   anonymize_method: z.string().default("replace"),
   mask_pii: z.boolean().default(true),
   language: z.string().default("en"),
-  
+
   // Advanced settings
   timeout_ms: z.number().min(100).max(30000).default(5000),
   retry_attempts: z.number().min(0).max(5).default(2),
@@ -61,27 +62,27 @@ type GuardrailConfig = z.infer<typeof guardrailConfigSchema>;
 
 // Constants
 const EXECUTION_MODES = [
-  { 
-    value: "pre_call", 
-    label: "Pre-call", 
+  {
+    value: "pre_call",
+    label: "Pre-call",
     description: "Execute before sending to LLM",
     icon: <ArrowLeft className="h-4 w-4" />
   },
-  { 
-    value: "post_call", 
-    label: "Post-call", 
+  {
+    value: "post_call",
+    label: "Post-call",
     description: "Execute after LLM response",
     icon: <CheckCircle className="h-4 w-4" />
   },
-  { 
-    value: "during_call", 
-    label: "During-call", 
+  {
+    value: "during_call",
+    label: "During-call",
     description: "Execute in parallel with LLM",
     icon: <Zap className="h-4 w-4" />
   },
-  { 
-    value: "logging_only", 
-    label: "Logging only", 
+  {
+    value: "logging_only",
+    label: "Logging only",
     description: "Log violations without blocking",
     icon: <AlertTriangle className="h-4 w-4" />
   }
@@ -125,7 +126,7 @@ export default function GuardrailConfig() {
   const [isTesting, setIsTesting] = useState(false);
 
   const isEditing = Boolean(id);
-  
+
   const form = useForm<GuardrailConfig>({
     resolver: zodResolver(guardrailConfigSchema),
     defaultValues: {
@@ -232,13 +233,22 @@ export default function GuardrailConfig() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button 
-          variant="outline" 
-          size="icon"
-          onClick={() => navigate("/guardrails")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => navigate("/guardrails")}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Back to guardrails</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold">
             {isEditing ? "Edit Guardrail" : "Create Guardrail"}
@@ -312,7 +322,7 @@ export default function GuardrailConfig() {
                       <FormItem>
                         <FormLabel>Description</FormLabel>
                         <FormControl>
-                          <Textarea 
+                          <Textarea
                             placeholder="Describe the purpose of this guardrail..."
                             className="resize-none"
                             {...field}
@@ -653,10 +663,10 @@ export default function GuardrailConfig() {
                       <FormItem>
                         <FormLabel>Timeout (ms)</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            min="100" 
-                            max="30000" 
+                          <Input
+                            type="number"
+                            min="100"
+                            max="30000"
                             {...field}
                             onChange={(e) => field.onChange(parseInt(e.target.value))}
                           />
@@ -676,10 +686,10 @@ export default function GuardrailConfig() {
                       <FormItem>
                         <FormLabel>Retry Attempts</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            min="0" 
-                            max="5" 
+                          <Input
+                            type="number"
+                            min="0"
+                            max="5"
                             {...field}
                             onChange={(e) => field.onChange(parseInt(e.target.value))}
                           />
@@ -752,9 +762,9 @@ export default function GuardrailConfig() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     className="w-full"
                     onClick={onTest}
                     disabled={isTesting}
@@ -814,15 +824,15 @@ export default function GuardrailConfig() {
 
           {/* Footer Actions */}
           <div className="flex items-center justify-end gap-4 border-t pt-6">
-            <Button 
-              type="button" 
+            <Button
+              type="button"
               variant="outline"
               onClick={() => navigate("/guardrails")}
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={saveMutation.isPending}
             >
               {saveMutation.isPending ? (

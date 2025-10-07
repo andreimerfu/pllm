@@ -1,14 +1,15 @@
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { ModelCapabilities as IModelCapabilities } from "@/types/api";
-import { 
-  Eye, 
-  Mic, 
-  Volume2, 
-  Zap, 
-  FileText, 
-  MessageSquare, 
-  Brain, 
+import {
+  Eye,
+  Mic,
+  Volume2,
+  Zap,
+  FileText,
+  MessageSquare,
+  Brain,
   Search,
   Code,
   Layers
@@ -102,13 +103,14 @@ export default function ModelCapabilities({ capabilities, showLabels = false, ma
 
   const visibleCapabilities = enabledCapabilities.slice(0, maxVisible);
   const remainingCount = enabledCapabilities.length - maxVisible;
+  const remainingCapabilities = enabledCapabilities.slice(maxVisible);
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <TooltipProvider>
         {visibleCapabilities.map((config) => {
           const Icon = config.icon;
-          
+
           if (showLabels) {
             return (
               <Tooltip key={config.key}>
@@ -124,7 +126,7 @@ export default function ModelCapabilities({ capabilities, showLabels = false, ma
               </Tooltip>
             );
           }
-          
+
           return (
             <Tooltip key={config.key}>
               <TooltipTrigger asChild>
@@ -139,26 +141,34 @@ export default function ModelCapabilities({ capabilities, showLabels = false, ma
           );
         })}
       </TooltipProvider>
-      
+
       {remainingCount > 0 && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="outline" className="cursor-help">
-                +{remainingCount}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <div>
-                {enabledCapabilities.slice(maxVisible).map((config) => (
-                  <div key={config.key}>
-                    {config.label}
-                  </div>
-                ))}
+        <HoverCard>
+          <HoverCardTrigger asChild>
+            <Badge variant="outline" className="cursor-help hover:bg-secondary/80 transition-colors">
+              +{remainingCount} more
+            </Badge>
+          </HoverCardTrigger>
+          <HoverCardContent className="w-auto max-w-md">
+            <div className="space-y-3">
+              <h4 className="text-sm font-semibold">Additional Capabilities</h4>
+              <div className="space-y-2">
+                {remainingCapabilities.map((config) => {
+                  const Icon = config.icon;
+                  return (
+                    <div key={config.key} className="flex items-start gap-2">
+                      <Icon className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                      <div>
+                        <div className="text-sm font-medium">{config.label}</div>
+                        <div className="text-xs text-muted-foreground">{config.description}</div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            </div>
+          </HoverCardContent>
+        </HoverCard>
       )}
     </div>
   );

@@ -46,17 +46,19 @@ export default function Models() {
       const modelUsage = topModels.find((tm: any) => tm.model === model.id);
       
       const usageData = {
-        requests_today: modelUsage?.requests || 0, // Use total as daily for now
+        requests_today: modelUsage?.requests || 0,
         requests_total: modelUsage?.requests || 0,
-        tokens_today: modelUsage?.tokens || 0, // Use total as daily for now  
+        tokens_today: modelUsage?.tokens || 0,
         tokens_total: modelUsage?.tokens || 0,
-        cost_today: modelUsage?.cost || 0, // Use total as daily for now
+        cost_today: modelUsage?.cost || 0,
         cost_total: modelUsage?.cost || 0,
-        avg_latency: modelUsage?.avg_latency || 0, // Use real latency data
-        error_rate: modelUsage?.success_rate ? (100 - modelUsage.success_rate) : 0, // Calculate from success_rate
-        cache_hit_rate: 0, // Not available from API yet
-        health_score: modelUsage ? 95 : 100, // Active models get 95, unused get 100
-        trend_data: [], // No daily trend data available from API yet
+        avg_latency: modelUsage?.avg_latency || 0,
+        error_rate: modelUsage?.success_rate ? (100 - modelUsage.success_rate) : 0,
+        cache_hit_rate: modelUsage?.cache_hit_rate || 0,
+        health_score: modelUsage?.health_score || 100,
+        p95_latency: modelUsage?.p95_latency || 0,
+        p99_latency: modelUsage?.p99_latency || 0,
+        trend_data: [],
         last_used: modelUsage ? new Date().toISOString() : null,
       };
 

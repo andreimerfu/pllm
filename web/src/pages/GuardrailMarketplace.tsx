@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { 
-  Shield, 
-  Search, 
+import {
+  Shield,
+  Search,
   Filter,
   Star,
   Download,
@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -91,7 +92,7 @@ const MOCK_PROVIDERS: GuardrailProvider[] = [
     tags: ["PII", "anonymization", "GDPR", "HIPAA", "enterprise"],
     features: [
       "Multi-language PII detection",
-      "Custom entity recognizers", 
+      "Custom entity recognizers",
       "Multiple anonymization methods",
       "REST API integration",
       "Batch processing support"
@@ -162,7 +163,7 @@ const MOCK_PROVIDERS: GuardrailProvider[] = [
     description: "OpenAI's moderation models are designed to check whether content complies with OpenAI's usage policies. These models provide classification capabilities across several categories of content.",
     short_description: "AI-powered content moderation from OpenAI for safety and compliance",
     provider: "OpenAI",
-    category: "safety", 
+    category: "safety",
     subcategory: "Content Moderation",
     version: "text-moderation-007",
     author: {
@@ -210,7 +211,7 @@ const MOCK_PROVIDERS: GuardrailProvider[] = [
     version: "1.0.0",
     author: {
       name: "Jigsaw",
-      avatar: "/api/placeholder/40/40", 
+      avatar: "/api/placeholder/40/40",
       company: "Google",
       verified: true
     },
@@ -319,15 +320,15 @@ export default function GuardrailMarketplace() {
   // Filter and sort providers
   const filteredProviders = MOCK_PROVIDERS
     .filter(provider => {
-      const matchesSearch = searchQuery === "" || 
+      const matchesSearch = searchQuery === "" ||
         provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         provider.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         provider.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-      
+
       const matchesCategory = selectedCategory === "all" || provider.category === selectedCategory;
       const matchesPricing = pricingFilter === "all" || provider.pricing === pricingFilter;
       const matchesDifficulty = difficultyFilter === "all" || provider.integration_difficulty === difficultyFilter;
-      
+
       return matchesSearch && matchesCategory && matchesPricing && matchesDifficulty;
     })
     .sort((a, b) => {
@@ -385,7 +386,7 @@ export default function GuardrailMarketplace() {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          These guardrail providers offer various levels of PII detection, content safety, and compliance features. 
+          These guardrail providers offer various levels of PII detection, content safety, and compliance features.
           Choose based on your specific needs and integration requirements.
         </AlertDescription>
       </Alert>
@@ -477,6 +478,10 @@ export default function GuardrailMarketplace() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProviders.map((provider) => {
                 const CategoryIcon = getCategoryIcon(provider.category);
+                const visibleFeatures = provider.features.slice(0, 2);
+                const remainingFeaturesCount = provider.features.length - 2;
+                const remainingFeatures = provider.features.slice(2);
+
                 return (
                   <Card key={provider.id} className="flex flex-col hover:shadow-md transition-shadow">
                     <CardHeader className="pb-2">
@@ -504,7 +509,7 @@ export default function GuardrailMarketplace() {
                         {provider.short_description}
                       </CardDescription>
                     </CardHeader>
-                    
+
                     <CardContent className="flex-1 space-y-4">
                       {/* Stats */}
                       <div className="flex items-center justify-between text-sm">
@@ -538,12 +543,36 @@ export default function GuardrailMarketplace() {
                         )}
                       </div>
 
-                      {/* Key Features */}
+                      {/* Key Features with HoverCard */}
                       <div>
                         <p className="text-xs font-medium text-muted-foreground mb-1">Key Features</p>
-                        <div className="text-xs text-muted-foreground">
-                          {provider.features.slice(0, 2).join(" • ")}
-                          {provider.features.length > 2 && ` • +${provider.features.length - 2} more`}
+                        <div className="text-xs text-muted-foreground flex items-center flex-wrap gap-1">
+                          {visibleFeatures.join(" • ")}
+                          {remainingFeaturesCount > 0 && (
+                            <>
+                              <span className="mx-1">•</span>
+                              <HoverCard>
+                                <HoverCardTrigger asChild>
+                                  <span className="text-primary cursor-help hover:underline">
+                                    +{remainingFeaturesCount} more
+                                  </span>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-80">
+                                  <div className="space-y-2">
+                                    <h4 className="text-sm font-semibold">All Features</h4>
+                                    <ul className="space-y-1">
+                                      {remainingFeatures.map((feature, idx) => (
+                                        <li key={idx} className="text-xs text-muted-foreground flex items-start">
+                                          <CheckCircle className="h-3 w-3 mr-2 mt-0.5 flex-shrink-0 text-green-600" />
+                                          {feature}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                </HoverCardContent>
+                              </HoverCard>
+                            </>
+                          )}
                         </div>
                       </div>
 

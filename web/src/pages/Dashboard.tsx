@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import { Icon } from "@iconify/react"
 import { getDashboardMetrics, getUsageTrends } from "@/lib/api"
+import { formatDateShort } from "@/lib/date-utils"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -77,7 +78,7 @@ function MetricCards() {
       try {
         const response = await getDashboardMetrics()
         const data = (response as any).data || response
-        
+
         setMetrics({
           totalRequests: data.total_requests || 0,
           totalTokens: data.total_tokens || 0,
@@ -144,8 +145,8 @@ function MetricCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {metrics.totalTokens > 1000000 
-              ? `${(metrics.totalTokens / 1000000).toFixed(1)}M` 
+            {metrics.totalTokens > 1000000
+              ? `${(metrics.totalTokens / 1000000).toFixed(1)}M`
               : metrics.totalTokens.toLocaleString()}
           </div>
           <p className="text-xs text-muted-foreground">
@@ -307,24 +308,13 @@ function ChartAreaInteractive() {
               axisLine={false}
               tickMargin={8}
               minTickGap={32}
-              tickFormatter={(value) => {
-                const date = new Date(value)
-                return date.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })
-              }}
+              tickFormatter={(value) => formatDateShort(value)}
             />
             <ChartTooltip
               cursor={false}
               content={
                 <ChartTooltipContent
-                  labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })
-                  }}
+                  labelFormatter={(value) => formatDateShort(value)}
                   indicator="dot"
                 />
               }
@@ -377,7 +367,7 @@ function ModelsTable() {
       try {
         const response = await getDashboardMetrics()
         const dashboard = (response as any).data || response
-        
+
         // Transform top_models data to match our Model interface
         const topModels = dashboard?.top_models || []
         const transformedModels = topModels.map((model: any, index: number) => {
@@ -474,7 +464,7 @@ function ModelsTable() {
 // Provider icon mapping - using Iconify icons
 const ProviderIcon = ({ provider }: { provider: string }) => {
   const iconSize = 20
-  
+
   switch (provider.toLowerCase()) {
     case "openai":
       return <Icon icon="simple-icons:openai" width={iconSize} height={iconSize} className="text-green-600" />
@@ -625,7 +615,7 @@ function DataTable({ data }: { data: Model[] }) {
           </Button>
         </div>
       </div>
-      
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -670,7 +660,7 @@ function DataTable({ data }: { data: Model[] }) {
           </TableBody>
         </Table>
       </div>
-      
+
       <div className="flex items-center justify-between space-x-2 py-4">
         <div className="text-muted-foreground text-sm">
           Showing {table.getFilteredRowModel().rows.length} row(s).
@@ -747,7 +737,7 @@ function DataTable({ data }: { data: Model[] }) {
 // Main Dashboard component
 export default function Dashboard() {
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between space-y-2">
         <div>

@@ -24,6 +24,33 @@ const routeNames: Record<string, string> = {
   "/settings": "Settings",
 };
 
+// Function to get display name for dynamic segments
+const getDynamicSegmentLabel = (segment: string, parentPath: string): string => {
+  // For model IDs, decode and shorten if needed
+  if (parentPath.includes('/models')) {
+    try {
+      const decoded = decodeURIComponent(segment);
+      // Shorten long model names for breadcrumb
+      return decoded.length > 40 ? decoded.substring(0, 40) + '...' : decoded;
+    } catch {
+      return segment;
+    }
+  }
+
+  // For guardrail config
+  if (parentPath.includes('/guardrails/config')) {
+    return segment === 'new' ? 'New Guardrail' : `Config ${segment}`;
+  }
+
+  // Default: capitalize and decode
+  try {
+    const decoded = decodeURIComponent(segment);
+    return decoded.charAt(0).toUpperCase() + decoded.slice(1);
+  } catch {
+    return segment.charAt(0).toUpperCase() + segment.slice(1);
+  }
+};
+
 export function AppNavbar() {
   const location = useLocation();
   const pathSegments = location.pathname.split("/").filter(Boolean);
@@ -34,15 +61,25 @@ export function AppNavbar() {
 
   pathSegments.forEach((segment) => {
     currentPath += `/${segment}`;
-    const label = routeNames[currentPath] || segment;
-    breadcrumbItems.push({ path: currentPath, label });
+
+    // Check if this is a known route
+    const knownRoute = routeNames[currentPath];
+
+    if (knownRoute) {
+      breadcrumbItems.push({ path: currentPath, label: knownRoute });
+    } else {
+      // This is a dynamic segment
+      const parentPath = breadcrumbItems.length > 0 ? breadcrumbItems[breadcrumbItems.length - 1].path : '';
+      const label = getDynamicSegmentLabel(segment, parentPath);
+      breadcrumbItems.push({ path: currentPath, label });
+    }
   });
 
   return (
     <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="h-4" />
-      
+
       <Breadcrumb>
         <BreadcrumbList>
           {breadcrumbItems.map((item, index) => (
@@ -50,10 +87,10 @@ export function AppNavbar() {
               {index > 0 && <BreadcrumbSeparator />}
               <BreadcrumbItem>
                 {index === breadcrumbItems.length - 1 ? (
-                  <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                  <BreadcrumbPage className="max-w-[200px] truncate">{item.label}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink asChild>
-                    <Link to={item.path}>{item.label}</Link>
+                    <Link to={item.path} className="max-w-[200px] truncate">{item.label}</Link>
                   </BreadcrumbLink>
                 )}
               </BreadcrumbItem>

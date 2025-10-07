@@ -17,7 +17,7 @@ import { ModelWithUsage } from "@/types/api";
 import { detectProvider } from "@/lib/providers";
 import { SparklineChart, MetricCard } from "@/components/models/ModelCharts";
 import { FallbackDiagram } from "@/components/models/FallbackDiagram";
-import { getSystemConfig, getDashboardMetrics, getModels } from "@/lib/api";
+import { getSystemConfig, getModelMetrics, getModelTrends } from "@/lib/api";
 
 // Mock data - in real app this would come from API
 const getMockModelDetail = (modelId: string): ModelWithUsage & {
@@ -93,7 +93,7 @@ const formatCurrency = (amount: number): string => {
 export default function ModelDetail() {
   const { modelId } = useParams<{ modelId: string }>();
   const [model, setModel] = useState<ModelWithUsage | null>(null);
-  const [modelPricing, setModelPricing] = useState<any>(null);
+  const [modelPricing] = useState<any>(null);
   const [fallbacks, setFallbacks] = useState<string[]>([]);
   const [allFallbacksConfig, setAllFallbacksConfig] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
@@ -110,57 +110,67 @@ export default function ModelDetail() {
       try {
         setLoading(true);
         const decodedModelId = decodeURIComponent(modelId);
-        
-        // Fetch dashboard metrics and models data to get real usage data and pricing
-        const [dashboardResponse, configResponse, modelsResponse] = await Promise.allSettled([
-          getDashboardMetrics(),
-          getSystemConfig(),
-          getModels()
+
+        // Fetch model-specific metrics and trends
+        const [metricsResponse, trendsResponse, configResponse] = await Promise.allSettled([
+          getModelMetrics(decodedModelId),
+          getModelTrends(decodedModelId, 30),
+          getSystemConfig()
         ]);
 
-        // Handle dashboard data and create model with real usage stats
+        // Handle metrics data
         let modelData: ModelWithUsage;
-        if (dashboardResponse.status === 'fulfilled') {
-          const dashboard = dashboardResponse.value as any;
-          const topModels = dashboard.top_models || [];
-          const modelUsage = topModels.find((tm: any) => tm.model === decodedModelId);
-          
-          // Create model object with real data
-          const providerInfo = detectProvider(decodedModelId, decodedModelId.includes("claude") ? "anthropic" : 
-                                              decodedModelId.includes("gpt") ? "openai" : 
+        if (metricsResponse.status === 'fulfilled') {
+          const metricsValue = metricsResponse.value as any;
+          const metrics = metricsValue.data || metricsValue;
+          const providerInfo = detectProvider(decodedModelId, decodedModelId.includes("claude") ? "anthropic" :
+                                              decodedModelId.includes("gpt") ? "openai" :
                                               decodedModelId.includes("gemini") ? "google" : "openrouter");
-          
+
+          // Get trend data if available
+          let trendData: number[] = [];
+          if (trendsResponse.status === 'fulfilled') {
+            const trendsValue = trendsResponse.value as any;
+            const trends = Array.isArray(trendsValue.data) ? trendsValue.data : (Array.isArray(trendsValue) ? trendsValue : []);
+            trendData = trends.map((t: any) => t.requests || 0);
+          }
+
+          // Calculate health score from success rate and latency
+          const healthScore = metrics.success_rate >= 95 && metrics.avg_latency < 1000 ? 100 :
+                             metrics.success_rate >= 90 && metrics.avg_latency < 2000 ? 85 :
+                             metrics.success_rate >= 80 && metrics.avg_latency < 3000 ? 70 : 50;
+
           modelData = {
             id: decodedModelId,
             object: "model",
             created: Math.floor(Date.now() / 1000),
             owned_by: providerInfo.name.toLowerCase(),
             provider: providerInfo.name.toLowerCase(),
-            is_active: Boolean(modelUsage),
+            is_active: metrics.total_requests > 0,
             usage_stats: {
-              requests_today: 0, // No daily data available from API
-              requests_total: modelUsage?.requests || 0,
-              tokens_today: 0, // No daily data available from API  
-              tokens_total: modelUsage?.tokens || 0,
-              cost_today: 0, // No daily data available from API
-              cost_total: modelUsage?.cost || 0,
-              avg_latency: modelUsage?.avg_latency || 0,
-              error_rate: modelUsage?.success_rate ? (100 - modelUsage.success_rate) : 0,
-              cache_hit_rate: 0,
-              health_score: modelUsage ? 95 : 100,
-              trend_data: [],
-              last_used: modelUsage ? new Date().toISOString() : null,
+              requests_today: 0,
+              requests_total: metrics.total_requests || 0,
+              tokens_today: 0,
+              tokens_total: metrics.total_tokens || 0,
+              cost_today: 0,
+              cost_total: metrics.total_cost || 0,
+              avg_latency: metrics.avg_latency || 0,
+              error_rate: metrics.success_rate ? (100 - metrics.success_rate) : 0,
+              cache_hit_rate: metrics.cache_hit_rate || 0,
+              health_score: healthScore,
+              trend_data: trendData,
+              last_used: metrics.last_used || null,
             }
           };
-          
-          // Add health status and configuration to the model data  
+
+          // Add health status and configuration
           (modelData as any).health = {
-            status: modelUsage ? (modelUsage.success_rate >= 95 ? 'healthy' : 'degraded') : 'unhealthy',
-            uptime: modelUsage?.success_rate || 0,
-            errorRate: modelUsage?.success_rate ? (100 - modelUsage.success_rate) : 100,
-            p99Latency: modelUsage?.avg_latency || 0
+            status: metrics.success_rate >= 95 ? 'healthy' : metrics.success_rate >= 80 ? 'degraded' : 'unhealthy',
+            uptime: metrics.success_rate || 0,
+            errorRate: metrics.success_rate ? (100 - metrics.success_rate) : 100,
+            p99Latency: metrics.avg_latency || 0
           };
-          
+
           (modelData as any).configuration = {
             provider: providerInfo.name,
             endpoint: "Configured via system config",
@@ -170,23 +180,12 @@ export default function ModelDetail() {
             timeout: 30000,
             retries: 3
           };
-          
+
           setModel(modelData);
         } else {
-          console.warn('Failed to fetch dashboard metrics:', dashboardResponse.reason);
+          console.warn('Failed to fetch model metrics:', metricsResponse.reason);
           // Fallback to mock data if API fails
           setModel(getMockModelDetail(decodedModelId));
-        }
-
-        // Handle models data for pricing information
-        if (modelsResponse.status === 'fulfilled') {
-          const modelsData = modelsResponse.value as any;
-          const modelPricingData = modelsData.data?.find((m: any) => m.id === decodedModelId);
-          if (modelPricingData) {
-            setModelPricing(modelPricingData);
-          }
-        } else {
-          console.warn('Failed to fetch models data:', modelsResponse.reason);
         }
 
         // Handle config data for fallbacks

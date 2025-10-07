@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Shield, Activity, Clock, AlertTriangle, CheckCircle, XCircle, Plus, Settings, Trash2, Edit3, MoreHorizontal, ArrowUpDown } from "lucide-react";
 import { Bar, BarChart } from "recharts";
@@ -12,7 +11,8 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 
-import { getGuardrails, getGuardrailStats, checkGuardrailHealth } from "@/lib/api";
+import { formatDateTime } from "@/lib/date-utils";
+import { useGuardrails, formatLatency, formatRate, getModeColor, GuardrailInfo } from "@/hooks/useGuardrails";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,26 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChartConfig, ChartContainer } from "@/components/ui/chart";
 
-
-interface GuardrailInfo {
-  name: string;
-  provider: string;
-  mode: string[];
-  enabled: boolean;
-  default_on: boolean;
-  config: Record<string, any>;
-  stats?: {
-    total_executions: number;
-    total_passed: number;
-    total_blocked: number;
-    total_errors: number;
-    average_latency: number;
-    last_executed: string;
-    block_rate: number;
-    error_rate: number;
-  };
-  healthy: boolean;
-}
+// GuardrailInfo interface now imported from hooks/useGuardrails
 
 
 
@@ -82,19 +63,19 @@ const PII_ENTITIES = [
 // Microchart component for performance visualization
 const PerformanceMicroChart = ({ stats }: { stats: any }) => {
   if (!stats) return <div className="w-20 h-8 bg-muted rounded" />;
-  
+
   const chartData = [
     { name: "Passed", value: stats.total_passed, fill: "#22c55e" },
     { name: "Blocked", value: stats.total_blocked, fill: "#ef4444" },
     { name: "Errors", value: stats.total_errors, fill: "#f59e0b" },
   ];
-  
+
   const chartConfig = {
     value: {
       label: "Count",
     },
   } satisfies ChartConfig;
-  
+
   return (
     <ChartContainer config={chartConfig} className="h-8 w-20">
       <BarChart data={chartData}>
@@ -111,14 +92,14 @@ const LatencyMicroChart = ({ latency }: { latency: number }) => {
     day: i,
     latency: latency + (Math.random() - 0.5) * 20,
   }));
-  
+
   const chartConfig = {
     latency: {
       label: "Latency",
       color: "#3b82f6",
     },
   } satisfies ChartConfig;
-  
+
   return (
     <ChartContainer config={chartConfig} className="h-8 w-20">
       <BarChart data={trendData}>
@@ -303,7 +284,7 @@ const createColumns = (
               Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               onClick={() => onDelete(guardrail)}
               className="text-red-600"
             >
@@ -318,14 +299,14 @@ const createColumns = (
 ];
 
 // Guardrails Table Component
-function GuardrailsTable({ 
-  guardrails, 
-  onConfigure, 
-  onEdit, 
-  onDelete, 
-  formatLatency, 
-  formatRate, 
-  getModeColor 
+function GuardrailsTable({
+  guardrails,
+  onConfigure,
+  onEdit,
+  onDelete,
+  formatLatency,
+  formatRate,
+  getModeColor
 }: {
   guardrails: GuardrailInfo[];
   onConfigure: (guardrail: GuardrailInfo) => void;
@@ -336,9 +317,9 @@ function GuardrailsTable({
   getModeColor: (mode: string) => string;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
-  
+
   const columns = createColumns(onConfigure, onEdit, onDelete, formatLatency, formatRate, getModeColor);
-  
+
   const table = useReactTable({
     data: guardrails,
     columns,
@@ -349,7 +330,7 @@ function GuardrailsTable({
       sorting,
     },
   });
-  
+
   if (guardrails.length === 0) {
     return (
       <Card>
@@ -363,7 +344,7 @@ function GuardrailsTable({
       </Card>
     );
   }
-  
+
   return (
     <div className="space-y-4">
       <div className="overflow-hidden rounded-md border">
@@ -413,43 +394,32 @@ export default function Guardrails() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedGuardrail, setSelectedGuardrail] = useState<GuardrailInfo | null>(null);
-  
+
+  // Use the extracted hook for data management
+  const {
+    guardrails,
+    systemEnabled,
+    stats,
+    health,
+    allHealthy,
+    checkedAt,
+    isLoading,
+    refetch,
+  } = useGuardrails()
+
   const handleConfigure = (guardrail: GuardrailInfo) => {
     setSelectedGuardrail(guardrail);
   };
-  
+
   const handleEdit = (guardrail: GuardrailInfo) => {
     // TODO: Implement edit functionality
     console.log('Edit guardrail:', guardrail.name);
   };
-  
+
   const handleDelete = (guardrail: GuardrailInfo) => {
     // TODO: Implement delete functionality
     console.log('Delete guardrail:', guardrail.name);
   };
-
-  const { data: guardrailsData, isLoading } = useQuery({
-    queryKey: ["guardrails"],
-    queryFn: getGuardrails,
-  });
-
-  const { data: statsData } = useQuery({
-    queryKey: ["guardrails-stats"],
-    queryFn: getGuardrailStats,
-  });
-
-  const { data: healthData } = useQuery({
-    queryKey: ["guardrails-health"],
-    queryFn: checkGuardrailHealth,
-    refetchInterval: 30000, // Check health every 30 seconds
-  });
-
-  const guardrails = (guardrailsData as any)?.guardrails || [];
-  const systemEnabled = (guardrailsData as any)?.enabled ?? false;
-  const stats = (statsData as any)?.stats || {};
-  const health = (healthData as any)?.health || {};
-  const allHealthy = (healthData as any)?.all_healthy ?? false;
-  const checkedAt = (healthData as any)?.checked_at;
 
   if (isLoading) {
     return (
@@ -459,36 +429,13 @@ export default function Guardrails() {
     );
   }
 
-  const formatLatency = (ms: number) => {
-    if (ms < 1000) return `${ms}ms`;
-    return `${(ms / 1000).toFixed(1)}s`;
-  };
-
-  const formatRate = (rate: number) => {
-    return `${(rate * 100).toFixed(1)}%`;
-  };
-
-  const getHealthIcon = (healthy: boolean) => {
+  const getHealthIcon = (healthy?: boolean) => {
+    if (healthy === undefined) return null;
     return healthy ? (
       <CheckCircle className="h-4 w-4 text-green-500" />
     ) : (
       <XCircle className="h-4 w-4 text-red-500" />
     );
-  };
-
-  const getModeColor = (mode: string) => {
-    switch (mode) {
-      case "pre_call":
-        return "bg-blue-100 text-blue-800";
-      case "post_call":
-        return "bg-green-100 text-green-800";
-      case "during_call":
-        return "bg-yellow-100 text-yellow-800";
-      case "logging_only":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
   };
 
   return (
@@ -505,14 +452,14 @@ export default function Guardrails() {
           <Badge variant={systemEnabled ? "default" : "secondary"}>
             {systemEnabled ? "Enabled" : "Disabled"}
           </Badge>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => navigate("/guardrails/marketplace")}
           >
             <Shield className="h-4 w-4 mr-2" />
             Browse Marketplace
           </Button>
-          <Button 
+          <Button
             onClick={() => navigate("/guardrails/config/new")}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -543,7 +490,7 @@ export default function Guardrails() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <GuardrailsTable 
+          <GuardrailsTable
             guardrails={guardrails}
             onConfigure={handleConfigure}
             onEdit={handleEdit}
@@ -624,7 +571,7 @@ export default function Guardrails() {
                     Real-time health monitoring for all guardrails
                   </CardDescription>
                 </div>
-                <Button variant="outline" onClick={() => window.location.reload()}>
+                <Button variant="outline" onClick={() => refetch()}>
                   Refresh
                 </Button>
               </div>
@@ -646,7 +593,7 @@ export default function Guardrails() {
                       {allHealthy ? 'All Guardrails Healthy' : 'Some Guardrails Unhealthy'}
                     </span>
                   </div>
-                  
+
                   <div className="space-y-3">
                     {Object.entries(health as Record<string, any>).map(([name, status]) => (
                       <div key={name} className="flex items-center justify-between p-3 border rounded-md">
@@ -660,11 +607,11 @@ export default function Guardrails() {
                       </div>
                     ))}
                   </div>
-                  
+
                   {checkedAt && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-4">
                       <Clock className="h-3 w-3" />
-                      Last checked: {new Date(checkedAt).toLocaleString()}
+                      Last checked: {formatDateTime(checkedAt)}
                     </div>
                   )}
                 </div>
@@ -866,7 +813,7 @@ export default function Guardrails() {
                     </div>
                     {selectedGuardrail.stats.last_executed && (
                       <div className="text-xs text-muted-foreground text-center">
-                        Last executed: {new Date(selectedGuardrail.stats.last_executed).toLocaleString()}
+                        Last executed: {formatDateTime(selectedGuardrail.stats.last_executed)}
                       </div>
                     )}
                   </div>
