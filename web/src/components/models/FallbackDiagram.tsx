@@ -1,13 +1,12 @@
 import { useMemo } from 'react';
 import {
   ReactFlow,
+  ReactFlowProvider,
   Node,
   Edge,
   Background,
   Controls,
-  useNodesState,
-  useEdgesState,
-  ConnectionMode,
+  MarkerType,
 } from '@xyflow/react';
 import { Icon } from "@iconify/react";
 import { detectProvider } from "@/lib/providers";
@@ -18,13 +17,13 @@ import '@xyflow/react/dist/style.css';
 interface FallbackDiagramProps {
   primaryModel: string;
   fallbacks: string[];
-  allFallbacksConfig?: Record<string, string[]>; // Complete fallback configuration
+  allFallbacksConfig?: Record<string, string[]>;
 }
 
 // Custom node component
 function ModelNode({ data }: { data: any }) {
   const providerInfo = detectProvider(data.modelId, data.provider);
-  
+
   return (
     <div className={`px-4 py-3 border-2 rounded-lg bg-background shadow-sm ${
       data.isPrimary ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'border-border'
@@ -68,96 +67,86 @@ const nodeTypes = {
   modelNode: ModelNode,
 };
 
-export function FallbackDiagram({ primaryModel, fallbacks, allFallbacksConfig = {} }: FallbackDiagramProps) {
-  // Build complete fallback chain by recursively looking up fallbacks
+export function FallbackDiagram({ primaryModel, allFallbacksConfig = {} }: FallbackDiagramProps) {
+  // Build complete fallback chain
   const buildCompleteChain = (modelName: string, visited = new Set<string>()): string[] => {
     if (visited.has(modelName)) {
-      return []; // Prevent infinite loops
+      return [];
     }
-    
+
     visited.add(modelName);
     const directFallbacks = allFallbacksConfig[modelName] || [];
-    
+
     const chain: string[] = [];
     for (const fallback of directFallbacks) {
       chain.push(fallback);
-      // Recursively get fallbacks of this fallback (pass the same visited set)
       const subChain = buildCompleteChain(fallback, visited);
       chain.push(...subChain);
     }
-    
+
     return chain;
   };
 
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
+  const { nodes, edges } = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
-    
-    // Build the complete fallback chain
+
     const completeChain = buildCompleteChain(primaryModel);
     const uniqueChain = [...new Set([primaryModel, ...completeChain])];
-    
-    // Debug logging
-    console.log('FallbackDiagram Debug:', {
-      primaryModel,
-      allFallbacksConfig,
-      completeChain,
-      uniqueChain
-    });
-    
-    // Create nodes for the complete chain (left to right layout)
+
+    // Create nodes with explicit dimensions for proper edge rendering
     uniqueChain.forEach((modelName, index) => {
-      const nodeId = index === 0 ? 'primary' : `model-${index}`;
-      
       nodes.push({
-        id: nodeId,
+        id: index === 0 ? 'primary' : `model-${index}`,
         type: 'modelNode',
-        position: { 
-          x: index * 280, // Fixed horizontal spacing for left-to-right layout
-          y: 100 // Fixed vertical position
+        position: {
+          x: index * 300,
+          y: 100
         },
+        width: 250,
+        height: 100,
         data: {
           modelId: modelName,
-          provider: modelName.includes("claude") ? "anthropic" : 
-                   modelName.includes("gpt") ? "openai" : 
+          provider: modelName.includes("claude") ? "anthropic" :
+                   modelName.includes("gpt") ? "openai" :
                    modelName.includes("gemini") ? "google" : "openrouter",
           isPrimary: index === 0,
           status: Math.random() > 0.3 ? 'healthy' : Math.random() > 0.1 ? 'degraded' : 'unhealthy',
-          level: index + 1
         },
       });
     });
 
-    // Create edges between consecutive models in the chain
+    // Create animated edges between consecutive models
     for (let i = 0; i < uniqueChain.length - 1; i++) {
       const sourceId = i === 0 ? 'primary' : `model-${i}`;
       const targetId = `model-${i + 1}`;
-      
+
       edges.push({
-        id: `${sourceId}-${targetId}`,
+        id: `e-${sourceId}-${targetId}`,
         source: sourceId,
         target: targetId,
         type: 'smoothstep',
-        animated: true, // Enable animation for flow visualization
-        style: { 
-          stroke: i === 0 ? '#3b82f6' : '#6366f1', // Different colors for primary vs chain
+        animated: true,
+        style: {
+          stroke: i === 0 ? '#3b82f6' : '#6366f1',
           strokeWidth: i === 0 ? 3 : 2,
         },
-        label: i === 0 ? 'Primary Fallback' : `Level ${i + 1}`,
+        label: i === 0 ? 'Primary Fallback' : `Fallback ${i}`,
+        labelStyle: {
+          fontSize: '11px',
+          fontWeight: i === 0 ? 600 : 500,
+          fill: '#64748b'
+        },
         labelBgStyle: { fill: 'white', fillOpacity: 0.9 },
-        labelStyle: { fontSize: '11px', fontWeight: i === 0 ? 600 : 500 },
         markerEnd: {
-          type: 'arrow',
+          type: MarkerType.ArrowClosed,
           color: i === 0 ? '#3b82f6' : '#6366f1',
         },
       });
     }
 
     return { nodes, edges };
-  }, [primaryModel, fallbacks, allFallbacksConfig]);
-
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  }, [primaryModel, allFallbacksConfig]);
 
   const completeChain = buildCompleteChain(primaryModel);
   const uniqueChain = [...new Set([primaryModel, ...completeChain])];
@@ -172,28 +161,29 @@ export function FallbackDiagram({ primaryModel, fallbacks, allFallbacksConfig = 
       </CardHeader>
       <CardContent>
         <div className="h-80 w-full border rounded-lg overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            nodeTypes={nodeTypes}
-            connectionMode={ConnectionMode.Strict}
-            fitView
-            fitViewOptions={{ padding: 0.1, minZoom: 0.5, maxZoom: 1.5 }}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable={false}
-            panOnDrag={uniqueChain.length > 3} // Enable panning only if many nodes
-            zoomOnScroll={false}
-            zoomOnPinch={false}
-            zoomOnDoubleClick={false}
-          >
-            <Background variant={'dots' as any} gap={20} size={1} />
-            <Controls showInteractive={false} showZoom={uniqueChain.length > 3} />
-          </ReactFlow>
+          <ReactFlowProvider>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              fitView
+              fitViewOptions={{ padding: 0.2 }}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              edgesFocusable={false}
+              elementsSelectable={false}
+              panOnDrag={uniqueChain.length > 3}
+              zoomOnScroll={false}
+              zoomOnPinch={false}
+              zoomOnDoubleClick={false}
+              proOptions={{ hideAttribution: false }}
+            >
+              <Background variant={'dots' as any} gap={20} size={1} />
+              <Controls showInteractive={false} showZoom={uniqueChain.length > 3} />
+            </ReactFlow>
+          </ReactFlowProvider>
         </div>
-        
+
         <div className="mt-4 space-y-3">
           <div className="text-sm font-medium">Fallback Chain Details</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -202,8 +192,8 @@ export function FallbackDiagram({ primaryModel, fallbacks, allFallbacksConfig = 
               <ol className="space-y-1 text-muted-foreground">
                 {uniqueChain.map((model, index) => (
                   <li key={model} className="flex items-center gap-2">
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium ${ 
-                      index === 0 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium ${
+                      index === 0 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
                       'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
                     }`}>
                       {index + 1}

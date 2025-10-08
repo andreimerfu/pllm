@@ -958,10 +958,11 @@ func (h *SystemHandler) GetAuthConfig(w http.ResponseWriter, r *http.Request) {
 
 func (h *SystemHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	cfg := config.Get()
-	
+
 	// Build router configuration
 	routerConfig := map[string]interface{}{
 		"routing_strategy": cfg.Router.RoutingStrategy,
+		"fallbacks":        cfg.Router.Fallbacks,
 	}
 
 	h.sendJSON(w, http.StatusOK, map[string]interface{}{

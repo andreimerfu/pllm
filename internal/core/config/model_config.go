@@ -105,11 +105,18 @@ type RouterSettings struct {
 	HealthCheckInterval time.Duration `mapstructure:"health_check_interval" json:"health_check_interval"`
 
 	// Failover configuration
-	EnableFailover          bool              `mapstructure:"enable_failover" json:"enable_failover"`                       // Enable automatic failover
-	InstanceRetryAttempts   int               `mapstructure:"instance_retry_attempts" json:"instance_retry_attempts"`       // Retry attempts per instance (default: 2)
-	ModelFallbacks          map[string]string `mapstructure:"model_fallbacks" json:"model_fallbacks"`                       // Map of model -> fallback model
-	FailoverTimeoutMultiple float64           `mapstructure:"failover_timeout_multiple" json:"failover_timeout_multiple"`   // Timeout multiplier for failover attempts (default: 1.5)
-	EnableModelFallback     bool              `mapstructure:"enable_model_fallback" json:"enable_model_fallback"`           // Enable fallback to different models
+	EnableFailover          bool                `mapstructure:"enable_failover" json:"enable_failover"`                       // Enable automatic failover
+	InstanceRetryAttempts   int                 `mapstructure:"instance_retry_attempts" json:"instance_retry_attempts"`       // Retry attempts per instance (default: 2)
+	ModelFallbacks          map[string]string   `mapstructure:"model_fallbacks" json:"model_fallbacks"`                       // Map of model -> fallback model (deprecated)
+	Fallbacks               map[string][]string `mapstructure:"fallbacks" json:"fallbacks"`                                   // Map of model -> fallback models array
+	FailoverTimeoutMultiple float64             `mapstructure:"failover_timeout_multiple" json:"failover_timeout_multiple"`   // Timeout multiplier for failover attempts (default: 1.5)
+	EnableModelFallback     bool                `mapstructure:"enable_model_fallback" json:"enable_model_fallback"`           // Enable fallback to different models
+}
+
+// FallbackChains contains fallback model chains for different failure scenarios
+type FallbackChains struct {
+	Fallbacks              map[string][]string `mapstructure:"fallbacks" json:"fallbacks"`                                     // Map of model -> fallback models array
+	ContextWindowFallbacks map[string][]string `mapstructure:"context_window_fallbacks" json:"context_window_fallbacks"`       // Fallbacks when context limit exceeded
 }
 
 // ModelGroup represents a logical grouping of model instances

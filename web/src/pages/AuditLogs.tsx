@@ -11,7 +11,7 @@ import {
   useReactTable,
   VisibilityState,
 } from "@tanstack/react-table"
-import { ChevronDown, Calendar, Filter, RefreshCw, Search, X } from "lucide-react"
+import { ChevronDown, Calendar, Filter, RefreshCw, Search, X, Copy, Download } from "lucide-react"
 import { format } from "date-fns"
 
 import { Button } from "@/components/ui/button"
@@ -54,9 +54,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AuditLog } from "@/types/api"
 import { useAuditLogs } from "@/hooks/useAuditLogs"
-import { createAuditColumns, getStatusBadge, getSeverityColor } from "@/components/audit-logs/columns"
+import { createAuditColumns, getStatusBadge } from "@/components/audit-logs/columns"
+import { DetailItem } from "@/components/common/DetailItem"
+import { JsonViewer } from "@/components/common/JsonViewer"
 
 export default function AuditLogs() {
   // Use the extracted hook for data management
@@ -402,232 +405,222 @@ export default function AuditLogs() {
         </div>
       )}
 
-      {/* Audit Log Details Drawer */}
+      {/* Audit Log Details Drawer - Redesigned */}
       <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        <SheetContent className="w-[500px] sm:w-[540px] overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Audit Event Details</SheetTitle>
-            <SheetDescription>
-              Detailed information about the selected audit event
-            </SheetDescription>
-          </SheetHeader>
-          
+        <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col">
           {selectedAuditLog && (
-            <div className="grid flex-1 auto-rows-min gap-6 px-4 py-6">
-              {/* Header with action and status */}
-              <div className="flex items-start justify-between pb-4 border-b">
-                <div>
-                  <h3 className={`text-xl font-semibold ${getSeverityColor(selectedAuditLog.event_type)}`}>
-                    {selectedAuditLog.event_action}
-                  </h3>
-                  <p className="text-sm text-muted-foreground capitalize mt-1">
-                    {selectedAuditLog.event_type.replace(/_/g, ' ')} event
-                  </p>
-                </div>
-                {getStatusBadge(selectedAuditLog.event_result)}
-              </div>
-
-              {/* Basic Information */}
-              <div className="grid gap-3">
-                <Label className="text-sm font-medium">Timestamp</Label>
-                <div className="text-sm">
-                  {format(new Date(selectedAuditLog.timestamp), "EEEE, MMMM do, yyyy 'at' HH:mm:ss")}
-                </div>
-              </div>
-
-              {/* User Information */}
-              <div className="grid gap-3">
-                <Label className="text-sm font-medium">User</Label>
-                {selectedAuditLog.user ? (
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <span className="text-sm font-medium text-primary">
-                        {selectedAuditLog.user.name?.[0] || selectedAuditLog.user.email?.[0]?.toUpperCase() || 'U'}
-                      </span>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">{selectedAuditLog.user.name || selectedAuditLog.user.email}</div>
-                      {selectedAuditLog.user.name && selectedAuditLog.user.email && (
-                        <div className="text-xs text-muted-foreground">{selectedAuditLog.user.email}</div>
-                      )}
-                      <div className="text-xs text-muted-foreground font-mono">{selectedAuditLog.user_id}</div>
+            <>
+              <SheetHeader className="p-4 pr-12 border-b">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-start gap-3">
+                    {getStatusBadge(selectedAuditLog.event_result)}
+                    <div className="flex items-center gap-2 ml-auto">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigator.clipboard.writeText(selectedAuditLog.id)}
+                      >
+                        <Copy className="h-3.5 w-3.5 mr-1.5" />
+                        Copy ID
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const blob = new Blob([JSON.stringify(selectedAuditLog, null, 2)], { type: 'application/json' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `audit-${selectedAuditLog.id}.json`;
+                          a.click();
+                        }}
+                      >
+                        <Download className="h-3.5 w-3.5 mr-1.5" />
+                        Export
+                      </Button>
                     </div>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                      <span className="text-sm">SYS</span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">System Event</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Resource Information */}
-              {selectedAuditLog.resource_type && (
-                <div className="grid gap-3">
-                  <Label className="text-sm font-medium">Resource</Label>
                   <div>
-                    <div className="text-sm capitalize">{selectedAuditLog.resource_type}</div>
-                    {selectedAuditLog.resource_id && (
-                      <div className="text-xs text-muted-foreground font-mono mt-1">
-                        {selectedAuditLog.resource_id}
-                      </div>
-                    )}
+                    <SheetTitle className="text-lg">
+                      {selectedAuditLog.event_type.replace(/_/g, ' ')}: {selectedAuditLog.event_action}
+                    </SheetTitle>
+                    <SheetDescription className="mt-1">
+                      {format(new Date(selectedAuditLog.timestamp), "EEEE, MMMM do, yyyy 'at' HH:mm:ss")}
+                    </SheetDescription>
                   </div>
                 </div>
-              )}
+              </SheetHeader>
 
-              {/* Request Information */}
-              <div className="grid gap-3">
-                <Label className="text-sm font-medium">Request Details</Label>
-                <div className="space-y-2 text-sm">
-                  {selectedAuditLog.method && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Method</span>
-                      <Badge variant="outline" className={
-                        selectedAuditLog.method === 'GET' ? "bg-blue-50 text-blue-700 border-blue-200" :
-                        selectedAuditLog.method === 'POST' ? "bg-green-50 text-green-700 border-green-200" :
-                        selectedAuditLog.method === 'PUT' ? "bg-yellow-50 text-yellow-700 border-yellow-200" :
-                        selectedAuditLog.method === 'DELETE' ? "bg-red-50 text-red-700 border-red-200" : ""
-                      }>
-                        {selectedAuditLog.method}
-                      </Badge>
-                    </div>
-                  )}
-                  
-                  {selectedAuditLog.path && (
-                    <div className="flex justify-between items-start">
-                      <span className="text-muted-foreground">Path</span>
-                      <code className="text-xs bg-muted px-2 py-1 rounded break-all max-w-[280px]">
-                        {selectedAuditLog.path}
-                      </code>
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">IP Address</span>
-                    <span className="font-mono text-xs">{selectedAuditLog.ip_address || 'Not recorded'}</span>
-                  </div>
-                  
-                  {selectedAuditLog.duration !== undefined && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Duration</span>
-                      <span className="font-mono text-xs">{selectedAuditLog.duration}ms</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <div className="flex-grow overflow-y-auto">
+                <Tabs defaultValue="overview" className="p-4">
+                  <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="request">Request</TabsTrigger>
+                    <TabsTrigger value="changes">Changes</TabsTrigger>
+                    <TabsTrigger value="technical">Technical</TabsTrigger>
+                  </TabsList>
 
-              {/* Authentication */}
-              {(selectedAuditLog.auth_method || selectedAuditLog.auth_provider) && (
-                <div className="grid gap-3">
-                  <Label className="text-sm font-medium">Authentication</Label>
-                  <div className="space-y-2 text-sm">
-                    {selectedAuditLog.auth_method && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Method</span>
-                        <Badge variant="secondary" className="capitalize">{selectedAuditLog.auth_method}</Badge>
-                      </div>
-                    )}
-                    {selectedAuditLog.auth_provider && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Provider</span>
-                        <Badge variant="secondary" className="capitalize">{selectedAuditLog.auth_provider}</Badge>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                  <div className="mt-4 space-y-6">
+                    <TabsContent value="overview">
+                      <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
+                        <DetailItem label="User">
+                          {selectedAuditLog.user ? (
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span className="text-xs font-medium text-primary">
+                                  {selectedAuditLog.user.name?.[0] || selectedAuditLog.user.email?.[0]?.toUpperCase() || 'U'}
+                                </span>
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium">{selectedAuditLog.user.name || selectedAuditLog.user.email}</div>
+                                {selectedAuditLog.user.name && selectedAuditLog.user.email && (
+                                  <div className="text-xs text-muted-foreground">{selectedAuditLog.user.email}</div>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                <span className="text-xs">SYS</span>
+                              </div>
+                              <span className="text-sm text-muted-foreground">System Event</span>
+                            </div>
+                          )}
+                        </DetailItem>
 
-              {/* Message */}
-              {selectedAuditLog.message && (
-                <div className="grid gap-3">
-                  <Label className="text-sm font-medium">Message</Label>
-                  <div className="bg-muted/50 rounded p-3 text-sm">
-                    {selectedAuditLog.message}
-                  </div>
-                </div>
-              )}
+                        {selectedAuditLog.resource_type && (
+                          <>
+                            <DetailItem label="Resource Type" value={selectedAuditLog.resource_type} />
+                            {selectedAuditLog.resource_id && (
+                              <DetailItem label="Resource ID">
+                                <code className="text-xs font-mono">{selectedAuditLog.resource_id}</code>
+                              </DetailItem>
+                            )}
+                          </>
+                        )}
 
-              {/* Error */}
-              {selectedAuditLog.error_code && (
-                <div className="grid gap-3">
-                  <Label className="text-sm font-medium text-red-600">Error</Label>
-                  <div className="bg-red-50 border border-red-200 rounded p-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-red-600">Error Code</span>
-                      <Badge variant="destructive" className="font-mono">{selectedAuditLog.error_code}</Badge>
-                    </div>
-                  </div>
-                </div>
-              )}
+                        {selectedAuditLog.message && (
+                          <DetailItem label="Message">
+                            <div className="bg-muted/50 rounded p-2 text-xs">{selectedAuditLog.message}</div>
+                          </DetailItem>
+                        )}
 
-              {/* Changes */}
-              {(selectedAuditLog.old_values || selectedAuditLog.new_values) && (
-                <div className="grid gap-3">
-                  <Label className="text-sm font-medium">Changes</Label>
-                  <div className="space-y-3">
-                    {selectedAuditLog.old_values && (
-                      <div>
-                        <div className="text-xs font-medium text-red-600 mb-2">Previous Values</div>
-                        <div className="bg-red-50 border border-red-200 rounded p-3">
-                          <pre className="text-xs text-red-700 whitespace-pre-wrap break-words">
-                            {typeof selectedAuditLog.old_values === 'string' 
-                              ? selectedAuditLog.old_values 
-                              : JSON.stringify(selectedAuditLog.old_values, null, 2)}
-                          </pre>
+                        {selectedAuditLog.error_code && (
+                          <DetailItem label="Error">
+                            <Badge variant="destructive" className="font-mono">{selectedAuditLog.error_code}</Badge>
+                          </DetailItem>
+                        )}
+                      </dl>
+                    </TabsContent>
+
+                    <TabsContent value="request">
+                      <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
+                        {selectedAuditLog.method && selectedAuditLog.path && (
+                          <DetailItem label="Path">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className={
+                                selectedAuditLog.method === 'GET' ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300" :
+                                selectedAuditLog.method === 'POST' ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300" :
+                                selectedAuditLog.method === 'PUT' ? "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300" :
+                                selectedAuditLog.method === 'DELETE' ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300" : ""
+                              }>
+                                {selectedAuditLog.method}
+                              </Badge>
+                              <code className="text-xs bg-muted px-2 py-1 rounded break-all">
+                                {selectedAuditLog.path}
+                              </code>
+                            </div>
+                          </DetailItem>
+                        )}
+
+                        <DetailItem label="IP Address">
+                          <span className="font-mono text-xs">{selectedAuditLog.ip_address || 'Not recorded'}</span>
+                        </DetailItem>
+
+                        {selectedAuditLog.duration !== undefined && (
+                          <DetailItem label="Duration">
+                            <span className="font-mono text-xs">{selectedAuditLog.duration}ms</span>
+                          </DetailItem>
+                        )}
+
+                        {selectedAuditLog.user_agent && selectedAuditLog.user_agent !== 'Not recorded' && (
+                          <DetailItem label="User Agent">
+                            <p className="font-mono text-xs break-all bg-muted/50 rounded p-2">
+                              {selectedAuditLog.user_agent}
+                            </p>
+                          </DetailItem>
+                        )}
+                      </dl>
+                    </TabsContent>
+
+                    <TabsContent value="changes" className="space-y-4">
+                      {(!selectedAuditLog.old_values && !selectedAuditLog.new_values) ? (
+                        <p className="text-sm text-muted-foreground">No changes recorded for this event.</p>
+                      ) : (
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {selectedAuditLog.old_values && (
+                            <JsonViewer
+                              title="Old Values"
+                              data={typeof selectedAuditLog.old_values === 'string'
+                                ? JSON.parse(selectedAuditLog.old_values)
+                                : selectedAuditLog.old_values
+                              }
+                            />
+                          )}
+                          {selectedAuditLog.new_values && (
+                            <JsonViewer
+                              title="New Values"
+                              data={typeof selectedAuditLog.new_values === 'string'
+                                ? JSON.parse(selectedAuditLog.new_values)
+                                : selectedAuditLog.new_values
+                              }
+                            />
+                          )}
                         </div>
-                      </div>
-                    )}
-                    {selectedAuditLog.new_values && (
-                      <div>
-                        <div className="text-xs font-medium text-green-600 mb-2">New Values</div>
-                        <div className="bg-green-50 border border-green-200 rounded p-3">
-                          <pre className="text-xs text-green-700 whitespace-pre-wrap break-words">
-                            {typeof selectedAuditLog.new_values === 'string' 
-                              ? selectedAuditLog.new_values 
-                              : JSON.stringify(selectedAuditLog.new_values, null, 2)}
-                          </pre>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+                      )}
+                    </TabsContent>
 
-              {/* Metadata */}
-              {selectedAuditLog.metadata && (
-                <div className="grid gap-3">
-                  <Label className="text-sm font-medium">Metadata</Label>
-                  <div className="bg-muted rounded p-3">
-                    <pre className="text-xs whitespace-pre-wrap break-words">
-                      {typeof selectedAuditLog.metadata === 'string' 
-                        ? selectedAuditLog.metadata 
-                        : JSON.stringify(selectedAuditLog.metadata, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              )}
+                    <TabsContent value="technical" className="space-y-4">
+                      <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
+                        <DetailItem label="Event ID">
+                          <code className="text-xs font-mono bg-muted px-2 py-1 rounded break-all">
+                            {selectedAuditLog.id}
+                          </code>
+                        </DetailItem>
 
-              {/* User Agent */}
-              {selectedAuditLog.user_agent && selectedAuditLog.user_agent !== 'Not recorded' && (
-                <div className="grid gap-3">
-                  <Label className="text-sm font-medium">User Agent</Label>
-                  <div className="text-xs text-muted-foreground break-all bg-muted/50 rounded p-2">
-                    {selectedAuditLog.user_agent}
-                  </div>
-                </div>
-              )}
+                        {selectedAuditLog.auth_method && (
+                          <DetailItem label="Auth Method">
+                            <Badge variant="secondary" className="capitalize">{selectedAuditLog.auth_method}</Badge>
+                          </DetailItem>
+                        )}
 
-              {/* Event ID at bottom */}
-              <div className="grid gap-3 pt-4 border-t">
-                <Label className="text-sm font-medium">Event ID</Label>
-                <code className="text-xs font-mono bg-muted px-3 py-2 rounded break-all">
-                  {selectedAuditLog.id}
-                </code>
+                        {selectedAuditLog.auth_provider && (
+                          <DetailItem label="Auth Provider">
+                            <Badge variant="secondary" className="capitalize">{selectedAuditLog.auth_provider}</Badge>
+                          </DetailItem>
+                        )}
+
+                        {selectedAuditLog.user_id && (
+                          <DetailItem label="User ID">
+                            <code className="text-xs font-mono">{selectedAuditLog.user_id}</code>
+                          </DetailItem>
+                        )}
+                      </dl>
+
+                      {selectedAuditLog.metadata && (
+                        <JsonViewer
+                          title="Metadata"
+                          data={typeof selectedAuditLog.metadata === 'string'
+                            ? JSON.parse(selectedAuditLog.metadata)
+                            : selectedAuditLog.metadata
+                          }
+                        />
+                      )}
+                    </TabsContent>
+                  </div>
+                </Tabs>
               </div>
-            </div>
+            </>
           )}
         </SheetContent>
       </Sheet>
