@@ -5,14 +5,6 @@ import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import {
   Card,
   CardContent,
   CardDescription,
@@ -24,65 +16,8 @@ import { Separator } from "@/components/ui/separator";
 import { ModelWithUsage } from "@/types/api";
 import { detectProvider } from "@/lib/providers";
 import { SparklineChart, MetricCard } from "@/components/models/ModelCharts";
-import { FallbackDiagram } from "@/components/models/FallbackDiagram";
-import { getSystemConfig, getDashboardMetrics, getModels } from "@/lib/api";
-
-// Mock data - in real app this would come from API
-const getMockModelDetail = (modelId: string): ModelWithUsage & {
-  fallbacks?: string[];
-  configuration: {
-    provider: string;
-    endpoint: string;
-    maxTokens: number;
-    temperature: number;
-    topP: number;
-    timeout: number;
-    retries: number;
-  };
-  health: {
-    status: 'healthy' | 'degraded' | 'unhealthy';
-    uptime: number;
-    errorRate: number;
-    p99Latency: number;
-  };
-} => ({
-  id: modelId,
-  object: "model",
-  created: Math.floor(Date.now() / 1000) - 86400,
-  owned_by: modelId.includes("claude") ? "anthropic" : modelId.includes("gpt") ? "openai" : modelId.includes("gemini") ? "google" : "openrouter",
-  usage_stats: {
-    requests_today: Math.floor(Math.random() * 1000) + 100,
-    tokens_today: Math.floor(Math.random() * 100000) + 10000,
-    cost_today: Math.random() * 10 + 1,
-    requests_total: Math.floor(Math.random() * 50000) + 5000,
-    tokens_total: Math.floor(Math.random() * 5000000) + 500000,
-    cost_total: Math.random() * 1000 + 100,
-    avg_latency: Math.floor(Math.random() * 500) + 200,
-    error_rate: Math.random() * 5,
-    cache_hit_rate: Math.random() * 30 + 70,
-    health_score: Math.floor(Math.random() * 30) + 70,
-    trend_data: Array.from({ length: 30 }, () => Math.floor(Math.random() * 1000) + 100),
-    last_used: new Date().toISOString()
-  },
-  fallbacks: modelId === "gpt-4" ? ["gpt-3.5-turbo", "claude-3-haiku"] : 
-            modelId === "claude-3-opus" ? ["claude-3-sonnet", "gpt-4"] :
-            [],
-  configuration: {
-    provider: modelId.includes("claude") ? "Anthropic" : modelId.includes("gpt") ? "OpenAI" : modelId.includes("gemini") ? "Google" : "OpenRouter",
-    endpoint: "https://api.openai.com/v1/chat/completions",
-    maxTokens: 4096,
-    temperature: 0.7,
-    topP: 1.0,
-    timeout: 30000,
-    retries: 3
-  },
-  health: {
-    status: Math.random() > 0.3 ? 'healthy' : Math.random() > 0.1 ? 'degraded' : 'unhealthy',
-    uptime: Math.random() * 10 + 95,
-    errorRate: Math.random() * 5,
-    p99Latency: Math.floor(Math.random() * 1000) + 300
-  }
-});
+import { EditableFallbackDiagram } from "@/components/models/EditableFallbackDiagram";
+import { getSystemConfig, getModelMetrics, getModelTrends } from "@/lib/api";
 
 const formatNumber = (num: number): string => {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -101,9 +36,10 @@ const formatCurrency = (amount: number): string => {
 export default function ModelDetail() {
   const { modelId } = useParams<{ modelId: string }>();
   const [model, setModel] = useState<ModelWithUsage | null>(null);
-  const [modelPricing, setModelPricing] = useState<any>(null);
-  const [fallbacks, setFallbacks] = useState<string[]>([]);
+  const [modelPricing] = useState<any>(null);
+  const [, setFallbacks] = useState<string[]>([]);
   const [allFallbacksConfig, setAllFallbacksConfig] = useState<Record<string, string[]>>({});
+  const [configuration, setConfiguration] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -118,58 +54,69 @@ export default function ModelDetail() {
       try {
         setLoading(true);
         const decodedModelId = decodeURIComponent(modelId);
-        
-        // Fetch dashboard metrics and models data to get real usage data and pricing
-        const [dashboardResponse, configResponse, modelsResponse] = await Promise.allSettled([
-          getDashboardMetrics(),
-          getSystemConfig(),
-          getModels()
+
+        // Fetch model-specific metrics and trends
+        const [metricsResponse, trendsResponse, configResponse] = await Promise.allSettled([
+          getModelMetrics(decodedModelId),
+          getModelTrends(decodedModelId, 30),
+          getSystemConfig()
         ]);
 
-        // Handle dashboard data and create model with real usage stats
+        // Handle metrics data
         let modelData: ModelWithUsage;
-        if (dashboardResponse.status === 'fulfilled') {
-          const dashboard = dashboardResponse.value as any;
-          const topModels = dashboard.top_models || [];
-          const modelUsage = topModels.find((tm: any) => tm.model === decodedModelId);
-          
-          // Create model object with real data
-          const providerInfo = detectProvider(decodedModelId, decodedModelId.includes("claude") ? "anthropic" : 
-                                              decodedModelId.includes("gpt") ? "openai" : 
+        if (metricsResponse.status === 'fulfilled') {
+          const metricsValue = metricsResponse.value as any;
+          const metrics = metricsValue.data || metricsValue;
+          const providerInfo = detectProvider(decodedModelId, decodedModelId.includes("claude") ? "anthropic" :
+                                              decodedModelId.includes("gpt") ? "openai" :
                                               decodedModelId.includes("gemini") ? "google" : "openrouter");
-          
+
+          // Get trend data if available
+          let trendData: number[] = [];
+          if (trendsResponse.status === 'fulfilled' && trendsResponse.value) {
+            const trendsValue = trendsResponse.value as any;
+            const trends = trendsValue?.data ? (Array.isArray(trendsValue.data) ? trendsValue.data : []) :
+                          (Array.isArray(trendsValue) ? trendsValue : []);
+            trendData = trends.map((t: any) => t.requests || 0);
+          }
+
+          // Calculate health score from success rate and latency
+          const healthScore = metrics.success_rate >= 95 && metrics.avg_latency < 1000 ? 100 :
+                             metrics.success_rate >= 90 && metrics.avg_latency < 2000 ? 85 :
+                             metrics.success_rate >= 80 && metrics.avg_latency < 3000 ? 70 : 50;
+
           modelData = {
             id: decodedModelId,
             object: "model",
             created: Math.floor(Date.now() / 1000),
             owned_by: providerInfo.name.toLowerCase(),
             provider: providerInfo.name.toLowerCase(),
-            is_active: Boolean(modelUsage),
+            is_active: metrics.total_requests > 0,
             usage_stats: {
-              requests_today: 0, // No daily data available from API
-              requests_total: modelUsage?.requests || 0,
-              tokens_today: 0, // No daily data available from API  
-              tokens_total: modelUsage?.tokens || 0,
-              cost_today: 0, // No daily data available from API
-              cost_total: modelUsage?.cost || 0,
-              avg_latency: modelUsage?.avg_latency || 0,
-              error_rate: modelUsage?.success_rate ? (100 - modelUsage.success_rate) : 0,
-              cache_hit_rate: 0,
-              health_score: modelUsage ? 95 : 100,
-              trend_data: [],
-              last_used: modelUsage ? new Date().toISOString() : null,
+              requests_today: 0,
+              requests_total: metrics.total_requests || 0,
+              tokens_today: 0,
+              tokens_total: metrics.total_tokens || 0,
+              cost_today: 0,
+              cost_total: metrics.total_cost || 0,
+              avg_latency: metrics.avg_latency || 0,
+              error_rate: metrics.success_rate ? (100 - metrics.success_rate) : 0,
+              cache_hit_rate: metrics.cache_hit_rate || 0,
+              health_score: healthScore,
+              trend_data: trendData,
+              last_used: metrics.last_used || null,
             }
           };
-          
-          // Add health status and configuration to the model data  
+
+          // Add health status and configuration
           (modelData as any).health = {
-            status: modelUsage ? (modelUsage.success_rate >= 95 ? 'healthy' : 'degraded') : 'unhealthy',
-            uptime: modelUsage?.success_rate || 0,
-            errorRate: modelUsage?.success_rate ? (100 - modelUsage.success_rate) : 100,
-            p99Latency: modelUsage?.avg_latency || 0
+            status: metrics.success_rate >= 95 ? 'healthy' : metrics.success_rate >= 80 ? 'degraded' : 'unhealthy',
+            uptime: metrics.success_rate || 0,
+            errorRate: metrics.success_rate ? (100 - metrics.success_rate) : 100,
+            p99Latency: metrics.avg_latency || 0
           };
-          
-          (modelData as any).configuration = {
+
+          const configData = {
             provider: providerInfo.name,
             endpoint: "Configured via system config",
             maxTokens: 4096,
@@ -178,23 +125,16 @@ export default function ModelDetail() {
             timeout: 30000,
             retries: 3
           };
-          
+
+          (modelData as any).configuration = configData;
+          setConfiguration(configData);
           setModel(modelData);
         } else {
-          console.warn('Failed to fetch dashboard metrics:', dashboardResponse.reason);
-          // Fallback to mock data if API fails
-          setModel(getMockModelDetail(decodedModelId));
-        }
-
-        // Handle models data for pricing information
-        if (modelsResponse.status === 'fulfilled') {
-          const modelsData = modelsResponse.value as any;
-          const modelPricingData = modelsData.data?.find((m: any) => m.id === decodedModelId);
-          if (modelPricingData) {
-            setModelPricing(modelPricingData);
-          }
-        } else {
-          console.warn('Failed to fetch models data:', modelsResponse.reason);
+          console.warn('Failed to fetch model metrics:', metricsResponse.reason);
+          // Show error instead of using mock data
+          setError('Failed to load model metrics');
+          setLoading(false);
+          return;
         }
 
         // Handle config data for fallbacks
@@ -295,27 +235,6 @@ export default function ModelDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb Navigation */}
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link to="/dashboard">Dashboard</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link to="/models">Models</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{modelId}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -477,30 +396,17 @@ export default function ModelDetail() {
         </TabsContent>
 
         <TabsContent value="fallbacks" className="space-y-6">
-          {fallbacks && fallbacks.length > 0 ? (
-            <FallbackDiagram 
-              primaryModel={model.id}
-              fallbacks={fallbacks}
-              allFallbacksConfig={allFallbacksConfig}
-            />
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle>Fallback Configuration</CardTitle>
-                <CardDescription>No fallback models configured</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  This model doesn't have any fallback models configured. 
-                  Consider adding fallbacks to improve reliability.
-                </p>
-                <Button className="mt-4" variant="outline">
-                  <Settings className="h-4 w-4" />
-                  Configure Fallbacks
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          <EditableFallbackDiagram
+            primaryModel={model.id}
+            allFallbacksConfig={allFallbacksConfig}
+            onSave={async (newConfig) => {
+              // TODO: API call to save fallback configuration
+              console.log('Saving fallback config:', newConfig);
+              setAllFallbacksConfig(newConfig);
+              // Update fallbacks array for the current model
+              setFallbacks(newConfig[model.id] || []);
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="configuration" className="space-y-6">
@@ -512,24 +418,24 @@ export default function ModelDetail() {
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span>Provider</span>
-                  <span className="font-medium">{getMockModelDetail(model.id).configuration.provider}</span>
+                  <span className="font-medium">{configuration?.provider || 'N/A'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Endpoint</span>
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm truncate max-w-48">
-                      {getMockModelDetail(model.id).configuration.endpoint}
+                      {configuration?.endpoint || 'N/A'}
                     </span>
-                    <ExternalLink className="h-3 w-3" />
+                    {configuration?.endpoint && <ExternalLink className="h-3 w-3" />}
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Timeout</span>
-                  <span className="font-medium">{getMockModelDetail(model.id).configuration.timeout / 1000}s</span>
+                  <span className="font-medium">{configuration?.timeout ? `${configuration.timeout / 1000}s` : 'N/A'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Max Retries</span>
-                  <span className="font-medium">{getMockModelDetail(model.id).configuration.retries}</span>
+                  <span className="font-medium">{configuration?.retries ?? 'N/A'}</span>
                 </div>
               </CardContent>
             </Card>
@@ -541,11 +447,11 @@ export default function ModelDetail() {
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span>Max Tokens</span>
-                  <span className="font-medium">{modelPricing?.max_tokens || getMockModelDetail(model.id).configuration.maxTokens}</span>
+                  <span className="font-medium">{modelPricing?.max_tokens || configuration?.maxTokens || 'N/A'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Provider</span>
-                  <span className="font-medium capitalize">{modelPricing?.provider || model.owned_by}</span>
+                  <span className="font-medium capitalize">{modelPricing?.provider || model.owned_by || 'N/A'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Input Cost (per token)</span>

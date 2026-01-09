@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 
 interface ModelTagsProps {
   tags?: string[];
@@ -13,6 +13,7 @@ export default function ModelTags({ tags, maxVisible = 3 }: ModelTagsProps) {
 
   const visibleTags = tags.slice(0, maxVisible);
   const remainingCount = tags.length - maxVisible;
+  const remainingTags = tags.slice(maxVisible);
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
@@ -21,26 +22,27 @@ export default function ModelTags({ tags, maxVisible = 3 }: ModelTagsProps) {
           {tag}
         </Badge>
       ))}
-      
+
       {remainingCount > 0 && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="secondary" className="text-xs cursor-help">
-                +{remainingCount}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <div className="space-y-1">
-                {tags.slice(maxVisible).map((tag, index) => (
+        <HoverCard>
+          <HoverCardTrigger asChild>
+            <Badge variant="secondary" className="text-xs cursor-help hover:bg-secondary/80 transition-colors">
+              +{remainingCount} more
+            </Badge>
+          </HoverCardTrigger>
+          <HoverCardContent className="w-auto max-w-sm">
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold">All Tags</h4>
+              <div className="flex flex-wrap gap-1">
+                {remainingTags.map((tag, index) => (
                   <Badge key={index} variant="outline" className="text-xs">
                     {tag}
                   </Badge>
                 ))}
               </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+            </div>
+          </HoverCardContent>
+        </HoverCard>
       )}
     </div>
   );

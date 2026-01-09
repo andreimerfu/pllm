@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ModelWithUsage } from "@/types/api";
 import { detectProvider } from "@/lib/providers";
+import { formatDateTime, formatUnixTimestamp } from "@/lib/date-utils";
 import { SparklineChart, MetricCard } from "./ModelCharts";
 import ModelTags from "./ModelTags";
 import ModelCapabilities from "./ModelCapabilities";
@@ -48,8 +49,8 @@ export default function ModelsCards({ models }: ModelsCardsProps) {
         const isActive = model.is_active !== false;
 
         return (
-          <Card 
-            key={model.id} 
+          <Card
+            key={model.id}
             className="transition-all hover:shadow-md group cursor-pointer relative overflow-hidden"
             onClick={() => handleModelClick(model.id)}
           >
@@ -93,10 +94,10 @@ export default function ModelsCards({ models }: ModelsCardsProps) {
                   {usage && (
                     <div className="flex items-center gap-1">
                       <div className={`w-2 h-2 rounded-full ${
-                        usage.health_score >= 90 
-                          ? 'bg-green-500' 
-                          : usage.health_score >= 70 
-                            ? 'bg-yellow-500' 
+                        usage.health_score >= 90
+                          ? 'bg-green-500'
+                          : usage.health_score >= 70
+                            ? 'bg-yellow-500'
                             : 'bg-red-500'
                       }`} />
                       <span className="text-xs text-muted-foreground">
@@ -140,21 +141,21 @@ export default function ModelsCards({ models }: ModelsCardsProps) {
                     icon={<Activity className="h-4 w-4 text-blue-500" />}
                     color="#3b82f6"
                   />
-                  
+
                   <MetricCard
                     label="Total Tokens"
                     value={formatNumber(usage.tokens_total)}
                     icon={<Zap className="h-4 w-4 text-purple-500" />}
                     color="#8b5cf6"
                   />
-                  
+
                   <MetricCard
                     label="Total Cost"
                     value={formatCurrency(usage.cost_total)}
                     icon={<DollarSign className="h-4 w-4 text-green-500" />}
                     color="#10b981"
                   />
-                  
+
                   <MetricCard
                     label="Avg Latency"
                     value={`${usage.avg_latency}ms`}
@@ -180,10 +181,10 @@ export default function ModelsCards({ models }: ModelsCardsProps) {
                       Total: {formatNumber(usage.requests_total)}
                     </span>
                   </div>
-                  <SparklineChart 
-                    data={usage.trend_data} 
+                  <SparklineChart
+                    data={usage.trend_data}
                     type="area"
-                    color={providerInfo.color.includes('emerald') ? '#10b981' : 
+                    color={providerInfo.color.includes('emerald') ? '#10b981' :
                            providerInfo.color.includes('orange') ? '#f59e0b' :
                            providerInfo.color.includes('blue') ? '#3b82f6' :
                            providerInfo.color.includes('indigo') ? '#6366f1' :
@@ -201,21 +202,13 @@ export default function ModelsCards({ models }: ModelsCardsProps) {
                     {isActive ? 'Ready to serve' : 'Inactive'}
                   </span>
                   <span>
-                    {new Date(model.created * 1000).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {formatUnixTimestamp(model.created)}
                   </span>
                 </div>
-                
+
                 {usage?.last_used && (
                   <div className="mt-1 text-xs text-muted-foreground">
-                    Last used: {new Date(usage.last_used).toLocaleDateString("en-US", {
-                      month: "short", 
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
+                    Last used: {formatDateTime(usage.last_used)}
                   </div>
                 )}
               </div>

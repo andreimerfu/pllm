@@ -86,6 +86,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	// Dashboard metrics endpoints
 	r.Get("/dashboard/metrics", dashboardHandler.GetDashboardMetrics)
 	r.Get("/dashboard/models/{model}", dashboardHandler.GetModelMetrics)
+	r.Get("/dashboard/models/{model}/trends", dashboardHandler.GetModelTrends)
 	r.Get("/dashboard/usage-trends", dashboardHandler.GetUsageTrends)
 
 	// Protected admin routes - require authentication and admin role

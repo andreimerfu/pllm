@@ -49,12 +49,16 @@ type DashboardMetrics struct {
 }
 
 type ModelUsage struct {
-	Model       string  `json:"model"`
-	Requests    int64   `json:"requests"`
-	Tokens      int64   `json:"tokens"`
-	Cost        float64 `json:"cost"`
-	AvgLatency  int64   `json:"avg_latency"`
-	SuccessRate float64 `json:"success_rate"`
+	Model        string  `json:"model"`
+	Requests     int64   `json:"requests"`
+	Tokens       int64   `json:"tokens"`
+	Cost         float64 `json:"cost"`
+	AvgLatency   int64   `json:"avg_latency"`
+	SuccessRate  float64 `json:"success_rate"`
+	HealthScore  float64 `json:"health_score"`
+	P95Latency   float64 `json:"p95_latency"`
+	P99Latency   float64 `json:"p99_latency"`
+	CacheHitRate float64 `json:"cache_hit_rate"`
 }
 
 func (h *DashboardHandler) GetDashboardMetrics(w http.ResponseWriter, r *http.Request) {
@@ -139,17 +143,20 @@ func (h *DashboardHandler) GetDashboardMetrics(w http.ResponseWriter, r *http.Re
 		h.logger.Error("Failed to get 1h stats", zap.Error(err))
 	}
 
-	// Get top models by requests (last 24h)
+	// Get top models by requests (last 24h) with enhanced metrics
 	var topModels []ModelUsage
 	err = h.db.Raw(`
-		SELECT 
+		SELECT
 			model,
 			COUNT(*) as requests,
 			SUM(total_tokens) as tokens,
 			SUM(total_cost) as cost,
 			ROUND(AVG(latency)) as avg_latency,
-			ROUND(AVG(CASE WHEN status_code = 200 THEN 100 ELSE 0 END), 2) as success_rate
-		FROM usage_logs 
+			ROUND(AVG(CASE WHEN status_code = 200 THEN 100 ELSE 0 END), 2) as success_rate,
+			ROUND(AVG(CASE WHEN cache_hit THEN 100 ELSE 0 END), 2) as cache_hit_rate,
+			PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency) as p95_latency,
+			PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY latency) as p99_latency
+		FROM usage_logs
 		WHERE timestamp >= ?
 		GROUP BY model
 		ORDER BY requests DESC
@@ -159,6 +166,14 @@ func (h *DashboardHandler) GetDashboardMetrics(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		h.logger.Error("Failed to get top models", zap.Error(err))
 	} else {
+		// Calculate health scores based on latency and success rate
+		for i := range topModels {
+			topModels[i].HealthScore = calculateHealthScore(
+				topModels[i].AvgLatency,
+				topModels[i].SuccessRate,
+				topModels[i].P99Latency,
+			)
+		}
 		metrics.TopModels = topModels
 	}
 
@@ -220,7 +235,7 @@ func (h *DashboardHandler) GetUsageTrends(w http.ResponseWriter, r *http.Request
 	if days == "" {
 		days = "30"
 	}
-	
+
 	var daysInt int
 	switch days {
 	case "7":
@@ -241,7 +256,7 @@ func (h *DashboardHandler) GetUsageTrends(w http.ResponseWriter, r *http.Request
 	}
 
 	err := h.db.Raw(`
-		SELECT 
+		SELECT
 			DATE(timestamp) as date,
 			COUNT(*) as requests,
 			SUM(total_tokens) as tokens,
@@ -263,4 +278,105 @@ func (h *DashboardHandler) GetUsageTrends(w http.ResponseWriter, r *http.Request
 		h.logger.Error("Failed to encode usage trends", zap.Error(err))
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
+}
+
+func (h *DashboardHandler) GetModelTrends(w http.ResponseWriter, r *http.Request) {
+	modelName := chi.URLParam(r, "model")
+	if modelName == "" {
+		http.Error(w, "Model name is required", http.StatusBadRequest)
+		return
+	}
+
+	days := r.URL.Query().Get("days")
+	if days == "" {
+		days = "30"
+	}
+
+	var daysInt int
+	switch days {
+	case "7":
+		daysInt = 7
+	case "30":
+		daysInt = 30
+	default:
+		daysInt = 30
+	}
+
+	since := time.Now().AddDate(0, 0, -daysInt)
+
+	var trends []struct {
+		Date        string  `json:"date"`
+		Requests    int64   `json:"requests"`
+		Tokens      int64   `json:"tokens"`
+		Cost        float64 `json:"cost"`
+		AvgLatency  int64   `json:"avg_latency"`
+		SuccessRate float64 `json:"success_rate"`
+	}
+
+	err := h.db.Raw(`
+		SELECT
+			DATE(timestamp) as date,
+			COUNT(*) as requests,
+			SUM(total_tokens) as tokens,
+			SUM(total_cost) as cost,
+			ROUND(AVG(latency)) as avg_latency,
+			ROUND(AVG(CASE WHEN status_code = 200 THEN 100 ELSE 0 END), 2) as success_rate
+		FROM usage_logs
+		WHERE model = ? AND timestamp >= ?
+		GROUP BY DATE(timestamp)
+		ORDER BY date ASC
+	`, modelName, since).Scan(&trends).Error
+
+	if err != nil {
+		h.logger.Error("Failed to get model trends", zap.String("model", modelName), zap.Error(err))
+		http.Error(w, "Failed to get model trends", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(trends); err != nil {
+		h.logger.Error("Failed to encode model trends", zap.Error(err))
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+// calculateHealthScore computes a health score (0-100) based on latency and success rate
+// Formula: Base score from success rate, penalties for high latency
+func calculateHealthScore(avgLatency int64, successRate float64, p99Latency float64) float64 {
+	// Start with success rate as base (0-100)
+	score := successRate
+
+	// Penalty for average latency
+	// Excellent: < 500ms (no penalty)
+	// Good: 500ms-1s (small penalty)
+	// Degraded: 1s-3s (medium penalty)
+	// Poor: > 3s (large penalty)
+	if avgLatency > 5000 {
+		score -= 30
+	} else if avgLatency > 3000 {
+		score -= 20
+	} else if avgLatency > 1000 {
+		score -= 10
+	} else if avgLatency > 500 {
+		score -= 5
+	}
+
+	// Additional penalty for high p99 latency (tail latency)
+	if p99Latency > 10000 {
+		score -= 15
+	} else if p99Latency > 5000 {
+		score -= 10
+	} else if p99Latency > 2000 {
+		score -= 5
+	}
+
+	// Ensure score stays within bounds
+	if score < 0 {
+		score = 0
+	}
+	if score > 100 {
+		score = 100
+	}
+
+	return score
 }

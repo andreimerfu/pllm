@@ -20,9 +20,10 @@ import {
   Github,
   LogOut,
   Activity,
-  ChevronUp,
+  ChevronsUpDown,
   FileText,
   Shield,
+  ChevronRight,
 } from "lucide-react";
 
 import {
@@ -35,11 +36,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarGroup,
-
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
+  SidebarGroupLabel,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,10 +50,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-// Navigation items configuration with submenus
+// Navigation items configuration with groups
 const navigation = [
   {
     title: "Core",
@@ -205,9 +209,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">pLLM</span>
-                <span className="truncate text-xs opacity-70">
-                  AI Model Router
-                </span>
+                <span className="truncate text-xs">AI Model Router</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -215,48 +217,52 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarMenu>
-            {filteredNavigation.map((section) => (
-              <SidebarMenuItem key={section.title}>
-                <SidebarMenuButton asChild>
-                  <div className="font-medium cursor-default">
-                    {section.title}
-                  </div>
-                </SidebarMenuButton>
-                {section.items?.length ? (
-                  <SidebarMenuSub>
-                    {section.items.map((item) => {
-                      const isActive = location.pathname === item.href;
-                      
-                      const NavigationSubItem = (
-                        <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton asChild isActive={isActive}>
-                            <Link to={item.href}>
-                              <item.icon />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
+        {filteredNavigation.map((section) => (
+          <Collapsible
+            key={section.title}
+            asChild
+            defaultOpen={true}
+            className="group/collapsible"
+          >
+            <SidebarGroup>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger>
+                  {section.title}
+                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarMenu>
+                  {section.items.map((item) => {
+                    const isActive = location.pathname === item.href;
+                    
+                    const NavigationItem = (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                          <Link to={item.href}>
+                            <item.icon />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+
+                    // If item has a permission requirement, wrap with CanAccess
+                    if (item.permission) {
+                      return (
+                        <CanAccess key={item.title} permission={item.permission}>
+                          {NavigationItem}
+                        </CanAccess>
                       );
+                    }
 
-                      // If item has a permission requirement, wrap with CanAccess
-                      if (item.permission) {
-                        return (
-                          <CanAccess key={item.title} permission={item.permission}>
-                            {NavigationSubItem}
-                          </CanAccess>
-                        );
-                      }
-
-                      return NavigationSubItem;
-                    })}
-                  </SidebarMenuSub>
-                ) : null}
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+                    return NavigationItem;
+                  })}
+                </SidebarMenu>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        ))}
       </SidebarContent>
 
       <SidebarFooter>
@@ -268,17 +274,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   size="lg"
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.profile?.picture} />
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={user?.profile?.picture} alt={userName} />
                     <AvatarFallback className="rounded-lg">
                       {userInitials}
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{userName}</span>
+                    <span className="truncate font-medium">{userName}</span>
                     <span className="truncate text-xs">{userEmail}</span>
                   </div>
-                  <ChevronUp className="ml-auto size-4" />
+                  <ChevronsUpDown className="ml-auto size-4" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -290,69 +296,54 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={user?.profile?.picture} />
+                      <AvatarImage src={user?.profile?.picture} alt={userName} />
                       <AvatarFallback className="rounded-lg">
                         {userInitials}
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">{userName}</span>
+                      <span className="truncate font-medium">{userName}</span>
                       <span className="truncate text-xs">{userEmail}</span>
                     </div>
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={toggleTheme}>
-                  {isDark ? (
-                    <Sun className="mr-2 h-4 w-4" />
-                  ) : (
-                    <Moon className="mr-2 h-4 w-4" />
-                  )}
-                  {isDark ? "Light Mode" : "Dark Mode"}
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem>
+                    <User />
+                    Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={toggleTheme}>
+                    {isDark ? <Sun /> : <Moon />}
+                    {isDark ? "Light Mode" : "Dark Mode"}
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <a href="/docs" target="_blank" rel="noopener noreferrer">
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    Documentation
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <a
-                    href="https://github.com/andreimerfu/pllm"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Github className="mr-2 h-4 w-4" />
-                    GitHub Repository
-                  </a>
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem asChild>
+                    <a href="/docs" target="_blank" rel="noopener noreferrer">
+                      <BookOpen />
+                      Documentation
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <a
+                      href="https://github.com/andreimerfu/pllm"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Github />
+                      GitHub Repository
+                    </a>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="text-destructive">
-                  <LogOut className="mr-2 h-4 w-4" />
+                  <LogOut />
                   Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
-
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <div className="flex flex-col items-center gap-2 px-2 py-3 text-xs text-muted-foreground">
-              <div className="text-center">
-                <p className="font-medium group-data-[collapsible=icon]:hidden">
-                  Version 1.0.0
-                </p>
-                <p className="group-data-[collapsible=icon]:hidden">
-                  © 2025 pLLM
-                </p>
-              </div>
-            </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

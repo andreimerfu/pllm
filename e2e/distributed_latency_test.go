@@ -29,7 +29,7 @@ func TestDistributedLatencyTracking(t *testing.T) {
 	redisClient := goredis.NewClient(&goredis.Options{
 		Addr: mr.Addr(),
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	logger, _ := zap.NewDevelopment()
 
@@ -129,7 +129,7 @@ func TestMultiPodFailover(t *testing.T) {
 	redisClient := goredis.NewClient(&goredis.Options{
 		Addr: mr.Addr(),
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	logger, _ := zap.NewDevelopment()
 	tracker := redis.NewLatencyTracker(redisClient, logger)
@@ -159,7 +159,7 @@ func TestMultiPodFailover(t *testing.T) {
 
 	// Verify we can identify the fastest model
 	var fastestModel string
-	var fastestLatency time.Duration = 1 * time.Hour
+	fastestLatency := 1 * time.Hour
 
 	for model, stats := range allStats {
 		t.Logf("Model: %s, Avg: %v, P95: %v", model, stats.Average, stats.P95)
@@ -184,7 +184,7 @@ func TestConcurrentLatencyUpdates(t *testing.T) {
 	redisClient := goredis.NewClient(&goredis.Options{
 		Addr: mr.Addr(),
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	logger := zap.NewNop() // Silence logs for concurrency test
 	tracker := redis.NewLatencyTracker(redisClient, logger)
@@ -248,7 +248,7 @@ func TestLatencyBasedRouting(t *testing.T) {
 	redisClient := goredis.NewClient(&goredis.Options{
 		Addr: mr.Addr(),
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	logger, _ := zap.NewDevelopment()
 
@@ -313,7 +313,7 @@ func TestHealthScoreCalculation(t *testing.T) {
 	redisClient := goredis.NewClient(&goredis.Options{
 		Addr: mr.Addr(),
 	})
-	defer redisClient.Close()
+	defer func() { _ = redisClient.Close() }()
 
 	logger, _ := zap.NewDevelopment()
 	tracker := redis.NewLatencyTracker(redisClient, logger)

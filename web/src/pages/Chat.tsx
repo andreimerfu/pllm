@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from '../components/ui/avatar'
 import { Switch } from '../components/ui/switch'
 import { Slider } from '../components/ui/slider'
 import { Separator } from '../components/ui/separator'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip'
 import { toast } from '../components/ui/use-toast'
 import {
   Command,
@@ -29,110 +30,24 @@ import {
 } from '../components/ui/popover'
 import { getModels } from '../lib/api'
 import { cn } from '../lib/utils'
-
-interface Message {
-  id: string
-  role: 'user' | 'assistant' | 'system'
-  content: string | MessageContent[]
-  timestamp: Date
-  model?: string
-  attachments?: UploadedFile[]
-}
-
-interface MessageContent {
-  type: 'text' | 'image_url'
-  text?: string
-  image_url?: {
-    url: string
-    detail?: string
-  }
-}
-
-interface UploadedFile {
-  id: string
-  filename: string
-  size: number
-  type: string
-  url: string
-}
-
-interface Conversation {
-  id: string
-  title: string
-  updatedAt: Date
-}
-
-// Mock conversations data
-const mockConversations: Conversation[] = [
-  { id: '1', title: 'React Component Design', updatedAt: new Date('2025-01-10') },
-  { id: '2', title: 'API Integration Help', updatedAt: new Date('2025-01-09') },
-  { id: '3', title: 'Database Schema Questions', updatedAt: new Date('2025-01-08') },
-  { id: '4', title: 'UI/UX Best Practices', updatedAt: new Date('2025-01-07') },
-  { id: '5', title: 'Performance Optimization', updatedAt: new Date('2025-01-06') },
-]
-
-// Model icon mapping function
-function getModelIcon(modelId: string): string {
-  const id = modelId.toLowerCase()
-  
-  // OpenAI models
-  if (id.includes('gpt-4') || id.includes('gpt-3.5') || id.includes('gpt-o1')) {
-    return 'simple-icons:openai'
-  }
-  
-  // Anthropic models
-  if (id.includes('claude')) {
-    return 'simple-icons:anthropic'
-  }
-  
-  // Google models
-  if (id.includes('gemini') || id.includes('bard') || id.includes('palm')) {
-    return 'simple-icons:google'
-  }
-  
-  // Meta models
-  if (id.includes('llama') || id.includes('meta')) {
-    return 'simple-icons:meta'
-  }
-  
-  // Mistral models
-  if (id.includes('mistral') || id.includes('mixtral')) {
-    return 'simple-icons:mistral'
-  }
-  
-  // Cohere models
-  if (id.includes('cohere') || id.includes('command')) {
-    return 'simple-icons:cohere'
-  }
-  
-  // Perplexity models
-  if (id.includes('perplexity') || id.includes('pplx')) {
-    return 'simple-icons:perplexity'
-  }
-  
-  // xAI models (Grok)
-  if (id.includes('grok')) {
-    return 'simple-icons:x'
-  }
-  
-  // Default AI icon
-  return 'lucide:bot'
-}
+import { getModelIcon } from '../lib/chat-utils'
+import { useChatMessages, type MessageContent, type UploadedFile } from '../hooks/useChatMessages'
+import { useChatConversations } from '../hooks/useChatConversations'
 
 // Model Combobox Component
-function ModelCombobox({ 
-  models, 
-  selectedModel, 
-  onModelChange 
-}: { 
+function ModelCombobox({
+  models,
+  selectedModel,
+  onModelChange
+}: {
   models: any[]
   selectedModel: string
-  onModelChange: (model: string) => void 
+  onModelChange: (model: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  
+
   const selectedModelData = models.find(model => model.id === selectedModel)
-  
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -144,9 +59,9 @@ function ModelCombobox({
         >
           <div className="flex items-center gap-2">
             {selectedModelData && (
-              <Icon 
-                icon={getModelIcon(selectedModelData.id)} 
-                className="h-4 w-4" 
+              <Icon
+                icon={getModelIcon(selectedModelData.id)}
+                className="h-4 w-4"
               />
             )}
             <span className="truncate">
@@ -174,9 +89,9 @@ function ModelCombobox({
                     }}
                   >
                     <div className="flex items-center gap-2 flex-1">
-                      <Icon 
-                        icon={getModelIcon(model.id)} 
-                        className="h-4 w-4" 
+                      <Icon
+                        icon={getModelIcon(model.id)}
+                        className="h-4 w-4"
                       />
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">
@@ -206,10 +121,10 @@ function ModelCombobox({
 }
 
 
-function RightSidebar({ 
-  selectedModel, 
-  setSelectedModel, 
-  searchQuery, 
+function RightSidebar({
+  selectedModel,
+  setSelectedModel,
+  searchQuery,
   setSearchQuery,
   temperature,
   setTemperature,
@@ -217,8 +132,9 @@ function RightSidebar({
   setMaxTokens,
   isCollapsed,
   onToggle,
-  availableModels
-}: { 
+  availableModels,
+  conversations
+}: {
   selectedModel: string
   setSelectedModel: (model: string) => void
   searchQuery: string
@@ -230,10 +146,9 @@ function RightSidebar({
   isCollapsed: boolean
   onToggle: () => void
   availableModels: any[]
+  conversations: any[]
 }) {
-  const filteredConversations = mockConversations.filter(conv =>
-    conv.title.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredConversations = conversations
 
   return (
     <div className={cn(
@@ -246,9 +161,18 @@ function RightSidebar({
         <div className="p-4 border-b shrink-0">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">Settings</h2>
-            <Button variant="ghost" size="sm" onClick={onToggle} className="md:block lg:hidden">
-              <Icon icon="lucide:x" className="h-4 w-4" />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" onClick={onToggle} className="md:block lg:hidden">
+                    <Icon icon="lucide:x" className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Close settings</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
 
@@ -257,7 +181,7 @@ function RightSidebar({
             {/* Model Selection */}
             <div>
               <label className="text-sm font-medium mb-3 block">Model</label>
-              <ModelCombobox 
+              <ModelCombobox
                 models={availableModels}
                 selectedModel={selectedModel}
                 onModelChange={setSelectedModel}
@@ -306,11 +230,20 @@ function RightSidebar({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-medium">Conversations</h3>
-                <Button size="sm" variant="ghost">
-                  <Icon icon="lucide:plus" className="h-4 w-4" />
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="sm" variant="ghost">
+                        <Icon icon="lucide:plus" className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>New conversation</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-              
+
               <div className="relative mb-3">
                 <Icon icon="lucide:search" className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
@@ -347,7 +280,7 @@ function RightSidebar({
             </div>
           </div>
         </ScrollArea>
-        
+
         <div className="p-4 border-t">
           <Button className="w-full gap-2">
             <Icon icon="lucide:plus" className="h-4 w-4" />
@@ -362,7 +295,7 @@ function RightSidebar({
 function MessageContent({ content }: { content: string | MessageContent[] }) {
   // Detect theme for syntax highlighting
   const isDark = document.documentElement.classList.contains('dark')
-  
+
   // Handle vision content format
   if (Array.isArray(content)) {
     return (
@@ -377,7 +310,7 @@ function MessageContent({ content }: { content: string | MessageContent[] }) {
                       const match = /language-(\w+)/.exec(className || '')
                       const language = match ? match[1] : ''
                       const isInline = !match
-                      
+
                       return !isInline ? (
                         <SyntaxHighlighter
                           style={isDark ? vscDarkPlus : oneLight}
@@ -404,8 +337,8 @@ function MessageContent({ content }: { content: string | MessageContent[] }) {
             )}
             {item.type === 'image_url' && item.image_url && (
               <div className="rounded-lg overflow-hidden border bg-muted/20">
-                <img 
-                  src={item.image_url.url} 
+                <img
+                  src={item.image_url.url}
                   alt="User uploaded image"
                   className="max-w-full h-auto max-h-96 object-contain"
                   loading="lazy"
@@ -417,7 +350,7 @@ function MessageContent({ content }: { content: string | MessageContent[] }) {
       </div>
     )
   }
-  
+
   // Handle regular string content
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
@@ -427,7 +360,7 @@ function MessageContent({ content }: { content: string | MessageContent[] }) {
             const match = /language-(\w+)/.exec(className || '')
             const language = match ? match[1] : ''
             const isInline = !match
-            
+
             return !isInline ? (
               <SyntaxHighlighter
                 style={isDark ? vscDarkPlus : oneLight}
@@ -471,10 +404,10 @@ function EmptyState() {
   )
 }
 
-function MessageInput({ 
-  value, 
-  onChange, 
-  onSubmit, 
+function MessageInput({
+  value,
+  onChange,
+  onSubmit,
   disabled,
   onStop,
   attachments,
@@ -492,7 +425,7 @@ function MessageInput({
 }) {
   const [webSearchEnabled, setWebSearchEnabled] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -505,7 +438,7 @@ function MessageInput({
     if (!files || files.length === 0 || !onAttachmentAdd) return
 
     const file = files[0]
-    
+
     // Validate file type (images only for now)
     if (!file.type.startsWith('image/')) {
       toast({
@@ -528,12 +461,12 @@ function MessageInput({
 
     // Pass the file directly to be processed in the parent component
     onAttachmentAdd(file)
-    
+
     toast({
       title: "Image added",
       description: `${file.name} ready to send`
     })
-    
+
     // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
@@ -587,6 +520,7 @@ function MessageInput({
                   <button
                     onClick={() => onAttachmentRemove(file.id)}
                     className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-destructive/80"
+                    aria-label="Remove attachment"
                   >
                     ×
                   </button>
@@ -605,21 +539,37 @@ function MessageInput({
             className="min-h-[60px] max-h-[200px] resize-none pr-16 border-2 rounded-xl"
             disabled={disabled}
           />
-          
+
           <div className="absolute bottom-3 right-3">
-            {disabled ? (
-              <Button size="icon" variant="destructive" onClick={onStop}>
-                <Icon icon="lucide:square" className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button 
-                size="icon" 
-                onClick={onSubmit}
-                disabled={!value.trim()}
-              >
-                <Icon icon="lucide:send" className="h-4 w-4" />
-              </Button>
-            )}
+            <TooltipProvider>
+              {disabled ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button size="icon" variant="destructive" onClick={onStop}>
+                      <Icon icon="lucide:square" className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Stop generation</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      onClick={onSubmit}
+                      disabled={!value.trim()}
+                    >
+                      <Icon icon="lucide:send" className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Send message</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </TooltipProvider>
           </div>
         </div>
 
@@ -632,24 +582,42 @@ function MessageInput({
               onChange={handleFileUpload}
               style={{ display: 'none' }}
             />
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled}
-            >
-              <Icon icon="lucide:paperclip" className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" disabled>
-              <Icon icon="lucide:mic" className="h-4 w-4" />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={disabled}
+                  >
+                    <Icon icon="lucide:paperclip" className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Attach file</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" disabled>
+                    <Icon icon="lucide:mic" className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Voice input (coming soon)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
-          
+
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Icon icon="lucide:globe" className="h-4 w-4" />
             <span>Web search</span>
-            <Switch 
-              checked={webSearchEnabled} 
+            <Switch
+              checked={webSearchEnabled}
               onCheckedChange={setWebSearchEnabled}
             />
           </div>
@@ -660,19 +628,24 @@ function MessageInput({
 }
 
 export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   const [selectedModel, setSelectedModel] = useState('gpt-4o')
-  const [searchQuery, setSearchQuery] = useState('')
   const [temperature, setTemperature] = useState(0.7)
   const [maxTokens, setMaxTokens] = useState(2048)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true) // Start collapsed on mobile
   const [availableModels, setAvailableModels] = useState<any[]>([])
   const [currentAttachments, setCurrentAttachments] = useState<UploadedFile[]>([])
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Use custom hooks
+  const { messages, isLoading, sendMessage, stopGeneration } = useChatMessages({
+    selectedModel,
+    temperature,
+    maxTokens,
+  })
+
+  const { conversations, searchQuery, setSearchQuery } = useChatConversations()
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -698,7 +671,7 @@ export default function Chat() {
         setSelectedModel(fallbackModels[0].id)
       }
     }
-    
+
     fetchModels()
   }, [])
 
@@ -709,7 +682,7 @@ export default function Chat() {
         setIsSidebarCollapsed(false)
       }
     }
-    
+
     handleResize() // Check on mount
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
@@ -742,145 +715,13 @@ export default function Chat() {
 
 
   const handleSubmit = async () => {
-    if ((!input.trim() && currentAttachments.length === 0) || isLoading || !selectedModel) return
-
-    // Create message content in vision format if attachments exist
-    let messageContent: string | MessageContent[]
-    if (currentAttachments.length > 0) {
-      const contentArray: MessageContent[] = []
-      if (input.trim()) {
-        contentArray.push({
-          type: 'text',
-          text: input.trim()
-        })
-      }
-      // Add attachments (already in base64 format)
-      currentAttachments.forEach(attachment => {
-        contentArray.push({
-          type: 'image_url',
-          image_url: {
-            url: attachment.url // Already base64 data URL
-          }
-        })
-      })
-      messageContent = contentArray
-    } else {
-      messageContent = input.trim()
-    }
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: messageContent,
-      timestamp: new Date(),
-      attachments: currentAttachments.length > 0 ? [...currentAttachments] : undefined
-    }
-
-    setMessages(prev => [...prev, userMessage])
+    await sendMessage(input, currentAttachments)
     setInput('')
-    setCurrentAttachments([]) // Clear attachments after sending
-    setIsLoading(true)
-
-    try {
-      abortControllerRef.current = new AbortController()
-      
-      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-      
-      const requestPayload = {
-        model: selectedModel,
-        messages: [
-          { role: 'system', content: 'You are a helpful assistant.' },
-          ...messages.map(m => ({ 
-            role: m.role, 
-            content: m.content 
-          })),
-          { role: 'user', content: userMessage.content }
-        ],
-        temperature: temperature,
-        max_tokens: maxTokens,
-        stream: true
-      }
-      
-      console.log('Sending request:', JSON.stringify(requestPayload, null, 2))
-      
-      const response = await fetch('/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        signal: abortControllerRef.current.signal,
-        body: JSON.stringify(requestPayload)
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-      
-      let assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-        model: selectedModel
-      }
-      
-      setMessages(prev => [...prev, assistantMessage])
-      
-      while (reader) {
-        const { value, done } = await reader.read()
-        if (done) break
-        
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') continue
-            
-            try {
-              const parsed = JSON.parse(data)
-              const content = parsed.choices?.[0]?.delta?.content
-              if (content) {
-                assistantMessage.content += content
-                setMessages(prev => {
-                  const newMessages = [...prev]
-                  const lastMessage = newMessages[newMessages.length - 1]
-                  if (lastMessage.id === assistantMessage.id) {
-                    lastMessage.content = assistantMessage.content
-                  }
-                  return newMessages
-                })
-              }
-            } catch (e) {
-              // Ignore parsing errors
-            }
-          }
-        }
-      }
-    } catch (error: any) {
-      if (error.name !== 'AbortError') {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to send message",
-          variant: "destructive"
-        })
-      }
-    } finally {
-      setIsLoading(false)
-      abortControllerRef.current = null
-    }
+    setCurrentAttachments([])
   }
 
   const handleStop = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-      setIsLoading(false)
-    }
+    stopGeneration()
   }
 
   return (
@@ -934,14 +775,14 @@ export default function Chat() {
                     >
                       <Avatar className="h-8 w-8 shrink-0">
                         <AvatarFallback className={cn(
-                          message.role === 'user' 
-                            ? "bg-primary text-primary-foreground" 
+                          message.role === 'user'
+                            ? "bg-primary text-primary-foreground"
                             : "bg-muted"
                         )}>
-                          <Icon 
-                            icon={message.role === 'user' ? "lucide:user" : "lucide:bot"} 
-                            width="16" 
-                            height="16" 
+                          <Icon
+                            icon={message.role === 'user' ? "lucide:user" : "lucide:bot"}
+                            width="16"
+                            height="16"
                           />
                         </AvatarFallback>
                       </Avatar>
@@ -956,8 +797,8 @@ export default function Chat() {
                         )}
                         <Card className={cn(
                           "shadow-sm",
-                          message.role === 'user' 
-                            ? "bg-primary text-primary-foreground" 
+                          message.role === 'user'
+                            ? "bg-primary text-primary-foreground"
                             : "bg-card"
                         )}>
                           <CardContent className="p-4">
@@ -977,7 +818,7 @@ export default function Chat() {
                       </div>
                     </div>
                   ))}
-                  
+
                   {isLoading && (
                     <div className="flex gap-4">
                       <Avatar className="h-8 w-8 shrink-0">
@@ -999,7 +840,7 @@ export default function Chat() {
                 </div>
               </div>
             </ScrollArea>
-            
+
             {/* Message Input - Fixed at Bottom when messages exist */}
             <div className="shrink-0 bg-background border-t">
               <MessageInput
@@ -1021,14 +862,14 @@ export default function Chat() {
 
       {/* Mobile Overlay */}
       {!isSidebarCollapsed && (
-        <div 
-          className="fixed inset-0 bg-black/20 z-20 lg:hidden" 
+        <div
+          className="fixed inset-0 bg-black/20 z-20 lg:hidden"
           onClick={() => setIsSidebarCollapsed(true)}
         />
       )}
 
       {/* Right Sidebar */}
-      <RightSidebar 
+      <RightSidebar
         selectedModel={selectedModel}
         setSelectedModel={setSelectedModel}
         searchQuery={searchQuery}
@@ -1040,6 +881,7 @@ export default function Chat() {
         isCollapsed={isSidebarCollapsed}
         onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         availableModels={availableModels}
+        conversations={conversations}
       />
     </div>
   )
