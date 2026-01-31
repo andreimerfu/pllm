@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { StatsResponse, ModelsResponse } from "@/types/api";
+import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse } from "@/types/api";
 
 const API_BASE = import.meta.env.DEV ? "http://localhost:8080" : "";
 
@@ -285,6 +285,25 @@ export const getCacheSettings = () =>
   axiosInstance.get("/api/admin/settings/cache");
 export const updateCacheSettings = (data: any) =>
   axiosInstance.put("/api/admin/settings/cache", data);
+
+// Admin Models CRUD
+export const testModelConnection = (provider: ProviderConfig): Promise<{
+  success: boolean;
+  message: string;
+  provider: string;
+  latency?: string;
+}> =>
+  axiosInstance.post("/api/admin/models/test-connection", { provider });
+export const getAdminModels = () =>
+  axiosInstance.get("/api/admin/models") as Promise<AdminModelsResponse>;
+export const createModel = (data: CreateModelRequest) =>
+  axiosInstance.post("/api/admin/models", data);
+export const updateModel = (id: string, data: UpdateModelRequest) =>
+  axiosInstance.put(`/api/admin/models/${id}`, data);
+export const deleteModel = (id: string) =>
+  axiosInstance.delete(`/api/admin/models/${id}`);
+export const getModelsHealth = () =>
+  axiosInstance.get("/api/admin/models/health") as Promise<ModelsHealthResponse>;
 
 // Guardrails
 export const getGuardrails = () => axiosInstance.get("/api/admin/guardrails");

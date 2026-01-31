@@ -172,3 +172,8 @@ AGENTS.md
 
 .serena/
 node_modules/
+
+# Auto Claude data directory
+.auto-claude/
+
+deploy/k8s/

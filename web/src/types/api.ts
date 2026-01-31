@@ -61,6 +61,82 @@ export interface Model {
   input_cost_per_token?: number;
   output_cost_per_token?: number;
   supported_regions?: string[];
+  source?: 'system' | 'user';
+}
+
+export interface ProviderConfig {
+  type: string;
+  model: string;
+  api_key?: string;
+  api_secret?: string;
+  base_url?: string;
+  api_version?: string;
+  org_id?: string;
+  project_id?: string;
+  region?: string;
+  location?: string;
+  azure_deployment?: string;
+  azure_endpoint?: string;
+  aws_access_key_id?: string;
+  aws_secret_access_key?: string;
+  aws_region_name?: string;
+  vertex_project?: string;
+  vertex_location?: string;
+}
+
+export interface ModelInfoConfig {
+  mode?: string;
+  supports_functions?: boolean;
+  supports_vision?: boolean;
+  supports_streaming?: boolean;
+  max_tokens?: number;
+  max_input_tokens?: number;
+  max_output_tokens?: number;
+  default_max_tokens?: number;
+}
+
+export interface CreateModelRequest {
+  model_name: string;
+  instance_name?: string;
+  provider: ProviderConfig;
+  model_info?: ModelInfoConfig;
+  rpm?: number;
+  tpm?: number;
+  priority?: number;
+  weight?: number;
+  input_cost_per_token?: number;
+  output_cost_per_token?: number;
+  timeout_seconds?: number;
+  tags?: string[];
+  enabled?: boolean;
+}
+
+export interface UpdateModelRequest extends Partial<CreateModelRequest> {}
+
+export interface AdminModel {
+  id: string;
+  model_name: string;
+  instance_name?: string;
+  source: 'system' | 'user';
+  provider?: ProviderConfig;
+  model_info?: ModelInfoConfig;
+  owned_by?: string;
+  rpm?: number;
+  tpm?: number;
+  priority?: number;
+  weight?: number;
+  input_cost_per_token?: number;
+  output_cost_per_token?: number;
+  timeout_seconds?: number;
+  tags?: string[];
+  enabled: boolean;
+  created_at?: string;
+  created_by_id?: string;
+}
+
+export interface AdminModelsResponse {
+  models: AdminModel[];
+  total: number;
 }
 
 export interface ModelUsageStats {
@@ -150,6 +226,31 @@ export interface VirtualKey {
   expires_at?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface HealthCheckInstance {
+  instance_id: string;
+  model_name: string;
+  provider_type: string;
+  healthy: boolean;
+  latency_ms: number;
+  error?: string;
+  checked_at: string;
+}
+
+export interface ModelHealthSummary {
+  model_name: string;
+  healthy: boolean;
+  healthy_count: number;
+  total_count: number;
+  avg_latency_ms: number;
+  last_checked_at: string;
+  instances: HealthCheckInstance[];
+}
+
+export interface ModelsHealthResponse {
+  models: Record<string, ModelHealthSummary>;
+  total: number;
 }
 
 export interface AuditLog {

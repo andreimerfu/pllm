@@ -12,6 +12,7 @@ import (
 	"github.com/amerfu/pllm/internal/services/data/budget"
 	"github.com/amerfu/pllm/internal/services/integrations/guardrails"
 	"github.com/amerfu/pllm/internal/services/integrations/team"
+	"github.com/amerfu/pllm/internal/services/llm/models"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -27,9 +28,7 @@ type AdminRouterConfig struct {
 	MasterKeyService    *auth.MasterKeyService
 	BudgetService       budget.Service
 	GuardrailsExecutor  *guardrails.Executor
-	ModelManager        interface {
-		GetModelStats() map[string]interface{}
-	}
+	ModelManager        *models.ModelManager
 }
 
 // NewAdminSubRouter creates admin routes to be mounted on the main router
@@ -56,6 +55,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	systemHandler := admin.NewSystemHandler(cfg.Logger, cfg.DB)
 	dashboardHandler := handlers.NewDashboardHandler(cfg.DB, cfg.Logger)
 	guardrailsHandler := admin.NewGuardrailsHandler(cfg.Logger, cfg.Config, cfg.GuardrailsExecutor)
+	modelCRUDHandler := admin.NewModelCRUDHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 
 	// Initialize auth middleware
 	authMiddleware := middleware.NewAuthMiddleware(&middleware.AuthConfig{
@@ -179,6 +179,17 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Get("/{guardrailName}/stats", guardrailsHandler.GetGuardrailStats)
 			r.Get("/{guardrailName}/health", guardrailsHandler.CheckGuardrailHealth)
 			r.Post("/test", guardrailsHandler.TestGuardrail)
+		})
+
+		// Model CRUD management
+		r.Route("/models", func(r chi.Router) {
+			r.Get("/", modelCRUDHandler.ListModels)
+			r.Post("/", modelCRUDHandler.CreateModel)
+			r.Post("/test-connection", modelCRUDHandler.TestConnection)
+			r.Get("/health", modelCRUDHandler.GetModelsHealth)
+			r.Get("/{modelID}", modelCRUDHandler.GetModel)
+			r.Put("/{modelID}", modelCRUDHandler.UpdateModel)
+			r.Delete("/{modelID}", modelCRUDHandler.DeleteModel)
 		})
 	})
 

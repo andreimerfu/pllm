@@ -43,6 +43,9 @@ type ModelInstance struct {
 
 	// Enabled flag
 	Enabled bool `mapstructure:"enabled" json:"enabled"`
+
+	// Source indicates where this model was loaded from ("system" or "user")
+	Source string `mapstructure:"-" json:"source,omitempty"`
 }
 
 // ProviderParams contains provider-specific parameters

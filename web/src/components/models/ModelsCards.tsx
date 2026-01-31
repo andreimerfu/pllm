@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { Activity, DollarSign, Zap, Clock } from "lucide-react";
+import { Activity, DollarSign, Zap, Clock, Pencil, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ModelWithUsage } from "@/types/api";
 import { detectProvider } from "@/lib/providers";
 import { formatDateTime, formatUnixTimestamp } from "@/lib/date-utils";
@@ -18,6 +19,8 @@ import ModelCapabilities from "./ModelCapabilities";
 
 interface ModelsCardsProps {
   models: ModelWithUsage[];
+  onEdit?: (model: ModelWithUsage) => void;
+  onDelete?: (model: ModelWithUsage) => void;
 }
 
 const formatNumber = (num: number): string => {
@@ -34,7 +37,7 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-export default function ModelsCards({ models }: ModelsCardsProps) {
+export default function ModelsCards({ models, onEdit, onDelete }: ModelsCardsProps) {
   const navigate = useNavigate();
 
   const handleModelClick = (modelId: string) => {
@@ -85,12 +88,20 @@ export default function ModelsCards({ models }: ModelsCardsProps) {
                 </div>
 
                 <div className="flex flex-col gap-2 items-end">
-                  <Badge
-                    variant={model.object ? "default" : "secondary"}
-                    className="flex-shrink-0 font-medium text-xs"
-                  >
-                    {model.object}
-                  </Badge>
+                  <div className="flex gap-1">
+                    <Badge
+                      variant={model.source === "user" ? "outline" : "secondary"}
+                      className="flex-shrink-0 font-medium text-xs"
+                    >
+                      {model.source === "user" ? "User" : "System"}
+                    </Badge>
+                    <Badge
+                      variant={model.object ? "default" : "secondary"}
+                      className="flex-shrink-0 font-medium text-xs"
+                    >
+                      {model.object}
+                    </Badge>
+                  </div>
                   {usage && (
                     <div className="flex items-center gap-1">
                       <div className={`w-2 h-2 rounded-full ${
@@ -209,6 +220,34 @@ export default function ModelsCards({ models }: ModelsCardsProps) {
                 {usage?.last_used && (
                   <div className="mt-1 text-xs text-muted-foreground">
                     Last used: {formatDateTime(usage.last_used)}
+                  </div>
+                )}
+
+                {/* Edit/Delete actions for user models */}
+                {model.source === "user" && (onEdit || onDelete) && (
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
+                    {onEdit && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1 flex-1"
+                        onClick={(e) => { e.stopPropagation(); onEdit(model); }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Edit
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1 text-destructive hover:text-destructive flex-1"
+                        onClick={(e) => { e.stopPropagation(); onDelete(model); }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Delete
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>

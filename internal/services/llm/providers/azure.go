@@ -695,18 +695,9 @@ func (p *AzureProvider) ListModels() []string {
 }
 
 func (p *AzureProvider) HealthCheck(ctx context.Context) error {
-	// Try to list deployments or make a simple API call
-	testModel := "gpt-3.5-turbo"
-	if len(p.deployments) > 0 {
-		for model := range p.deployments {
-			testModel = model
-			break
-		}
-	}
-
-	deployment := p.getDeploymentName(testModel)
-	url := fmt.Sprintf("%s/openai/deployments/%s?api-version=%s",
-		p.config.BaseURL, deployment, p.apiVersion)
+	// List models available on this Azure OpenAI resource (data-plane endpoint)
+	url := fmt.Sprintf("%s/openai/models?api-version=%s",
+		p.config.BaseURL, p.apiVersion)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {

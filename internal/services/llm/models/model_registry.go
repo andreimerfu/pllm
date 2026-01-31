@@ -97,7 +97,7 @@ func (r *ModelRegistry) getOrCreateProvider(providerCfg config.ProviderParams) (
 	}
 
 	// Create new provider by calling appropriate constructor
-	provider, err := r.createProvider(providerCfg)
+	provider, err := r.CreateProvider(providerCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create provider: %w", err)
 	}
@@ -107,15 +107,58 @@ func (r *ModelRegistry) getOrCreateProvider(providerCfg config.ProviderParams) (
 	return provider, nil
 }
 
-// createProvider creates a new provider instance based on type
-func (r *ModelRegistry) createProvider(cfg config.ProviderParams) (providers.Provider, error) {
+// CreateProvider creates a new provider instance based on type
+func (r *ModelRegistry) CreateProvider(cfg config.ProviderParams) (providers.Provider, error) {
 	// Create a ProviderConfig from ProviderParams
 	providerCfg := providers.ProviderConfig{
-		Type:    cfg.Type,
-		APIKey:  cfg.APIKey,
-		BaseURL: cfg.BaseURL,
-		OrgID:   cfg.OrgID,
-		Enabled: true, // Assume enabled if we're creating it
+		Type:      cfg.Type,
+		APIKey:    cfg.APIKey,
+		APISecret: cfg.APISecret,
+		BaseURL:   cfg.BaseURL,
+		OrgID:     cfg.OrgID,
+		Region:    cfg.Region,
+		Enabled:   true,
+	}
+
+	// Map provider-specific fields via Extra
+	extra := make(map[string]interface{})
+
+	switch cfg.Type {
+	case "azure":
+		// Azure uses BaseURL as the endpoint URL
+		if providerCfg.BaseURL == "" && cfg.AzureEndpoint != "" {
+			providerCfg.BaseURL = cfg.AzureEndpoint
+		}
+		if cfg.APIVersion != "" {
+			providerCfg.APIVersion = cfg.APIVersion
+		}
+		if cfg.AzureDeployment != "" {
+			extra["deployments"] = map[string]interface{}{
+				cfg.Model: cfg.AzureDeployment,
+			}
+		}
+	case "bedrock":
+		// Bedrock uses APIKey/APISecret for AWS credentials
+		if cfg.AWSAccessKeyID != "" {
+			providerCfg.APIKey = cfg.AWSAccessKeyID
+		}
+		if cfg.AWSSecretAccessKey != "" {
+			providerCfg.APISecret = cfg.AWSSecretAccessKey
+		}
+		if cfg.AWSRegionName != "" {
+			providerCfg.Region = cfg.AWSRegionName
+		}
+	case "vertex":
+		if cfg.VertexProject != "" {
+			extra["project_id"] = cfg.VertexProject
+		}
+		if cfg.VertexLocation != "" {
+			providerCfg.Region = cfg.VertexLocation
+		}
+	}
+
+	if len(extra) > 0 {
+		providerCfg.Extra = extra
 	}
 
 	// Use a temporary name for provider creation
@@ -219,6 +262,104 @@ func (r *ModelRegistry) GetRegistryStats() RegistryStats {
 	}
 
 	return stats
+}
+
+// AddInstance adds a single model instance to the registry. Thread-safe.
+// Returns an error if an instance with the same ID already exists.
+func (r *ModelRegistry) AddInstance(cfg config.ModelInstance) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.instances[cfg.ID]; exists {
+		return fmt.Errorf("instance with ID %s already exists", cfg.ID)
+	}
+
+	if !cfg.Enabled {
+		return nil
+	}
+
+	provider, err := r.getOrCreateProvider(cfg.Provider)
+	if err != nil {
+		return fmt.Errorf("failed to create provider for instance %s: %w", cfg.ID, err)
+	}
+
+	instance := NewModelInstance(cfg, provider)
+	r.instances[cfg.ID] = instance
+
+	if r.modelMap[cfg.ModelName] == nil {
+		r.modelMap[cfg.ModelName] = make([]*ModelInstance, 0)
+		r.roundRobinCounters[cfg.ModelName] = &atomic.Uint64{}
+	}
+	r.modelMap[cfg.ModelName] = append(r.modelMap[cfg.ModelName], instance)
+
+	// Re-sort by priority
+	insts := r.modelMap[cfg.ModelName]
+	sort.Slice(insts, func(i, j int) bool {
+		return insts[i].Config.Priority > insts[j].Config.Priority
+	})
+
+	r.logger.Info("Added instance",
+		zap.String("id", cfg.ID),
+		zap.String("model", cfg.ModelName),
+		zap.String("provider", cfg.Provider.Type))
+
+	return nil
+}
+
+// RemoveInstance removes a model instance from the registry. Thread-safe.
+func (r *ModelRegistry) RemoveInstance(instanceID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	instance, exists := r.instances[instanceID]
+	if !exists {
+		return fmt.Errorf("instance %s not found", instanceID)
+	}
+
+	modelName := instance.Config.ModelName
+	delete(r.instances, instanceID)
+
+	// Remove from model map
+	if insts, ok := r.modelMap[modelName]; ok {
+		filtered := make([]*ModelInstance, 0, len(insts))
+		for _, inst := range insts {
+			if inst.Config.ID != instanceID {
+				filtered = append(filtered, inst)
+			}
+		}
+		if len(filtered) == 0 {
+			delete(r.modelMap, modelName)
+			delete(r.roundRobinCounters, modelName)
+		} else {
+			r.modelMap[modelName] = filtered
+		}
+	}
+
+	r.logger.Info("Removed instance",
+		zap.String("id", instanceID),
+		zap.String("model", modelName))
+
+	return nil
+}
+
+// UpdateInstance removes the old instance and adds the updated one. Thread-safe.
+func (r *ModelRegistry) UpdateInstance(instanceID string, cfg config.ModelInstance) error {
+	// Remove old instance (ignore not found - it may have been removed)
+	_ = r.RemoveInstance(instanceID)
+
+	// Add the new instance
+	return r.AddInstance(cfg)
+}
+
+// GetInstanceSource returns the source field of an instance, or empty string if not found.
+func (r *ModelRegistry) GetInstanceSource(instanceID string) string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if instance, exists := r.instances[instanceID]; exists {
+		return instance.Config.Source
+	}
+	return ""
 }
 
 // RegistryStats represents statistics about the model registry

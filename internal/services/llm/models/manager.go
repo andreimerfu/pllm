@@ -8,6 +8,7 @@ import (
 	"github.com/amerfu/pllm/internal/core/config"
 	redisService "github.com/amerfu/pllm/internal/services/data/redis"
 	"github.com/amerfu/pllm/internal/services/llm/models/routing"
+	"github.com/amerfu/pllm/internal/services/llm/providers"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
@@ -18,6 +19,7 @@ type ModelManager struct {
 	healthTracker    *HealthTracker
 	metricsCollector *MetricsCollector
 	latencyTracker   *redisService.LatencyTracker // Distributed latency tracking
+	healthStore      *redisService.HealthStore    // Distributed health check results
 	routingStrategy  routing.Strategy              // Routing strategy (priority, latency, etc.)
 	router           config.RouterSettings
 	logger           *zap.Logger
@@ -25,10 +27,12 @@ type ModelManager struct {
 
 // NewModelManager creates a new refactored model manager
 func NewModelManager(logger *zap.Logger, router config.RouterSettings, redisClient *redis.Client) *ModelManager {
-	// Initialize distributed latency tracker
+	// Initialize distributed latency tracker and health store
 	var latencyTracker *redisService.LatencyTracker
+	var healthStore *redisService.HealthStore
 	if redisClient != nil {
 		latencyTracker = redisService.NewLatencyTracker(redisClient, logger)
+		healthStore = redisService.NewHealthStore(redisClient, logger)
 	}
 
 	// Initialize model registry
@@ -50,6 +54,7 @@ func NewModelManager(logger *zap.Logger, router config.RouterSettings, redisClie
 		healthTracker:    NewHealthTracker(logger),
 		metricsCollector: NewMetricsCollector(logger),
 		latencyTracker:   latencyTracker,
+		healthStore:      healthStore,
 		routingStrategy:  strategy,
 		router:           router,
 		logger:           logger,
@@ -473,6 +478,7 @@ func (m *ModelManager) GetDetailedModelInfo() []ModelInfo {
 				Object:  "model",
 				OwnedBy: ownedBy,
 				Created: time.Now().Unix(),
+				Source:  instance.Config.Source,
 			}
 		}
 	}
@@ -521,10 +527,57 @@ func (m *ModelManager) GetModelTags(modelName string) []string {
 	return tags
 }
 
+// AddInstance adds a model instance to the registry
+func (m *ModelManager) AddInstance(cfg config.ModelInstance) error {
+	return m.registry.AddInstance(cfg)
+}
+
+// RemoveInstance removes a model instance from the registry
+func (m *ModelManager) RemoveInstance(instanceID string) error {
+	return m.registry.RemoveInstance(instanceID)
+}
+
+// UpdateInstance updates a model instance in the registry
+func (m *ModelManager) UpdateInstance(instanceID string, cfg config.ModelInstance) error {
+	return m.registry.UpdateInstance(instanceID, cfg)
+}
+
+// GetInstanceSource returns the source of an instance ("system" or "user")
+func (m *ModelManager) GetInstanceSource(instanceID string) string {
+	return m.registry.GetInstanceSource(instanceID)
+}
+
+// CreateProvider creates a new provider instance from configuration parameters.
+// This is used for test-connection to create a temporary provider without registering it.
+func (m *ModelManager) CreateProvider(cfg config.ProviderParams) (providers.Provider, error) {
+	return m.registry.CreateProvider(cfg)
+}
+
+// GetRegistry returns the model registry.
+func (m *ModelManager) GetRegistry() *ModelRegistry {
+	return m.registry
+}
+
+// GetHealthTracker returns the in-memory health tracker.
+func (m *ModelManager) GetHealthTracker() *HealthTracker {
+	return m.healthTracker
+}
+
+// GetHealthStore returns the Redis-backed health store (nil if Redis unavailable).
+func (m *ModelManager) GetHealthStore() *redisService.HealthStore {
+	return m.healthStore
+}
+
+// NewHealthChecker creates a HealthChecker wired to this manager's registry, health tracker, and health store.
+func (m *ModelManager) NewHealthChecker(interval time.Duration) *HealthChecker {
+	return NewHealthChecker(m.registry, m.healthTracker, m.healthStore, interval, m.logger)
+}
+
 // ModelInfo represents detailed model information for API responses
 type ModelInfo struct {
 	ID      string `json:"id"`
 	Object  string `json:"object"`
 	OwnedBy string `json:"owned_by"`
 	Created int64  `json:"created"`
+	Source  string `json:"source,omitempty"`
 }

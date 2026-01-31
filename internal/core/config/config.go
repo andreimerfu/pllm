@@ -224,6 +224,7 @@ func Load(configPath string) (*Config, error) {
 	var convertedModels []ModelInstance
 	for _, model := range config.RawModelList {
 		instance := ConvertToModelInstance(model)
+		instance.Source = "system"
 		convertedModels = append(convertedModels, instance)
 	}
 

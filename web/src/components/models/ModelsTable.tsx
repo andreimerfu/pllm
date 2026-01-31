@@ -33,9 +33,11 @@ import { columns } from "./ModelsTableUtils";
 
 interface ModelsTableProps {
   models: ModelWithUsage[];
+  onEdit?: (model: ModelWithUsage) => void;
+  onDelete?: (model: ModelWithUsage) => void;
 }
 
-export default function ModelsTable({ models }: ModelsTableProps) {
+export default function ModelsTable({ models, onEdit, onDelete }: ModelsTableProps) {
   const navigate = useNavigate();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -58,6 +60,10 @@ export default function ModelsTable({ models }: ModelsTableProps) {
       columnFilters,
       columnVisibility,
       rowSelection,
+    },
+    meta: {
+      onEdit,
+      onDelete,
     },
   });
 

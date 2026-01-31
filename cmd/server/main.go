@@ -14,6 +14,7 @@ import (
 	"github.com/amerfu/pllm/pkg/logger"
 	"github.com/amerfu/pllm/internal/api/router"
 	"github.com/amerfu/pllm/internal/services/data/cache"
+	modelService "github.com/amerfu/pllm/internal/services/integrations/model"
 	"github.com/amerfu/pllm/internal/services/llm/models"
 	redisService "github.com/amerfu/pllm/internal/services/data/redis"
 	"github.com/amerfu/pllm/internal/services/worker"
@@ -174,6 +175,44 @@ func main() {
 		log.Fatal("Failed to load model instances", zap.Error(err))
 	}
 
+	// Load user-created models from database (if available)
+	if appMode.DatabaseAvailable {
+		if dbInstance := database.GetDB(); dbInstance != nil {
+			userModelSvc := modelService.NewService(dbInstance, log)
+			userModels, err := userModelSvc.ListUserModels()
+			if err != nil {
+				log.Warn("Failed to load user models from database", zap.Error(err))
+			} else if len(userModels) > 0 {
+				loaded := 0
+				for _, um := range userModels {
+					if !um.Enabled {
+						continue
+					}
+					instance := userModelSvc.ConvertToModelInstance(um)
+					if err := modelManager.AddInstance(instance); err != nil {
+						log.Warn("Failed to add user model to registry",
+							zap.String("model", um.ModelName),
+							zap.Error(err))
+						continue
+					}
+					loaded++
+				}
+				log.Info("Loaded user models from database", zap.Int("count", loaded))
+			}
+		}
+	}
+
+	// Start periodic health checker for provider instances
+	var healthCheckerCancel context.CancelFunc
+	{
+		healthChecker := modelManager.NewHealthChecker(cfg.Router.HealthCheckInterval)
+		var healthCtx context.Context
+		healthCtx, healthCheckerCancel = context.WithCancel(context.Background())
+		go healthChecker.Start(healthCtx)
+		log.Info("Started background health checker",
+			zap.Duration("interval", cfg.Router.HealthCheckInterval))
+	}
+
 	// Initialize pricing manager (always needed for cost calculations)
 	pricingManager := config.GetPricingManager()
 	if err := pricingManager.LoadDefaultPricing("internal/config"); err != nil {
@@ -308,6 +347,12 @@ func main() {
 	<-quit
 
 	log.Info("Shutting down servers...")
+
+	// Stop health checker
+	if healthCheckerCancel != nil {
+		log.Info("Stopping background health checker...")
+		healthCheckerCancel()
+	}
 
 	// Stop background worker first
 	if workerCancel != nil {

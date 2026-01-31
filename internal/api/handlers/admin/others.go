@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -976,7 +977,36 @@ func (h *SystemHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SystemHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
-	h.sendError(w, http.StatusNotImplemented, "Config update not yet implemented")
+	var req struct {
+		Router *struct {
+			Fallbacks map[string][]string `json:"fallbacks"`
+		} `json:"router"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.Router == nil {
+		h.sendError(w, http.StatusBadRequest, "Missing router configuration")
+		return
+	}
+
+	// Update fallbacks in the global config
+	cfg := config.Get()
+	if req.Router.Fallbacks != nil {
+		cfg.Router.Fallbacks = req.Router.Fallbacks
+	}
+
+	h.logger.Info("Updated router fallback configuration",
+		zap.Any("fallbacks", cfg.Router.Fallbacks),
+	)
+
+	h.sendJSON(w, http.StatusOK, map[string]interface{}{
+		"message":   "Configuration updated",
+		"fallbacks": cfg.Router.Fallbacks,
+	})
 }
 
 func (h *SystemHandler) GetSystemHealth(w http.ResponseWriter, r *http.Request) {

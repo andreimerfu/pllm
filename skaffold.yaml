@@ -1,0 +1,56 @@
+apiVersion: skaffold/v4beta6
+kind: Config
+metadata:
+  name: pllm
+
+build:
+  artifacts:
+    - image: pllm
+      docker:
+        dockerfile: Dockerfile
+        buildArgs:
+          VITE_DEX_PUBLIC_AUTHORITY: "https://auth.dex.minikube.local"
+          VITE_DEX_CLIENT_ID: "pllm-web"
+          VITE_DEX_CLIENT_SECRET: "pllm-web-secret"
+  local:
+    push: false
+    useBuildkit: true
+
+manifests:
+  rawYaml:
+    - deploy/k8s/namespace.yaml
+    - deploy/k8s/configmap.yaml
+    - deploy/k8s/mkcert-ca-configmap.yaml
+    - deploy/k8s/secret.yaml
+    - deploy/k8s/deployment.yaml
+    - deploy/k8s/service.yaml
+    - deploy/k8s/ingress.yaml
+
+deploy:
+  kubectl: {}
+
+portForward:
+  - resourceType: service
+    resourceName: pllm
+    namespace: pllm
+    port: 8080
+    localPort: 8080
+  - resourceType: service
+    resourceName: pllm
+    namespace: pllm
+    port: 8081
+    localPort: 8081
+  - resourceType: service
+    resourceName: pllm
+    namespace: pllm
+    port: 9090
+    localPort: 9090
+
+profiles:
+  - name: debug
+    patches:
+      - op: add
+        path: /build/artifacts/0/docker/buildArgs/LOG_LEVEL
+        value: debug
+    activation:
+      - command: dev

@@ -42,6 +42,13 @@ export const PROVIDERS: Record<string, ProviderInfo> = {
     bgColor: "bg-red-50 dark:bg-red-950/30",
     borderColor: "border-red-200 dark:border-red-800",
   },
+  azure: {
+    icon: "logos:microsoft-azure",
+    name: "Azure OpenAI",
+    color: "text-blue-700 dark:text-blue-300",
+    bgColor: "bg-blue-50 dark:bg-blue-950/30",
+    borderColor: "border-blue-200 dark:border-blue-800",
+  },
   microsoft: {
     icon: "logos:microsoft",
     name: "Microsoft",
@@ -63,6 +70,13 @@ export const PROVIDERS: Record<string, ProviderInfo> = {
     bgColor: "bg-purple-50 dark:bg-purple-950/30",
     borderColor: "border-purple-200 dark:border-purple-800",
   },
+  cohere: {
+    icon: "simple-icons:cohere",
+    name: "Cohere",
+    color: "text-green-600 dark:text-green-400",
+    bgColor: "bg-green-50 dark:bg-green-950/30",
+    borderColor: "border-green-200 dark:border-green-800",
+  },
   unknown: {
     icon: "lucide:brain",
     name: "Unknown",
@@ -75,6 +89,11 @@ export const PROVIDERS: Record<string, ProviderInfo> = {
 export function detectProvider(modelId: string, ownedBy: string): ProviderInfo {
   const id = modelId?.toLowerCase() || "";
   const owner = ownedBy?.toLowerCase() || "";
+
+  // Azure detection (must come before OpenAI since Azure models often contain "gpt")
+  if (owner.includes("azure") || id.includes("azure") || owner.includes("microsoft")) {
+    return PROVIDERS.azure;
+  }
 
   // OpenAI detection
   if (id.includes("gpt") || owner.includes("openai") || id.includes("openai")) {
@@ -99,11 +118,6 @@ export function detectProvider(modelId: string, ownedBy: string): ProviderInfo {
   // Google detection
   if (id.includes("gemini") || owner.includes("google") || id.includes("google")) {
     return PROVIDERS.google;
-  }
-
-  // Microsoft detection
-  if (id.includes("azure") || owner.includes("microsoft") || id.includes("microsoft")) {
-    return PROVIDERS.microsoft;
   }
 
   // AWS detection

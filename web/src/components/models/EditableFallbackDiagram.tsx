@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -21,13 +21,82 @@ import { detectProvider } from "@/lib/providers";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Plus, Save, X } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import '@xyflow/react/dist/style.css';
 
 interface EditableFallbackDiagramProps {
   primaryModel: string;
   allFallbacksConfig?: Record<string, string[]>;
   onSave?: (fallbacks: Record<string, string[]>) => void;
+  availableModels?: string[];
+}
+
+/**
+ * Check if adding an edge from sourceId → targetId would create a cycle.
+ * Returns true if a path already exists from targetId to sourceId
+ * (meaning adding source→target would close a loop).
+ */
+function wouldCreateCycle(sourceId: string, targetId: string, existingEdges: Edge[]): boolean {
+  // Build adjacency list from existing edges
+  const adj = new Map<string, string[]>();
+  for (const edge of existingEdges) {
+    if (!adj.has(edge.source)) adj.set(edge.source, []);
+    adj.get(edge.source)!.push(edge.target);
+  }
+
+  // BFS from targetId — can we reach sourceId?
+  const visited = new Set<string>();
+  const queue = [targetId];
+  visited.add(targetId);
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (current === sourceId) return true;
+    for (const neighbor of adj.get(current) || []) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if a fallback config contains any cycle.
+ * Standard DFS with visited + recursion-stack sets.
+ */
+function hasCycle(config: Record<string, string[]>): boolean {
+  const visited = new Set<string>();
+  const recStack = new Set<string>();
+
+  function dfs(node: string): boolean {
+    visited.add(node);
+    recStack.add(node);
+
+    for (const neighbor of config[node] || []) {
+      if (!visited.has(neighbor)) {
+        if (dfs(neighbor)) return true;
+      } else if (recStack.has(neighbor)) {
+        return true;
+      }
+    }
+
+    recStack.delete(node);
+    return false;
+  }
+
+  for (const node of Object.keys(config)) {
+    if (!visited.has(node)) {
+      if (dfs(node)) return true;
+    }
+  }
+
+  return false;
 }
 
 // Custom editable node component
@@ -82,7 +151,7 @@ const nodeTypes = {
   editableModelNode: EditableModelNode,
 };
 
-function EditableFallbackDiagramInner({ primaryModel, allFallbacksConfig = {}, onSave }: EditableFallbackDiagramProps) {
+function EditableFallbackDiagramInner({ primaryModel, allFallbacksConfig = {}, onSave, availableModels = [] }: EditableFallbackDiagramProps) {
   // Build complete fallback chain
   const buildCompleteChain = (modelName: string, visited = new Set<string>()): string[] => {
     if (visited.has(modelName)) {
@@ -152,9 +221,31 @@ function EditableFallbackDiagramInner({ primaryModel, allFallbacksConfig = {}, o
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [hasChanges, setHasChanges] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
-  // Handle new connections
+  // Compute models already in the diagram
+  const modelsInDiagram = useMemo(() => {
+    return new Set(nodes.map(n => n.data.modelId as string));
+  }, [nodes]);
+
+  // Available models not yet in the diagram
+  const selectableModels = useMemo(() => {
+    return availableModels.filter(m => !modelsInDiagram.has(m));
+  }, [availableModels, modelsInDiagram]);
+
+  // Handle new connections with cycle detection
   const onConnect = useCallback((params: Connection) => {
+    if (!params.source || !params.target) return;
+
+    if (wouldCreateCycle(params.source, params.target, edges)) {
+      toast({
+        title: "Cycle detected",
+        description: "This connection would create a circular fallback loop and has been rejected.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setEdges((eds) => addEdge({
       ...params,
       type: 'smoothstep',
@@ -163,11 +254,12 @@ function EditableFallbackDiagramInner({ primaryModel, allFallbacksConfig = {}, o
       markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' },
     }, eds));
     setHasChanges(true);
-  }, [setEdges]);
+  }, [edges, setEdges]);
 
-  // Add new model node
-  const addNode = useCallback(() => {
-    const newId = `model-${nodes.length}`;
+  // Add a model node from the picker
+  const addModelNode = useCallback((modelName: string) => {
+    const newId = `model-${Date.now()}`;
+    const providerInfo = detectProvider(modelName, "");
     const newNode: Node = {
       id: newId,
       type: 'editableModelNode',
@@ -176,8 +268,8 @@ function EditableFallbackDiagramInner({ primaryModel, allFallbacksConfig = {}, o
         y: 100,
       },
       data: {
-        modelId: 'new-model',
-        provider: 'openai',
+        modelId: modelName,
+        provider: providerInfo.name.toLowerCase(),
         isPrimary: false,
         onDelete: (nodeId: string) => {
           setNodes((nds) => nds.filter(n => n.id !== nodeId));
@@ -187,9 +279,10 @@ function EditableFallbackDiagramInner({ primaryModel, allFallbacksConfig = {}, o
     };
     setNodes((nds) => [...nds, newNode]);
     setHasChanges(true);
+    setPopoverOpen(false);
   }, [nodes, setNodes, setEdges]);
 
-  // Save fallback configuration
+  // Save fallback configuration with cycle validation
   const handleSave = useCallback(() => {
     // Build fallback config from edges
     const newConfig: Record<string, string[]> = {};
@@ -210,6 +303,16 @@ function EditableFallbackDiagramInner({ primaryModel, allFallbacksConfig = {}, o
         }
       }
     });
+
+    // Belt-and-suspenders cycle check before saving
+    if (hasCycle(newConfig)) {
+      toast({
+        title: "Cannot save",
+        description: "The fallback configuration contains a cycle. Please remove circular connections before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     onSave?.(newConfig);
     setHasChanges(false);
@@ -237,10 +340,42 @@ function EditableFallbackDiagramInner({ primaryModel, allFallbacksConfig = {}, o
             </CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button onClick={addNode} variant="outline" size="sm">
-              <Plus className="w-4 h-4 mr-1" />
-              Add Model
-            </Button>
+            <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" disabled={availableModels.length === 0 && selectableModels.length === 0}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Model
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-0" align="end">
+                <Command>
+                  <CommandInput placeholder="Search models..." />
+                  <CommandList>
+                    <CommandEmpty>No models available</CommandEmpty>
+                    <CommandGroup>
+                      {selectableModels.map((modelName) => {
+                        const info = detectProvider(modelName, "");
+                        return (
+                          <CommandItem
+                            key={modelName}
+                            value={modelName}
+                            onSelect={() => addModelNode(modelName)}
+                          >
+                            <Icon
+                              icon={info.icon}
+                              width="16"
+                              height="16"
+                              className={`mr-2 ${info.color}`}
+                            />
+                            <span className="truncate">{modelName}</span>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             {hasChanges && (
               <Button onClick={handleSave} size="sm">
                 <Save className="w-4 h-4 mr-1" />

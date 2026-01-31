@@ -18,10 +18,11 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.User{},
 		&models.Team{},
 		&models.TeamMember{},
-		&models.Key{}, // Unified key model
+		&models.Key{},       // Unified key model
 		&models.Budget{},
 		&models.Usage{},
-		&models.Audit{}, // Audit logging
+		&models.Audit{},     // Audit logging
+		&models.UserModel{}, // User-created model configurations
 	)
 
 	if err != nil {

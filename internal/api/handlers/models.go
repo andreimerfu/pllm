@@ -59,6 +59,11 @@ func (h *ModelsHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 			"owned_by": model.OwnedBy,
 		}
 
+		// Add source field if available
+		if model.Source != "" {
+			modelMap["source"] = model.Source
+		}
+
 		// Add pricing information if available
 		if h.pricingManager != nil && model.ID != "" {
 			if pricingInfo := h.pricingManager.GetModelInfo(model.ID); pricingInfo != nil {

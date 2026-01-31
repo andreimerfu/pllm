@@ -144,6 +144,8 @@ func Migrate() error {
 		&models.SystemMetrics{},
 		&models.UserMetrics{},
 		&models.TeamMetrics{},
+		// User-created model configurations
+		&models.UserModel{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate models: %w", err)
 	}

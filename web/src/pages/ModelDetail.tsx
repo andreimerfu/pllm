@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { ExternalLink, Settings, Activity, DollarSign, Zap, Clock, AlertCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ExternalLink, Settings, Activity, DollarSign, Zap, Clock, AlertCircle, CheckCircle, XCircle, Loader2, Lock } from "lucide-react";
 import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,10 @@ import { ModelWithUsage } from "@/types/api";
 import { detectProvider } from "@/lib/providers";
 import { SparklineChart, MetricCard } from "@/components/models/ModelCharts";
 import { EditableFallbackDiagram } from "@/components/models/EditableFallbackDiagram";
-import { getSystemConfig, getModelMetrics, getModelTrends } from "@/lib/api";
+import EditModelDialog from "@/components/models/EditModelDialog";
+import DeleteModelDialog from "@/components/models/DeleteModelDialog";
+import { getSystemConfig, getModelMetrics, getModelTrends, getAdminModels, getModelsHealth, updateConfig } from "@/lib/api";
+import type { AdminModel, AdminModelsResponse, ModelsHealthResponse } from "@/types/api";
 
 const formatNumber = (num: number): string => {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -42,7 +46,29 @@ export default function ModelDetail() {
   const [configuration, setConfiguration] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+  // Use React Query for admin models so the cache is shared with EditModel
+  const { data: adminModelsData } = useQuery({
+    queryKey: ["admin-models"],
+    queryFn: getAdminModels,
+  });
+
+  const { data: healthData } = useQuery({
+    queryKey: ["models-health"],
+    queryFn: getModelsHealth,
+    refetchInterval: 60000,
+  });
+
+  const adminModel: AdminModel | null = (() => {
+    if (!modelId) return null;
+    const decodedId = decodeURIComponent(modelId);
+    const data = adminModelsData as AdminModelsResponse | undefined;
+    const matches = data?.models?.filter((m) =>
+      m.model_name === decodedId || m.id === decodedId
+    ) || [];
+    // Prefer the entry with provider details (database version) over registry-only entries
+    return matches.find((m) => m.provider) || matches[0] || null;
+  })();
+
   useEffect(() => {
     const fetchModelData = async () => {
       if (!modelId) {
@@ -158,8 +184,6 @@ export default function ModelDetail() {
           setAllFallbacksConfig({});
         }
 
-        // Stats data now comes from dashboard metrics above
-
       } catch (err) {
         console.error('Error fetching model data:', err);
         setError('Failed to load model data');
@@ -195,17 +219,50 @@ export default function ModelDetail() {
     return <div>Model not found</div>;
   }
 
-  const providerInfo = detectProvider(model.id, model.owned_by);
+  // Use real provider type from admin model when available (e.g., "azure" instead of guessed "openai")
+  const providerInfo = detectProvider(model.id, adminModel?.provider?.type || model.owned_by);
   const usage = model.usage_stats;
 
-  // Create health data from usage stats or use defaults
-  const health = {
-    status: usage && usage.health_score >= 90 ? 'healthy' as const : 
-            usage && usage.health_score >= 70 ? 'degraded' as const : 'unhealthy' as const,
-    uptime: usage ? Math.min(usage.health_score + Math.random() * 10, 100) : 95 + Math.random() * 5,
-    errorRate: usage ? usage.error_rate : Math.random() * 5,
-    p99Latency: usage ? usage.avg_latency * 1.5 : 400 + Math.random() * 600
-  };
+  // Derive health from real health-check data when available
+  const modelHealthData = (() => {
+    const hd = healthData as ModelsHealthResponse | undefined;
+    if (!hd?.models || !model) return null;
+    return hd.models[model.id] ?? null;
+  })();
+
+  const health = (() => {
+    if (modelHealthData && modelHealthData.total_count > 0) {
+      const ratio = modelHealthData.healthy_count / modelHealthData.total_count;
+      const status = ratio >= 1 ? 'healthy' as const :
+                     ratio > 0 ? 'degraded' as const : 'unhealthy' as const;
+      return {
+        status,
+        uptime: ratio * 100,
+        errorRate: (1 - ratio) * 100,
+        p99Latency: modelHealthData.avg_latency_ms,
+        lastChecked: modelHealthData.last_checked_at,
+      };
+    }
+    // Fallback to usage-metric-derived health
+    if (usage) {
+      return {
+        status: usage.health_score >= 90 ? 'healthy' as const :
+                usage.health_score >= 70 ? 'degraded' as const : 'unhealthy' as const,
+        uptime: usage.health_score,
+        errorRate: usage.error_rate,
+        p99Latency: usage.avg_latency * 1.5,
+        lastChecked: null as string | null,
+      };
+    }
+    // No data at all — neutral "unknown" state
+    return {
+      status: 'unknown' as const,
+      uptime: 0,
+      errorRate: 0,
+      p99Latency: 0,
+      lastChecked: null as string | null,
+    };
+  })();
 
   const getHealthIcon = (status: string) => {
     switch (status) {
@@ -215,6 +272,8 @@ export default function ModelDetail() {
         return <AlertCircle className="h-5 w-5 text-yellow-500" />;
       case 'unhealthy':
         return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'unknown':
+        return <Clock className="h-5 w-5 text-gray-400" />;
       default:
         return <AlertCircle className="h-5 w-5 text-gray-500" />;
     }
@@ -254,14 +313,39 @@ export default function ModelDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {adminModel && (
+            <Badge variant={adminModel.source === "user" ? "outline" : "secondary"}>
+              {adminModel.source === "user" ? "User" : "System"}
+            </Badge>
+          )}
           <Badge variant={getHealthBadgeVariant(health.status)} className="gap-1">
             {getHealthIcon(health.status)}
             {health.status}
           </Badge>
-          <Button variant="outline" size="sm">
-            <Settings className="h-4 w-4" />
-            Configure
-          </Button>
+          {adminModel?.source === "user" ? (
+            <>
+              <EditModelDialog model={adminModel} trigger={
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4 mr-1" />
+                  Edit
+                </Button>
+              } />
+              <DeleteModelDialog
+                modelId={adminModel.id}
+                modelName={adminModel.model_name}
+                trigger={
+                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                    Delete
+                  </Button>
+                }
+              />
+            </>
+          ) : (
+            <Button variant="outline" size="sm" disabled>
+              <Lock className="h-4 w-4 mr-1" />
+              Read-only
+            </Button>
+          )}
         </div>
       </div>
 
@@ -350,6 +434,17 @@ export default function ModelDetail() {
                   <span className="text-sm font-medium">P99 Latency</span>
                   <span>{health.p99Latency}ms</span>
                 </div>
+                {health.lastChecked && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Last Checked</span>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(health.lastChecked).toLocaleString()}
+                      </span>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -399,12 +494,17 @@ export default function ModelDetail() {
           <EditableFallbackDiagram
             primaryModel={model.id}
             allFallbacksConfig={allFallbacksConfig}
+            availableModels={
+              (adminModelsData as AdminModelsResponse | undefined)?.models?.map(m => m.model_name) ?? []
+            }
             onSave={async (newConfig) => {
-              // TODO: API call to save fallback configuration
-              console.log('Saving fallback config:', newConfig);
-              setAllFallbacksConfig(newConfig);
-              // Update fallbacks array for the current model
-              setFallbacks(newConfig[model.id] || []);
+              try {
+                await updateConfig({ router: { fallbacks: newConfig } });
+                setAllFallbacksConfig(newConfig);
+                setFallbacks(newConfig[model.id] || []);
+              } catch (err) {
+                console.error('Failed to save fallback config:', err);
+              }
             }}
           />
         </TabsContent>
