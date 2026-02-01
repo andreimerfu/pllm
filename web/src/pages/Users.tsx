@@ -37,6 +37,7 @@ export default function Users() {
           icon={UsersIcon}
           title="No users found"
           description="No users have been authenticated through Dex yet."
+          className="mt-2"
         />
       ) : (
         <DataTable columns={columns} data={users} searchPlaceholder="Search users..." />

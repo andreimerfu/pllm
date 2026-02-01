@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, Settings, Activity, DollarSign, Zap, Clock, AlertCircle, CheckCircle, XCircle, Loader2, Lock } from "lucide-react";
 import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ModelWithUsage } from "@/types/api";
 import { detectProvider } from "@/lib/providers";
@@ -21,6 +28,7 @@ import { EditableFallbackDiagram } from "@/components/models/EditableFallbackDia
 import EditModelDialog from "@/components/models/EditModelDialog";
 import DeleteModelDialog from "@/components/models/DeleteModelDialog";
 import { getSystemConfig, getModelMetrics, getModelTrends, getAdminModels, getModelsHealth, updateConfig } from "@/lib/api";
+import { fillTimeGaps } from "@/lib/date-utils";
 import type { AdminModel, AdminModelsResponse, ModelsHealthResponse } from "@/types/api";
 
 const formatNumber = (num: number): string => {
@@ -39,23 +47,54 @@ const formatCurrency = (amount: number): string => {
 
 export default function ModelDetail() {
   const { modelId } = useParams<{ modelId: string }>();
-  const [model, setModel] = useState<ModelWithUsage | null>(null);
-  const [modelPricing] = useState<any>(null);
-  const [, setFallbacks] = useState<string[]>([]);
-  const [allFallbacksConfig, setAllFallbacksConfig] = useState<Record<string, string[]>>({});
-  const [configuration, setConfiguration] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const decodedModelId = modelId ? decodeURIComponent(modelId) : "";
+  const queryClient = useQueryClient();
+
   // Use React Query for admin models so the cache is shared with EditModel
   const { data: adminModelsData } = useQuery({
     queryKey: ["admin-models"],
     queryFn: getAdminModels,
+    refetchInterval: 60000,
   });
 
   const { data: healthData } = useQuery({
     queryKey: ["models-health"],
     queryFn: getModelsHealth,
     refetchInterval: 60000,
+  });
+
+  const { data: metricsRaw, isLoading: metricsLoading, error: metricsError } = useQuery({
+    queryKey: ["model-metrics", decodedModelId],
+    queryFn: () => getModelMetrics(decodedModelId),
+    refetchInterval: 60000,
+    enabled: !!modelId,
+  });
+
+  const [trendTimeRange, setTrendTimeRange] = useState("30d");
+
+  const trendParams = useMemo(() => {
+    switch (trendTimeRange) {
+      case "24h":
+        return { hours: 24, interval: "hourly" };
+      case "7d":
+        return { days: 7, interval: "daily" };
+      case "30d":
+      default:
+        return { days: 30, interval: "daily" };
+    }
+  }, [trendTimeRange]);
+
+  const { data: trendsRaw } = useQuery({
+    queryKey: ["model-trends", decodedModelId, trendParams],
+    queryFn: () => getModelTrends(decodedModelId, trendParams),
+    refetchInterval: 60000,
+    enabled: !!modelId,
+  });
+
+  const { data: configRaw } = useQuery({
+    queryKey: ["system-config"],
+    queryFn: getSystemConfig,
+    enabled: !!modelId,
   });
 
   const adminModel: AdminModel | null = (() => {
@@ -69,131 +108,91 @@ export default function ModelDetail() {
     return matches.find((m) => m.provider) || matches[0] || null;
   })();
 
-  useEffect(() => {
-    const fetchModelData = async () => {
-      if (!modelId) {
-        setError("Model ID is required");
-        setLoading(false);
-        return;
-      }
+  // Derive model, configuration, and fallbacks from query data
+  const { model, configuration, allFallbacksConfig } = useMemo(() => {
+    if (!metricsRaw) return { model: null, configuration: null, allFallbacksConfig: {} as Record<string, string[]> };
 
-      try {
-        setLoading(true);
-        const decodedModelId = decodeURIComponent(modelId);
+    const metricsValue = metricsRaw as any;
+    const metrics = metricsValue.data || metricsValue;
+    const providerInfo = detectProvider(decodedModelId, decodedModelId.includes("claude") ? "anthropic" :
+                                        decodedModelId.includes("gpt") ? "openai" :
+                                        decodedModelId.includes("gemini") ? "google" : "openrouter");
 
-        // Fetch model-specific metrics and trends
-        const [metricsResponse, trendsResponse, configResponse] = await Promise.allSettled([
-          getModelMetrics(decodedModelId),
-          getModelTrends(decodedModelId, 30),
-          getSystemConfig()
-        ]);
+    // Get trend data if available, filling time gaps
+    let trendData: number[] = [];
+    if (trendsRaw) {
+      const trendsValue = trendsRaw as any;
+      const trends = trendsValue?.data ? (Array.isArray(trendsValue.data) ? trendsValue.data : []) :
+                    (Array.isArray(trendsValue) ? trendsValue : []);
+      const currentInterval = (trendParams.interval || "daily") as "hourly" | "daily";
+      const range = trendParams.hours || trendParams.days || 30;
+      const filled = fillTimeGaps(trends, currentInterval, range);
+      trendData = filled.map((t: any) => t.requests || 0);
+    }
 
-        // Handle metrics data
-        let modelData: ModelWithUsage;
-        if (metricsResponse.status === 'fulfilled') {
-          const metricsValue = metricsResponse.value as any;
-          const metrics = metricsValue.data || metricsValue;
-          const providerInfo = detectProvider(decodedModelId, decodedModelId.includes("claude") ? "anthropic" :
-                                              decodedModelId.includes("gpt") ? "openai" :
-                                              decodedModelId.includes("gemini") ? "google" : "openrouter");
+    // Calculate health score from success rate and latency
+    const healthScore = metrics.success_rate >= 95 && metrics.avg_latency < 1000 ? 100 :
+                       metrics.success_rate >= 90 && metrics.avg_latency < 2000 ? 85 :
+                       metrics.success_rate >= 80 && metrics.avg_latency < 3000 ? 70 : 50;
 
-          // Get trend data if available
-          let trendData: number[] = [];
-          if (trendsResponse.status === 'fulfilled' && trendsResponse.value) {
-            const trendsValue = trendsResponse.value as any;
-            const trends = trendsValue?.data ? (Array.isArray(trendsValue.data) ? trendsValue.data : []) :
-                          (Array.isArray(trendsValue) ? trendsValue : []);
-            trendData = trends.map((t: any) => t.requests || 0);
-          }
-
-          // Calculate health score from success rate and latency
-          const healthScore = metrics.success_rate >= 95 && metrics.avg_latency < 1000 ? 100 :
-                             metrics.success_rate >= 90 && metrics.avg_latency < 2000 ? 85 :
-                             metrics.success_rate >= 80 && metrics.avg_latency < 3000 ? 70 : 50;
-
-          modelData = {
-            id: decodedModelId,
-            object: "model",
-            created: Math.floor(Date.now() / 1000),
-            owned_by: providerInfo.name.toLowerCase(),
-            provider: providerInfo.name.toLowerCase(),
-            is_active: metrics.total_requests > 0,
-            usage_stats: {
-              requests_today: 0,
-              requests_total: metrics.total_requests || 0,
-              tokens_today: 0,
-              tokens_total: metrics.total_tokens || 0,
-              cost_today: 0,
-              cost_total: metrics.total_cost || 0,
-              avg_latency: metrics.avg_latency || 0,
-              error_rate: metrics.success_rate ? (100 - metrics.success_rate) : 0,
-              cache_hit_rate: metrics.cache_hit_rate || 0,
-              health_score: healthScore,
-              trend_data: trendData,
-              last_used: metrics.last_used || null,
-            }
-          };
-
-          // Add health status and configuration
-          (modelData as any).health = {
-            status: metrics.success_rate >= 95 ? 'healthy' : metrics.success_rate >= 80 ? 'degraded' : 'unhealthy',
-            uptime: metrics.success_rate || 0,
-            errorRate: metrics.success_rate ? (100 - metrics.success_rate) : 100,
-            p99Latency: metrics.avg_latency || 0
-          };
-
-          const configData = {
-            provider: providerInfo.name,
-            endpoint: "Configured via system config",
-            maxTokens: 4096,
-            temperature: 0.7,
-            topP: 1.0,
-            timeout: 30000,
-            retries: 3
-          };
-
-          (modelData as any).configuration = configData;
-          setConfiguration(configData);
-          setModel(modelData);
-        } else {
-          console.warn('Failed to fetch model metrics:', metricsResponse.reason);
-          // Show error instead of using mock data
-          setError('Failed to load model metrics');
-          setLoading(false);
-          return;
-        }
-
-        // Handle config data for fallbacks
-        if (configResponse.status === 'fulfilled') {
-          const config = configResponse.value as any;
-          // Look for fallbacks in router configuration
-          if (config.config?.router?.fallbacks || config.router?.fallbacks) {
-            const fallbacksConfig = config.config?.router?.fallbacks || config.router?.fallbacks;
-            const modelFallbacks = fallbacksConfig[decodedModelId] || [];
-            setFallbacks(modelFallbacks);
-            setAllFallbacksConfig(fallbacksConfig); // Store complete configuration for chain building
-          } else {
-            // No fallbacks configured in the system
-            setFallbacks([]);
-            setAllFallbacksConfig({});
-          }
-        } else {
-          console.warn('Failed to fetch config:', configResponse.reason);
-          // If we can't get the config, we can't show fallbacks
-          setFallbacks([]);
-          setAllFallbacksConfig({});
-        }
-
-      } catch (err) {
-        console.error('Error fetching model data:', err);
-        setError('Failed to load model data');
-      } finally {
-        setLoading(false);
+    const modelData: ModelWithUsage = {
+      id: decodedModelId,
+      object: "model",
+      created: Math.floor(Date.now() / 1000),
+      owned_by: providerInfo.name.toLowerCase(),
+      provider: providerInfo.name.toLowerCase(),
+      is_active: metrics.total_requests > 0,
+      usage_stats: {
+        requests_today: 0,
+        requests_total: metrics.total_requests || 0,
+        tokens_today: 0,
+        tokens_total: metrics.total_tokens || 0,
+        cost_today: 0,
+        cost_total: metrics.total_cost || 0,
+        avg_latency: metrics.avg_latency || 0,
+        error_rate: metrics.success_rate ? (100 - metrics.success_rate) : 0,
+        cache_hit_rate: metrics.cache_hit_rate || 0,
+        health_score: healthScore,
+        trend_data: trendData,
+        last_used: metrics.last_used || null,
       }
     };
 
-    fetchModelData();
-  }, [modelId]);
+    // Add health status
+    (modelData as any).health = {
+      status: metrics.success_rate >= 95 ? 'healthy' : metrics.success_rate >= 80 ? 'degraded' : 'unhealthy',
+      uptime: metrics.success_rate || 0,
+      errorRate: metrics.success_rate ? (100 - metrics.success_rate) : 100,
+      p99Latency: metrics.avg_latency || 0
+    };
+
+    const configData = {
+      provider: providerInfo.name,
+      endpoint: "Configured via system config",
+      maxTokens: 4096,
+      temperature: 0.7,
+      topP: 1.0,
+      timeout: 30000,
+      retries: 3
+    };
+
+    (modelData as any).configuration = configData;
+
+    // Handle config data for fallbacks
+    let fallbacksConfig: Record<string, string[]> = {};
+    if (configRaw) {
+      const config = configRaw as any;
+      if (config.config?.router?.fallbacks || config.router?.fallbacks) {
+        fallbacksConfig = config.config?.router?.fallbacks || config.router?.fallbacks;
+      }
+    }
+
+    return { model: modelData, configuration: configData, allFallbacksConfig: fallbacksConfig };
+  }, [metricsRaw, trendsRaw, configRaw, decodedModelId]);
+
+  const loading = metricsLoading;
+  const error = metricsError ? 'Failed to load model metrics' : (!modelId ? 'Model ID is required' : null);
+  const modelPricing: any = null;
 
   if (loading) {
     return (
@@ -391,9 +390,23 @@ export default function ModelDetail() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Usage Trend */}
             <Card>
-              <CardHeader>
-                <CardTitle>Usage Trend (30 Days)</CardTitle>
-                <CardDescription>Request volume over time</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle>
+                    Usage Trend ({trendTimeRange === "24h" ? "24h" : trendTimeRange === "7d" ? "7 Days" : "30 Days"})
+                  </CardTitle>
+                  <CardDescription>Request volume over time</CardDescription>
+                </div>
+                <Select value={trendTimeRange} onValueChange={setTrendTimeRange}>
+                  <SelectTrigger className="w-[140px]" aria-label="Select time range">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30d">Last 30 days</SelectItem>
+                    <SelectItem value="7d">Last 7 days</SelectItem>
+                    <SelectItem value="24h">Last 24 hours</SelectItem>
+                  </SelectContent>
+                </Select>
               </CardHeader>
               <CardContent>
                 {usage?.trend_data && (
@@ -500,8 +513,7 @@ export default function ModelDetail() {
             onSave={async (newConfig) => {
               try {
                 await updateConfig({ router: { fallbacks: newConfig } });
-                setAllFallbacksConfig(newConfig);
-                setFallbacks(newConfig[model.id] || []);
+                queryClient.invalidateQueries({ queryKey: ["system-config"] });
               } catch (err) {
                 console.error('Failed to save fallback config:', err);
               }

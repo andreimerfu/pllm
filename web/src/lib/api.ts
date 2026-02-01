@@ -163,8 +163,22 @@ export const getDashboardMetrics = (): Promise<{
   }>;
 }> => axiosInstance.get("/api/admin/dashboard/metrics");
 export const getModelMetrics = (model: string) => axiosInstance.get(`/api/admin/dashboard/models/${encodeURIComponent(model)}`);
-export const getModelTrends = (model: string, days = 30) => axiosInstance.get(`/api/admin/dashboard/models/${encodeURIComponent(model)}/trends?days=${days}`);
-export const getUsageTrends = (days = 30) => axiosInstance.get(`/api/admin/dashboard/usage-trends?days=${days}`);
+export const getModelTrends = (model: string, params: { days?: number; hours?: number; interval?: string } = {}) => {
+  const searchParams = new URLSearchParams();
+  if (params.hours) searchParams.set("hours", String(params.hours));
+  else if (params.days) searchParams.set("days", String(params.days));
+  else searchParams.set("days", "30");
+  if (params.interval) searchParams.set("interval", params.interval);
+  return axiosInstance.get(`/api/admin/dashboard/models/${encodeURIComponent(model)}/trends?${searchParams}`);
+};
+export const getUsageTrends = (params: { days?: number; hours?: number; interval?: string } = {}) => {
+  const searchParams = new URLSearchParams();
+  if (params.hours) searchParams.set("hours", String(params.hours));
+  else if (params.days) searchParams.set("days", String(params.days));
+  else searchParams.set("days", "30");
+  if (params.interval) searchParams.set("interval", params.interval);
+  return axiosInstance.get(`/api/admin/dashboard/usage-trends?${searchParams}`);
+};
 
 // Legacy dashboard API (renamed to avoid conflict)
 export const getLegacyDashboard = () => axiosInstance.get("/api/admin/dashboard");

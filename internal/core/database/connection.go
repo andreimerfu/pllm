@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/amerfu/pllm/internal/core/models"
+	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -155,6 +156,12 @@ func Migrate() error {
 		return fmt.Errorf("failed to create indexes: %w", err)
 	}
 
+	// Ensure the sentinel master-key user exists so that usage records
+	// created under master-key auth satisfy the foreign-key constraint.
+	if err := ensureMasterKeyUser(); err != nil {
+		return fmt.Errorf("failed to ensure master key user: %w", err)
+	}
+
 	return nil
 }
 
@@ -236,6 +243,50 @@ func createIndexes() error {
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_user_metrics_lookup ON user_metrics(user_id, interval, timestamp)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_team_metrics_lookup ON team_metrics(team_id, interval, timestamp)")
 
+	return nil
+}
+
+// ensureMasterKeyUser creates the sentinel user for master-key authentication
+// if it does not already exist. This user is referenced in usage_logs when
+// requests are made with the master key and must satisfy the FK constraint.
+func ensureMasterKeyUser() error {
+	masterKeyUserID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+	user := models.User{
+		BaseModel: models.BaseModel{
+			ID: masterKeyUserID,
+		},
+		Email:            "admin@master-key",
+		Username:         "master-admin",
+		FirstName:        "Master",
+		LastName:         "Admin",
+		Role:             models.RoleAdmin,
+		IsActive:         true,
+		EmailVerified:    true,
+		MaxBudget:        999999999,
+		BudgetDuration:   models.BudgetPeriodMonthly,
+		TPM:              100000000,
+		RPM:              100000,
+		MaxParallelCalls: 1000,
+	}
+
+	var existing models.User
+	if err := DB.Where("id = ?", masterKeyUserID).First(&existing).Error; err == nil {
+		// Already exists — ensure budget and role are correct
+		return DB.Model(&existing).Updates(map[string]interface{}{
+			"role":               models.RoleAdmin,
+			"is_active":          true,
+			"max_budget":         user.MaxBudget,
+			"tpm":                user.TPM,
+			"rpm":                user.RPM,
+			"max_parallel_calls": user.MaxParallelCalls,
+		}).Error
+	}
+
+	if err := DB.Create(&user).Error; err != nil {
+		return fmt.Errorf("failed to create master key user: %w", err)
+	}
+	log.Println("Created sentinel master-key user (00000000-0000-0000-0000-000000000001)")
 	return nil
 }
 

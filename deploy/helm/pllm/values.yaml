@@ -94,6 +94,20 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
+# Worker configuration for async usage processing
+worker:
+  enabled: true
+  replicaCount: 1
+  batchSize: 100
+  processingInterval: "30s"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
 livenessProbe:
   httpGet:
     path: /health

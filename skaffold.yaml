@@ -23,6 +23,7 @@ manifests:
     - deploy/k8s/mkcert-ca-configmap.yaml
     - deploy/k8s/secret.yaml
     - deploy/k8s/deployment.yaml
+    - deploy/k8s/worker-deployment.yaml
     - deploy/k8s/service.yaml
     - deploy/k8s/ingress.yaml
 

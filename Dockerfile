@@ -73,6 +73,9 @@ RUN swag init -g cmd/server/main.go -o internal/api/handlers/swagger
 # Build the application with embedded UI
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o pllm cmd/server/main.go
 
+# Build the worker binary
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o pllm-worker cmd/worker/main.go
+
 # Final stage
 FROM alpine:latest
 
@@ -86,8 +89,9 @@ RUN addgroup -g 1000 -S pllm && \
 # Set working directory
 WORKDIR /app
 
-# Copy binary from builder
+# Copy binaries from builder
 COPY --from=builder /app/pllm .
+COPY --from=builder /app/pllm-worker .
 
 # Copy config file (if exists)
 COPY --chown=pllm:pllm config.yaml* ./

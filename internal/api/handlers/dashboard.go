@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -231,22 +233,12 @@ func (h *DashboardHandler) GetModelMetrics(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *DashboardHandler) GetUsageTrends(w http.ResponseWriter, r *http.Request) {
-	days := r.URL.Query().Get("days")
-	if days == "" {
-		days = "30"
-	}
+	interval := r.URL.Query().Get("interval")
+	hoursParam := r.URL.Query().Get("hours")
+	daysParam := r.URL.Query().Get("days")
 
-	var daysInt int
-	switch days {
-	case "7":
-		daysInt = 7
-	case "30":
-		daysInt = 30
-	default:
-		daysInt = 30
-	}
-
-	since := time.Now().AddDate(0, 0, -daysInt)
+	since := parseTrendTimeRange(hoursParam, daysParam)
+	groupExpr := trendGroupExpr(interval)
 
 	var trends []struct {
 		Date     string  `json:"date"`
@@ -255,17 +247,19 @@ func (h *DashboardHandler) GetUsageTrends(w http.ResponseWriter, r *http.Request
 		Cost     float64 `json:"cost"`
 	}
 
-	err := h.db.Raw(`
+	query := fmt.Sprintf(`
 		SELECT
-			DATE(timestamp) as date,
+			%s as date,
 			COUNT(*) as requests,
 			SUM(total_tokens) as tokens,
 			SUM(total_cost) as cost
 		FROM usage_logs
 		WHERE timestamp >= ?
-		GROUP BY DATE(timestamp)
+		GROUP BY %s
 		ORDER BY date ASC
-	`, since).Scan(&trends).Error
+	`, groupExpr, groupExpr)
+
+	err := h.db.Raw(query, since).Scan(&trends).Error
 
 	if err != nil {
 		h.logger.Error("Failed to get usage trends", zap.Error(err))
@@ -287,22 +281,12 @@ func (h *DashboardHandler) GetModelTrends(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	days := r.URL.Query().Get("days")
-	if days == "" {
-		days = "30"
-	}
+	interval := r.URL.Query().Get("interval")
+	hoursParam := r.URL.Query().Get("hours")
+	daysParam := r.URL.Query().Get("days")
 
-	var daysInt int
-	switch days {
-	case "7":
-		daysInt = 7
-	case "30":
-		daysInt = 30
-	default:
-		daysInt = 30
-	}
-
-	since := time.Now().AddDate(0, 0, -daysInt)
+	since := parseTrendTimeRange(hoursParam, daysParam)
+	groupExpr := trendGroupExpr(interval)
 
 	var trends []struct {
 		Date        string  `json:"date"`
@@ -313,9 +297,9 @@ func (h *DashboardHandler) GetModelTrends(w http.ResponseWriter, r *http.Request
 		SuccessRate float64 `json:"success_rate"`
 	}
 
-	err := h.db.Raw(`
+	query := fmt.Sprintf(`
 		SELECT
-			DATE(timestamp) as date,
+			%s as date,
 			COUNT(*) as requests,
 			SUM(total_tokens) as tokens,
 			SUM(total_cost) as cost,
@@ -323,9 +307,11 @@ func (h *DashboardHandler) GetModelTrends(w http.ResponseWriter, r *http.Request
 			ROUND(AVG(CASE WHEN status_code = 200 THEN 100 ELSE 0 END), 2) as success_rate
 		FROM usage_logs
 		WHERE model = ? AND timestamp >= ?
-		GROUP BY DATE(timestamp)
+		GROUP BY %s
 		ORDER BY date ASC
-	`, modelName, since).Scan(&trends).Error
+	`, groupExpr, groupExpr)
+
+	err := h.db.Raw(query, modelName, since).Scan(&trends).Error
 
 	if err != nil {
 		h.logger.Error("Failed to get model trends", zap.String("model", modelName), zap.Error(err))
@@ -338,6 +324,41 @@ func (h *DashboardHandler) GetModelTrends(w http.ResponseWriter, r *http.Request
 		h.logger.Error("Failed to encode model trends", zap.Error(err))
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
+}
+
+// parseTrendTimeRange determines the "since" time from hours/days query params.
+// If hours is provided, it takes priority over days.
+func parseTrendTimeRange(hoursParam, daysParam string) time.Time {
+	if hoursParam != "" {
+		h, err := strconv.Atoi(hoursParam)
+		if err == nil {
+			switch h {
+			case 1, 6, 24:
+				return time.Now().Add(-time.Duration(h) * time.Hour)
+			}
+		}
+	}
+
+	if daysParam != "" {
+		d, err := strconv.Atoi(daysParam)
+		if err == nil {
+			switch d {
+			case 7, 30, 90:
+				return time.Now().AddDate(0, 0, -d)
+			}
+		}
+	}
+
+	// Default: 30 days
+	return time.Now().AddDate(0, 0, -30)
+}
+
+// trendGroupExpr returns the SQL expression used to group trend data.
+func trendGroupExpr(interval string) string {
+	if interval == "hourly" {
+		return "date_trunc('hour', timestamp)"
+	}
+	return "DATE(timestamp)"
 }
 
 // calculateHealthScore computes a health score (0-100) based on latency and success rate

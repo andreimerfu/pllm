@@ -35,11 +35,13 @@ export default function Models() {
   const { data: dashboardData } = useQuery({
     queryKey: ["dashboard-metrics"],
     queryFn: getDashboardMetrics,
+    refetchInterval: 60000,
   });
 
   const { data: adminModelsData } = useQuery({
     queryKey: ["admin-models"],
     queryFn: getAdminModels,
+    refetchInterval: 60000,
   });
 
   const { data: healthData } = useQuery({

@@ -8,6 +8,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
+import { useQuery } from "@tanstack/react-query"
 import { z } from "zod"
 import {
   ChevronDown,
@@ -25,7 +26,7 @@ import {
 } from "lucide-react"
 import { Icon } from "@iconify/react"
 import { getDashboardMetrics, getUsageTrends } from "@/lib/api"
-import { formatDateShort } from "@/lib/date-utils"
+import { formatChartLabel, fillTimeGaps } from "@/lib/date-utils"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -70,39 +71,24 @@ import {
 // Navigation component
 // Metric Cards Component with real API data
 function MetricCards() {
-  const [metrics, setMetrics] = React.useState<any>(null)
-  const [loading, setLoading] = React.useState(true)
+  const { data: rawData, isLoading: loading } = useQuery({
+    queryKey: ["dashboard-metrics"],
+    queryFn: getDashboardMetrics,
+    refetchInterval: 60000,
+  })
 
-  React.useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        const response = await getDashboardMetrics()
-        const data = (response as any).data || response
-
-        setMetrics({
-          totalRequests: data.total_requests || 0,
-          totalTokens: data.total_tokens || 0,
-          totalCost: data.total_cost || 0,
-          activeKeys: data.active_keys || 0
-        })
-      } catch (error) {
-        console.error('Error fetching dashboard metrics:', error)
-        // Fallback to mock data if API fails
-        setMetrics({
-          totalRequests: 45231,
-          totalTokens: 2400000,
-          totalCost: 1429,
-          activeKeys: 12
-        })
-      } finally {
-        setLoading(false)
-      }
+  const metrics = React.useMemo(() => {
+    if (!rawData) return null
+    const data = (rawData as any).data || rawData
+    return {
+      totalRequests: data.total_requests || 0,
+      totalTokens: data.total_tokens || 0,
+      totalCost: data.total_cost || 0,
+      activeKeys: data.active_keys || 0,
     }
+  }, [rawData])
 
-    fetchMetrics()
-  }, [])
-
-  if (loading) {
+  if (loading || !metrics) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
@@ -203,36 +189,39 @@ const chartConfig = {
 
 function ChartAreaInteractive() {
   const [timeRange, setTimeRange] = React.useState("30d")
-  const [chartData, setChartData] = React.useState<Array<{
-    date: string;
-    requests: number;
-    tokens: number;
-    cost: number;
-  }>>([])
-  const [loading, setLoading] = React.useState(true)
 
-  React.useEffect(() => {
-    const fetchUsageTrends = async () => {
-      try {
-        const days = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 90
-        const response = await getUsageTrends(days)
-        const data = (response as any).data || response
-        setChartData(data || [])
-      } catch (error) {
-        console.error('Error fetching usage trends:', error)
-        setChartData([])
-      } finally {
-        setLoading(false)
-      }
+  const trendParams = React.useMemo(() => {
+    switch (timeRange) {
+      case "24h":
+        return { hours: 24, interval: "hourly" }
+      case "7d":
+        return { days: 7, interval: "daily" }
+      case "30d":
+      default:
+        return { days: 30, interval: "daily" }
     }
-
-    fetchUsageTrends()
   }, [timeRange])
 
-  const filteredData = chartData.map(item => ({
+  const currentInterval = (trendParams.interval || "daily") as "hourly" | "daily"
+
+  const { data: rawTrends, isLoading: loading } = useQuery({
+    queryKey: ["usage-trends", trendParams],
+    queryFn: () => getUsageTrends(trendParams),
+    refetchInterval: 60000,
+  })
+
+  const chartData = React.useMemo(() => {
+    if (!rawTrends) return []
+    const raw = (rawTrends as any).data || rawTrends
+    const data = raw || []
+    const range = trendParams.hours || trendParams.days || 30
+    return fillTimeGaps(data, currentInterval, range)
+  }, [rawTrends, currentInterval, trendParams])
+
+  const filteredData = chartData.map((item: any) => ({
     date: item.date,
     desktop: item.requests || 0,
-    mobile: item.tokens ? Math.floor(item.tokens / 100) : 0, // Scale tokens down less aggressively
+    mobile: item.tokens ? Math.floor(item.tokens / 100) : 0,
   }))
 
   return (
@@ -258,6 +247,9 @@ function ChartAreaInteractive() {
             <SelectItem value="7d" className="rounded-lg">
               Last 7 days
             </SelectItem>
+            <SelectItem value="24h" className="rounded-lg">
+              Last 24 hours
+            </SelectItem>
           </SelectContent>
         </Select>
       </CardHeader>
@@ -272,7 +264,7 @@ function ChartAreaInteractive() {
         ) : (
           <ChartContainer
             config={chartConfig}
-            className="aspect-auto h-[250px] w-full"
+            className="aspect-auto h-[250px] xl:h-[300px] 2xl:h-[350px] w-full"
           >
             <AreaChart data={filteredData}>
             <defs>
@@ -308,13 +300,13 @@ function ChartAreaInteractive() {
               axisLine={false}
               tickMargin={8}
               minTickGap={32}
-              tickFormatter={(value) => formatDateShort(value)}
+              tickFormatter={(value) => formatChartLabel(value, currentInterval)}
             />
             <ChartTooltip
               cursor={false}
               content={
                 <ChartTooltipContent
-                  labelFormatter={(value) => formatDateShort(value)}
+                  labelFormatter={(value) => formatChartLabel(value, currentInterval)}
                   indicator="dot"
                 />
               }
@@ -359,71 +351,48 @@ type Model = z.infer<typeof modelSchema>
 
 // Models table component with real API data
 function ModelsTable() {
-  const [models, setModels] = React.useState<Model[]>([])
-  const [loading, setLoading] = React.useState(true)
+  const { data: rawData, isLoading: loading } = useQuery({
+    queryKey: ["dashboard-metrics"],
+    queryFn: getDashboardMetrics,
+    refetchInterval: 60000,
+  })
 
-  React.useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const response = await getDashboardMetrics()
-        const dashboard = (response as any).data || response
+  const models = React.useMemo(() => {
+    const fallbackModels = [
+      { id: 1, name: "GPT-4", provider: "OpenAI", status: "Active", requests: 1250, cost: 45.20, latency: 125 },
+      { id: 2, name: "Claude-3", provider: "Anthropic", status: "Active", requests: 890, cost: 32.15, latency: 98 },
+      { id: 3, name: "Gemini Pro", provider: "Google", status: "Active", requests: 675, cost: 18.90, latency: 110 },
+      { id: 4, name: "Llama-2", provider: "Meta", status: "Inactive", requests: 234, cost: 8.45, latency: 145 },
+      { id: 5, name: "Mistral-7B", provider: "Mistral", status: "Active", requests: 567, cost: 12.30, latency: 87 },
+    ]
 
-        // Transform top_models data to match our Model interface
-        const topModels = dashboard?.top_models || []
-        const transformedModels = topModels.map((model: any, index: number) => {
-          // Extract provider from model name
-          const getProvider = (modelName: string) => {
-            const name = modelName.toLowerCase()
-            if (name.includes('gpt') || name.includes('openai')) return 'OpenAI'
-            if (name.includes('claude') || name.includes('anthropic')) return 'Anthropic'
-            if (name.includes('gemini') || name.includes('google')) return 'Google'
-            if (name.includes('llama') || name.includes('meta')) return 'Meta'
-            if (name.includes('mistral')) return 'Mistral'
-            return 'Unknown'
-          }
+    if (!rawData) return fallbackModels
 
-          return {
-            id: index + 1,
-            name: model.model || 'Unknown Model',
-            provider: getProvider(model.model || ''),
-            status: 'Active', // Assume active if in top models
-            requests: model.requests || 0,
-            cost: model.cost || 0,
-            latency: Math.floor(Math.random() * 50) + 80, // Simulated latency
-          }
-        })
+    const dashboard = (rawData as any).data || rawData
+    const topModels = dashboard?.top_models || []
 
-        // If no real data, use fallback models
-        if (transformedModels.length === 0) {
-          const fallbackModels = [
-            { id: 1, name: "GPT-4", provider: "OpenAI", status: "Active", requests: 1250, cost: 45.20, latency: 125 },
-            { id: 2, name: "Claude-3", provider: "Anthropic", status: "Active", requests: 890, cost: 32.15, latency: 98 },
-            { id: 3, name: "Gemini Pro", provider: "Google", status: "Active", requests: 675, cost: 18.90, latency: 110 },
-            { id: 4, name: "Llama-2", provider: "Meta", status: "Inactive", requests: 234, cost: 8.45, latency: 145 },
-            { id: 5, name: "Mistral-7B", provider: "Mistral", status: "Active", requests: 567, cost: 12.30, latency: 87 },
-          ]
-          setModels(fallbackModels)
-        } else {
-          setModels(transformedModels)
-        }
-      } catch (error) {
-        console.error('Error fetching models data:', error)
-        // Fallback to mock data
-        const fallbackModels = [
-          { id: 1, name: "GPT-4", provider: "OpenAI", status: "Active", requests: 1250, cost: 45.20, latency: 125 },
-          { id: 2, name: "Claude-3", provider: "Anthropic", status: "Active", requests: 890, cost: 32.15, latency: 98 },
-          { id: 3, name: "Gemini Pro", provider: "Google", status: "Active", requests: 675, cost: 18.90, latency: 110 },
-          { id: 4, name: "Llama-2", provider: "Meta", status: "Inactive", requests: 234, cost: 8.45, latency: 145 },
-          { id: 5, name: "Mistral-7B", provider: "Mistral", status: "Active", requests: 567, cost: 12.30, latency: 87 },
-        ]
-        setModels(fallbackModels)
-      } finally {
-        setLoading(false)
-      }
+    const getProvider = (modelName: string) => {
+      const name = modelName.toLowerCase()
+      if (name.includes('gpt') || name.includes('openai')) return 'OpenAI'
+      if (name.includes('claude') || name.includes('anthropic')) return 'Anthropic'
+      if (name.includes('gemini') || name.includes('google')) return 'Google'
+      if (name.includes('llama') || name.includes('meta')) return 'Meta'
+      if (name.includes('mistral')) return 'Mistral'
+      return 'Unknown'
     }
 
-    fetchModels()
-  }, [])
+    const transformedModels = topModels.map((model: any, index: number) => ({
+      id: index + 1,
+      name: model.model || 'Unknown Model',
+      provider: getProvider(model.model || ''),
+      status: 'Active',
+      requests: model.requests || 0,
+      cost: model.cost || 0,
+      latency: model.avg_latency || 0,
+    }))
+
+    return transformedModels.length > 0 ? transformedModels : fallbackModels
+  }, [rawData])
 
   if (loading) {
     return (

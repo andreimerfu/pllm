@@ -27,7 +27,6 @@ import { formatDate } from '../lib/date-utils';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingState } from '../components/common/LoadingState';
 import { PageHeader } from '../components/common/PageHeader';
-import { StatCard } from '../components/common/StatCard';
 import { useTeams, type Team } from '../hooks/useTeams';
 import { useTeamMembers, type TeamMember } from '../hooks/useTeamMembers';
 import { useTeamAnalytics } from '../hooks/useTeamAnalytics';
@@ -121,6 +120,7 @@ const Teams: React.FC = () => {
           icon={Users}
           title="No teams"
           description="Create your first team to organize users and manage access."
+          className="mt-6"
           action={
             <Button onClick={() => setShowCreateModal(true)}>
               <Plus className="mr-2 h-4 w-4" />
@@ -146,14 +146,13 @@ const Teams: React.FC = () => {
         }
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[300px_1fr] gap-6">
         {/* Teams List Sidebar */}
-        <Card className="md:col-span-1">
-          <CardHeader>
-            <CardTitle>Teams</CardTitle>
-            <CardDescription>Select a team to manage</CardDescription>
+        <Card className="md:sticky md:top-4 self-start">
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Your Teams</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="p-2 space-y-1">
             {teams.map((team) => (
               <div
                 key={team.id}
@@ -205,179 +204,160 @@ const Teams: React.FC = () => {
         </Card>
 
         {/* Team Details */}
-        <div className="md:col-span-3 space-y-6">
+        <div className="space-y-6 min-w-0">
           {selectedTeam ? (
             <>
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <StatCard
-                  title="Members"
-                  value={members.length.toString()}
-                  icon={Users}
-                />
-                <StatCard
-                  title="Total Requests"
-                  value={stats?.total_requests?.toLocaleString() || '0'}
-                  icon={Activity}
-                />
-                <StatCard
-                  title="Total Cost"
-                  value={`$${(stats?.total_cost || 0).toFixed(2)}`}
-                  icon={DollarSign}
-                />
-                <StatCard
-                  title="Avg Cost/Request"
-                  value={`$${((stats?.total_cost || 0) / (stats?.total_requests || 1)).toFixed(4)}`}
-                  icon={TrendingUp}
-                />
+              {/* Compact Stats Row */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border bg-card p-4">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-2xl font-bold tabular-nums">{members.length}</span>
+                  <span className="text-sm text-muted-foreground">Members</span>
+                </div>
+                <div className="hidden sm:block h-8 w-px bg-border" />
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-2xl font-bold tabular-nums">{stats?.total_requests?.toLocaleString() || '0'}</span>
+                  <span className="text-sm text-muted-foreground">Requests</span>
+                </div>
+                <div className="hidden sm:block h-8 w-px bg-border" />
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-2xl font-bold tabular-nums">${(stats?.total_cost || 0).toFixed(2)}</span>
+                  <span className="text-sm text-muted-foreground">Cost</span>
+                </div>
+                <div className="hidden lg:block h-8 w-px bg-border" />
+                <div className="hidden lg:flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-2xl font-bold tabular-nums">${((stats?.total_cost || 0) / (stats?.total_requests || 1)).toFixed(4)}</span>
+                  <span className="text-sm text-muted-foreground">Avg/Req</span>
+                </div>
               </div>
 
               <Tabs defaultValue="members" className="w-full">
-                <TabsList>
-                  <TabsTrigger value="members">
-                    <Users className="mr-2 h-4 w-4" />
-                    Members
-                  </TabsTrigger>
-                  <TabsTrigger value="analytics">
-                    <Activity className="mr-2 h-4 w-4" />
-                    Analytics
-                  </TabsTrigger>
-                  <TabsTrigger value="settings">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </TabsTrigger>
-                </TabsList>
+                <div className="flex items-center justify-between gap-4">
+                  <TabsList>
+                    <TabsTrigger value="members">
+                      <Users className="mr-2 h-4 w-4" />
+                      Members
+                    </TabsTrigger>
+                    <TabsTrigger value="analytics">
+                      <Activity className="mr-2 h-4 w-4" />
+                      Analytics
+                    </TabsTrigger>
+                    <TabsTrigger value="settings">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
+                    </TabsTrigger>
+                  </TabsList>
+                  <Button size="sm" onClick={() => setShowAddMemberModal(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Member
+                  </Button>
+                </div>
 
                 {/* Members Tab */}
                 <TabsContent value="members">
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle>Team Members</CardTitle>
-                          <CardDescription>
-                            Manage members and their roles
-                          </CardDescription>
-                        </div>
+                  {membersLoading ? (
+                    <LoadingState text="Loading members..." />
+                  ) : members.length === 0 ? (
+                    <EmptyState
+                      icon={Users}
+                      title="No team members"
+                      description="Start building your team by adding members with different roles and permissions."
+                      action={
                         <Button onClick={() => setShowAddMemberModal(true)}>
                           <Plus className="mr-2 h-4 w-4" />
-                          Add Member
+                          Add First Member
                         </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {membersLoading ? (
-                        <LoadingState text="Loading members..." />
-                      ) : members.length === 0 ? (
-                        <EmptyState
-                          icon={Users}
-                          title="No team members"
-                          description="Start building your team by adding members with different roles and permissions."
-                          action={
-                            <Button onClick={() => setShowAddMemberModal(true)}>
-                              <Plus className="mr-2 h-4 w-4" />
-                              Add First Member
-                            </Button>
-                          }
-                        />
-                      ) : (
-                        <div className="space-y-4">
-                          {members.map((member: TeamMember) => (
-                            <div
-                              key={member.id}
-                              className="flex items-center justify-between p-4 border rounded-lg"
-                            >
-                              <div className="flex items-center gap-4">
-                                <Avatar>
-                                  <AvatarFallback>
-                                    {member.email?.[0]?.toUpperCase() || 'U'}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-medium">{member.name || member.email}</p>
-                                  <p className="text-sm text-muted-foreground">{member.email}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>
-                                  {member.role}
-                                </Badge>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleEditMember(member)}>
-                                      <Edit className="mr-2 h-4 w-4" />
-                                      Edit Role
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      className="text-destructive"
-                                      onClick={() => handleRemoveMember(member.id)}
-                                      disabled={isRemoving}
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Remove
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
+                      }
+                    />
+                  ) : (
+                    <div className="space-y-2">
+                      {members.map((member: TeamMember) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between p-4 border rounded-lg bg-card"
+                        >
+                          <div className="flex items-center gap-4">
+                            <Avatar>
+                              <AvatarFallback>
+                                {member.email?.[0]?.toUpperCase() || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{member.name || member.email}</p>
+                              <p className="text-sm text-muted-foreground">{member.email}</p>
                             </div>
-                          ))}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>
+                              {member.role}
+                            </Badge>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEditMember(member)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit Role
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => handleRemoveMember(member.id)}
+                                  disabled={isRemoving}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Remove
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                      ))}
+                    </div>
+                  )}
                 </TabsContent>
 
                 {/* Analytics Tab */}
                 <TabsContent value="analytics">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>User Analytics</CardTitle>
-                      <CardDescription>
-                        Usage breakdown by team member
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {analyticsLoading ? (
-                        <LoadingState text="Loading analytics..." />
-                      ) : breakdown.length === 0 ? (
-                        <EmptyState
-                          icon={Activity}
-                          title="No usage data"
-                          description="Usage analytics will appear here once team members start making requests."
-                        />
-                      ) : (
-                        <div className="space-y-4">
-                          {breakdown.map((user) => (
-                            <div key={user.user_id} className="p-4 border rounded-lg">
-                              <div className="flex items-center justify-between mb-2">
-                                <div>
-                                  <p className="font-medium">{user.name || user.email}</p>
-                                  <p className="text-sm text-muted-foreground">{user.email}</p>
-                                </div>
-                                <Badge>${user.cost.toFixed(2)}</Badge>
-                              </div>
-                              <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                  <p className="text-muted-foreground">Requests</p>
-                                  <p className="font-medium">{user.requests.toLocaleString()}</p>
-                                </div>
-                                <div>
-                                  <p className="text-muted-foreground">Tokens</p>
-                                  <p className="font-medium">{user.tokens.toLocaleString()}</p>
-                                </div>
-                              </div>
+                  {analyticsLoading ? (
+                    <LoadingState text="Loading analytics..." />
+                  ) : breakdown.length === 0 ? (
+                    <EmptyState
+                      icon={Activity}
+                      title="No usage data"
+                      description="Usage analytics will appear here once team members start making requests."
+                    />
+                  ) : (
+                    <div className="space-y-3">
+                      {breakdown.map((user) => (
+                        <div key={user.user_id} className="p-4 border rounded-lg bg-card">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <p className="font-medium">{user.name || user.email}</p>
+                              <p className="text-sm text-muted-foreground">{user.email}</p>
                             </div>
-                          ))}
+                            <Badge>${user.cost.toFixed(2)}</Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Requests</p>
+                              <p className="font-medium">{user.requests.toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Tokens</p>
+                              <p className="font-medium">{user.tokens.toLocaleString()}</p>
+                            </div>
+                          </div>
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                      ))}
+                    </div>
+                  )}
                 </TabsContent>
 
                 {/* Settings Tab */}
@@ -425,15 +405,11 @@ const Teams: React.FC = () => {
               </Tabs>
             </>
           ) : (
-            <Card>
-              <CardContent className="p-12">
-                <EmptyState
-                  icon={Users}
-                  title="No team selected"
-                  description="Select a team from the sidebar to view details"
-                />
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={Users}
+              title="No team selected"
+              description="Select a team from the sidebar to view details"
+            />
           )}
         </div>
       </div>

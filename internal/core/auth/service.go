@@ -583,6 +583,9 @@ func (s *AuthService) CheckBudgetCached(ctx context.Context, entityType, entityI
 
 // GetUserPermissions gets all permissions for a user including role and team permissions
 func (s *AuthService) GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	if s.db == nil {
+		return nil, fmt.Errorf("database not available")
+	}
 	var user models.User
 	err := s.db.Preload("Teams").First(&user, "id = ?", userID).Error
 	if err != nil {

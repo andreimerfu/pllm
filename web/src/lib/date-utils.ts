@@ -158,6 +158,104 @@ export function formatDateShort(date: string | number | null | undefined): strin
 }
 
 /**
+ * Formats a date for chart axis labels, adapting to the granularity.
+ * For hourly interval: "Jan 31, 2 PM"
+ * For daily interval: "Jan 31"
+ *
+ * @param date - ISO date string, timestamp, or null/undefined
+ * @param interval - "hourly" or "daily" (default: "daily")
+ * @returns Formatted label string or 'N/A' if invalid
+ *
+ * @example
+ * ```tsx
+ * formatChartLabel("2026-01-31T14:00:00Z", "hourly") // "Jan 31, 2 PM"
+ * formatChartLabel("2026-01-31", "daily") // "Jan 31"
+ * ```
+ */
+export function formatChartLabel(date: string | number | null | undefined, interval: "hourly" | "daily" = "daily"): string {
+  if (!date) return 'N/A';
+
+  try {
+    const parsed = new Date(date);
+    if (isNaN(parsed.getTime())) return 'N/A';
+
+    if (interval === "hourly") {
+      return parsed.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    }
+
+    return parsed.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return 'N/A';
+  }
+}
+
+/**
+ * Fills in missing time buckets so charts show a continuous series with zeros
+ * for periods without data. Generates all buckets for the given range and
+ * overlays actual data on matching buckets.
+ *
+ * @param data - Array of trend data points with a `date` field
+ * @param interval - "hourly" or "daily"
+ * @param range - Number of hours (for hourly) or days (for daily) to cover
+ * @returns Complete array with zero-filled gaps
+ */
+export function fillTimeGaps<T extends Record<string, any>>(
+  data: (T & { date: string })[],
+  interval: "hourly" | "daily",
+  range: number,
+): (T & { date: string })[] {
+  const now = new Date();
+  const bucketKey = (d: Date) =>
+    interval === "hourly"
+      ? d.toISOString().slice(0, 13) // "2026-01-31T14"
+      : d.toISOString().slice(0, 10); // "2026-01-31"
+
+  // Build a map of existing data keyed by bucket
+  const dataMap = new Map<string, T & { date: string }>();
+  for (const item of data) {
+    const parsed = new Date(item.date);
+    if (!isNaN(parsed.getTime())) {
+      dataMap.set(bucketKey(parsed), item);
+    }
+  }
+
+  // Generate all buckets
+  const result: (T & { date: string })[] = [];
+  const count = interval === "hourly" ? range : range;
+
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(now);
+    if (interval === "hourly") {
+      d.setMinutes(0, 0, 0);
+      d.setHours(d.getHours() - i);
+    } else {
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - i);
+    }
+
+    const key = bucketKey(d);
+    const existing = dataMap.get(key);
+    if (existing) {
+      result.push(existing);
+    } else {
+      // Zero-fill — keep the date and set everything else to 0
+      const dateStr = interval === "hourly" ? d.toISOString() : d.toISOString().slice(0, 10);
+      result.push({ date: dateStr, requests: 0, tokens: 0, cost: 0 } as any);
+    }
+  }
+
+  return result;
+}
+
+/**
  * Formats a Unix timestamp (seconds since epoch) to a date string
  *
  * @param timestamp - Unix timestamp in seconds
