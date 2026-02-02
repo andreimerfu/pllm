@@ -46,6 +46,9 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    outputs:
+      new_release_published: ${{ steps.sr.outputs.new_release_published }}
+      new_release_version: ${{ steps.sr.outputs.new_release_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,7 +73,7 @@ jobs:
       - name: Install frontend dependencies
         run: cd web && npm ci
 
-      - name: Install docs dependencies  
+      - name: Install docs dependencies
         run: cd docs && npm ci
 
       - name: Build frontend
@@ -90,11 +93,16 @@ jobs:
           swag init -g cmd/server/main.go -o internal/handlers/swagger
 
       - name: Run semantic-release
+        id: sr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: npx semantic-release
+
+      - name: Capture release version
+        if: steps.sr.outputs.new_release_published != 'true'
+        run: echo "No new release published"
 
   build-and-push:
     needs: release
@@ -103,6 +111,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -113,14 +124,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Get version
-        run: |
-          if [ -f VERSION ]; then
-            echo "VERSION=$(cat VERSION)" >> $GITHUB_ENV
-          else
-            echo "VERSION=latest" >> $GITHUB_ENV
-          fi
-
       - name: Build and push versioned image
         uses: docker/build-push-action@v5
         with:
@@ -128,7 +131,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            amerfu/pllm:${{ env.VERSION }}
+            amerfu/pllm:${{ needs.release.outputs.new_release_version }}
             amerfu/pllm:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -138,24 +141,23 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.release.outputs.new_release_published == 'true'
     steps:
-      - name: Checkout
+      - name: Checkout latest main (includes semantic-release commit)
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
-          version: '3.12.0'
+          version: '3.14.0'
 
-      - name: Get version
+      - name: Add Helm repositories
         run: |
-          if [ -f VERSION ]; then
-            echo "VERSION=$(cat VERSION)" >> $GITHUB_ENV
-          else
-            echo "VERSION=latest" >> $GITHUB_ENV
-          fi
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo add dexidp https://charts.dexidp.io
+          helm repo update
 
       - name: Update Helm dependencies
         run: |
@@ -163,15 +165,18 @@ jobs:
           helm dependency update
 
       - name: Package Helm chart
+        env:
+          VERSION: ${{ needs.release.outputs.new_release_version }}
         run: |
           cd deploy/helm
-          helm package pllm --version ${{ env.VERSION }} --app-version ${{ env.VERSION }}
+          helm package pllm --version ${VERSION} --app-version ${VERSION}
 
       - name: Upload Helm chart to GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.new_release_version }}
         run: |
-          gh release upload v${{ env.VERSION }} deploy/helm/pllm-${{ env.VERSION }}.tgz
+          gh release upload v${VERSION} deploy/helm/pllm-${VERSION}.tgz --clobber
 
       - name: Configure Git for Pages
         run: |
@@ -179,18 +184,32 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Setup Helm repository (GitHub Pages)
+        env:
+          VERSION: ${{ needs.release.outputs.new_release_version }}
         run: |
-          # Clone or create gh-pages branch
-          git fetch origin gh-pages:gh-pages 2>/dev/null || git checkout --orphan gh-pages
-          git checkout gh-pages
-          
+          # Fetch or create gh-pages branch
+          if git ls-remote --exit-code --heads origin gh-pages; then
+            git fetch origin gh-pages:gh-pages
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf .
+            echo "# PLLM Helm Repository" > README.md
+            git add README.md
+            git commit -m "Initial gh-pages setup"
+          fi
+
           # Copy packaged chart
-          cp deploy/helm/pllm-${{ env.VERSION }}.tgz .
-          
+          cp deploy/helm/pllm-${VERSION}.tgz .
+
           # Generate or update index
-          helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
-          
+          if [ -f index.yaml ]; then
+            helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ --merge index.yaml
+          else
+            helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+          fi
+
           # Commit and push
           git add .
-          git commit -m "Add Helm chart version ${{ env.VERSION }}"
+          git commit -m "Add Helm chart version ${VERSION}"
           git push origin gh-pages

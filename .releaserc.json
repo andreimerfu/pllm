@@ -83,7 +83,7 @@
       "@semantic-release/exec",
       {
         "prepareCmd": "echo '${nextRelease.version}' > VERSION && sed -i 's/^version:.*/version: ${nextRelease.version}/' deploy/helm/pllm/Chart.yaml && sed -i 's/^appVersion:.*/appVersion: \"${nextRelease.version}\"/' deploy/helm/pllm/Chart.yaml",
-        "publishCmd": "echo 'new_release_published=true' >> $GITHUB_OUTPUT"
+        "publishCmd": "echo 'new_release_published=true' >> $GITHUB_OUTPUT && echo 'new_release_version=${nextRelease.version}' >> $GITHUB_OUTPUT"
       }
     ],
     [
