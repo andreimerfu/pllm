@@ -318,7 +318,7 @@ func TestBudgetEvents_WithBudgetCache(t *testing.T) {
 		for _, msg := range events {
 			eventData := msg.Values["data"].(string)
 			var event Event
-			json.Unmarshal([]byte(eventData), &event)
+			_ = json.Unmarshal([]byte(eventData), &event)
 			if event.Data["event_type"] == "alert" {
 				alertEvent = &event
 				break

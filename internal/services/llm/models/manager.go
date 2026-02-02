@@ -193,7 +193,7 @@ func (m *ModelManager) LoadRoutes(configs []config.RouteConfig) {
 
 // RegisterRoute adds or replaces a route in the runtime registry.
 // strategyName specifies which routing strategy to use (e.g. "priority", "weighted-round-robin").
-func (m *ModelManager) RegisterRoute(entry RouteEntry, strategyName string) {
+func (m *ModelManager) RegisterRoute(entry *RouteEntry, strategyName string) {
 	if strategyName == "" {
 		strategyName = "priority"
 	}
@@ -211,7 +211,7 @@ func (m *ModelManager) RegisterRoute(entry RouteEntry, strategyName string) {
 	entry.Strategy = routeStrategy
 
 	m.routeMu.Lock()
-	m.routes[entry.Slug] = &entry
+	m.routes[entry.Slug] = entry
 	m.routeMu.Unlock()
 
 	m.logger.Info("Registered route",
@@ -248,56 +248,6 @@ func (m *ModelManager) GetRoutes() map[string]*RouteEntry {
 		result[k] = v
 	}
 	return result
-}
-
-// getBestModelForRoute uses the route's strategy to select the best model.
-func (m *ModelManager) getBestModelForRoute(ctx context.Context, route *RouteEntry) (string, error) {
-	var proxies []routing.ModelInstance
-	for _, rm := range route.Models {
-		if !rm.Enabled {
-			continue
-		}
-		// Check that the model actually has healthy instances
-		instances, exists := m.registry.GetModelInstances(rm.ModelName)
-		if !exists || len(instances) == 0 {
-			continue
-		}
-
-		hasHealthy := false
-		for _, inst := range instances {
-			if m.healthTracker.IsHealthy(inst) {
-				hasHealthy = true
-				break
-			}
-		}
-		if !hasHealthy {
-			continue
-		}
-
-		proxy := NewRouteModelProxy(rm.ModelName, float64(rm.Weight), rm.Priority)
-
-		// Populate latency from the model's actual instances
-		var totalLatency int64
-		var count int64
-		for _, inst := range instances {
-			lat := inst.AverageLatency.Load()
-			if lat > 0 {
-				totalLatency += lat
-				count++
-			}
-		}
-		if count > 0 {
-			proxy.latency.Store(totalLatency / count)
-		}
-
-		proxies = append(proxies, proxy)
-	}
-
-	if len(proxies) == 0 {
-		return "", fmt.Errorf("no healthy models available in route %q", route.Slug)
-	}
-
-	return m.selectRouteModel(ctx, route, proxies)
 }
 
 // selectRouteModel picks one model from the route's proxy list.

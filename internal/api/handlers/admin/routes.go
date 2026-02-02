@@ -485,7 +485,7 @@ func (h *RouteHandler) registerRouteInManager(r models.Route) {
 		})
 	}
 
-	h.modelManager.RegisterRoute(llmModels.RouteEntry{
+	h.modelManager.RegisterRoute(&llmModels.RouteEntry{
 		Slug:           r.Slug,
 		Models:         routeModels,
 		FallbackModels: []string(r.FallbackModels),

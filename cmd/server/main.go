@@ -228,7 +228,7 @@ func main() {
 							Enabled:   rm.Enabled,
 						})
 					}
-					modelManager.RegisterRoute(models.RouteEntry{
+					modelManager.RegisterRoute(&models.RouteEntry{
 						Slug:           r.Slug,
 						Models:         routeModels,
 						FallbackModels: []string(r.FallbackModels),

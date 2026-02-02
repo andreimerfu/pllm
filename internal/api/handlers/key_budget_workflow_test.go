@@ -494,7 +494,7 @@ func TestAPIKeyBudgetWorkflow_HTTP(t *testing.T) {
 
 			if !result.Allowed {
 				w.WriteHeader(http.StatusPaymentRequired)
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"error": map[string]interface{}{
 						"message": result.Message,
 						"type":    "budget_exceeded",
@@ -506,7 +506,7 @@ func TestAPIKeyBudgetWorkflow_HTTP(t *testing.T) {
 
 			// Success response
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"status": "success",
 			})
 		})
