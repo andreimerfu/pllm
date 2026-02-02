@@ -163,13 +163,7 @@ model_list:
   {{- end }}
 {{- else }}
 # Fallback models if no model_list is provided
-model_list:
-  - model_name: default-gpt-3.5-turbo
-    params:
-      model: gpt-3.5-turbo
-      api_key: {{ .Values.pllm.secrets.openaiApiKey | quote }}
-    rpm: 500
-    tpm: 90000
+model_list: []
 {{- end }}
 
 # Model Aliases
