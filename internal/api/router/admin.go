@@ -191,6 +191,16 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Put("/{modelID}", modelCRUDHandler.UpdateModel)
 			r.Delete("/{modelID}", modelCRUDHandler.DeleteModel)
 		})
+
+		// Route management
+		routeHandler := admin.NewRouteHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
+		r.Route("/routes", func(r chi.Router) {
+			r.Get("/", routeHandler.ListRoutes)
+			r.Post("/", routeHandler.CreateRoute)
+			r.Get("/{routeID}", routeHandler.GetRoute)
+			r.Put("/{routeID}", routeHandler.UpdateRoute)
+			r.Delete("/{routeID}", routeHandler.DeleteRoute)
+		})
 	})
 
 	// User self-service routes (authenticated users, not necessarily admin)

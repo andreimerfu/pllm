@@ -13,6 +13,8 @@ import AuditLogs from '@/pages/AuditLogs'
 import Guardrails from '@/pages/Guardrails'
 import GuardrailConfig from '@/pages/GuardrailConfig'
 import GuardrailMarketplace from '@/pages/GuardrailMarketplace'
+import RoutesPage from '@/pages/Routes'
+import RouteDetail from '@/pages/RouteDetail'
 import Chat from '@/pages/Chat'
 import Login from '@/pages/Login'
 import Callback from '@/pages/Callback'
@@ -51,6 +53,9 @@ function App() {
                       <Route path="/models/new" element={<AddModel />} />
                       <Route path="/models/edit/:modelId" element={<EditModel />} />
                       <Route path="/models/:modelId" element={<ModelDetail />} />
+                      <Route path="/routes" element={<RoutesPage />} />
+                      <Route path="/routes/new" element={<RouteDetail />} />
+                      <Route path="/routes/:routeId" element={<RouteDetail />} />
                       <Route path="/users" element={<Users />} />
                       <Route path="/teams" element={<Teams />} />
                       <Route path="/keys" element={<Keys />} />

@@ -23,6 +23,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Usage{},
 		&models.Audit{},     // Audit logging
 		&models.UserModel{}, // User-created model configurations
+		&models.Route{},     // Route configurations
+		&models.RouteModel{}, // Route model entries
 	)
 
 	if err != nil {

@@ -24,6 +24,7 @@ import {
   FileText,
   Shield,
   ChevronRight,
+  GitBranch,
 } from "lucide-react";
 
 import {
@@ -75,6 +76,12 @@ const navigation = [
         title: "Models",
         href: "/models",
         icon: Brain,
+        permission: null,
+      },
+      {
+        title: "Routes",
+        href: "/routes",
+        icon: GitBranch,
         permission: null,
       },
     ],

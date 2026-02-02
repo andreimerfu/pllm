@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse } from "@/types/api";
+import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse, RoutesResponse, Route } from "@/types/api";
 
 const API_BASE = import.meta.env.DEV ? "http://localhost:8080" : "";
 
@@ -318,6 +318,18 @@ export const deleteModel = (id: string) =>
   axiosInstance.delete(`/api/admin/models/${id}`);
 export const getModelsHealth = () =>
   axiosInstance.get("/api/admin/models/health") as Promise<ModelsHealthResponse>;
+
+// Routes
+export const getRoutes = () =>
+  axiosInstance.get("/api/admin/routes") as Promise<RoutesResponse>;
+export const getRoute = (id: string) =>
+  axiosInstance.get(`/api/admin/routes/${id}`) as Promise<Route>;
+export const createRoute = (data: any) =>
+  axiosInstance.post("/api/admin/routes", data);
+export const updateRoute = (id: string, data: any) =>
+  axiosInstance.put(`/api/admin/routes/${id}`, data);
+export const deleteRoute = (id: string) =>
+  axiosInstance.delete(`/api/admin/routes/${id}`);
 
 // Guardrails
 export const getGuardrails = () => axiosInstance.get("/api/admin/guardrails");

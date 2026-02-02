@@ -15,6 +15,7 @@ import (
 	"github.com/amerfu/pllm/internal/api/router"
 	"github.com/amerfu/pllm/internal/services/data/cache"
 	modelService "github.com/amerfu/pllm/internal/services/integrations/model"
+	routeService "github.com/amerfu/pllm/internal/services/integrations/route"
 	"github.com/amerfu/pllm/internal/services/llm/models"
 	redisService "github.com/amerfu/pllm/internal/services/data/redis"
 	"github.com/amerfu/pllm/internal/services/worker"
@@ -198,6 +199,43 @@ func main() {
 					loaded++
 				}
 				log.Info("Loaded user models from database", zap.Int("count", loaded))
+			}
+		}
+	}
+
+	// Load routes from config
+	modelManager.LoadRoutes(cfg.Routes)
+
+	// Load user routes from database (if available)
+	if appMode.DatabaseAvailable {
+		if dbInstance := database.GetDB(); dbInstance != nil {
+			routeSvc := routeService.NewService(dbInstance, log)
+			dbRoutes, err := routeSvc.List()
+			if err != nil {
+				log.Warn("Failed to load routes from database", zap.Error(err))
+			} else if len(dbRoutes) > 0 {
+				loaded := 0
+				for _, r := range dbRoutes {
+					if !r.Enabled {
+						continue
+					}
+					var routeModels []models.RouteModelEntry
+					for _, rm := range r.Models {
+						routeModels = append(routeModels, models.RouteModelEntry{
+							ModelName: rm.ModelName,
+							Weight:    rm.Weight,
+							Priority:  rm.Priority,
+							Enabled:   rm.Enabled,
+						})
+					}
+					modelManager.RegisterRoute(models.RouteEntry{
+						Slug:           r.Slug,
+						Models:         routeModels,
+						FallbackModels: []string(r.FallbackModels),
+					}, r.Strategy)
+					loaded++
+				}
+				log.Info("Loaded user routes from database", zap.Int("count", loaded))
 			}
 		}
 	}

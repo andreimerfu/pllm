@@ -24,6 +24,7 @@ type Config struct {
 	ModelGroups  []ModelGroup        `mapstructure:"model_groups"`
 	Router       RouterSettings      `mapstructure:"router"`
 	ModelAliases map[string][]string `mapstructure:"model_aliases"`
+	Routes       []RouteConfig       `mapstructure:"routes"`
 
 	Cache      CacheConfig      `mapstructure:"cache"`
 	RateLimit  RateLimitConfig  `mapstructure:"rate_limit"`

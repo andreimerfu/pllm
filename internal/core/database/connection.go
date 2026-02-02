@@ -147,6 +147,9 @@ func Migrate() error {
 		&models.TeamMetrics{},
 		// User-created model configurations
 		&models.UserModel{},
+		// Route configurations
+		&models.Route{},
+		&models.RouteModel{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate models: %w", err)
 	}
@@ -236,6 +239,11 @@ func createIndexes() error {
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_request_id ON audits(request_id)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_resource_type ON audits(resource_type)")
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_audit_resource_id ON audits(resource_id)")
+
+	// Route indexes
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_routes_slug ON routes(slug)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_routes_enabled ON routes(enabled)")
+	DB.Exec("CREATE INDEX IF NOT EXISTS idx_route_models_route_id ON route_models(route_id)")
 
 	// Metrics indexes for efficient querying
 	DB.Exec("CREATE INDEX IF NOT EXISTS idx_model_metrics_lookup ON model_metrics(model_name, interval, timestamp)")

@@ -3,6 +3,8 @@ package models
 import (
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/amerfu/pllm/internal/core/config"
@@ -12,6 +14,23 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
+
+// RouteEntry represents a registered route in the model manager.
+type RouteEntry struct {
+	Slug           string
+	Strategy       routing.Strategy
+	Models         []RouteModelEntry
+	FallbackModels []string
+	rrCounter      atomic.Uint64 // route-level round-robin counter
+}
+
+// RouteModelEntry represents a model within a route.
+type RouteModelEntry struct {
+	ModelName string
+	Weight    int
+	Priority  int
+	Enabled   bool
+}
 
 // ModelManager is the refactored model manager using focused components
 type ModelManager struct {
@@ -23,6 +42,10 @@ type ModelManager struct {
 	routingStrategy  routing.Strategy              // Routing strategy (priority, latency, etc.)
 	router           config.RouterSettings
 	logger           *zap.Logger
+
+	// Route registry
+	routes  map[string]*RouteEntry // key: slug
+	routeMu sync.RWMutex
 }
 
 // NewModelManager creates a new refactored model manager
@@ -58,6 +81,7 @@ func NewModelManager(logger *zap.Logger, router config.RouterSettings, redisClie
 		routingStrategy:  strategy,
 		router:           router,
 		logger:           logger,
+		routes:           make(map[string]*RouteEntry),
 	}
 }
 
@@ -112,22 +136,322 @@ type FailoverResult struct {
 	Failovers    []string // List of models/instances tried before success
 }
 
+// LoadRoutes loads routes from configuration at startup.
+func (m *ModelManager) LoadRoutes(configs []config.RouteConfig) {
+	for _, rc := range configs {
+		enabled := true
+		if rc.Enabled != nil {
+			enabled = *rc.Enabled
+		}
+		if !enabled {
+			continue
+		}
+
+		strategy := rc.Strategy
+		if strategy == "" {
+			strategy = "priority"
+		}
+
+		routeStrategy, err := routing.NewStrategy(strategy, routing.StrategyDependencies{
+			LatencyTracker: m.latencyTracker,
+			Registry:       m.registry,
+			Logger:         m.logger,
+		})
+		if err != nil {
+			m.logger.Warn("Failed to create route strategy, using priority",
+				zap.String("route", rc.Slug), zap.Error(err))
+			routeStrategy, _ = routing.NewStrategy("priority", routing.StrategyDependencies{Logger: m.logger})
+		}
+
+		var models []RouteModelEntry
+		for _, rm := range rc.Models {
+			models = append(models, RouteModelEntry{
+				ModelName: rm.ModelName,
+				Weight:    rm.Weight,
+				Priority:  rm.Priority,
+				Enabled:   true,
+			})
+		}
+
+		entry := &RouteEntry{
+			Slug:           rc.Slug,
+			Strategy:       routeStrategy,
+			Models:         models,
+			FallbackModels: rc.FallbackModels,
+		}
+
+		m.routeMu.Lock()
+		m.routes[rc.Slug] = entry
+		m.routeMu.Unlock()
+
+		m.logger.Info("Loaded route from config",
+			zap.String("slug", rc.Slug),
+			zap.String("strategy", strategy),
+			zap.Int("models", len(models)))
+	}
+}
+
+// RegisterRoute adds or replaces a route in the runtime registry.
+// strategyName specifies which routing strategy to use (e.g. "priority", "weighted-round-robin").
+func (m *ModelManager) RegisterRoute(entry RouteEntry, strategyName string) {
+	if strategyName == "" {
+		strategyName = "priority"
+	}
+
+	routeStrategy, err := routing.NewStrategy(strategyName, routing.StrategyDependencies{
+		LatencyTracker: m.latencyTracker,
+		Registry:       m.registry,
+		Logger:         m.logger,
+	})
+	if err != nil {
+		m.logger.Warn("Failed to create route strategy, using priority",
+			zap.String("route", entry.Slug), zap.Error(err))
+		routeStrategy, _ = routing.NewStrategy("priority", routing.StrategyDependencies{Logger: m.logger})
+	}
+	entry.Strategy = routeStrategy
+
+	m.routeMu.Lock()
+	m.routes[entry.Slug] = &entry
+	m.routeMu.Unlock()
+
+	m.logger.Info("Registered route",
+		zap.String("slug", entry.Slug),
+		zap.String("strategy", strategyName),
+		zap.Int("models", len(entry.Models)))
+}
+
+// UnregisterRoute removes a route from the runtime registry.
+func (m *ModelManager) UnregisterRoute(slug string) {
+	m.routeMu.Lock()
+	delete(m.routes, slug)
+	m.routeMu.Unlock()
+
+	m.logger.Info("Unregistered route", zap.String("slug", slug))
+}
+
+// ResolveRoute checks if a model name is a route slug and returns the route entry.
+func (m *ModelManager) ResolveRoute(modelName string) (*RouteEntry, bool) {
+	m.routeMu.RLock()
+	defer m.routeMu.RUnlock()
+
+	entry, exists := m.routes[modelName]
+	return entry, exists
+}
+
+// GetRoutes returns all registered routes.
+func (m *ModelManager) GetRoutes() map[string]*RouteEntry {
+	m.routeMu.RLock()
+	defer m.routeMu.RUnlock()
+
+	result := make(map[string]*RouteEntry, len(m.routes))
+	for k, v := range m.routes {
+		result[k] = v
+	}
+	return result
+}
+
+// getBestModelForRoute uses the route's strategy to select the best model.
+func (m *ModelManager) getBestModelForRoute(ctx context.Context, route *RouteEntry) (string, error) {
+	var proxies []routing.ModelInstance
+	for _, rm := range route.Models {
+		if !rm.Enabled {
+			continue
+		}
+		// Check that the model actually has healthy instances
+		instances, exists := m.registry.GetModelInstances(rm.ModelName)
+		if !exists || len(instances) == 0 {
+			continue
+		}
+
+		hasHealthy := false
+		for _, inst := range instances {
+			if m.healthTracker.IsHealthy(inst) {
+				hasHealthy = true
+				break
+			}
+		}
+		if !hasHealthy {
+			continue
+		}
+
+		proxy := NewRouteModelProxy(rm.ModelName, float64(rm.Weight), rm.Priority)
+
+		// Populate latency from the model's actual instances
+		var totalLatency int64
+		var count int64
+		for _, inst := range instances {
+			lat := inst.AverageLatency.Load()
+			if lat > 0 {
+				totalLatency += lat
+				count++
+			}
+		}
+		if count > 0 {
+			proxy.latency.Store(totalLatency / count)
+		}
+
+		proxies = append(proxies, proxy)
+	}
+
+	if len(proxies) == 0 {
+		return "", fmt.Errorf("no healthy models available in route %q", route.Slug)
+	}
+
+	return m.selectRouteModel(ctx, route, proxies)
+}
+
+// selectRouteModel picks one model from the route's proxy list.
+// For weighted-round-robin it uses the route's own counter (not the model-level one).
+// For other strategies it delegates to the strategy interface.
+func (m *ModelManager) selectRouteModel(ctx context.Context, route *RouteEntry, proxies []routing.ModelInstance) (string, error) {
+	if len(proxies) == 0 {
+		return "", fmt.Errorf("no models available in route %q", route.Slug)
+	}
+
+	if route.Strategy.Name() == "weighted-round-robin" {
+		// Smooth weighted round-robin: interleave models proportionally.
+		// For each counter value c and model i with weight w_i out of totalWeight T,
+		// model i is selected when floor((c)*w_i/T) > floor((c-1)*w_i/T).
+		// This spreads selections evenly (like nginx's smooth WRR).
+		c := route.rrCounter.Add(1)
+		totalWeight := 0
+		for _, p := range proxies {
+			w := int(p.GetConfig().Weight)
+			if w <= 0 {
+				w = 1
+			}
+			totalWeight += w
+		}
+		for _, p := range proxies {
+			w := int(p.GetConfig().Weight)
+			if w <= 0 {
+				w = 1
+			}
+			cur := (c * uint64(w)) / uint64(totalWeight)
+			prev := ((c - 1) * uint64(w)) / uint64(totalWeight)
+			if cur > prev {
+				return p.GetConfig().ModelName, nil
+			}
+		}
+		// Fallback: simple modulo
+		idx := c % uint64(len(proxies))
+		return proxies[idx].GetConfig().ModelName, nil
+	}
+
+	selected, err := route.Strategy.SelectInstance(ctx, proxies)
+	if err != nil {
+		return "", fmt.Errorf("route strategy failed for %q: %w", route.Slug, err)
+	}
+	return selected.GetConfig().ModelName, nil
+}
+
+// executeRouteWithFailover tries each model in a route using the route strategy.
+func (m *ModelManager) executeRouteWithFailover(ctx context.Context, route *RouteEntry, req *FailoverRequest) (*FailoverResult, error) {
+	instanceRetries := m.router.InstanceRetryAttempts
+	if instanceRetries <= 0 {
+		instanceRetries = 2
+	}
+
+	var failovers []string
+	attemptCount := 0
+
+	// Build a working copy of route models we can remove from
+	remaining := make([]RouteModelEntry, 0, len(route.Models))
+	for _, rm := range route.Models {
+		if rm.Enabled {
+			remaining = append(remaining, rm)
+		}
+	}
+
+	for len(remaining) > 0 {
+		// Build proxies from remaining models
+		var proxies []routing.ModelInstance
+		for _, rm := range remaining {
+			instances, exists := m.registry.GetModelInstances(rm.ModelName)
+			if !exists || len(instances) == 0 {
+				continue
+			}
+			hasHealthy := false
+			for _, inst := range instances {
+				if m.healthTracker.IsHealthy(inst) {
+					hasHealthy = true
+					break
+				}
+			}
+			if !hasHealthy {
+				continue
+			}
+			proxy := NewRouteModelProxy(rm.ModelName, float64(rm.Weight), rm.Priority)
+			proxies = append(proxies, proxy)
+		}
+
+		if len(proxies) == 0 {
+			break
+		}
+
+		selectedModel, err := m.selectRouteModel(ctx, route, proxies)
+		if err != nil {
+			break
+		}
+
+		m.logger.Info("Route selected model",
+			zap.String("route", route.Slug),
+			zap.String("model", selectedModel))
+
+		// Try the selected model's instances
+		result, err := m.tryModelInstances(ctx, selectedModel, req, instanceRetries, &attemptCount, &failovers)
+		if err == nil {
+			return result, nil
+		}
+
+		// Remove failed model from remaining
+		failovers = append(failovers, fmt.Sprintf("route-model:%s(failed)", selectedModel))
+		newRemaining := make([]RouteModelEntry, 0, len(remaining))
+		for _, rm := range remaining {
+			if rm.ModelName != selectedModel {
+				newRemaining = append(newRemaining, rm)
+			}
+		}
+		remaining = newRemaining
+	}
+
+	return nil, fmt.Errorf("route %q: all models exhausted", route.Slug)
+}
+
 // ExecuteWithFailover executes a request with automatic instance retry and model fallback
 // This provides transparent failover - end users don't see errors if an instance/model fails
 func (m *ModelManager) ExecuteWithFailover(ctx context.Context, req *FailoverRequest) (*FailoverResult, error) {
+	// Check if the model name is a route slug
+	if route, isRoute := m.ResolveRoute(req.ModelName); isRoute && route != nil {
+		result, err := m.executeRouteWithFailover(ctx, route, req)
+		if err == nil {
+			return result, nil
+		}
+		// Route exhausted — fall through to route's fallback models
+		for _, fb := range route.FallbackModels {
+			req2 := *req
+			req2.ModelName = fb
+			result, err := m.ExecuteWithFailover(ctx, &req2)
+			if err == nil {
+				return result, nil
+			}
+		}
+		return nil, fmt.Errorf("route %q: all models and fallbacks exhausted: %w", req.ModelName, err)
+	}
+
 	if !m.router.EnableFailover {
 		// Failover disabled - use simple execution
 		instance, err := m.GetBestInstance(ctx, req.ModelName)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		response, err := req.ExecuteFunc(ctx, instance)
 		if err != nil {
 			m.RecordFailure(instance, err)
 			return nil, err
 		}
-		
+
 		return &FailoverResult{
 			Response:     response,
 			Instance:     instance,
@@ -393,9 +717,18 @@ func (m *ModelManager) GetModelStats() map[string]interface{} {
 	return stats
 }
 
-// GetAvailableModels returns list of available models
+// GetAvailableModels returns list of available models (including route slugs)
 func (m *ModelManager) GetAvailableModels() []string {
-	return m.registry.GetAvailableModels()
+	models := m.registry.GetAvailableModels()
+
+	// Add route slugs
+	m.routeMu.RLock()
+	for slug := range m.routes {
+		models = append(models, slug)
+	}
+	m.routeMu.RUnlock()
+
+	return models
 }
 
 // CheckRateLimit checks if an instance can handle additional tokens
@@ -442,9 +775,10 @@ func (m *ModelManager) ListModels() []string {
 	return m.GetAvailableModels()
 }
 
-// GetDetailedModelInfo returns detailed model information for API consumption
+// GetDetailedModelInfo returns detailed model information for API consumption.
+// Only returns real models (not route slugs) so that /v1/models stays clean.
 func (m *ModelManager) GetDetailedModelInfo() []ModelInfo {
-	availableModels := m.GetAvailableModels()
+	availableModels := m.registry.GetAvailableModels()
 	allInstances := m.registry.GetAllInstances()
 
 	// Create a map to track model info

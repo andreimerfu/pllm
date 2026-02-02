@@ -28,7 +28,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '../components/ui/popover'
-import { getModels } from '../lib/api'
+import { getModels, getRoutes } from '../lib/api'
 import { cn } from '../lib/utils'
 import { getModelIcon } from '../lib/chat-utils'
 import { useChatMessages, type MessageContent, type UploadedFile } from '../hooks/useChatMessages'
@@ -650,14 +650,23 @@ export default function Chat() {
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await getModels()
-        if (response.data && response.data.length > 0) {
-          // Filter out models with empty or invalid IDs
-          const validModels = response.data.filter((m: any) => m.id && m.id.trim() !== '')
-          setAvailableModels(validModels)
-          if (validModels.length > 0) {
-            setSelectedModel(validModels[0].id)
-          }
+        const [modelsResponse, routesResponse] = await Promise.all([
+          getModels(),
+          getRoutes().catch(() => ({ routes: [] })),
+        ])
+
+        // Filter out models with empty or invalid IDs
+        const validModels = (modelsResponse.data || []).filter((m: any) => m.id && m.id.trim() !== '')
+
+        // Add enabled routes as selectable targets (using slug as the model ID)
+        const routeEntries = (routesResponse.routes || [])
+          .filter((r: any) => r.enabled)
+          .map((r: any) => ({ id: r.slug, name: `${r.name} (route)`, owned_by: 'route' }))
+
+        const allEntries = [...validModels, ...routeEntries]
+        setAvailableModels(allEntries)
+        if (allEntries.length > 0) {
+          setSelectedModel(allEntries[0].id)
         }
       } catch (err) {
         console.error('Failed to fetch models:', err)

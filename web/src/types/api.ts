@@ -284,6 +284,33 @@ export interface AuditLog {
   updated_at: string;
 }
 
+export interface RouteModel {
+  id?: string;
+  model_name: string;
+  weight: number;
+  priority: number;
+  enabled: boolean;
+}
+
+export interface Route {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  strategy: 'priority' | 'least-latency' | 'weighted-round-robin' | 'random';
+  models: RouteModel[];
+  fallback_models?: string[];
+  enabled: boolean;
+  source: 'system' | 'user';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RoutesResponse {
+  routes: Route[];
+  total: number;
+}
+
 export interface AuditLogsResponse {
   audit_logs: AuditLog[];
   total: number;

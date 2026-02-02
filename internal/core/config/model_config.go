@@ -130,3 +130,21 @@ type ModelGroup struct {
 	DefaultModel string   `mapstructure:"default_model" json:"default_model"`
 	Tags         []string `mapstructure:"tags" json:"tags"`
 }
+
+// RouteConfig represents a route defined in config.yaml
+type RouteConfig struct {
+	Name           string             `mapstructure:"name" json:"name"`
+	Slug           string             `mapstructure:"slug" json:"slug"`
+	Description    string             `mapstructure:"description" json:"description"`
+	Strategy       string             `mapstructure:"strategy" json:"strategy"`
+	Models         []RouteModelConfig `mapstructure:"models" json:"models"`
+	FallbackModels []string           `mapstructure:"fallback_models" json:"fallback_models"`
+	Enabled        *bool              `mapstructure:"enabled" json:"enabled"`
+}
+
+// RouteModelConfig represents a model entry within a route config
+type RouteModelConfig struct {
+	ModelName string `mapstructure:"model_name" json:"model_name"`
+	Weight    int    `mapstructure:"weight" json:"weight"`
+	Priority  int    `mapstructure:"priority" json:"priority"`
+}
