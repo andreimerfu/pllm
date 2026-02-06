@@ -85,7 +85,7 @@ docker-logs: ## Show Docker logs
 
 .PHONY: docker-build
 docker-build: ## Build Docker image for pllm
-	docker build -t pllm:latest .
+	docker buildx build --platform linux/amd64 -t amerfu/pllm:latest .
 
 ##@ Kubernetes & Helm
 

@@ -61,30 +61,24 @@ func NewDexAuthProvider(config *DexConfig) (*DexAuthProvider, error) {
 
 	// When running in k8s, config.Issuer is the internal service URL for pod-to-pod
 	// communication, while config.PublicIssuer is the external URL that Dex advertises
-	// as its issuer. Use InsecureIssuerURLContext to connect via internal URL while
-	// accepting the external issuer in OIDC discovery.
-	issuerURL := config.Issuer
+	// as its issuer. InsecureIssuerURLContext skips the check that the discovered
+	// issuer matches the fetch URL, so we can connect internally while Dex returns
+	// the external issuer. The provider stores the discovered issuer for token
+	// verification automatically.
 	if config.PublicIssuer != "" && config.PublicIssuer != config.Issuer {
 		ctx = oidc.InsecureIssuerURLContext(ctx, config.Issuer)
-		issuerURL = config.PublicIssuer
 	}
 
-	provider, err := oidc.NewProvider(ctx, issuerURL)
+	provider, err := oidc.NewProvider(ctx, config.Issuer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OIDC provider: %w", err)
-	}
-
-	// Use discovery endpoints but override token URL to use internal service URL
-	endpoint := provider.Endpoint()
-	if config.PublicIssuer != "" && config.PublicIssuer != config.Issuer {
-		endpoint.TokenURL = strings.TrimSuffix(config.Issuer, "/") + "/token"
 	}
 
 	oauth2Config := &oauth2.Config{
 		ClientID:     config.ClientID,
 		ClientSecret: config.ClientSecret,
 		RedirectURL:  config.RedirectURL,
-		Endpoint:     endpoint,
+		Endpoint:     provider.Endpoint(),
 		Scopes:       config.Scopes,
 	}
 
