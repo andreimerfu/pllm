@@ -44,9 +44,9 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	oauthHandler := admin.NewOAuthHandler(
 		cfg.Logger,
 		cfg.DB,
-		"http://dex:5556/dex",
-		"pllm-web",
-		"pllm-web-secret",
+		cfg.Config.Auth.Dex.Issuer,
+		cfg.Config.Auth.Dex.ClientID,
+		cfg.Config.Auth.Dex.ClientSecret,
 	)
 	userHandler := admin.NewUserHandler(cfg.Logger, cfg.DB)
 	teamHandler := admin.NewTeamHandler(cfg.Logger, teamService, cfg.DB, cfg.BudgetService)

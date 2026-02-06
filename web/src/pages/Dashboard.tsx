@@ -25,7 +25,8 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { Icon } from "@iconify/react"
-import { getDashboardMetrics, getUsageTrends } from "@/lib/api"
+import { getDashboardMetrics, getUsageTrends, getAdminModels } from "@/lib/api"
+import type { AdminModelsResponse } from "@/types/api"
 import { formatChartLabel, fillTimeGaps } from "@/lib/date-utils"
 
 import { Badge } from "@/components/ui/badge"
@@ -253,7 +254,7 @@ function ChartAreaInteractive() {
           </SelectContent>
         </Select>
       </CardHeader>
-      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+      <CardContent className="overflow-hidden px-2 pt-4 sm:px-6 sm:pt-6">
         {loading ? (
           <div className="aspect-auto h-[250px] w-full flex items-center justify-center">
             <div className="flex items-center gap-2">
@@ -266,7 +267,7 @@ function ChartAreaInteractive() {
             config={chartConfig}
             className="aspect-auto h-[250px] xl:h-[300px] 2xl:h-[350px] w-full"
           >
-            <AreaChart data={filteredData}>
+            <AreaChart data={filteredData} margin={{ top: 10, right: 30, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="fillDesktop" x1="0" y1="0" x2="0" y2="1">
                 <stop
@@ -351,48 +352,52 @@ type Model = z.infer<typeof modelSchema>
 
 // Models table component with real API data
 function ModelsTable() {
-  const { data: rawData, isLoading: loading } = useQuery({
+  const { data: rawData, isLoading: metricsLoading } = useQuery({
     queryKey: ["dashboard-metrics"],
     queryFn: getDashboardMetrics,
     refetchInterval: 60000,
   })
 
+  const { data: adminModelsData, isLoading: modelsLoading } = useQuery({
+    queryKey: ["admin-models"],
+    queryFn: getAdminModels,
+  })
+
+  const loading = metricsLoading || modelsLoading
+
   const models = React.useMemo(() => {
-    const fallbackModels = [
-      { id: 1, name: "GPT-4", provider: "OpenAI", status: "Active", requests: 1250, cost: 45.20, latency: 125 },
-      { id: 2, name: "Claude-3", provider: "Anthropic", status: "Active", requests: 890, cost: 32.15, latency: 98 },
-      { id: 3, name: "Gemini Pro", provider: "Google", status: "Active", requests: 675, cost: 18.90, latency: 110 },
-      { id: 4, name: "Llama-2", provider: "Meta", status: "Inactive", requests: 234, cost: 8.45, latency: 145 },
-      { id: 5, name: "Mistral-7B", provider: "Mistral", status: "Active", requests: 567, cost: 12.30, latency: 87 },
-    ]
+    const adminResponse = adminModelsData as AdminModelsResponse | undefined
+    const adminModels = adminResponse?.models || []
 
-    if (!rawData) return fallbackModels
+    if (adminModels.length === 0) return []
 
-    const dashboard = (rawData as any).data || rawData
-    const topModels = dashboard?.top_models || []
+    const dashboard = rawData ? ((rawData as any).data || rawData) : null
+    const topModels: any[] = dashboard?.top_models || []
 
-    const getProvider = (modelName: string) => {
-      const name = modelName.toLowerCase()
-      if (name.includes('gpt') || name.includes('openai')) return 'OpenAI'
-      if (name.includes('claude') || name.includes('anthropic')) return 'Anthropic'
-      if (name.includes('gemini') || name.includes('google')) return 'Google'
-      if (name.includes('llama') || name.includes('meta')) return 'Meta'
-      if (name.includes('mistral')) return 'Mistral'
-      return 'Unknown'
+    const usageMap = new Map<string, { requests: number; cost: number; latency: number }>()
+    for (const m of topModels) {
+      if (m.model) {
+        usageMap.set(m.model, {
+          requests: m.requests || 0,
+          cost: m.cost || 0,
+          latency: m.avg_latency || 0,
+        })
+      }
     }
 
-    const transformedModels = topModels.map((model: any, index: number) => ({
-      id: index + 1,
-      name: model.model || 'Unknown Model',
-      provider: getProvider(model.model || ''),
-      status: 'Active',
-      requests: model.requests || 0,
-      cost: model.cost || 0,
-      latency: model.avg_latency || 0,
-    }))
-
-    return transformedModels.length > 0 ? transformedModels : fallbackModels
-  }, [rawData])
+    return adminModels.map((am, index) => {
+      const usage = usageMap.get(am.model_name)
+      return {
+        id: index + 1,
+        name: am.model_name,
+        provider: am.provider?.type || 'Unknown',
+        status: am.enabled ? 'Active' : 'Inactive',
+        requests: usage?.requests || 0,
+        cost: usage?.cost || 0,
+        latency: usage?.latency || 0,
+      }
+    })
+  }, [rawData, adminModelsData])
 
   if (loading) {
     return (

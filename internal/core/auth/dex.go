@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -60,32 +59,32 @@ type Session struct {
 func NewDexAuthProvider(config *DexConfig) (*DexAuthProvider, error) {
 	ctx := context.Background()
 
-	// Create a custom HTTP client for internal communication
-	// Redirects localhost:5556 to dex:5556 for container-to-container communication
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				if addr == "localhost:5556" {
-					addr = "dex:5556"
-				}
-				dialer := &net.Dialer{}
-				return dialer.DialContext(ctx, network, addr)
-			},
-		},
+	// When running in k8s, config.Issuer is the internal service URL for pod-to-pod
+	// communication, while config.PublicIssuer is the external URL that Dex advertises
+	// as its issuer. Use InsecureIssuerURLContext to connect via internal URL while
+	// accepting the external issuer in OIDC discovery.
+	issuerURL := config.Issuer
+	if config.PublicIssuer != "" && config.PublicIssuer != config.Issuer {
+		ctx = oidc.InsecureIssuerURLContext(ctx, config.Issuer)
+		issuerURL = config.PublicIssuer
 	}
 
-	ctx = oidc.ClientContext(ctx, httpClient)
-
-	provider, err := oidc.NewProvider(ctx, config.Issuer)
+	provider, err := oidc.NewProvider(ctx, issuerURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OIDC provider: %w", err)
+	}
+
+	// Use discovery endpoints but override token URL to use internal service URL
+	endpoint := provider.Endpoint()
+	if config.PublicIssuer != "" && config.PublicIssuer != config.Issuer {
+		endpoint.TokenURL = strings.TrimSuffix(config.Issuer, "/") + "/token"
 	}
 
 	oauth2Config := &oauth2.Config{
 		ClientID:     config.ClientID,
 		ClientSecret: config.ClientSecret,
 		RedirectURL:  config.RedirectURL,
-		Endpoint:     provider.Endpoint(),
+		Endpoint:     endpoint,
 		Scopes:       config.Scopes,
 	}
 

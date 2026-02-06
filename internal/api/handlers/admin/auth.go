@@ -172,17 +172,31 @@ func (h *AuthHandler) GetPermissions(w http.ResponseWriter, r *http.Request) {
 			role = "admin"
 			groups = []string{"admin", "master"}
 		} else {
-			// Regular Dex JWT - get user permissions from auth service
-			if h.authService != nil && hasUserID {
-				userPerms, err := h.authService.GetUserPermissions(r.Context(), userID)
-				if err == nil {
-					permissions = userPerms
-				}
-			}
-
+			// Regular Dex JWT - look up user and determine permissions
 			var user models.User
 			if err := h.db.First(&user, "id = ?", userID).Error; err == nil {
 				role = string(user.Role)
+
+				// Admin users get the full permission set (same as master key)
+				if user.Role == models.RoleAdmin {
+					permissions = []string{
+						"admin.*", "users.*", "teams.*", "keys.*", "models.*", "settings.*", "budget.*",
+						"admin.users.read", "admin.users.write", "admin.users.delete",
+						"admin.teams.read", "admin.teams.write", "admin.teams.delete",
+						"admin.keys.read", "admin.keys.write", "admin.keys.delete",
+						"admin.models.read", "admin.models.write",
+						"admin.budget.read", "admin.budget.write",
+						"admin.settings.read", "admin.settings.write",
+						"admin.audit.read",
+						"admin.guardrails.read",
+					}
+				} else if h.authService != nil && hasUserID {
+					userPerms, err := h.authService.GetUserPermissions(r.Context(), userID)
+					if err == nil {
+						permissions = userPerms
+					}
+				}
+
 				// Get user's groups/teams
 				var teamMembers []models.TeamMember
 				if err := h.db.Preload("Team").Where("user_id = ?", userID).Find(&teamMembers).Error; err == nil {

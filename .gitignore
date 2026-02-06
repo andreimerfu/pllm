@@ -177,3 +177,4 @@ node_modules/
 .auto-claude/
 
 deploy/k8s/
+deploy/helm/values.prod.yaml

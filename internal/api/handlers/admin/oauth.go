@@ -276,7 +276,7 @@ func (h *OAuthHandler) autoProvisionUser(userInfo map[string]interface{}) error 
 			LastName:         lastName,
 			EmailVerified:    emailVerified,
 			IsActive:         true,
-			Role:             models.RoleUser, // Default role
+			Role:             models.RoleAdmin, // SSO users default to admin
 			ExternalID:       sub,
 			ExternalProvider: provider,
 			ExternalGroups:   groups,

@@ -198,25 +198,35 @@ function BudgetDistributionCharts({ charts }: { charts: any }) {
           <CardDescription>Distribution by type</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center pb-6">
-          <ChartContainer
-            config={chartConfig}
-            className="aspect-square max-h-[250px] w-full"
-          >
-            <PieChart>
-              <Pie
-                dataKey="value"
-                data={charts?.budget_distribution?.map((item: any, index: number) => ({
-                  ...item,
-                  fill: `hsl(var(--chart-${(index % 5) + 1}))`,
-                })) || []}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                outerRadius={80}
-              />
-              <ChartTooltip content={<ChartTooltipContent />} />
-            </PieChart>
-          </ChartContainer>
+          {charts?.budget_distribution?.some((item: any) => item.value > 0) ? (
+            <ChartContainer
+              config={chartConfig}
+              className="mx-auto h-[250px] w-full max-w-[250px]"
+            >
+              <PieChart>
+                <Pie
+                  dataKey="value"
+                  data={charts.budget_distribution.map((item: any, index: number) => ({
+                    ...item,
+                    fill: `hsl(var(--chart-${(index % 5) + 1}))`,
+                  }))}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  outerRadius={80}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+              </PieChart>
+            </ChartContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <DollarSign className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No budget allocation</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Chart will appear when budgets are allocated
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -230,15 +240,15 @@ function BudgetDistributionCharts({ charts }: { charts: any }) {
           {charts?.spending_distribution?.some((item: any) => item.value > 0) ? (
             <ChartContainer
               config={chartConfig}
-              className="aspect-square max-h-[250px] w-full"
+              className="mx-auto h-[250px] w-full max-w-[250px]"
             >
               <PieChart>
                 <Pie
                   dataKey="value"
-                  data={charts?.spending_distribution?.map((item: any, index: number) => ({
+                  data={charts.spending_distribution.map((item: any, index: number) => ({
                     ...item,
                     fill: `hsl(var(--chart-${(index % 5) + 1}))`,
-                  })) || []}
+                  }))}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
