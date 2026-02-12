@@ -19,7 +19,7 @@ deps-update: ## Update Go dependencies
 
 .PHONY: build
 build: ui-build docs-build ## Build the binary with embedded UI and docs
-	go build -o bin/pllm cmd/server/main.go
+	go build -o bin/pllm ./cmd/server/
 
 .PHONY: web-build
 web-build: ## Build frontend assets

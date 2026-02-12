@@ -86,10 +86,24 @@ func (r *ModelRegistry) LoadModelInstances(instances []config.ModelInstance) err
 	return nil
 }
 
-// getOrCreateProvider creates or reuses a provider instance
+// getOrCreateProvider creates or reuses a provider instance.
+// For Azure, each unique deployment gets its own provider instance because the
+// deployment name is baked into the URL path and looked up by provider-model name.
+// Two models sharing the same provider-model but different deployments would conflict
+// if they shared a provider, so we include the deployment in the cache key.
 func (r *ModelRegistry) getOrCreateProvider(providerCfg config.ProviderParams) (providers.Provider, error) {
-	// Create unique key for provider configuration
-	providerKey := fmt.Sprintf("%s:%s:%s", providerCfg.Type, providerCfg.BaseURL, providerCfg.APIKey)
+	// Normalise base URL: for Azure, BaseURL may be empty (AzureEndpoint is used).
+	baseURL := providerCfg.BaseURL
+	if baseURL == "" && providerCfg.AzureEndpoint != "" {
+		baseURL = providerCfg.AzureEndpoint
+	}
+
+	providerKey := fmt.Sprintf("%s:%s:%s", providerCfg.Type, baseURL, providerCfg.APIKey)
+
+	// Azure: include deployment in the key so each deployment gets its own provider.
+	if providerCfg.Type == "azure" && providerCfg.AzureDeployment != "" {
+		providerKey += ":" + providerCfg.AzureDeployment
+	}
 
 	// Check if provider already exists
 	if provider, exists := r.providers[providerKey]; exists {

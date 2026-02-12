@@ -119,32 +119,42 @@ func (p *OpenAIProvider) ChatCompletionStream(ctx context.Context, request *Chat
 	// Create the stream channel
 	streamChan := make(chan StreamResponse, 100)
 
+	// sendStreamError sends an error message through the stream channel as a content chunk
+	// so the client can see what went wrong instead of getting an empty response.
+	sendStreamError := func(errMsg string) {
+		log.Printf("OpenAI streaming error: %s", errMsg)
+		streamChan <- StreamResponse{
+			Object: "chat.completion.chunk",
+			Model:  request.Model,
+			Choices: []StreamChoice{{
+				Index: 0,
+				Delta: Message{
+					Role:    "assistant",
+					Content: fmt.Sprintf("[Error: %s]", errMsg),
+				},
+				FinishReason: "error",
+			}},
+		}
+	}
+
 	go func() {
 		defer close(streamChan)
 
 		// Enable streaming in request
 		request.Stream = true
 
-		// Debug logging for vision content in streaming
-		log.Printf("Streaming request for model: %s", request.Model)
-		for i, msg := range request.Messages {
-			if msg.Content != nil {
-				log.Printf("Stream Message %d (%s): content type = %T", i, msg.Role, msg.Content)
-			}
-		}
-
 		// Prepare the request body
 		reqBody, err := json.Marshal(request)
 		if err != nil {
-			return // Just close channel on error
+			sendStreamError(fmt.Sprintf("failed to marshal request: %v", err))
+			return
 		}
-		
-		log.Printf("Streaming to OpenAI: %s", string(reqBody))
 
 		// Create HTTP request
 		req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/chat/completions", bytes.NewBuffer(reqBody))
 		if err != nil {
-			return // Just close channel on error
+			sendStreamError(fmt.Sprintf("failed to create request: %v", err))
+			return
 		}
 
 		// Set headers
@@ -160,13 +170,16 @@ func (p *OpenAIProvider) ChatCompletionStream(ctx context.Context, request *Chat
 		// Make the request
 		resp, err := p.client.Do(req)
 		if err != nil {
-			return // Just close channel on error
+			sendStreamError(fmt.Sprintf("request failed: %v", err))
+			return
 		}
 		defer func() { _ = resp.Body.Close() }()
 
 		// Check for errors
 		if resp.StatusCode != http.StatusOK {
-			return // Just close channel on error
+			body, _ := io.ReadAll(resp.Body)
+			sendStreamError(fmt.Sprintf("API returned status %d: %s", resp.StatusCode, string(body)))
+			return
 		}
 
 		// Parse SSE stream

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -134,6 +135,23 @@ func (p *AzureProvider) ChatCompletionStream(ctx context.Context, request *ChatR
 
 	streamChan := make(chan StreamResponse, 100)
 
+	// sendStreamError sends an error message through the stream channel
+	sendStreamError := func(errMsg string) {
+		log.Printf("Azure streaming error: %s", errMsg)
+		streamChan <- StreamResponse{
+			Object: "chat.completion.chunk",
+			Model:  request.Model,
+			Choices: []StreamChoice{{
+				Index: 0,
+				Delta: Message{
+					Role:    "assistant",
+					Content: fmt.Sprintf("[Error: %s]", errMsg),
+				},
+				FinishReason: "error",
+			}},
+		}
+	}
+
 	go func() {
 		defer close(streamChan)
 
@@ -147,13 +165,15 @@ func (p *AzureProvider) ChatCompletionStream(ctx context.Context, request *ChatR
 
 		body, err := json.Marshal(azureRequest)
 		if err != nil {
-			return // Just close the channel on error
+			sendStreamError(fmt.Sprintf("failed to marshal request: %v", err))
+			return
 		}
 
 		// Create HTTP request
 		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 		if err != nil {
-			return // Just close the channel on error
+			sendStreamError(fmt.Sprintf("failed to create request: %v", err))
+			return
 		}
 
 		// Set headers
@@ -163,12 +183,14 @@ func (p *AzureProvider) ChatCompletionStream(ctx context.Context, request *ChatR
 		// Send request
 		resp, err := p.client.Do(req)
 		if err != nil {
-			return // Just close the channel on error
+			sendStreamError(fmt.Sprintf("request failed: %v", err))
+			return
 		}
 		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
-			// Log error but just close channel
+			errBody, _ := io.ReadAll(resp.Body)
+			sendStreamError(fmt.Sprintf("API returned status %d: %s", resp.StatusCode, string(errBody)))
 			return
 		}
 
@@ -255,6 +277,13 @@ func (p *AzureProvider) setHeaders(req *http.Request, ctx context.Context) {
 	if p.config.APIKey != "" {
 		req.Header.Set("api-key", p.config.APIKey)
 	}
+}
+
+// AddDeployment registers an additional model→deployment mapping on a shared provider.
+func (p *AzureProvider) AddDeployment(model, deployment string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.deployments[model] = deployment
 }
 
 // getDeploymentName gets the deployment name for a model

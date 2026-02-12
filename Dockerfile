@@ -71,7 +71,7 @@ RUN go install github.com/swaggo/swag/cmd/swag@latest
 RUN swag init -g cmd/server/main.go -o internal/api/handlers/swagger
 
 # Build the application with embedded UI
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o pllm cmd/server/main.go
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o pllm ./cmd/server/
 
 # Build the worker binary
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o pllm-worker cmd/worker/main.go
