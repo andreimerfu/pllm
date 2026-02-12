@@ -256,18 +256,25 @@ func (m *AsyncBudgetMiddleware) trackUsageAsync(ctx context.Context, request pro
 			// Get key ownership details
 			if key, hasKey := GetKey(ctx); hasKey {
 				usageRecord.KeyType = string(key.Type) // Set key type
-				
+
 				// Set key owner (for personal keys)
 				if key.UserID != nil {
 					usageRecord.KeyOwnerID = key.UserID.String()
 					usageRecord.UserID = key.UserID.String() // Key owner
+					// If no JWT user (direct API key call), use key owner as actual user
+					if !hasUser {
+						usageRecord.ActualUserID = key.UserID.String()
+					}
 				}
 				// Set team info (for team keys)
 				if key.TeamID != nil {
 					usageRecord.TeamID = key.TeamID.String()
-					// For team keys, UserID is the key owner (team), ActualUserID is who made request
 					if hasUser {
+						// For team keys with JWT, UserID is who made request
 						usageRecord.UserID = actualUserID.String()
+					} else if key.UserID != nil {
+						// For team keys via API, fall back to key owner
+						usageRecord.ActualUserID = key.UserID.String()
 					}
 				}
 			}

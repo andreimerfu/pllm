@@ -324,13 +324,9 @@ func (up *UsageProcessor) convertToUsageModel(record *redisService.UsageRecord) 
 		}
 	}
 
-	// Required fields validation
-	// We need either:
-	// 1. Both actual_user_id and key_id (for API key authentication)
-	// 2. Just actual_user_id with no key_id (for JWT authentication)
-	// 3. System keys can have nil actual_user_id since they don't belong to users
-	if usage.ActualUserID == uuid.Nil && record.KeyType != "system" {
-		return nil, fmt.Errorf("actual_user_id is required for usage record")
+	// If ActualUserID is not set, fall back to UserID (key owner)
+	if usage.ActualUserID == uuid.Nil && usage.UserID != uuid.Nil {
+		usage.ActualUserID = usage.UserID
 	}
 
 	// If we have a key_id, it should be valid (not nil), but it's optional for JWT auth
