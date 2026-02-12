@@ -251,6 +251,18 @@ func main() {
 			zap.Duration("interval", cfg.Router.HealthCheckInterval))
 	}
 
+	// Start background DB-to-registry sync (adds/removes models and routes that change in DB)
+	var dbSyncCancel context.CancelFunc
+	if appMode.DatabaseAvailable {
+		if dbInstance := database.GetDB(); dbInstance != nil {
+			var dbSyncCtx context.Context
+			dbSyncCtx, dbSyncCancel = context.WithCancel(context.Background())
+			go startDBSync(dbSyncCtx, dbInstance, modelManager, log)
+			log.Info("Started background DB sync for models and routes",
+				zap.Duration("interval", dbSyncInterval))
+		}
+	}
+
 	// Initialize pricing manager (always needed for cost calculations)
 	pricingManager := config.GetPricingManager()
 	if err := pricingManager.LoadDefaultPricing("internal/config"); err != nil {
@@ -385,6 +397,12 @@ func main() {
 	<-quit
 
 	log.Info("Shutting down servers...")
+
+	// Stop DB sync
+	if dbSyncCancel != nil {
+		log.Info("Stopping background DB sync...")
+		dbSyncCancel()
+	}
 
 	// Stop health checker
 	if healthCheckerCancel != nil {

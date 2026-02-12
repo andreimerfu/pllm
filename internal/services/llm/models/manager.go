@@ -319,6 +319,9 @@ func (m *ModelManager) executeRouteWithFailover(ctx context.Context, route *Rout
 		for _, rm := range remaining {
 			instances, exists := m.registry.GetModelInstances(rm.ModelName)
 			if !exists || len(instances) == 0 {
+				m.logger.Warn("Route model not found in registry — skipping",
+					zap.String("route", route.Slug),
+					zap.String("model", rm.ModelName))
 				continue
 			}
 			hasHealthy := false
@@ -329,6 +332,9 @@ func (m *ModelManager) executeRouteWithFailover(ctx context.Context, route *Rout
 				}
 			}
 			if !hasHealthy {
+				m.logger.Warn("Route model has no healthy instances — skipping",
+					zap.String("route", route.Slug),
+					zap.String("model", rm.ModelName))
 				continue
 			}
 			proxy := NewRouteModelProxy(rm.ModelName, float64(rm.Weight), rm.Priority)

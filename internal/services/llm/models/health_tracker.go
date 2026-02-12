@@ -31,6 +31,7 @@ func (h *HealthTracker) RecordSuccess(instance *ModelInstance) {
 // RecordFailure records a failed request for the instance
 func (h *HealthTracker) RecordFailure(instance *ModelInstance, err error) {
 	instance.LastError.Store(err)
+	instance.LastFailure.Store(time.Now())
 	failureCount := instance.FailureCount.Add(1)
 
 	// Mark as unhealthy after 3 failures
@@ -48,9 +49,30 @@ func (h *HealthTracker) RecordFailure(instance *ModelInstance, err error) {
 	}
 }
 
-// IsHealthy checks if an instance is currently healthy
+// healthRecoveryCooldown is the time after which an unhealthy instance is allowed
+// to receive traffic again (half-open circuit breaker). If the request succeeds,
+// RecordSuccess will mark it fully healthy; if it fails, RecordFailure will reset
+// the cooldown timer.
+const healthRecoveryCooldown = 30 * time.Second
+
+// IsHealthy checks if an instance is currently healthy.
+// Implements a half-open circuit breaker: after healthRecoveryCooldown has elapsed
+// since the last failure, the instance is allowed to receive traffic again.
 func (h *HealthTracker) IsHealthy(instance *ModelInstance) bool {
-	return instance.Healthy.Load()
+	if instance.Healthy.Load() {
+		return true
+	}
+
+	// Half-open: allow retry after cooldown
+	if lastFailure, ok := instance.LastFailure.Load().(time.Time); ok {
+		if time.Since(lastFailure) > healthRecoveryCooldown {
+			h.logger.Info("Instance entering half-open state (recovery attempt)",
+				zap.String("instance_id", instance.Config.ID))
+			return true
+		}
+	}
+
+	return false
 }
 
 // GetHealthStatus returns detailed health information for an instance
