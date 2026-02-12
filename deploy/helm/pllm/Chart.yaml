@@ -2,8 +2,8 @@ apiVersion: v2
 name: pllm
 description: A Helm chart for PLLM (Proxy for LLM) - Multi-provider LLM proxy with authentication, budgeting, and analytics
 type: application
-version: 1.1.0
-appVersion: "1.1.0"
+version: 1.1.1
+appVersion: "1.1.1"
 home: https://github.com/andreimerfu/pllm
 sources:
   - https://github.com/andreimerfu/pllm

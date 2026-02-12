@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.1.1](https://github.com/andreimerfu/pllm/compare/v1.1.0...v1.1.1) (2026-02-12)
+
+
+### 🐛 Bug Fixes
+
+* simplify Dex OIDC provider setup and update docker build for amd64 ([8e540b4](https://github.com/andreimerfu/pllm/commit/8e540b46906f8dd19e931ed80374f20a82872819))
+
 ## [1.1.0](https://github.com/andreimerfu/pllm/compare/v1.0.0...v1.1.0) (2026-02-02)
 
 
