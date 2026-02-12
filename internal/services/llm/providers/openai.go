@@ -61,13 +61,11 @@ func (p *OpenAIProvider) ChatCompletion(ctx context.Context, request *ChatReques
 		}
 	}
 
-	// Prepare the request body
-	reqBody, err := json.Marshal(request)
+	// Prepare the request body (swap max_tokens → max_completion_tokens for newer models)
+	reqBody, err := marshalChatRequest(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-	
-	log.Printf("Sending to OpenAI: %s", string(reqBody))
 
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/chat/completions", bytes.NewBuffer(reqBody))
@@ -143,8 +141,8 @@ func (p *OpenAIProvider) ChatCompletionStream(ctx context.Context, request *Chat
 		// Enable streaming in request
 		request.Stream = true
 
-		// Prepare the request body
-		reqBody, err := json.Marshal(request)
+		// Prepare the request body (swap max_tokens → max_completion_tokens for newer models)
+		reqBody, err := marshalChatRequest(request)
 		if err != nil {
 			sendStreamError(fmt.Sprintf("failed to marshal request: %v", err))
 			return
@@ -478,6 +476,40 @@ func (p *OpenAIProvider) parseStreamResponse(body io.Reader, streamChan chan<- S
 		// Send to channel
 		streamChan <- streamResp
 	}
+}
+
+// useMaxCompletionTokens returns true for models that require max_completion_tokens
+// instead of the deprecated max_tokens parameter.
+func useMaxCompletionTokens(model string) bool {
+	// Newer OpenAI models (o-series, gpt-4.1+, gpt-5+) reject max_tokens.
+	for _, prefix := range []string{"o1", "o3", "o4", "gpt-4.1", "gpt-4.5", "gpt-5"} {
+		if strings.HasPrefix(model, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// marshalChatRequest marshals a ChatRequest, converting max_tokens to
+// max_completion_tokens for models that require it.
+func marshalChatRequest(request *ChatRequest) ([]byte, error) {
+	if request.MaxTokens != nil && useMaxCompletionTokens(request.Model) {
+		// Build a map so we can swap the field name without changing the struct.
+		data, err := json.Marshal(request)
+		if err != nil {
+			return nil, err
+		}
+		var m map[string]interface{}
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, err
+		}
+		if v, ok := m["max_tokens"]; ok {
+			m["max_completion_tokens"] = v
+			delete(m, "max_tokens")
+		}
+		return json.Marshal(m)
+	}
+	return json.Marshal(request)
 }
 
 func (p *OpenAIProvider) HealthCheck(ctx context.Context) error {

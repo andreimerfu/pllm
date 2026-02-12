@@ -219,7 +219,11 @@ func (p *AzureProvider) transformRequest(request *ChatRequest) map[string]interf
 	}
 
 	if request.MaxTokens != nil {
-		azureReq["max_tokens"] = *request.MaxTokens
+		if useMaxCompletionTokens(request.Model) {
+			azureReq["max_completion_tokens"] = *request.MaxTokens
+		} else {
+			azureReq["max_tokens"] = *request.MaxTokens
+		}
 	}
 
 	if request.N != nil {

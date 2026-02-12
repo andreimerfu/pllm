@@ -646,7 +646,7 @@ function MessageInput({
 export default function Chat() {
   const [input, setInput] = useState('')
   const [selectedModel, setSelectedModel] = useState('gpt-4o')
-  const [temperature, setTemperature] = useState(0.7)
+  const [temperature, setTemperature] = useState(1)
   const [maxTokens, setMaxTokens] = useState(2048)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true) // Start collapsed on mobile
   const [availableModels, setAvailableModels] = useState<any[]>([])

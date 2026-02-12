@@ -354,11 +354,12 @@ func parseTrendTimeRange(hoursParam, daysParam string) time.Time {
 }
 
 // trendGroupExpr returns the SQL expression used to group trend data.
+// Uses TO_CHAR to return a deterministic string format that JavaScript can parse.
 func trendGroupExpr(interval string) string {
 	if interval == "hourly" {
-		return "date_trunc('hour', timestamp)"
+		return "TO_CHAR(date_trunc('hour', timestamp), 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')"
 	}
-	return "DATE(timestamp)"
+	return "TO_CHAR(DATE(timestamp), 'YYYY-MM-DD')"
 }
 
 // calculateHealthScore computes a health score (0-100) based on latency and success rate

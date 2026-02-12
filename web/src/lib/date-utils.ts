@@ -227,18 +227,18 @@ export function fillTimeGaps<T extends Record<string, any>>(
     }
   }
 
-  // Generate all buckets
+  // Generate all buckets using UTC to match backend dates
   const result: (T & { date: string })[] = [];
   const count = interval === "hourly" ? range : range;
 
   for (let i = count - 1; i >= 0; i--) {
     const d = new Date(now);
     if (interval === "hourly") {
-      d.setMinutes(0, 0, 0);
-      d.setHours(d.getHours() - i);
+      d.setUTCMinutes(0, 0, 0);
+      d.setUTCHours(d.getUTCHours() - i);
     } else {
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - i);
+      d.setUTCHours(0, 0, 0, 0);
+      d.setUTCDate(d.getUTCDate() - i);
     }
 
     const key = bucketKey(d);
