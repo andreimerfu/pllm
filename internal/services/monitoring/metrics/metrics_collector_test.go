@@ -91,8 +91,8 @@ func TestMetricsCollector_collectCurrentMetrics(t *testing.T) {
 		{
 			RequestID:    "req-1",
 			Timestamp:    now.Add(-30 * time.Second),
-			UserID:       userID1,
-			ActualUserID: userID1,
+			UserID:       &userID1,
+			ActualUserID: &userID1,
 			Model:        "gpt-4",
 			TotalTokens:  100,
 			TotalCost:    0.01,
@@ -104,8 +104,8 @@ func TestMetricsCollector_collectCurrentMetrics(t *testing.T) {
 		{
 			RequestID:    "req-2",
 			Timestamp:    now.Add(-45 * time.Second),
-			UserID:       userID1,
-			ActualUserID: userID1,
+			UserID:       &userID1,
+			ActualUserID: &userID1,
 			Model:        "gpt-4",
 			TotalTokens:  150,
 			TotalCost:    0.015,
@@ -118,8 +118,8 @@ func TestMetricsCollector_collectCurrentMetrics(t *testing.T) {
 		{
 			RequestID:    "req-3",
 			Timestamp:    now.Add(-20 * time.Second),
-			UserID:       userID2,
-			ActualUserID: userID2,
+			UserID:       &userID2,
+			ActualUserID: &userID2,
 			Model:        "gpt-3.5",
 			TotalTokens:  80,
 			TotalCost:    0.008,
@@ -249,8 +249,8 @@ func TestMetricsCollector_collectUsageMetrics(t *testing.T) {
 		{
 			RequestID:    "req-1",
 			Timestamp:    now.Add(-30 * time.Second),
-			UserID:       userID1,
-			ActualUserID: userID1,
+			UserID:       &userID1,
+			ActualUserID: &userID1,
 			TeamID:       nil, // Personal usage
 			Model:        "gpt-4",
 			TotalTokens:  100,
@@ -260,8 +260,8 @@ func TestMetricsCollector_collectUsageMetrics(t *testing.T) {
 		{
 			RequestID:    "req-2",
 			Timestamp:    now.Add(-45 * time.Second),
-			UserID:       userID1,
-			ActualUserID: userID1,
+			UserID:       &userID1,
+			ActualUserID: &userID1,
 			TeamID:       &teamID, // Team usage
 			Model:        "gpt-4",
 			TotalTokens:  150,
@@ -271,8 +271,8 @@ func TestMetricsCollector_collectUsageMetrics(t *testing.T) {
 		{
 			RequestID:    "req-3",
 			Timestamp:    now.Add(-20 * time.Second),
-			UserID:       userID2,
-			ActualUserID: userID2,
+			UserID:       &userID2,
+			ActualUserID: &userID2,
 			TeamID:       &teamID, // Team usage
 			Model:        "gpt-3.5",
 			TotalTokens:  80,

@@ -13,10 +13,10 @@ type Usage struct {
 	Timestamp time.Time `gorm:"index" json:"timestamp"`
 
 	// User/Team/API Key - Enhanced for better tracking
-	UserID       uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"` // Who made the request
-	User         User       `gorm:"foreignKey:UserID" json:"-"`
-	ActualUserID uuid.UUID  `gorm:"type:uuid;not null;index" json:"actual_user_id"` // Who actually used the key (same as UserID for personal keys)
-	ActualUser   User       `gorm:"foreignKey:ActualUserID" json:"-"`
+	UserID       *uuid.UUID `gorm:"type:uuid;index" json:"user_id,omitempty"`        // Who made the request (nullable for system/unowned keys)
+	User         *User      `gorm:"foreignKey:UserID" json:"-"`
+	ActualUserID *uuid.UUID `gorm:"type:uuid;index" json:"actual_user_id,omitempty"` // Who actually used the key (nullable for system/unowned keys)
+	ActualUser   *User      `gorm:"foreignKey:ActualUserID" json:"-"`
 	TeamID       *uuid.UUID `gorm:"type:uuid;index" json:"team_id,omitempty"`
 	Team         *Team      `gorm:"foreignKey:TeamID" json:"-"`
 	KeyID        *uuid.UUID `gorm:"type:uuid;index" json:"key_id,omitempty"`
@@ -125,7 +125,7 @@ func (Usage) TableName() string {
 
 type UsageAggregation struct {
 	Date         time.Time  `json:"date"`
-	UserID       uuid.UUID  `json:"user_id"`
+	UserID       *uuid.UUID `json:"user_id,omitempty"`
 	GroupID      *uuid.UUID `json:"group_id"`
 	Provider     string     `json:"provider"`
 	Model        string     `json:"model"`

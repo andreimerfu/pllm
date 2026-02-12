@@ -51,8 +51,8 @@ func TestDashboardHandler_GetDashboardMetrics(t *testing.T) {
 		{
 			RequestID:    "req-1",
 			Timestamp:    now.Add(-30 * time.Minute), // Within last hour
-			UserID:       user1.ID,
-			ActualUserID: user1.ID,
+			UserID:       &user1.ID,
+			ActualUserID: &user1.ID,
 			Model:        "gpt-4",
 			TotalTokens:  100,
 			TotalCost:    0.01,
@@ -64,8 +64,8 @@ func TestDashboardHandler_GetDashboardMetrics(t *testing.T) {
 		{
 			RequestID:    "req-2",
 			Timestamp:    now.Add(-15 * time.Minute), // Within last hour
-			UserID:       user2.ID,
-			ActualUserID: user2.ID,
+			UserID:       &user2.ID,
+			ActualUserID: &user2.ID,
 			Model:        "gpt-3.5",
 			TotalTokens:  50,
 			TotalCost:    0.005,
@@ -77,8 +77,8 @@ func TestDashboardHandler_GetDashboardMetrics(t *testing.T) {
 		{
 			RequestID:    "req-3",
 			Timestamp:    now.Add(-2 * time.Hour), // Outside last hour
-			UserID:       user1.ID,
-			ActualUserID: user1.ID,
+			UserID:       &user1.ID,
+			ActualUserID: &user1.ID,
 			Model:        "gpt-4",
 			TotalTokens:  200,
 			TotalCost:    0.02,
@@ -165,8 +165,8 @@ func TestDashboardHandler_GetModelMetrics(t *testing.T) {
 		{
 			RequestID:    "req-1",
 			Timestamp:    now.Add(-24 * time.Hour),
-			UserID:       user1.ID,
-			ActualUserID: user1.ID,
+			UserID:       &user1.ID,
+			ActualUserID: &user1.ID,
 			Model:        "gpt-4",
 			TotalTokens:  100,
 			TotalCost:    0.01,
@@ -178,8 +178,8 @@ func TestDashboardHandler_GetModelMetrics(t *testing.T) {
 		{
 			RequestID:    "req-2",
 			Timestamp:    now.Add(-48 * time.Hour),
-			UserID:       user1.ID,
-			ActualUserID: user1.ID,
+			UserID:       &user1.ID,
+			ActualUserID: &user1.ID,
 			Model:        "gpt-4",
 			TotalTokens:  150,
 			TotalCost:    0.015,
@@ -191,8 +191,8 @@ func TestDashboardHandler_GetModelMetrics(t *testing.T) {
 		{
 			RequestID:    "req-3",
 			Timestamp:    now.Add(-24 * time.Hour),
-			UserID:       user1.ID,
-			ActualUserID: user1.ID,
+			UserID:       &user1.ID,
+			ActualUserID: &user1.ID,
 			Model:        "gpt-3.5", // Different model, should be ignored
 			TotalTokens:  50,
 			TotalCost:    0.005,
@@ -265,8 +265,8 @@ func TestDashboardHandler_GetUsageTrends(t *testing.T) {
 		{
 			RequestID:    "req-1",
 			Timestamp:    now.Add(-1 * 24 * time.Hour),
-			UserID:       user1.ID,
-			ActualUserID: user1.ID,
+			UserID:       &user1.ID,
+			ActualUserID: &user1.ID,
 			TotalTokens:  100,
 			TotalCost:    0.01,
 			Metadata:     datatypes.JSON([]byte(`{}`)),
@@ -274,8 +274,8 @@ func TestDashboardHandler_GetUsageTrends(t *testing.T) {
 		{
 			RequestID:    "req-2",
 			Timestamp:    now.Add(-1 * 24 * time.Hour),
-			UserID:       user1.ID,
-			ActualUserID: user1.ID,
+			UserID:       &user1.ID,
+			ActualUserID: &user1.ID,
 			TotalTokens:  50,
 			TotalCost:    0.005,
 			Metadata:     datatypes.JSON([]byte(`{}`)),
@@ -283,8 +283,8 @@ func TestDashboardHandler_GetUsageTrends(t *testing.T) {
 		{
 			RequestID:    "req-3",
 			Timestamp:    now.Add(-2 * 24 * time.Hour),
-			UserID:       user1.ID,
-			ActualUserID: user1.ID,
+			UserID:       &user1.ID,
+			ActualUserID: &user1.ID,
 			TotalTokens:  200,
 			TotalCost:    0.02,
 			Metadata:     datatypes.JSON([]byte(`{}`)),

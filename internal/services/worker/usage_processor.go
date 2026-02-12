@@ -199,8 +199,8 @@ func (up *UsageProcessor) processBatchTransactional(ctx context.Context, records
 			}
 
 			// Also update user-level budgets (stored directly in users table)
-			if usage.UserID != uuid.Nil {
-				userBudgetUpdates[usage.UserID] += record.TotalCost
+			if usage.UserID != nil {
+				userBudgetUpdates[*usage.UserID] += record.TotalCost
 			}
 
 			// Update team-level budgets (stored directly in teams table)
@@ -288,19 +288,19 @@ func (up *UsageProcessor) convertToUsageModel(record *redisService.UsageRecord) 
 	// Parse UUIDs for key entities
 	if record.UserID != "" {
 		if userUUID, err := uuid.Parse(record.UserID); err == nil {
-			usage.UserID = userUUID
+			usage.UserID = &userUUID
 		}
 	}
 
 	// Parse ActualUserID (who made the request)
 	if record.ActualUserID != "" {
 		if actualUserUUID, err := uuid.Parse(record.ActualUserID); err == nil {
-			usage.ActualUserID = actualUserUUID
+			usage.ActualUserID = &actualUserUUID
 		}
 	} else if record.UserID != "" {
 		// Fallback: if ActualUserID not set, use UserID
 		if userUUID, err := uuid.Parse(record.UserID); err == nil {
-			usage.ActualUserID = userUUID
+			usage.ActualUserID = &userUUID
 		}
 	}
 
@@ -325,7 +325,7 @@ func (up *UsageProcessor) convertToUsageModel(record *redisService.UsageRecord) 
 	}
 
 	// If ActualUserID is not set, fall back to UserID (key owner)
-	if usage.ActualUserID == uuid.Nil && usage.UserID != uuid.Nil {
+	if usage.ActualUserID == nil && usage.UserID != nil {
 		usage.ActualUserID = usage.UserID
 	}
 
@@ -345,9 +345,9 @@ func (up *UsageProcessor) findActivebudgets(tx *gorm.DB, usage *models.Usage) ([
 	conditions := []string{}
 	args := []interface{}{}
 
-	if usage.UserID != uuid.Nil {
+	if usage.UserID != nil {
 		conditions = append(conditions, "user_id = ? OR type = ?")
-		args = append(args, usage.UserID, models.BudgetTypeGlobal)
+		args = append(args, *usage.UserID, models.BudgetTypeGlobal)
 	}
 
 	// Add team budget support when TeamID is available in usage record
