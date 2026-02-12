@@ -269,18 +269,20 @@ func (up *UsageProcessor) processBatchTransactional(ctx context.Context, records
 // convertToUsageModel converts Redis usage record to database model
 func (up *UsageProcessor) convertToUsageModel(record *redisService.UsageRecord) (*models.Usage, error) {
 	usage := &models.Usage{
-		RequestID:    record.RequestID,
-		Timestamp:    record.Timestamp,
-		Model:        record.Model,
-		Provider:     record.Provider,
-		Method:       record.Method,
-		Path:         record.Path,
-		StatusCode:   record.StatusCode,
-		InputTokens:  record.InputTokens,
-		OutputTokens: record.OutputTokens,
-		TotalTokens:  record.TotalTokens,
-		TotalCost:    record.TotalCost,
-		Latency:      record.Latency,
+		RequestID:     record.RequestID,
+		Timestamp:     record.Timestamp,
+		Model:         record.Model,
+		Provider:      record.Provider,
+		RouteSlug:     record.RouteSlug,
+		ProviderModel: record.ProviderModel,
+		Method:        record.Method,
+		Path:          record.Path,
+		StatusCode:    record.StatusCode,
+		InputTokens:   record.InputTokens,
+		OutputTokens:  record.OutputTokens,
+		TotalTokens:   record.TotalTokens,
+		TotalCost:     record.TotalCost,
+		Latency:       record.Latency,
 	}
 
 	// Parse UUIDs for key entities

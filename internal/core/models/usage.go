@@ -24,8 +24,10 @@ type Usage struct {
 	KeyOwnerID   *uuid.UUID `gorm:"type:uuid;index" json:"key_owner_id,omitempty"` // Who owns the key (for user keys)
 
 	// Provider/Model
-	Provider string `gorm:"index" json:"provider"`
-	Model    string `gorm:"index" json:"model"`
+	Provider      string `gorm:"index" json:"provider"`
+	Model         string `gorm:"index" json:"model"`
+	RouteSlug     string `gorm:"index" json:"route_slug,omitempty"`
+	ProviderModel string `json:"provider_model,omitempty"`
 
 	// Request/Response
 	Method     string `json:"method"`

@@ -22,8 +22,10 @@ type UsageRecord struct {
 	KeyOwnerID   string     `json:"key_owner_id,omitempty"` // Who owns the key
 	KeyType      string     `json:"key_type,omitempty"`     // Type of key (personal, team, system, etc.)
 	TeamID       string     `json:"team_id,omitempty"`
-	Model        string     `json:"model"`
-	Provider     string     `json:"provider"`
+	Model         string     `json:"model"`
+	Provider      string     `json:"provider"`
+	RouteSlug     string     `json:"route_slug,omitempty"`
+	ProviderModel string     `json:"provider_model,omitempty"`
 	Method       string     `json:"method"`
 	Path         string     `json:"path"`
 	StatusCode   int        `json:"status_code"`

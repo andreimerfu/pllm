@@ -194,15 +194,45 @@ func (m *AsyncBudgetMiddleware) trackUsageAsync(ctx context.Context, request pro
 	inputTokens = m.estimateInputTokens(request.Messages)
 	outputTokens = 150 // Default estimate - will be reconciled by worker
 
+	// Read resolved model info from MetricsContext (set by chat handler after route resolution)
+	metricsCtx := GetMetricsContext(ctx)
+
+	actualModel := request.Model
+	actualProvider := "pllm-gateway"
+	routeSlug := ""
+	providerModel := ""
+
+	if metricsCtx != nil {
+		if metricsCtx.ResolvedModel != "" {
+			actualModel = metricsCtx.ResolvedModel
+		}
+		if metricsCtx.ProviderType != "" {
+			actualProvider = metricsCtx.ProviderType
+		}
+		routeSlug = metricsCtx.RouteSlug
+		providerModel = metricsCtx.ProviderModel
+	}
+
+	// Recalculate cost using the provider model ID for accurate pricing
+	if providerModel != "" && m.pricingCache != nil {
+		costCtx, costCancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer costCancel()
+		if calc, err := m.pricingCache.CalculateCost(costCtx, providerModel, inputTokens, outputTokens); err == nil {
+			actualCost = calc.TotalCost
+		}
+	}
+
 	// Get the actual user who made the request from context
 	actualUserID, hasUser := GetUserID(ctx)
 
 	// Create usage record for queue processing
 	usageRecord := &redisService.UsageRecord{
-		RequestID:    fmt.Sprintf("req_%d", time.Now().UnixNano()),
-		Timestamp:    startTime,
-		Model:        request.Model,
-		Provider:     "pllm-gateway",
+		RequestID:     fmt.Sprintf("req_%d", time.Now().UnixNano()),
+		Timestamp:     startTime,
+		Model:         actualModel,
+		Provider:      actualProvider,
+		RouteSlug:     routeSlug,
+		ProviderModel: providerModel,
 		Method:       "POST",
 		Path:         "/chat/completions",
 		StatusCode:   writer.statusCode,

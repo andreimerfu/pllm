@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Trash2, BarChart3 } from "lucide-react";
 
-import { getRoute, getModels, createRoute, updateRoute, deleteRoute } from "@/lib/api";
-import type { Route, RouteModel, ModelsResponse } from "@/types/api";
+import { getRoute, getModels, createRoute, updateRoute, deleteRoute, getRouteStats } from "@/lib/api";
+import type { Route, RouteModel, ModelsResponse, RouteStatsResponse } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,6 +71,16 @@ export default function RouteDetail() {
   });
 
   const availableModels = ((modelsData as ModelsResponse)?.data || []).map(m => m.id);
+
+  // Traffic distribution stats (only for existing routes)
+  const [statsPeriod, setStatsPeriod] = useState(24);
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: ["routeStats", routeId, statsPeriod],
+    queryFn: () => getRouteStats(routeId!, statsPeriod),
+    enabled: !!routeId,
+    refetchInterval: 30000,
+  });
+  const routeStats = statsData as RouteStatsResponse | undefined;
 
   // Populate form from existing route
   useEffect(() => {
@@ -366,6 +376,90 @@ export default function RouteDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Traffic Distribution — only for existing routes */}
+      {!isNew && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Traffic Distribution
+            </CardTitle>
+            <div className="flex items-center gap-1">
+              {[
+                { label: "1h", value: 1 },
+                { label: "24h", value: 24 },
+                { label: "7d", value: 168 },
+              ].map((p) => (
+                <Button
+                  key={p.value}
+                  variant={statsPeriod === p.value ? "default" : "outline"}
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setStatsPeriod(p.value)}
+                >
+                  {p.label}
+                </Button>
+              ))}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {statsLoading ? (
+              <div className="flex items-center justify-center h-24">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              </div>
+            ) : !routeStats || routeStats.total_requests === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                No traffic recorded for this route yet.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {/* Summary */}
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold">{routeStats.total_requests.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">Requests</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold">{routeStats.total_tokens.toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">Tokens</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold">${routeStats.total_cost.toFixed(4)}</div>
+                    <div className="text-xs text-muted-foreground">Cost</div>
+                  </div>
+                </div>
+
+                {/* Per-model bars + table */}
+                <div className="space-y-2">
+                  {routeStats.models.map((m) => (
+                    <div key={`${m.model}-${m.provider}`} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-medium">{m.model}</span>
+                          <Badge variant="outline" className="text-xs">{m.provider}</Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>{m.requests.toLocaleString()} req</span>
+                          <span>{m.avg_latency}ms</span>
+                          <span>${m.cost.toFixed(4)}</span>
+                          <span className="font-medium text-foreground">{m.percentage}%</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div
+                          className="bg-primary rounded-full h-2 transition-all"
+                          style={{ width: `${m.percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Flow Diagram — full width */}
       <Card>

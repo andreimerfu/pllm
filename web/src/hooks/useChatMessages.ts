@@ -31,10 +31,11 @@ export interface UseChatMessagesOptions {
   selectedModel: string
   temperature: number
   maxTokens: number
+  cacheDisabled?: boolean
 }
 
 export function useChatMessages(options: UseChatMessagesOptions) {
-  const { selectedModel, temperature, maxTokens } = options
+  const { selectedModel, temperature, maxTokens, cacheDisabled } = options
 
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -108,6 +109,7 @@ export function useChatMessages(options: UseChatMessagesOptions) {
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          ...(cacheDisabled ? { 'Cache-Control': 'no-cache' } : {}),
         },
         signal: abortControllerRef.current.signal,
         body: JSON.stringify(requestPayload)

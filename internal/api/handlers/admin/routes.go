@@ -2,9 +2,12 @@ package admin
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/amerfu/pllm/internal/core/models"
 	routeService "github.com/amerfu/pllm/internal/services/integrations/route"
@@ -466,6 +469,121 @@ func (h *RouteHandler) DeleteRoute(w http.ResponseWriter, r *http.Request) {
 
 	h.sendResponse(w, http.StatusOK, map[string]string{
 		"message": "Route deleted successfully",
+	})
+}
+
+// GetRouteStats returns traffic distribution stats for a route.
+func (h *RouteHandler) GetRouteStats(w http.ResponseWriter, r *http.Request) {
+	routeID := chi.URLParam(r, "routeID")
+	if routeID == "" {
+		h.sendError(w, http.StatusBadRequest, "route ID is required")
+		return
+	}
+
+	// Resolve route slug
+	var slug string
+	if id, err := uuid.Parse(routeID); err == nil {
+		// User route — look up slug from DB
+		route, err := h.service.GetByID(id)
+		if err != nil {
+			h.sendError(w, http.StatusNotFound, "Route not found")
+			return
+		}
+		slug = route.Slug
+	} else {
+		// System route — the ID is the slug
+		if _, exists := h.modelManager.ResolveRoute(routeID); !exists {
+			h.sendError(w, http.StatusNotFound, "Route not found")
+			return
+		}
+		slug = routeID
+	}
+
+	// Parse time range (default 24 hours)
+	hours := 24
+	if h := r.URL.Query().Get("hours"); h != "" {
+		if parsed, err := strconv.Atoi(h); err == nil && parsed > 0 {
+			hours = parsed
+		}
+	}
+	since := time.Now().Add(-time.Duration(hours) * time.Hour)
+
+	if h.db == nil {
+		h.sendResponse(w, http.StatusOK, map[string]interface{}{
+			"total_requests": 0,
+			"total_tokens":   0,
+			"total_cost":     0,
+			"models":         []interface{}{},
+		})
+		return
+	}
+
+	// Query usage_logs grouped by model/provider
+	type modelStat struct {
+		Model      string  `json:"model"`
+		Provider   string  `json:"provider"`
+		Requests   int64   `json:"requests"`
+		Tokens     int64   `json:"tokens"`
+		Cost       float64 `json:"cost"`
+		AvgLatency float64 `json:"avg_latency"`
+	}
+	var stats []modelStat
+
+	err := h.db.Table("usage_logs").
+		Select("model, provider, COUNT(*) as requests, COALESCE(SUM(total_tokens), 0) as tokens, COALESCE(SUM(total_cost), 0) as cost, COALESCE(AVG(latency), 0) as avg_latency").
+		Where("route_slug = ? AND timestamp >= ?", slug, since).
+		Group("model, provider").
+		Order("requests DESC").
+		Find(&stats).Error
+
+	if err != nil {
+		h.logger.Error("Failed to query route stats", zap.Error(err))
+		h.sendError(w, http.StatusInternalServerError, "Failed to query route stats")
+		return
+	}
+
+	// Calculate totals and percentages
+	var totalRequests int64
+	var totalTokens int64
+	var totalCost float64
+	for _, s := range stats {
+		totalRequests += s.Requests
+		totalTokens += s.Tokens
+		totalCost += s.Cost
+	}
+
+	type modelStatResponse struct {
+		Model      string  `json:"model"`
+		Provider   string  `json:"provider"`
+		Requests   int64   `json:"requests"`
+		Tokens     int64   `json:"tokens"`
+		Cost       float64 `json:"cost"`
+		AvgLatency float64 `json:"avg_latency"`
+		Percentage float64 `json:"percentage"`
+	}
+
+	modelStats := make([]modelStatResponse, 0, len(stats))
+	for _, s := range stats {
+		pct := 0.0
+		if totalRequests > 0 {
+			pct = math.Round(float64(s.Requests)/float64(totalRequests)*10000) / 100
+		}
+		modelStats = append(modelStats, modelStatResponse{
+			Model:      s.Model,
+			Provider:   s.Provider,
+			Requests:   s.Requests,
+			Tokens:     s.Tokens,
+			Cost:       s.Cost,
+			AvgLatency: math.Round(s.AvgLatency),
+			Percentage: pct,
+		})
+	}
+
+	h.sendResponse(w, http.StatusOK, map[string]interface{}{
+		"total_requests": totalRequests,
+		"total_tokens":   totalTokens,
+		"total_cost":     totalCost,
+		"models":         modelStats,
 	})
 }
 

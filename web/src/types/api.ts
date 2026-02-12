@@ -318,3 +318,20 @@ export interface AuditLogsResponse {
   offset: number;
   has_more: boolean;
 }
+
+export interface RouteModelStats {
+  model: string;
+  provider: string;
+  requests: number;
+  tokens: number;
+  cost: number;
+  avg_latency: number;
+  percentage: number;
+}
+
+export interface RouteStatsResponse {
+  total_requests: number;
+  total_tokens: number;
+  total_cost: number;
+  models: RouteModelStats[];
+}

@@ -136,6 +136,20 @@ func (h *ChatHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			zap.Strings("failovers", result.Failovers))
 	}
 
+	// Populate resolved model info in MetricsContext for usage tracking
+	if result.Instance != nil {
+		routeSlug := ""
+		if _, isRoute := h.modelManager.ResolveRoute(request.Model); isRoute {
+			routeSlug = request.Model
+		}
+		middleware.SetResolvedModel(r.Context(),
+			result.Instance.Config.ModelName,
+			result.Instance.Config.Provider.Model,
+			result.Instance.Config.Provider.Type,
+			routeSlug,
+		)
+	}
+
 	// Check if this is a streaming request
 	if responseMap, ok := result.Response.(map[string]interface{}); ok {
 		if isStreaming, exists := responseMap["__streaming__"]; exists && isStreaming == true {
@@ -177,12 +191,8 @@ func (h *ChatHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ChatHandler) handleStreamingChat(w http.ResponseWriter, r *http.Request, request *providers.ChatRequest, instance *models.ModelInstance, startTime time.Time) {
-	// Populate metrics context if available
-	if metricsCtx, ok := r.Context().Value(middleware.MetricsContextKey).(*middleware.MetricsContext); ok && metricsCtx != nil {
-		metricsCtx.ModelName = request.Model
-		// Extract user/team info from auth context if available
-		// These will be populated by the auth middleware in the context
-	}
+	// Note: MetricsContext.ModelName is already set in ChatCompletions with the original request model.
+	// Do NOT overwrite it here — request.Model is the provider model name at this point.
 
 	// Debug: write type to header
 	w.Header().Set("X-Debug-Writer-Type", fmt.Sprintf("%T", w))

@@ -223,10 +223,10 @@ export default function ModelsCards({ models, onEdit, onDelete }: ModelsCardsPro
                   </div>
                 )}
 
-                {/* Edit/Delete actions for user models */}
-                {model.source === "user" && (onEdit || onDelete) && (
+                {/* Edit/Delete actions */}
+                {(onEdit || onDelete) && (
                   <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
-                    {onEdit && (
+                    {onEdit && model.source === "user" && (
                       <Button
                         variant="outline"
                         size="sm"

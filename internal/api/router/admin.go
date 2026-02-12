@@ -200,6 +200,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Get("/{routeID}", routeHandler.GetRoute)
 			r.Put("/{routeID}", routeHandler.UpdateRoute)
 			r.Delete("/{routeID}", routeHandler.DeleteRoute)
+			r.Get("/{routeID}/stats", routeHandler.GetRouteStats)
 		})
 	})
 

@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Settings, Activity, DollarSign, Zap, Clock, AlertCircle, CheckCircle, XCircle, Loader2, Lock } from "lucide-react";
+import { ExternalLink, Settings, Activity, DollarSign, Zap, Clock, AlertCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -321,29 +321,24 @@ export default function ModelDetail() {
             {getHealthIcon(health.status)}
             {health.status}
           </Badge>
-          {adminModel?.source === "user" ? (
-            <>
-              <EditModelDialog model={adminModel} trigger={
-                <Button variant="outline" size="sm">
-                  <Settings className="h-4 w-4 mr-1" />
-                  Edit
+          {adminModel?.source === "user" && (
+            <EditModelDialog model={adminModel} trigger={
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+            } />
+          )}
+          {adminModel && (
+            <DeleteModelDialog
+              modelId={adminModel.id}
+              modelName={adminModel.model_name}
+              trigger={
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                  Delete
                 </Button>
-              } />
-              <DeleteModelDialog
-                modelId={adminModel.id}
-                modelName={adminModel.model_name}
-                trigger={
-                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-                    Delete
-                  </Button>
-                }
-              />
-            </>
-          ) : (
-            <Button variant="outline" size="sm" disabled>
-              <Lock className="h-4 w-4 mr-1" />
-              Read-only
-            </Button>
+              }
+            />
           )}
         </div>
       </div>

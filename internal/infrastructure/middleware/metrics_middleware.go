@@ -26,12 +26,16 @@ func NewAsyncMetricsMiddleware(emitter *metrics.MetricEventEmitter, logger *zap.
 
 // MetricsContext holds request context for metrics
 type MetricsContext struct {
-	RequestID string
-	StartTime time.Time
-	ModelName string
-	UserID    string
-	TeamID    string
-	KeyID     string
+	RequestID     string
+	StartTime     time.Time
+	ModelName     string
+	UserID        string
+	TeamID        string
+	KeyID         string
+	ResolvedModel string // Actual model name after route resolution (e.g., "gpt-4o-41")
+	ProviderModel string // Provider's model ID (e.g., "gpt-4o") — for pricing lookups
+	ProviderType  string // Provider type (e.g., "openai", "anthropic")
+	RouteSlug     string // Route slug if request came through a route; empty otherwise
 }
 
 // ContextKey is the type for context keys
@@ -197,6 +201,16 @@ func EmitRequestEvent(ctx context.Context, emitter *metrics.MetricEventEmitter) 
 			metricsCtx.KeyID,
 			metricsCtx.RequestID,
 		)
+	}
+}
+
+// SetResolvedModel sets the resolved model information in metrics context
+func SetResolvedModel(ctx context.Context, resolvedModel, providerModel, providerType, routeSlug string) {
+	if metricsCtx := GetMetricsContext(ctx); metricsCtx != nil {
+		metricsCtx.ResolvedModel = resolvedModel
+		metricsCtx.ProviderModel = providerModel
+		metricsCtx.ProviderType = providerType
+		metricsCtx.RouteSlug = routeSlug
 	}
 }
 

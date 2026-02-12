@@ -130,6 +130,8 @@ function RightSidebar({
   setTemperature,
   maxTokens,
   setMaxTokens,
+  cacheDisabled,
+  setCacheDisabled,
   isCollapsed,
   onToggle,
   availableModels,
@@ -143,6 +145,8 @@ function RightSidebar({
   setTemperature: (temp: number) => void
   maxTokens: number
   setMaxTokens: (tokens: number) => void
+  cacheDisabled: boolean
+  setCacheDisabled: (disabled: boolean) => void
   isCollapsed: boolean
   onToggle: () => void
   availableModels: any[]
@@ -221,6 +225,18 @@ function RightSidebar({
                 min={100}
                 step={100}
                 className="w-full"
+              />
+            </div>
+
+            {/* Disable Cache */}
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium">Disable Cache</label>
+                <p className="text-xs text-muted-foreground">Get fresh responses every time</p>
+              </div>
+              <Switch
+                checked={cacheDisabled}
+                onCheckedChange={setCacheDisabled}
               />
             </div>
 
@@ -635,6 +651,7 @@ export default function Chat() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true) // Start collapsed on mobile
   const [availableModels, setAvailableModels] = useState<any[]>([])
   const [currentAttachments, setCurrentAttachments] = useState<UploadedFile[]>([])
+  const [cacheDisabled, setCacheDisabled] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -643,6 +660,7 @@ export default function Chat() {
     selectedModel,
     temperature,
     maxTokens,
+    cacheDisabled,
   })
 
   const { conversations, searchQuery, setSearchQuery } = useChatConversations()
@@ -887,6 +905,8 @@ export default function Chat() {
         setTemperature={setTemperature}
         maxTokens={maxTokens}
         setMaxTokens={setMaxTokens}
+        cacheDisabled={cacheDisabled}
+        setCacheDisabled={setCacheDisabled}
         isCollapsed={isSidebarCollapsed}
         onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         availableModels={availableModels}

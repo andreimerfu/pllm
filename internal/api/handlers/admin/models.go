@@ -415,7 +415,7 @@ func (h *ModelCRUDHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 	h.sendResponse(w, http.StatusOK, updated)
 }
 
-// DeleteModel deletes a user model. Returns 403 for system models.
+// DeleteModel deletes a model (user or system) from the registry and database.
 func (h *ModelCRUDHandler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 	modelID := chi.URLParam(r, "modelID")
 	if modelID == "" {
@@ -423,21 +423,16 @@ func (h *ModelCRUDHandler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if it's a UUID (user model)
-	id, err := uuid.Parse(modelID)
-	if err != nil {
-		// Not a UUID - must be a system model
-		h.sendError(w, http.StatusForbidden, "System models are managed via config.yaml")
-		return
+	// Try as UUID first (user model stored in DB)
+	if id, err := uuid.Parse(modelID); err == nil {
+		// Delete from DB
+		if err := h.service.DeleteUserModel(id); err != nil {
+			h.sendError(w, http.StatusNotFound, "Model not found: "+err.Error())
+			return
+		}
 	}
 
-	// Delete from DB
-	if err := h.service.DeleteUserModel(id); err != nil {
-		h.sendError(w, http.StatusNotFound, "Model not found: "+err.Error())
-		return
-	}
-
-	// Remove from registry
+	// Remove from registry (works for both user and system models)
 	if err := h.modelManager.RemoveInstance(modelID); err != nil {
 		h.logger.Warn("Failed to remove model from registry",
 			zap.String("id", modelID),

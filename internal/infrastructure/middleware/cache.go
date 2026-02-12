@@ -82,6 +82,13 @@ func (m *CacheMiddleware) Handler(next http.Handler) http.Handler {
 			return
 		}
 
+		// Honor Cache-Control: no-cache or X-No-Cache header
+		if r.Header.Get("Cache-Control") == "no-cache" || r.Header.Get("X-No-Cache") == "true" {
+			w.Header().Set("X-Cache", "BYPASS")
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Check if this is a streaming request early
 		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/chat/completions") {
 			// Quick check for streaming without consuming body

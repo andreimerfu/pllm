@@ -105,13 +105,14 @@ func (m *ModelPricingInfo) UnmarshalJSON(data []byte) error {
 
 // ModelPricingManager handles model pricing information with override support
 type ModelPricingManager struct {
-	mu             sync.RWMutex
-	defaultPricing map[string]*ModelPricingInfo // From JSON file
+	mu              sync.RWMutex
+	defaultPricing  map[string]*ModelPricingInfo // From JSON file
 	configOverrides map[string]*ModelPricingInfo // From config.yaml
 	dbOverrides     map[string]*ModelPricingInfo // From database
-	jsonFilePath   string
-	lastJSONLoad   time.Time
-	dbRepo         ModelPricingRepository // Database repository interface
+	providerModelMap map[string]string           // Maps user-facing model name → provider model ID
+	jsonFilePath    string
+	lastJSONLoad    time.Time
+	dbRepo          ModelPricingRepository // Database repository interface
 }
 
 // ModelPricingRepository interface for database operations
@@ -132,9 +133,10 @@ var (
 func GetPricingManager() *ModelPricingManager {
 	pricingOnce.Do(func() {
 		pricingManager = &ModelPricingManager{
-			defaultPricing:  make(map[string]*ModelPricingInfo),
-			configOverrides: make(map[string]*ModelPricingInfo),
-			dbOverrides:     make(map[string]*ModelPricingInfo),
+			defaultPricing:   make(map[string]*ModelPricingInfo),
+			configOverrides:  make(map[string]*ModelPricingInfo),
+			dbOverrides:      make(map[string]*ModelPricingInfo),
+			providerModelMap: make(map[string]string),
 		}
 	})
 	return pricingManager
@@ -206,6 +208,11 @@ func (pm *ModelPricingManager) AddConfigOverrides(modelInstances []ModelInstance
 	defer pm.mu.Unlock()
 	
 	for _, instance := range modelInstances {
+		// Store mapping from user-facing model name to provider model ID
+		if instance.Provider.Model != "" && instance.ModelName != instance.Provider.Model {
+			pm.providerModelMap[instance.ModelName] = instance.Provider.Model
+		}
+
 		// Check if this instance has custom pricing
 		if instance.InputCostPerToken > 0 || instance.OutputCostPerToken > 0 {
 			// Create override pricing info
@@ -281,7 +288,28 @@ func (pm *ModelPricingManager) GetPricingForTeam(modelName string, teamID *uint)
 	if info, exists := pm.defaultPricing[modelName]; exists {
 		return info
 	}
-	
+
+	// Fallback: try looking up by provider model ID if user-facing name differs
+	if providerModel, ok := pm.providerModelMap[modelName]; ok && providerModel != modelName {
+		if pm.dbRepo != nil {
+			if dbInfo, err := pm.dbRepo.GetEffectivePricing(providerModel, teamID); err == nil {
+				return dbInfo
+			}
+		}
+		if info, exists := pm.dbOverrides[providerModel]; exists {
+			return info
+		}
+		if info, exists := pm.configOverrides[providerModel]; exists {
+			if defaultInfo, hasDefault := pm.defaultPricing[providerModel]; hasDefault {
+				return pm.mergeWithDefault(info, defaultInfo)
+			}
+			return info
+		}
+		if info, exists := pm.defaultPricing[providerModel]; exists {
+			return info
+		}
+	}
+
 	// Model not found
 	return nil
 }

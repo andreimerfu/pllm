@@ -1,5 +1,5 @@
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown, MoreHorizontal, TrendingUp, Activity, Pencil, Trash2, Lock } from "lucide-react";
+import { ArrowUpDown, MoreHorizontal, TrendingUp, Activity, Pencil, Trash2 } from "lucide-react";
 import { Icon } from "@iconify/react";
 
 import { Button } from "@/components/ui/button";
@@ -263,26 +263,19 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem>View details</DropdownMenuItem>
-            {isUserModel ? (
-              <>
-                <DropdownMenuItem onClick={() => meta?.onEdit?.(model)}>
-                  <Pencil className="h-3 w-3 mr-2" />
-                  Edit model
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => meta?.onDelete?.(model)}
-                >
-                  <Trash2 className="h-3 w-3 mr-2" />
-                  Delete model
-                </DropdownMenuItem>
-              </>
-            ) : (
-              <DropdownMenuItem disabled>
-                <Lock className="h-3 w-3 mr-2" />
-                System (read-only)
+            {isUserModel && (
+              <DropdownMenuItem onClick={() => meta?.onEdit?.(model)}>
+                <Pencil className="h-3 w-3 mr-2" />
+                Edit model
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => meta?.onDelete?.(model)}
+            >
+              <Trash2 className="h-3 w-3 mr-2" />
+              Delete model
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       );
