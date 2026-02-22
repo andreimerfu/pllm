@@ -19,7 +19,6 @@ import {
   BookOpen,
   Github,
   LogOut,
-  Activity,
   ChevronsUpDown,
   FileText,
   Shield,
@@ -211,9 +210,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <Activity className="size-4" />
-              </div>
+              <img src={`${import.meta.env.BASE_URL}robot.png`} alt="pLLM" className="size-8 rounded-lg" />
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">pLLM</span>
                 <span className="truncate text-xs">AI Model Router</span>
