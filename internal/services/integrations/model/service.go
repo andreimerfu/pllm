@@ -136,6 +136,7 @@ func (s *Service) ConvertToModelInstance(um models.UserModel) config.ModelInstan
 		AWSRegionName:      um.ProviderConfig.AWSRegionName,
 		VertexProject:      um.ProviderConfig.VertexProject,
 		VertexLocation:     um.ProviderConfig.VertexLocation,
+		ReasoningEffort:    um.ProviderConfig.ReasoningEffort,
 	}
 
 	modelInfo := config.ModelInfo{

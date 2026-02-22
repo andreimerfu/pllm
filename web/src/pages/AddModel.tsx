@@ -37,6 +37,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { createModel, testModelConnection } from "@/lib/api";
 import type { CreateModelRequest, ProviderConfig } from "@/types/api";
@@ -160,6 +167,7 @@ export default function AddModel() {
   const [outputCost, setOutputCost] = useState("");
   const [timeoutSeconds, setTimeoutSeconds] = useState("");
   const [tags, setTags] = useState("");
+  const [defaultReasoningEffort, setDefaultReasoningEffort] = useState("");
 
   // Test connection state
   const [testResult, setTestResult] = useState<{
@@ -242,6 +250,7 @@ export default function AddModel() {
 
     const provider = buildProviderConfig();
     provider.model = providerModel;
+    if (defaultReasoningEffort) provider.reasoning_effort = defaultReasoningEffort;
 
     const request: CreateModelRequest = {
       model_name: modelName,
@@ -837,6 +846,27 @@ export default function AddModel() {
                       />
                       <p className="text-xs text-muted-foreground mt-1">
                         Comma-separated labels for filtering and grouping
+                      </p>
+                    </div>
+
+                    {/* Default Reasoning Effort */}
+                    <div>
+                      <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
+                        <Sparkles className="h-4 w-4" />
+                        Default Reasoning Effort
+                      </h4>
+                      <Select value={defaultReasoningEffort} onValueChange={setDefaultReasoningEffort}>
+                        <SelectTrigger className="max-w-md">
+                          <SelectValue placeholder="None (use provider default)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Default reasoning effort for reasoning models (o1, o3, GPT-5, etc.). Applied when callers don't specify one.
                       </p>
                     </div>
                   </CardContent>

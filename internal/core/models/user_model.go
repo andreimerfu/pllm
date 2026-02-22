@@ -72,6 +72,7 @@ type ProviderConfigJSON struct {
 	AWSRegionName      string `json:"aws_region_name,omitempty"`
 	VertexProject      string `json:"vertex_project,omitempty"`
 	VertexLocation     string `json:"vertex_location,omitempty"`
+	ReasoningEffort    string `json:"reasoning_effort,omitempty"`
 }
 
 // Scan implements the sql.Scanner interface for JSONB

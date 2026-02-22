@@ -56,6 +56,7 @@ type ChatRequest struct {
 	Seed             *int            `json:"seed,omitempty"`
 	Tools            []Tool          `json:"tools,omitempty"`
 	ToolChoice       interface{}     `json:"tool_choice,omitempty"`
+	ReasoningEffort  *string         `json:"reasoning_effort,omitempty"`
 }
 
 type Message struct {

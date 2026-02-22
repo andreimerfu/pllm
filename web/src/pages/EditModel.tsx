@@ -36,6 +36,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { getAdminModels, updateModel, testModelConnection } from "@/lib/api";
 import type { UpdateModelRequest, ProviderConfig, AdminModel, AdminModelsResponse } from "@/types/api";
@@ -83,6 +90,7 @@ export default function EditModel() {
   const [outputCost, setOutputCost] = useState("");
   const [timeoutSeconds, setTimeoutSeconds] = useState("");
   const [tags, setTags] = useState("");
+  const [defaultReasoningEffort, setDefaultReasoningEffort] = useState("");
 
   // Fetch admin models to find the one we're editing
   const { data: adminModelsData, isLoading } = useQuery({
@@ -116,6 +124,7 @@ export default function EditModel() {
       setOutputCost(adminModel.output_cost_per_token ? String(adminModel.output_cost_per_token) : "");
       setTimeoutSeconds(adminModel.timeout_seconds ? String(adminModel.timeout_seconds) : "");
       setTags(adminModel.tags?.join(", ") || "");
+      setDefaultReasoningEffort(adminModel.provider?.reasoning_effort || "");
       setSupportsStreaming(adminModel.model_info?.supports_streaming ?? true);
       setSupportsVision(adminModel.model_info?.supports_vision ?? false);
       setSupportsFunctions(adminModel.model_info?.supports_functions ?? true);
@@ -211,6 +220,7 @@ export default function EditModel() {
 
     const provider = buildProviderConfig();
     provider.model = providerModel;
+    if (defaultReasoningEffort) provider.reasoning_effort = defaultReasoningEffort;
 
     const request: UpdateModelRequest = {
       model_name: modelName,
@@ -594,6 +604,22 @@ export default function EditModel() {
                 <div>
                   <h4 className="text-sm font-medium flex items-center gap-2 mb-3"><Tag className="h-4 w-4" />Tags</h4>
                   <Input placeholder="production, fast, custom" value={tags} onChange={(e) => setTags(e.target.value)} className="max-w-md" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium flex items-center gap-2 mb-3"><Sparkles className="h-4 w-4" />Default Reasoning Effort</h4>
+                  <Select value={defaultReasoningEffort} onValueChange={setDefaultReasoningEffort}>
+                    <SelectTrigger className="max-w-md">
+                      <SelectValue placeholder="None (use provider default)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Default reasoning effort for reasoning models (o1, o3, GPT-5, etc.)
+                  </p>
                 </div>
               </CardContent>
             </CollapsibleContent>

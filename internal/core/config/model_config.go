@@ -82,6 +82,9 @@ type ProviderParams struct {
 	// Vertex AI specific
 	VertexProject  string `mapstructure:"vertex_project" json:"vertex_project"`
 	VertexLocation string `mapstructure:"vertex_location" json:"vertex_location"`
+
+	// Reasoning model defaults
+	ReasoningEffort string `mapstructure:"reasoning_effort" json:"reasoning_effort,omitempty"`
 }
 
 // ModelInfo contains model capabilities and metadata

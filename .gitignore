@@ -178,3 +178,4 @@ node_modules/
 
 deploy/k8s/
 deploy/helm/values.prod.yaml
+server

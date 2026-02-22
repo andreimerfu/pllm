@@ -12,6 +12,7 @@ import { Card, CardContent } from '../components/ui/card'
 import { Avatar, AvatarFallback } from '../components/ui/avatar'
 import { Switch } from '../components/ui/switch'
 import { Slider } from '../components/ui/slider'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Separator } from '../components/ui/separator'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip'
 import { toast } from '../components/ui/use-toast'
@@ -130,6 +131,8 @@ function RightSidebar({
   setTemperature,
   maxTokens,
   setMaxTokens,
+  reasoningEffort,
+  setReasoningEffort,
   cacheDisabled,
   setCacheDisabled,
   isCollapsed,
@@ -145,6 +148,8 @@ function RightSidebar({
   setTemperature: (temp: number) => void
   maxTokens: number
   setMaxTokens: (tokens: number) => void
+  reasoningEffort: string
+  setReasoningEffort: (effort: string) => void
   cacheDisabled: boolean
   setCacheDisabled: (disabled: boolean) => void
   isCollapsed: boolean
@@ -226,6 +231,23 @@ function RightSidebar({
                 step={100}
                 className="w-full"
               />
+            </div>
+
+            {/* Reasoning Effort */}
+            <div>
+              <label className="text-sm font-medium mb-3 block">Reasoning Effort</label>
+              <Select value={reasoningEffort} onValueChange={setReasoningEffort}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Default" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">For reasoning models (o1, o3, GPT-5, etc.)</p>
             </div>
 
             {/* Disable Cache */}
@@ -651,6 +673,7 @@ export default function Chat() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true) // Start collapsed on mobile
   const [availableModels, setAvailableModels] = useState<any[]>([])
   const [currentAttachments, setCurrentAttachments] = useState<UploadedFile[]>([])
+  const [reasoningEffort, setReasoningEffort] = useState('')
   const [cacheDisabled, setCacheDisabled] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -661,6 +684,7 @@ export default function Chat() {
     temperature,
     maxTokens,
     cacheDisabled,
+    reasoningEffort: reasoningEffort || undefined,
   })
 
   const { conversations, searchQuery, setSearchQuery } = useChatConversations()
@@ -905,6 +929,8 @@ export default function Chat() {
         setTemperature={setTemperature}
         maxTokens={maxTokens}
         setMaxTokens={setMaxTokens}
+        reasoningEffort={reasoningEffort}
+        setReasoningEffort={setReasoningEffort}
         cacheDisabled={cacheDisabled}
         setCacheDisabled={setCacheDisabled}
         isCollapsed={isSidebarCollapsed}

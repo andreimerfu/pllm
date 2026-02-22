@@ -32,10 +32,11 @@ export interface UseChatMessagesOptions {
   temperature: number
   maxTokens: number
   cacheDisabled?: boolean
+  reasoningEffort?: string
 }
 
 export function useChatMessages(options: UseChatMessagesOptions) {
-  const { selectedModel, temperature, maxTokens, cacheDisabled } = options
+  const { selectedModel, temperature, maxTokens, cacheDisabled, reasoningEffort } = options
 
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -99,7 +100,8 @@ export function useChatMessages(options: UseChatMessagesOptions) {
         ],
         temperature: temperature,
         max_tokens: maxTokens,
-        stream: true
+        stream: true,
+        ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {})
       }
 
       console.log('Sending request:', JSON.stringify(requestPayload, null, 2))

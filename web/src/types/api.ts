@@ -82,6 +82,7 @@ export interface ProviderConfig {
   aws_region_name?: string;
   vertex_project?: string;
   vertex_location?: string;
+  reasoning_effort?: string;
 }
 
 export interface ModelInfoConfig {

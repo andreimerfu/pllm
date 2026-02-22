@@ -262,6 +262,10 @@ func (p *AzureProvider) transformRequest(request *ChatRequest) map[string]interf
 		azureReq["user"] = request.User
 	}
 
+	if request.ReasoningEffort != nil {
+		azureReq["reasoning_effort"] = *request.ReasoningEffort
+	}
+
 	return azureReq
 }
 

@@ -91,6 +91,12 @@ func (h *ChatHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 			providerRequest := request
 			providerRequest.Model = instance.Config.Provider.Model
 
+			// Apply model default reasoning_effort if not set by caller
+			if providerRequest.ReasoningEffort == nil && instance.Config.Provider.ReasoningEffort != "" {
+				effort := instance.Config.Provider.ReasoningEffort
+				providerRequest.ReasoningEffort = &effort
+			}
+
 			// Handle streaming separately
 			if request.Stream {
 				// For streaming, we return a special marker that tells the handler to stream

@@ -347,14 +347,6 @@ func (h *ModelCRUDHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate provider config if provider type is being updated
-	if req.Provider.Type != "" {
-		if err := validateProviderConfig(req.Provider); err != nil {
-			h.sendError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-	}
-
 	// Build updates map
 	updates := map[string]interface{}{}
 	if req.ModelName != "" {
@@ -364,7 +356,63 @@ func (h *ModelCRUDHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		updates["instance_name"] = req.InstanceName
 	}
 	if req.Provider.Type != "" {
-		updates["provider_config"] = req.Provider
+		// Merge with existing provider config to preserve secrets that
+		// aren't being changed. The frontend sends empty strings for
+		// masked fields (API keys, etc.) — keep the existing value.
+		merged := existing.ProviderConfig
+		merged.Type = req.Provider.Type
+		if req.Provider.Model != "" {
+			merged.Model = req.Provider.Model
+		}
+		if req.Provider.APIKey != "" {
+			merged.APIKey = req.Provider.APIKey
+		}
+		if req.Provider.APISecret != "" {
+			merged.APISecret = req.Provider.APISecret
+		}
+		if req.Provider.BaseURL != "" {
+			merged.BaseURL = req.Provider.BaseURL
+		}
+		if req.Provider.APIVersion != "" {
+			merged.APIVersion = req.Provider.APIVersion
+		}
+		if req.Provider.OrgID != "" {
+			merged.OrgID = req.Provider.OrgID
+		}
+		if req.Provider.ProjectID != "" {
+			merged.ProjectID = req.Provider.ProjectID
+		}
+		if req.Provider.Region != "" {
+			merged.Region = req.Provider.Region
+		}
+		if req.Provider.Location != "" {
+			merged.Location = req.Provider.Location
+		}
+		if req.Provider.AzureDeployment != "" {
+			merged.AzureDeployment = req.Provider.AzureDeployment
+		}
+		if req.Provider.AzureEndpoint != "" {
+			merged.AzureEndpoint = req.Provider.AzureEndpoint
+		}
+		if req.Provider.AWSAccessKeyID != "" {
+			merged.AWSAccessKeyID = req.Provider.AWSAccessKeyID
+		}
+		if req.Provider.AWSSecretAccessKey != "" {
+			merged.AWSSecretAccessKey = req.Provider.AWSSecretAccessKey
+		}
+		if req.Provider.AWSRegionName != "" {
+			merged.AWSRegionName = req.Provider.AWSRegionName
+		}
+		if req.Provider.VertexProject != "" {
+			merged.VertexProject = req.Provider.VertexProject
+		}
+		if req.Provider.VertexLocation != "" {
+			merged.VertexLocation = req.Provider.VertexLocation
+		}
+		if req.Provider.ReasoningEffort != "" {
+			merged.ReasoningEffort = req.Provider.ReasoningEffort
+		}
+		updates["provider_config"] = merged
 	}
 	if req.ModelInfo.Mode != "" || req.ModelInfo.SupportsStreaming || req.ModelInfo.SupportsFunctions || req.ModelInfo.SupportsVision {
 		updates["model_info_config"] = req.ModelInfo
@@ -491,6 +539,7 @@ func convertProviderConfigToParams(p models.ProviderConfigJSON) config.ProviderP
 		AWSRegionName:      p.AWSRegionName,
 		VertexProject:      p.VertexProject,
 		VertexLocation:     p.VertexLocation,
+		ReasoningEffort:    p.ReasoningEffort,
 	}
 }
 
