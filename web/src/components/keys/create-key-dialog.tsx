@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { Plus, Users, User } from "lucide-react"
+import { Icon } from "@iconify/react"
+import { icons } from "@/lib/icons"
 import { Button } from "../ui/button"
 import {
   Dialog,
@@ -106,7 +107,7 @@ export function CreateKeyDialog({ isAdmin, userTeams, onCreateKey }: CreateKeyDi
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="mr-2 h-4 w-4" />
+          <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
           {isAdmin ? 'Generate Key' : 'Create API Key'}
         </Button>
       </DialogTrigger>
@@ -146,13 +147,13 @@ export function CreateKeyDialog({ isAdmin, userTeams, onCreateKey }: CreateKeyDi
                   <SelectContent>
                     <SelectItem value="user">
                       <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
+                        <Icon icon={icons.user} className="h-4 w-4" />
                         User Key
                       </div>
                     </SelectItem>
                     <SelectItem value="team">
                       <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
+                        <Icon icon={icons.teams} className="h-4 w-4" />
                         Team Key
                       </div>
                     </SelectItem>
@@ -178,14 +179,14 @@ export function CreateKeyDialog({ isAdmin, userTeams, onCreateKey }: CreateKeyDi
                   <SelectContent>
                     <SelectItem value="personal">
                       <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
+                        <Icon icon={icons.user} className="h-4 w-4" />
                         Personal Key
                       </div>
                     </SelectItem>
                     {userTeams.map((team) => (
                       <SelectItem key={team.id} value={team.id}>
                         <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4" />
+                          <Icon icon={icons.teams} className="h-4 w-4" />
                           {team.name} Team
                         </div>
                       </SelectItem>

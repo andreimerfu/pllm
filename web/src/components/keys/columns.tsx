@@ -1,7 +1,8 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, Copy, Eye, EyeOff, MoreHorizontal, Power, Trash2, RotateCw } from "lucide-react"
+import { Icon } from "@iconify/react"
+import { icons } from "@/lib/icons"
 import { Button } from "../ui/button"
 import { Badge } from "../ui/badge"
 import { Progress } from "../ui/progress"
@@ -82,8 +83,8 @@ const KeyCell = ({ keyValue, keyPrefix }: { keyValue?: string, keyPrefix?: strin
   }
 
   return (
-    <div className="flex items-center gap-2 font-mono text-sm">
-      <code className="bg-muted px-2 py-1 rounded">
+    <div className="flex items-center gap-2">
+      <code className="font-mono text-[11px] text-muted-foreground">
         {showKey && keyValue ? keyValue : `****${keyPrefix || 'xxxx'}`}
       </code>
       <Button
@@ -92,7 +93,7 @@ const KeyCell = ({ keyValue, keyPrefix }: { keyValue?: string, keyPrefix?: strin
         onClick={() => setShowKey(!showKey)}
         className="h-6 w-6 p-0"
       >
-        {showKey ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+        <Icon icon={showKey ? icons.eyeOff : icons.eye} className="h-3 w-3" />
       </Button>
       <Button
         variant="ghost"
@@ -101,7 +102,7 @@ const KeyCell = ({ keyValue, keyPrefix }: { keyValue?: string, keyPrefix?: strin
         onClick={copyKey}
         className="h-6 w-6 p-0"
       >
-        <Copy className="h-3 w-3" />
+        <Icon icon={icons.copy} className="h-3 w-3" />
       </Button>
     </div>
   )
@@ -173,7 +174,7 @@ export const createColumns = (
           className="h-8 px-2 lg:px-3"
         >
           Name
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <Icon icon={icons.arrowUpDown} className="ml-2 h-4 w-4" />
         </Button>
       )
     },
@@ -217,7 +218,7 @@ export const createColumns = (
           className="h-8 px-2 lg:px-3"
         >
           Usage
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <Icon icon={icons.arrowUpDown} className="ml-2 h-4 w-4" />
         </Button>
       )
     },
@@ -236,7 +237,7 @@ export const createColumns = (
           className="h-8 px-2 lg:px-3"
         >
           Created
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <Icon icon={icons.arrowUpDown} className="ml-2 h-4 w-4" />
         </Button>
       )
     },
@@ -263,7 +264,7 @@ export const createColumns = (
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">
               <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
+              <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -274,7 +275,7 @@ export const createColumns = (
                   navigator.clipboard.writeText(key.key!)
                 }}
               >
-                <Copy className="mr-2 h-4 w-4" />
+                <Icon icon={icons.copy} className="mr-2 h-4 w-4" />
                 Copy key
               </DropdownMenuItem>
             )}
@@ -283,7 +284,7 @@ export const createColumns = (
               <DropdownMenuItem
                 onClick={() => onToggleStatus(key.id, key.is_active)}
               >
-                <Power className="mr-2 h-4 w-4" />
+                <Icon icon={icons.power} className="mr-2 h-4 w-4" />
                 {key.is_active ? 'Disable' : 'Enable'}
               </DropdownMenuItem>
             )}
@@ -292,7 +293,7 @@ export const createColumns = (
                 className="text-destructive"
                 onClick={() => onRevokeKey(key.id)}
               >
-                <RotateCw className="mr-2 h-4 w-4" />
+                <Icon icon={icons.refresh} className="mr-2 h-4 w-4" />
                 Revoke
               </DropdownMenuItem>
             )}
@@ -300,7 +301,7 @@ export const createColumns = (
               className="text-destructive"
               onClick={() => onDeleteKey(key.id, key)}
             >
-              <Trash2 className="mr-2 h-4 w-4" />
+              <Icon icon={icons.delete} className="mr-2 h-4 w-4" />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>

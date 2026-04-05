@@ -13,7 +13,8 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ChevronDown, Filter, Search, X } from "lucide-react"
+import { Icon } from "@iconify/react"
+import { icons } from "@/lib/icons"
 
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
@@ -97,7 +98,7 @@ export function DataTable<TData, TValue>({
         {/* Search */}
         <div className="flex flex-1 items-center space-x-2">
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Icon icon={icons.search} className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search keys..."
               value={globalFilter}
@@ -111,7 +112,7 @@ export function DataTable<TData, TValue>({
                 className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 p-0"
                 onClick={() => setGlobalFilter("")}
               >
-                <X className="h-3 w-3" />
+                <Icon icon={icons.close} className="h-3 w-3" />
               </Button>
             )}
           </div>
@@ -123,7 +124,7 @@ export function DataTable<TData, TValue>({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="border-dashed">
-                <Filter className="mr-2 h-4 w-4" />
+                <Icon icon={icons.filter} className="mr-2 h-4 w-4" />
                 Status
                 {statusFilter && statusFilter.length > 0 && (
                   <Badge variant="secondary" className="ml-2 h-5 px-1 text-xs">
@@ -161,7 +162,7 @@ export function DataTable<TData, TValue>({
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
                 Columns
-                <ChevronDown className="ml-2 h-4 w-4" />
+                <Icon icon={icons.chevronDown} className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
@@ -194,7 +195,7 @@ export function DataTable<TData, TValue>({
                 table.resetColumnFilters()
               }}
             >
-              <X className="mr-2 h-4 w-4" />
+              <Icon icon={icons.close} className="mr-2 h-4 w-4" />
               Clear
             </Button>
           )}
