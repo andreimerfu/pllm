@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
 
 export default function Callback() {
   useEffect(() => {
@@ -13,7 +14,7 @@ export default function Callback() {
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="flex flex-col items-center space-y-4">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Icon icon={icons.loader} className="h-8 w-8 animate-spin" />
         <p className="text-lg">Completing login...</p>
         <p className="text-sm text-muted-foreground">Processing authentication...</p>
       </div>

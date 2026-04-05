@@ -92,7 +92,6 @@ function RouteModelNode({ data, id, selected }: any) {
             <div className="font-medium text-sm truncate">{data.modelName}</div>
             <div className={`text-xs ${providerInfo.color}`}>{providerInfo.name}</div>
           </div>
-          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
           <div
             className="nodrag nowheel"
             onPointerDownCapture={(e) => e.stopPropagation()}
@@ -106,7 +105,6 @@ function RouteModelNode({ data, id, selected }: any) {
           </div>
         </div>
 
-        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
         <div
           className="space-y-2 nodrag nowheel"
           onPointerDownCapture={(e) => e.stopPropagation()}
