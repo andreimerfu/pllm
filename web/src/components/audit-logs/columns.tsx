@@ -1,7 +1,8 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown } from "lucide-react"
+import { Icon } from '@iconify/react'
+import { icons } from '@/lib/icons'
 import { format } from "date-fns"
 import { Button } from "../ui/button"
 import { Badge } from "../ui/badge"
@@ -41,7 +42,7 @@ export const createAuditColumns = (onRowClick?: (log: AuditLog) => void): Column
         className="p-0 h-auto"
       >
         Time
-        <ArrowUpDown className="ml-2 h-4 w-4" />
+        <Icon icon={icons.arrowUpDown} className="ml-2 h-4 w-4" />
       </Button>
     ),
     cell: ({ row }) => {

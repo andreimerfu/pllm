@@ -1,15 +1,8 @@
 "use client"
 import { useQuery } from "@tanstack/react-query"
 import { getBudgetSummary } from "@/lib/api"
-import { 
-  TrendingUp, 
-  AlertTriangle, 
-  DollarSign,
-  Users,
-  Key,
-  Settings,
-  Plus
-} from "lucide-react"
+import { Icon } from '@iconify/react'
+import { icons } from '@/lib/icons'
 import { Pie, PieChart } from "recharts"
 
 import { Badge } from "@/components/ui/badge"
@@ -59,11 +52,11 @@ function BudgetHealthAlert({ summary }: { summary: any }) {
   if (!summary.exceeded_count && !summary.alerting_count) return null
 
   const severity = summary.exceeded_count > 0 ? "destructive" : "default"
-  const IconComponent = summary.exceeded_count > 0 ? AlertTriangle : TrendingUp
+  const alertIcon = summary.exceeded_count > 0 ? icons.warning : icons.trendingUp
 
   return (
     <Alert variant={severity} className="border-l-4">
-      <IconComponent className="h-4 w-4" />
+      <Icon icon={alertIcon} className="h-4 w-4" />
       <AlertDescription>
         <div className="flex items-center justify-between">
           <div>
@@ -97,18 +90,18 @@ function BudgetMetricsCards({ summary }: { summary: any }) {
       <Card>
         <CardHeader>
           <CardDescription>Total Budget</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums">
+          <CardTitle className="text-2xl font-semibold font-mono tabular-nums">
             ${summary.total_budget?.toFixed(2) || '0.00'}
           </CardTitle>
           <div>
             <Badge variant="outline">
-              <Users className="h-3 w-3" />
+              <Icon icon={icons.users} className="h-3 w-3" />
               {summary.total_entities || 0} entities
             </Badge>
           </div>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="text-muted-foreground">
+          <div className="text-muted-foreground font-mono">
             Teams: ${summary.team_budget?.toFixed(2) || '0'} • Keys: ${summary.key_budget?.toFixed(2) || '0'}
           </div>
         </CardFooter>
@@ -117,12 +110,12 @@ function BudgetMetricsCards({ summary }: { summary: any }) {
       <Card>
         <CardHeader>
           <CardDescription>Total Spent</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums">
+          <CardTitle className="text-2xl font-semibold font-mono tabular-nums">
             ${summary.total_spent?.toFixed(2) || '0.00'}
           </CardTitle>
           <div>
             <Badge variant={utilizationRate > 90 ? "destructive" : utilizationRate > 70 ? "secondary" : "outline"}>
-              <TrendingUp className="h-3 w-3" />
+              <Icon icon={icons.trendingUp} className="h-3 w-3" />
               {utilizationRate.toFixed(1)}%
             </Badge>
           </div>
@@ -140,12 +133,12 @@ function BudgetMetricsCards({ summary }: { summary: any }) {
       <Card>
         <CardHeader>
           <CardDescription>Remaining Budget</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums">
+          <CardTitle className="text-2xl font-semibold font-mono tabular-nums">
             ${summary.total_remaining?.toFixed(2) || '0.00'}
           </CardTitle>
           <div>
             <Badge variant="outline">
-              <DollarSign className="h-3 w-3" />
+              <Icon icon={icons.budget} className="h-3 w-3" />
               Available
             </Badge>
           </div>
@@ -168,7 +161,7 @@ function BudgetMetricsCards({ summary }: { summary: any }) {
           </CardTitle>
           <div>
             <Badge variant={summary.exceeded_count > 0 ? "destructive" : summary.alerting_count > 0 ? "secondary" : "outline"}>
-              <AlertTriangle className="h-3 w-3" />
+              <Icon icon={icons.warning} className="h-3 w-3" />
               Need attention
             </Badge>
           </div>
@@ -220,7 +213,7 @@ function BudgetDistributionCharts({ charts }: { charts: any }) {
             </ChartContainer>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <DollarSign className="h-12 w-12 text-muted-foreground mb-4" />
+              <Icon icon={icons.budget} className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground">No budget allocation</p>
               <p className="text-sm text-muted-foreground mt-2">
                 Chart will appear when budgets are allocated
@@ -259,7 +252,7 @@ function BudgetDistributionCharts({ charts }: { charts: any }) {
             </ChartContainer>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <DollarSign className="h-12 w-12 text-muted-foreground mb-4" />
+              <Icon icon={icons.budget} className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground">No spending yet</p>
               <p className="text-sm text-muted-foreground mt-2">
                 Chart will appear when spending occurs
@@ -292,7 +285,7 @@ function BudgetEntitiesTable({ teamBudgets, keyBudgets }: { teamBudgets: any[], 
           <div>
             <Button variant="outline" size="sm" asChild>
               <a href="/ui/teams">
-                <Plus className="h-4 w-4" />
+                <Icon icon={icons.plus} className="h-4 w-4" />
                 Create Team
               </a>
             </Button>
@@ -300,7 +293,7 @@ function BudgetEntitiesTable({ teamBudgets, keyBudgets }: { teamBudgets: any[], 
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <DollarSign className="h-12 w-12 text-muted-foreground mb-4" />
+            <Icon icon={icons.budget} className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground">No budget entities configured</p>
             <p className="text-sm text-muted-foreground mt-2">
               Create teams or keys with budgets to track spending
@@ -321,7 +314,7 @@ function BudgetEntitiesTable({ teamBudgets, keyBudgets }: { teamBudgets: any[], 
         <div>
           <Button variant="outline" size="sm" asChild>
             <a href="/ui/teams">
-              <Settings className="h-4 w-4" />
+              <Icon icon={icons.settings} className="h-4 w-4" />
               Manage
             </a>
           </Button>
@@ -352,19 +345,22 @@ function BudgetEntitiesTable({ teamBudgets, keyBudgets }: { teamBudgets: any[], 
                     <TableCell className="font-medium">{budget.name}</TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {budget.type === 'team' ? <Users className="h-3 w-3" /> : <Key className="h-3 w-3" />}
+                        {budget.type === 'team' ? <Icon icon={icons.teams} className="h-3 w-3" /> : <Icon icon={icons.keys} className="h-3 w-3" />}
                         {budget.type}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="text-right font-mono tabular-nums">
                       ${budget.max_budget?.toFixed(2) || '0.00'}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="text-right font-mono tabular-nums">
                       ${budget.current_spend?.toFixed(2) || '0.00'}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center gap-2">
-                        <Progress value={Math.min(utilization, 100)} className="w-16" />
+                        <Progress
+                          value={Math.min(utilization, 100)}
+                          className={`w-16 [&>div]:${shouldAlert ? 'bg-amber-500' : 'bg-primary'}`}
+                        />
                         <span className="tabular-nums text-sm w-12">
                           {utilization.toFixed(1)}%
                         </span>
@@ -416,7 +412,7 @@ export default function Budget() {
           </div>
         </div>
         <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
+          <Icon icon={icons.warning} className="h-4 w-4" />
           <AlertDescription>
             Failed to load budget data. Please check your connection and try again.
           </AlertDescription>
@@ -438,7 +434,7 @@ export default function Budget() {
         </div>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <DollarSign className="h-16 w-16 text-muted-foreground mb-4" />
+            <Icon icon={icons.budget} className="h-16 w-16 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No Budget Data Available</h3>
             <p className="text-muted-foreground mb-6">
               Budget information will appear here once teams or keys with budgets are created.
@@ -472,13 +468,13 @@ export default function Budget() {
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <a href="/ui/keys">
-              <Plus className="h-4 w-4" />
+              <Icon icon={icons.plus} className="h-4 w-4" />
               Add Key
             </a>
           </Button>
           <Button asChild>
             <a href="/ui/teams">
-              <Plus className="h-4 w-4" />
+              <Icon icon={icons.plus} className="h-4 w-4" />
               Add Team
             </a>
           </Button>

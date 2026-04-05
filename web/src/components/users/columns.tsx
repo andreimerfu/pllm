@@ -1,10 +1,10 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown } from "lucide-react"
+import { Icon } from '@iconify/react'
+import { icons } from '@/lib/icons'
 import { Button } from "../ui/button"
 import { Badge } from "../ui/badge"
-import { Icon } from '@iconify/react'
 import { formatDate } from '@/lib/date-utils'
 import { User } from '@/types/api'
 
@@ -12,11 +12,11 @@ const getProviderIcon = (providerIcon?: string) => {
   if (!providerIcon) return null
 
   if (providerIcon === 'key') {
-    return <Icon icon="lucide:key" width="18" height="18" className="text-muted-foreground" />
+    return <Icon icon={icons.keys} width="18" height="18" className="text-muted-foreground" />
   }
 
   if (providerIcon === 'user') {
-    return <Icon icon="lucide:user" width="18" height="18" className="text-muted-foreground" />
+    return <Icon icon={icons.user} width="18" height="18" className="text-muted-foreground" />
   }
 
   return <Icon icon={`simple-icons:${providerIcon}`} width="18" height="18" className="text-muted-foreground" />
@@ -39,7 +39,7 @@ export const createColumns = (): ColumnDef<User>[] => [
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
           Name
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <Icon icon={icons.arrowUpDown} className="ml-2 h-4 w-4" />
         </Button>
       )
     },
@@ -84,7 +84,7 @@ export const createColumns = (): ColumnDef<User>[] => [
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
           Last Login
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <Icon icon={icons.arrowUpDown} className="ml-2 h-4 w-4" />
         </Button>
       )
     },

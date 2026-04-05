@@ -11,7 +11,8 @@ import {
   useReactTable,
   VisibilityState,
 } from "@tanstack/react-table"
-import { ChevronDown, Calendar, Filter, RefreshCw, Search, X, Copy, Download } from "lucide-react"
+import { Icon } from '@iconify/react'
+import { icons } from '@/lib/icons'
 import { format } from "date-fns"
 
 import { Button } from "@/components/ui/button"
@@ -131,7 +132,7 @@ export default function AuditLogs() {
           </p>
         </div>
         <Button onClick={refetch} disabled={isLoading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          <Icon icon={icons.refresh} className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
@@ -140,7 +141,7 @@ export default function AuditLogs() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
+            <Icon icon={icons.filter} className="h-5 w-5" />
             Filters
           </CardTitle>
           <CardDescription>
@@ -158,7 +159,7 @@ export default function AuditLogs() {
                     variant="outline"
                     className="w-full justify-start text-left font-normal"
                   >
-                    <Calendar className="mr-2 h-4 w-4" />
+                    <Icon icon={icons.calendar} className="mr-2 h-4 w-4" />
                     {dateRange?.from ? (
                       dateRange.to ? (
                         <>
@@ -253,11 +254,11 @@ export default function AuditLogs() {
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="flex items-center gap-2">
               <Button onClick={refetch} disabled={isLoading}>
-                <Search className="h-4 w-4 mr-2" />
+                <Icon icon={icons.search} className="h-4 w-4 mr-2" />
                 Apply Filters
               </Button>
               <Button variant="outline" onClick={clearFilters}>
-                <X className="h-4 w-4 mr-2" />
+                <Icon icon={icons.close} className="h-4 w-4 mr-2" />
                 Clear All
               </Button>
             </div>
@@ -281,7 +282,7 @@ export default function AuditLogs() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
-                  Columns <ChevronDown className="ml-2 h-4 w-4" />
+                  Columns <Icon icon={icons.chevronDown} className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -420,7 +421,7 @@ export default function AuditLogs() {
                         size="sm"
                         onClick={() => navigator.clipboard.writeText(selectedAuditLog.id)}
                       >
-                        <Copy className="h-3.5 w-3.5 mr-1.5" />
+                        <Icon icon={icons.copy} className="h-3.5 w-3.5 mr-1.5" />
                         Copy ID
                       </Button>
                       <Button
@@ -435,7 +436,7 @@ export default function AuditLogs() {
                           a.click();
                         }}
                       >
-                        <Download className="h-3.5 w-3.5 mr-1.5" />
+                        <Icon icon={icons.download} className="h-3.5 w-3.5 mr-1.5" />
                         Export
                       </Button>
                     </div>
