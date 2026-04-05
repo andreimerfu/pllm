@@ -3,28 +3,9 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/OIDCAuthContext";
 import { useConfig } from "@/contexts/ConfigContext";
 import { CanAccess } from "@/components/CanAccess";
-import { useState, useEffect } from "react";
-import {
-  Home,
-  MessageSquare,
-  Brain,
-  Users2,
-  Key,
-  Users,
-  Wallet,
-  Settings,
-  User,
-  Sun,
-  Moon,
-  BookOpen,
-  Github,
-  LogOut,
-  ChevronsUpDown,
-  FileText,
-  Shield,
-  ChevronRight,
-  GitBranch,
-} from "lucide-react";
+import { Icon } from '@iconify/react';
+import { icons } from '@/lib/icons';
+import { useColorMode } from '@/contexts/ColorModeContext';
 
 import {
   Sidebar,
@@ -54,33 +35,45 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
+type NavItem = {
+  title: string;
+  href: string;
+  icon: string;
+  permission: string | null;
+};
+
+type NavGroup = {
+  title: string;
+  items: NavItem[];
+};
+
 // Navigation items configuration with groups
-const navigation = [
+const navigation: NavGroup[] = [
   {
     title: "Core",
     items: [
       {
         title: "Dashboard",
         href: "/dashboard",
-        icon: Home,
+        icon: icons.dashboard,
         permission: null,
       },
       {
         title: "Chat",
         href: "/chat",
-        icon: MessageSquare,
+        icon: icons.chat,
         permission: null,
       },
       {
         title: "Models",
         href: "/models",
-        icon: Brain,
+        icon: icons.models,
         permission: null,
       },
       {
         title: "Routes",
         href: "/routes",
-        icon: GitBranch,
+        icon: icons.routes,
         permission: null,
       },
     ],
@@ -91,19 +84,19 @@ const navigation = [
       {
         title: "API Keys",
         href: "/keys",
-        icon: Key,
+        icon: icons.keys,
         permission: null,
       },
       {
         title: "Teams",
         href: "/teams",
-        icon: Users2,
+        icon: icons.teams,
         permission: "admin.teams.read",
       },
       {
         title: "Users",
         href: "/users",
-        icon: Users,
+        icon: icons.users,
         permission: "admin.users.read",
       },
     ],
@@ -114,25 +107,25 @@ const navigation = [
       {
         title: "Budget",
         href: "/budget",
-        icon: Wallet,
+        icon: icons.budget,
         permission: "admin.budget.read",
       },
       {
         title: "Audit Logs",
         href: "/audit-logs",
-        icon: FileText,
+        icon: icons.auditLogs,
         permission: "admin.audit.read",
       },
       {
         title: "Guardrails",
         href: "/guardrails",
-        icon: Shield,
+        icon: icons.guardrails,
         permission: "admin.guardrails.read",
       },
       {
         title: "Settings",
         href: "/settings",
-        icon: Settings,
+        icon: icons.settings,
         permission: "admin.settings.read",
       },
     ],
@@ -143,7 +136,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
   const { logout, user } = useAuth();
   const { config } = useConfig();
-  const [isDark, setIsDark] = useState(false);
+  const { resolvedMode, setColorMode } = useColorMode();
 
   // Extract user info from JWT
   const userEmail =
@@ -157,36 +150,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const userInitials =
     userName
       .split(" ")
-      .map((n) => n[0])
+      .map((n: string) => n[0])
       .join("")
       .toUpperCase()
       .slice(0, 2) || "U";
 
-  useEffect(() => {
-    // Check for saved theme preference or default to light
-    const savedTheme = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)",
-    ).matches;
-    const shouldBeDark = savedTheme === "dark" || (!savedTheme && prefersDark);
-
-    setIsDark(shouldBeDark);
-    if (shouldBeDark) {
-      document.documentElement.classList.add("dark");
-    }
-  }, []);
-
   const toggleTheme = () => {
-    const newTheme = !isDark;
-    setIsDark(newTheme);
-
-    if (newTheme) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
+    setColorMode(resolvedMode === 'dark' ? 'light' : 'dark');
   };
 
   // Filter navigation groups based on dex configuration
@@ -204,20 +174,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
-              <img src={`${import.meta.env.BASE_URL}robot.png`} alt="pLLM" className="size-8 rounded-lg" />
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">pLLM</span>
-                <span className="truncate text-xs">AI Model Router</span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-sidebar-border">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
+            <span className="text-white text-sm font-extrabold">P</span>
+          </div>
+          <div>
+            <div className="text-sm font-bold text-sidebar-foreground">pLLM</div>
+            <div className="text-[11px] text-muted-foreground">Gateway Console</div>
+          </div>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
@@ -232,19 +197,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <SidebarGroupLabel asChild>
                 <CollapsibleTrigger>
                   {section.title}
-                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                  <Icon icon={icons.chevronRight} className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>
               <CollapsibleContent>
                 <SidebarMenu>
                   {section.items.map((item) => {
                     const isActive = location.pathname === item.href;
-                    
+
                     const NavigationItem = (
                       <SidebarMenuItem key={item.title}>
                         <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
                           <Link to={item.href}>
-                            <item.icon />
+                            <Icon icon={item.icon} className="h-4 w-4" />
                             <span>{item.title}</span>
                           </Link>
                         </SidebarMenuButton>
@@ -288,7 +253,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <span className="truncate font-medium">{userName}</span>
                     <span className="truncate text-xs">{userEmail}</span>
                   </div>
-                  <ChevronsUpDown className="ml-auto size-4" />
+                  <Icon icon={icons.chevronsUpDown} className="ml-auto size-4" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -314,19 +279,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuItem>
-                    <User />
+                    <Icon icon={icons.user} />
                     Profile
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={toggleTheme}>
-                    {isDark ? <Sun /> : <Moon />}
-                    {isDark ? "Light Mode" : "Dark Mode"}
+                    <Icon icon={resolvedMode === 'dark' ? icons.sun : icons.moon} />
+                    {resolvedMode === 'dark' ? "Light Mode" : "Dark Mode"}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuItem asChild>
                     <a href="/docs" target="_blank" rel="noopener noreferrer">
-                      <BookOpen />
+                      <Icon icon={icons.book} />
                       Documentation
                     </a>
                   </DropdownMenuItem>
@@ -336,14 +301,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <Github />
+                      <Icon icon={icons.github} />
                       GitHub Repository
                     </a>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={logout} className="text-destructive">
-                  <LogOut />
+                  <Icon icon={icons.logout} />
                   Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>

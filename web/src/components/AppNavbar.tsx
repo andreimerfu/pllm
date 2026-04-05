@@ -9,7 +9,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Badge } from "@/components/ui/badge";
+import { Icon } from '@iconify/react';
+import { icons } from '@/lib/icons';
+import { useColorMode } from '@/contexts/ColorModeContext';
 
 const routeNames: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -53,6 +55,7 @@ const getDynamicSegmentLabel = (segment: string, parentPath: string): string => 
 
 export function AppNavbar() {
   const location = useLocation();
+  const { resolvedMode, setColorMode } = useColorMode();
   const pathSegments = location.pathname.split("/").filter(Boolean);
 
   // Generate breadcrumb items
@@ -76,7 +79,7 @@ export function AppNavbar() {
   });
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
+    <header className="sticky top-0 z-10 flex h-[52px] shrink-0 items-center gap-2 border-b border-border bg-background px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="h-4" />
 
@@ -99,10 +102,22 @@ export function AppNavbar() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="ml-auto flex items-center gap-2">
-        <Badge variant="outline" className="text-xs">
-          v1.0.0
-        </Badge>
+      <div className="ml-auto flex items-center gap-3">
+        {/* Search trigger */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-secondary border border-border rounded-[6px] text-muted-foreground text-xs cursor-pointer hover:bg-accent">
+          <Icon icon={icons.search} className="w-3.5 h-3.5" />
+          <span>Search...</span>
+          <kbd className="bg-background px-1.5 py-0.5 rounded text-[10px] font-mono border border-border">⌘K</kbd>
+        </div>
+        {/* Theme toggle */}
+        <button
+          onClick={() => setColorMode(resolvedMode === 'dark' ? 'light' : 'dark')}
+          className="w-8 h-8 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-accent"
+        >
+          <Icon icon={resolvedMode === 'dark' ? icons.sun : icons.moon} className="w-4 h-4" />
+        </button>
+        {/* Version badge */}
+        <span className="text-[11px] text-muted-foreground bg-secondary border border-border px-2 py-0.5 rounded-full font-mono">v2.0.0</span>
       </div>
     </header>
   );
