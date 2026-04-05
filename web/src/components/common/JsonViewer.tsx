@@ -13,8 +13,8 @@ export const JsonViewer = ({ title, data }: JsonViewerProps) => {
 
   return (
     <div>
-      <h3 className="text-sm font-medium mb-2">{title}</h3>
-      <div className="rounded-md bg-background text-sm">
+      <h3 className="text-[12px] font-medium mb-2">{title}</h3>
+      <div className="rounded-md bg-background font-mono text-[12px]">
         <SyntaxHighlighter
           language="json"
           style={vscDarkPlus}

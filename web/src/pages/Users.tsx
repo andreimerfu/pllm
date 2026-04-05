@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
-import { RefreshCw, Users as UsersIcon } from 'lucide-react'
+import { Icon } from '@iconify/react'
+import { icons } from '@/lib/icons'
 import { useUsers } from '@/hooks/useUsers'
 import { LoadingState } from '@/components/common/LoadingState'
 import { EmptyState } from '@/components/common/EmptyState'
@@ -26,7 +27,7 @@ export default function Users() {
             variant="outline"
             disabled={isLoading}
           >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <Icon icon={icons.refresh} className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         }
@@ -34,7 +35,7 @@ export default function Users() {
 
       {users.length === 0 ? (
         <EmptyState
-          icon={UsersIcon}
+          icon={icons.users}
           title="No users found"
           description="No users have been authenticated through Dex yet."
           className="mt-2"

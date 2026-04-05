@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { LucideIcon } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
  * @example
  * ```tsx
  * <EmptyState
- *   icon={Users}
+ *   icon={icons.users}
  *   title="No team members"
  *   description="Start building your team by adding members"
  *   action={<Button>Add Member</Button>}
@@ -19,10 +19,10 @@ import { cn } from '@/lib/utils';
 
 interface EmptyStateProps {
   /**
-   * Lucide icon component to display
+   * Iconify icon string to display
    * @default undefined
    */
-  icon?: LucideIcon;
+  icon?: string;
 
   /**
    * Primary heading text
@@ -49,7 +49,7 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({
-  icon: Icon,
+  icon,
   title,
   description,
   action,
@@ -61,14 +61,14 @@ export function EmptyState({
       "rounded-lg bg-muted/40",
       className
     )}>
-      {Icon && (
-        <div className="rounded-full bg-muted p-4 mb-4">
-          <Icon className="h-8 w-8 text-muted-foreground" />
+      {icon && (
+        <div className="rounded-xl bg-primary/10 p-4 mb-4 flex items-center justify-center">
+          <Icon icon={icon} className="h-8 w-8 text-primary" />
         </div>
       )}
-      <h3 className="text-base font-semibold mb-1">{title}</h3>
+      <h3 className="text-[15px] font-semibold mb-1">{title}</h3>
       {description && (
-        <p className="text-muted-foreground text-center mb-4 max-w-sm text-sm">
+        <p className="text-[13px] text-muted-foreground text-center mb-4 max-w-sm">
           {description}
         </p>
       )}

@@ -6,7 +6,7 @@ interface DetailItemProps {
 
 export const DetailItem = ({ label, value, children }: DetailItemProps) => (
   <div className="flex flex-col gap-1">
-    <dt className="text-sm font-medium text-muted-foreground">{label}</dt>
-    <dd className="text-sm">{children || value || 'N/A'}</dd>
+    <dt className="text-[12px] text-muted-foreground">{label}</dt>
+    <dd className="text-[12px] text-foreground">{children || value || 'N/A'}</dd>
   </div>
 );

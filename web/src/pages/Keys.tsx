@@ -7,7 +7,7 @@ import { CreateKeyDialog } from '../components/keys/create-key-dialog';
 import { LoadingState } from '../components/common/LoadingState';
 import { PageHeader } from '../components/common/PageHeader';
 import { StatCard } from '../components/common/StatCard';
-import { Key, Activity, DollarSign, CheckCircle } from 'lucide-react';
+import { icons } from '@/lib/icons';
 import { useKeys, useUserTeams } from '../hooks/useKeys';
 
 const Keys: React.FC = () => {
@@ -153,25 +153,25 @@ const Keys: React.FC = () => {
         <StatCard
           title="Total Keys"
           value={keys.length.toString()}
-          icon={Key}
+          icon={icons.keys}
         />
         <StatCard
           title="Active Keys"
           value={keys.filter(k => getKeyStatus(k) === 'active').length.toString()}
           description={`${keys.filter(k => getKeyStatus(k) === 'inactive').length} inactive`}
-          icon={CheckCircle}
+          icon={icons.check}
         />
         <StatCard
           title="Total Usage"
           value={keys.reduce((sum, k) => sum + k.usage_count, 0).toLocaleString()}
           description="requests"
-          icon={Activity}
+          icon={icons.trendingUp}
         />
         <StatCard
           title="Total Spend"
           value={`$${keys.reduce((sum, k) => sum + k.current_spend, 0).toFixed(2)}`}
           description="cumulative"
-          icon={DollarSign}
+          icon={icons.budget}
         />
       </div>
 

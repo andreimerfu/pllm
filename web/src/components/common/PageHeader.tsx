@@ -113,14 +113,14 @@ export function PageHeader({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
           <h1 className={cn(
-            "text-2xl lg:text-3xl font-bold",
+            "text-2xl font-bold tracking-tight",
             titleClassName
           )}>
             {title}
           </h1>
           {description && (
             <p className={cn(
-              "text-sm lg:text-base text-muted-foreground",
+              "text-[13px] text-muted-foreground",
               descriptionClassName
             )}>
               {description}

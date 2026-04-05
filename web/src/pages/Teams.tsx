@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Plus,
-  Users,
-  Trash2,
-  Edit,
-  Activity,
-  MoreHorizontal,
-  Settings,
-  TrendingUp,
-  DollarSign,
-} from 'lucide-react';
+import { Icon } from '@iconify/react';
+import { icons } from '@/lib/icons';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -111,19 +102,19 @@ const Teams: React.FC = () => {
           description="Manage teams and their members"
           actions={
             <Button onClick={() => setShowCreateModal(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
               Create Team
             </Button>
           }
         />
         <EmptyState
-          icon={Users}
+          icon={icons.teams}
           title="No teams"
           description="Create your first team to organize users and manage access."
           className="mt-6"
           action={
             <Button onClick={() => setShowCreateModal(true)}>
-              <Plus className="mr-2 h-4 w-4" />
+              <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
               Create First Team
             </Button>
           }
@@ -140,7 +131,7 @@ const Teams: React.FC = () => {
         description="Manage teams and their members"
         actions={
           <Button onClick={() => setShowCreateModal(true)}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
             Create Team
           </Button>
         }
@@ -171,7 +162,7 @@ const Teams: React.FC = () => {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
+                        <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -180,7 +171,7 @@ const Teams: React.FC = () => {
                         setSelectedTeam(team);
                         setShowEditTeamModal(true);
                       }}>
-                        <Edit className="mr-2 h-4 w-4" />
+                        <Icon icon={icons.edit} className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -192,7 +183,7 @@ const Teams: React.FC = () => {
                         }}
                         disabled={isDeleting}
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
+                        <Icon icon={icons.delete} className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -210,25 +201,25 @@ const Teams: React.FC = () => {
               {/* Compact Stats Row */}
               <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border bg-card p-4">
                 <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <Icon icon={icons.teams} className="h-4 w-4 text-muted-foreground" />
                   <span className="text-2xl font-bold tabular-nums">{members.length}</span>
                   <span className="text-sm text-muted-foreground">Members</span>
                 </div>
                 <div className="hidden sm:block h-8 w-px bg-border" />
                 <div className="flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <Icon icon={icons.trendingUp} className="h-4 w-4 text-muted-foreground" />
                   <span className="text-2xl font-bold tabular-nums">{stats?.total_requests?.toLocaleString() || '0'}</span>
                   <span className="text-sm text-muted-foreground">Requests</span>
                 </div>
                 <div className="hidden sm:block h-8 w-px bg-border" />
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <Icon icon={icons.budget} className="h-4 w-4 text-muted-foreground" />
                   <span className="text-2xl font-bold tabular-nums">${(stats?.total_cost || 0).toFixed(2)}</span>
                   <span className="text-sm text-muted-foreground">Cost</span>
                 </div>
                 <div className="hidden lg:block h-8 w-px bg-border" />
                 <div className="hidden lg:flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  <Icon icon={icons.trendingUp} className="h-4 w-4 text-muted-foreground" />
                   <span className="text-2xl font-bold tabular-nums">${((stats?.total_cost || 0) / (stats?.total_requests || 1)).toFixed(4)}</span>
                   <span className="text-sm text-muted-foreground">Avg/Req</span>
                 </div>
@@ -238,20 +229,20 @@ const Teams: React.FC = () => {
                 <div className="flex items-center justify-between gap-4">
                   <TabsList>
                     <TabsTrigger value="members">
-                      <Users className="mr-2 h-4 w-4" />
+                      <Icon icon={icons.teams} className="mr-2 h-4 w-4" />
                       Members
                     </TabsTrigger>
                     <TabsTrigger value="analytics">
-                      <Activity className="mr-2 h-4 w-4" />
+                      <Icon icon={icons.trendingUp} className="mr-2 h-4 w-4" />
                       Analytics
                     </TabsTrigger>
                     <TabsTrigger value="settings">
-                      <Settings className="mr-2 h-4 w-4" />
+                      <Icon icon={icons.settings} className="mr-2 h-4 w-4" />
                       Settings
                     </TabsTrigger>
                   </TabsList>
                   <Button size="sm" onClick={() => setShowAddMemberModal(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
+                    <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
                     Add Member
                   </Button>
                 </div>
@@ -262,12 +253,12 @@ const Teams: React.FC = () => {
                     <LoadingState text="Loading members..." />
                   ) : members.length === 0 ? (
                     <EmptyState
-                      icon={Users}
+                      icon={icons.teams}
                       title="No team members"
                       description="Start building your team by adding members with different roles and permissions."
                       action={
                         <Button onClick={() => setShowAddMemberModal(true)}>
-                          <Plus className="mr-2 h-4 w-4" />
+                          <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
                           Add First Member
                         </Button>
                       }
@@ -297,12 +288,12 @@ const Teams: React.FC = () => {
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm">
-                                  <MoreHorizontal className="h-4 w-4" />
+                                  <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => handleEditMember(member)}>
-                                  <Edit className="mr-2 h-4 w-4" />
+                                  <Icon icon={icons.edit} className="mr-2 h-4 w-4" />
                                   Edit Role
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
@@ -311,7 +302,7 @@ const Teams: React.FC = () => {
                                   onClick={() => handleRemoveMember(member.id)}
                                   disabled={isRemoving}
                                 >
-                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  <Icon icon={icons.delete} className="mr-2 h-4 w-4" />
                                   Remove
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
@@ -329,7 +320,7 @@ const Teams: React.FC = () => {
                     <LoadingState text="Loading analytics..." />
                   ) : breakdown.length === 0 ? (
                     <EmptyState
-                      icon={Activity}
+                      icon={icons.trendingUp}
                       title="No usage data"
                       description="Usage analytics will appear here once team members start making requests."
                     />
@@ -396,7 +387,7 @@ const Teams: React.FC = () => {
                         className="w-full"
                         onClick={() => setShowEditTeamModal(true)}
                       >
-                        <Edit className="mr-2 h-4 w-4" />
+                        <Icon icon={icons.edit} className="mr-2 h-4 w-4" />
                         Edit Team Settings
                       </Button>
                     </CardContent>
@@ -406,7 +397,7 @@ const Teams: React.FC = () => {
             </>
           ) : (
             <EmptyState
-              icon={Users}
+              icon={icons.teams}
               title="No team selected"
               description="Select a team from the sidebar to view details"
             />

@@ -26,18 +26,18 @@ export function EmptyState({
       variant === "chart" ? "h-full min-h-[200px]" : "p-8"
     }`}>
       <div className="mb-4">
-        <div className="h-12 w-12 rounded-lg bg-muted/50 flex items-center justify-center mb-3">
-          <Icon 
-            icon={icon} 
-            width="24" 
-            height="24" 
-            className="text-muted-foreground" 
+        <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
+          <Icon
+            icon={icon}
+            width="24"
+            height="24"
+            className="text-primary"
           />
         </div>
       </div>
       
-      <h3 className="text-lg font-medium mb-2">{title}</h3>
-      <p className="text-muted-foreground text-sm max-w-sm mb-4">
+      <h3 className="text-[15px] font-semibold mb-2">{title}</h3>
+      <p className="text-[13px] text-muted-foreground max-w-sm mb-4">
         {description}
       </p>
       

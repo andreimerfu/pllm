@@ -1,4 +1,5 @@
-import { Loader2 } from 'lucide-react';
+import { Icon } from '@iconify/react';
+import { icons } from '@/lib/icons';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
@@ -56,7 +57,7 @@ export function LoadingState({
         className
       )}>
         <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Icon icon={icons.refresh} className="h-4 w-4 animate-spin" />
           <span className="text-muted-foreground">{text}</span>
         </div>
       </div>
