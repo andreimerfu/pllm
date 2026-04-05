@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, GitBranch, Trash2, Pencil, MoreHorizontal } from "lucide-react";
+import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
 
 import { getRoutes, deleteRoute } from "@/lib/api";
 import type { RoutesResponse, Route } from "@/types/api";
@@ -26,11 +27,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
-const strategyColors: Record<string, string> = {
-  priority: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  "least-latency": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  "weighted-round-robin": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  random: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+const strategyLabels: Record<string, string> = {
+  priority: "Priority",
+  "least-latency": "Least Latency",
+  "weighted-round-robin": "Weighted RR",
+  random: "Random",
 };
 
 export default function Routes() {
@@ -81,7 +82,7 @@ export default function Routes() {
           </p>
         </div>
         <Button onClick={() => navigate("/routes/new")} className="gap-2">
-          <Plus className="h-4 w-4" />
+          <Icon icon={icons.plus} className="h-4 w-4" />
           Create Route
         </Button>
       </div>
@@ -89,13 +90,13 @@ export default function Routes() {
       {/* Content */}
       {routes.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 border border-dashed rounded-lg">
-          <GitBranch className="h-12 w-12 text-muted-foreground mb-4" />
+          <Icon icon={icons.routes} className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium mb-1">No routes configured</h3>
           <p className="text-sm text-muted-foreground mb-4">
             Create a route to distribute traffic across multiple models
           </p>
           <Button onClick={() => navigate("/routes/new")} variant="outline" className="gap-2">
-            <Plus className="h-4 w-4" />
+            <Icon icon={icons.plus} className="h-4 w-4" />
             Create Route
           </Button>
         </div>
@@ -104,15 +105,15 @@ export default function Routes() {
           {routes.map((route) => (
             <Card
               key={route.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className="cursor-pointer hover:shadow-md transition-shadow hover:border-primary/30"
               onClick={() => navigate(`/routes/${route.id}`)}
             >
               <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                 <div className="space-y-1">
                   <CardTitle className="text-base font-semibold">{route.name}</CardTitle>
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {route.slug}
-                  </Badge>
+                  <code className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                    model: &quot;{route.slug}&quot;
+                  </code>
                 </div>
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                   <Badge variant={route.enabled ? "default" : "secondary"}>
@@ -122,19 +123,19 @@ export default function Routes() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
+                          <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => navigate(`/routes/${route.id}`)}>
-                          <Pencil className="mr-2 h-4 w-4" />
+                          <Icon icon={icons.edit} className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
                           onClick={() => setDeleteTarget(route)}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
+                          <Icon icon={icons.delete} className="mr-2 h-4 w-4" />
                           Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -149,12 +150,15 @@ export default function Routes() {
                   </p>
                 )}
                 <div className="flex flex-wrap items-center gap-2 mb-3">
-                  <Badge className={strategyColors[route.strategy] || "bg-gray-100 text-gray-800"}>
-                    {route.strategy}
-                  </Badge>
-                  <Badge variant="outline">
-                    {route.source}
-                  </Badge>
+                  <span className="text-xs font-medium text-primary">
+                    {strategyLabels[route.strategy] || route.strategy}
+                  </span>
+                  <span className="text-xs text-muted-foreground">·</span>
+                  <span className="text-xs text-muted-foreground capitalize">{route.source}</span>
+                  <span className="text-xs text-muted-foreground">·</span>
+                  <span className="text-xs text-muted-foreground">
+                    {route.models.length} {route.models.length === 1 ? "model" : "models"}
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {route.models.map((rm, i) => (

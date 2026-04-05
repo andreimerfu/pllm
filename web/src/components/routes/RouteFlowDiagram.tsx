@@ -14,15 +14,15 @@ import {
   type OnNodesChange,
 } from '@xyflow/react';
 import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
+import { getProviderLogo } from "@/lib/provider-logos";
 import { detectProvider } from "@/lib/providers";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Plus, X } from "lucide-react";
 import type { RouteModel } from "@/types/api";
 import '@xyflow/react/dist/style.css';
 
@@ -39,25 +39,23 @@ interface RouteFlowDiagramProps {
 function RouteEntryNode({ data }: any) {
   return (
     <>
-      <div className="px-6 py-4 border-2 border-blue-500 rounded-xl bg-blue-50 dark:bg-blue-950/50 shadow-md min-w-[200px]">
+      <div className="px-6 py-4 border-2 border-primary rounded-xl bg-primary/5 dark:bg-primary/10 shadow-md min-w-[200px]">
         <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 rounded-lg bg-blue-500 text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 3v12" /><path d="M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" /><path d="M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" /><path d="M15 6a9 9 0 0 0-9 9" />
-            </svg>
+          <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+            <Icon icon={icons.routes} width="20" height="20" />
           </div>
           <div>
             <div className="font-semibold text-sm">{data.routeName || 'Route'}</div>
-            <Badge variant="outline" className="font-mono text-xs mt-0.5">
-              {data.routeSlug || 'slug'}
-            </Badge>
+            <code className="font-mono text-xs text-muted-foreground mt-0.5 block">
+              &quot;{data.routeSlug || 'slug'}&quot;
+            </code>
           </div>
         </div>
-        <Badge className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+        <span className="text-xs font-medium text-primary capitalize">
           {data.strategy || 'priority'}
-        </Badge>
+        </span>
       </div>
-      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-blue-500" />
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-primary" />
     </>
   );
 }
@@ -65,25 +63,26 @@ function RouteEntryNode({ data }: any) {
 // Model node: one per model in the route
 function RouteModelNode({ data, id, selected }: any) {
   const providerInfo = detectProvider(data.modelName, "");
+  const providerLogo = getProviderLogo(providerInfo.name);
 
   return (
     <>
       <NodeToolbar isVisible={selected} position={Position.Top}>
         <button
           onClick={() => data.onDelete?.(id)}
-          className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
+          className="px-2 py-1 bg-destructive text-destructive-foreground rounded text-xs hover:bg-destructive/90 flex items-center gap-1"
         >
-          <X className="w-3 h-3" />
+          <Icon icon={icons.close} className="w-3 h-3" />
         </button>
       </NodeToolbar>
 
-      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-blue-500" />
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-primary" />
 
-      <div className="px-4 py-3 border-2 rounded-lg bg-background shadow-sm border-border min-w-[220px]">
+      <div className="px-4 py-3 border-2 rounded-lg bg-background shadow-sm border-border hover:border-primary/40 transition-colors min-w-[220px]">
         <div className="flex items-center gap-3 mb-3">
           <div className={`p-2 rounded-lg border ${providerInfo.bgColor} ${providerInfo.borderColor}`}>
             <Icon
-              icon={providerInfo.icon}
+              icon={providerLogo}
               width="20"
               height="20"
               className={providerInfo.color}
@@ -236,15 +235,16 @@ function RouteFlowDiagramInner({
       type: 'smoothstep',
       animated: rm.enabled,
       style: {
-        stroke: rm.enabled ? '#3b82f6' : '#94a3b8',
+        stroke: rm.enabled ? '#14B8A6' : '#374151',
         strokeWidth: Math.max(1, (rm.weight / maxWeight) * 4),
-        opacity: rm.enabled ? 1 : 0.4,
+        opacity: rm.enabled ? 1 : 0.5,
+        strokeDasharray: rm.enabled ? undefined : '4 4',
       },
       label: `w:${rm.weight}`,
-      labelStyle: { fontSize: 10, fill: '#64748b' },
+      labelStyle: { fontSize: 10, fill: '#6B7280' },
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: rm.enabled ? '#3b82f6' : '#94a3b8',
+        color: rm.enabled ? '#14B8A6' : '#374151',
       },
     }));
   }, [models]);
@@ -266,8 +266,8 @@ function RouteFlowDiagramInner({
         <div className="text-sm font-medium">Route Diagram</div>
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" disabled={selectableModels.length === 0}>
-              <Plus className="w-4 h-4 mr-1" />
+            <Button variant="outline" size="sm" disabled={selectableModels.length === 0} className="gap-1.5">
+              <Icon icon={icons.plus} className="w-4 h-4" />
               Add Model
             </Button>
           </PopoverTrigger>
@@ -279,6 +279,7 @@ function RouteFlowDiagramInner({
                 <CommandGroup>
                   {selectableModels.map((modelName) => {
                     const info = detectProvider(modelName, "");
+                    const logo = getProviderLogo(info.name);
                     return (
                       <CommandItem
                         key={modelName}
@@ -286,7 +287,7 @@ function RouteFlowDiagramInner({
                         onSelect={() => addModel(modelName)}
                       >
                         <Icon
-                          icon={info.icon}
+                          icon={logo}
                           width="16"
                           height="16"
                           className={`mr-2 ${info.color}`}
@@ -302,7 +303,7 @@ function RouteFlowDiagramInner({
         </Popover>
       </div>
 
-      <div className="h-[600px] w-full border rounded-lg overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      <div className="h-[600px] w-full border border-border rounded-lg overflow-hidden bg-[#0F1117] dark:bg-[#0F1117]">
         <ReactFlow
           nodes={displayNodes}
           edges={edges}
@@ -318,8 +319,8 @@ function RouteFlowDiagramInner({
           deleteKeyCode="Delete"
           proOptions={{ hideAttribution: false }}
         >
-          <Background variant={'dots' as any} gap={20} size={1} />
-          <Controls />
+          <Background color="#1F2937" gap={24} size={1} />
+          <Controls className="[&>button]:bg-[#1F2937] [&>button]:border-[#374151] [&>button]:text-[#14B8A6]" />
         </ReactFlow>
       </div>
     </div>

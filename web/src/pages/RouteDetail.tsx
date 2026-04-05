@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Save, Trash2, BarChart3 } from "lucide-react";
+import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
 
 import { getRoute, getModels, createRoute, updateRoute, deleteRoute, getRouteStats } from "@/lib/api";
 import type { Route, RouteModel, ModelsResponse, RouteStatsResponse } from "@/types/api";
@@ -194,14 +195,19 @@ export default function RouteDetail() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/routes")}>
-            <ArrowLeft className="h-5 w-5" />
+            <Icon icon={icons.arrowLeft} className="h-5 w-5" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold">{isNew ? "Create Route" : name}</h1>
             {!isNew && (
               <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="font-mono">{slug}</Badge>
-                <Badge variant={isSystem ? "secondary" : "default"}>
+                <code className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                  model: &quot;{slug}&quot;
+                </code>
+                <Badge variant={enabled ? "default" : "secondary"}>
+                  {enabled ? "Enabled" : "Disabled"}
+                </Badge>
+                <Badge variant={isSystem ? "secondary" : "outline"} className="capitalize">
                   {isSystem ? "System" : "User"}
                 </Badge>
               </div>
@@ -213,7 +219,7 @@ export default function RouteDetail() {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" className="gap-2">
-                  <Trash2 className="h-4 w-4" />
+                  <Icon icon={icons.delete} className="h-4 w-4" />
                   Delete
                 </Button>
               </AlertDialogTrigger>
@@ -238,7 +244,7 @@ export default function RouteDetail() {
           )}
           {!readOnly && (
             <Button onClick={handleSave} disabled={saveMutation.isPending} className="gap-2">
-              <Save className="h-4 w-4" />
+              <Icon icon={icons.check} className="h-4 w-4" />
               {saveMutation.isPending ? "Saving..." : "Save"}
             </Button>
           )}
@@ -382,7 +388,7 @@ export default function RouteDetail() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle className="text-base flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
+              <Icon icon={icons.trendingUp} className="h-4 w-4" />
               Traffic Distribution
             </CardTitle>
             <div className="flex items-center gap-1">
