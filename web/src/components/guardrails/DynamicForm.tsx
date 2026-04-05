@@ -13,7 +13,8 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { Info } from 'lucide-react'
+import { Icon } from '@iconify/react';
+import { icons } from '@/lib/icons';
 import {
   Tooltip,
   TooltipContent,
@@ -98,7 +99,7 @@ function DynamicField({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                <Icon icon={icons.info} className="h-4 w-4 text-muted-foreground cursor-help" />
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs">{description}</p>

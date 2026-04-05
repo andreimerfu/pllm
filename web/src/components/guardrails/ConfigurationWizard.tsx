@@ -23,17 +23,8 @@ import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Loader2,
-  Settings,
-  Sliders,
-  TestTube,
-  Rocket,
-  ChevronLeft,
-  ChevronRight,
-  CheckCircle2,
-  AlertCircle,
-} from 'lucide-react'
+import { Icon } from '@iconify/react';
+import { icons } from '@/lib/icons';
 import { GuardrailConfigurationState, GuardrailExecutionMode } from '@/types/discovery'
 import { SchemaValidator } from '@/lib/schema-validator'
 import { DynamicForm } from './DynamicForm'
@@ -141,7 +132,7 @@ export function ConfigurationWizard({
         {step === 1 && (
           <div className="space-y-6">
             <div className="flex items-center gap-2 text-lg font-semibold">
-              <Settings className="h-5 w-5" />
+              <Icon icon={icons.settings} className="h-5 w-5" />
               Basic Settings
             </div>
 
@@ -221,7 +212,7 @@ export function ConfigurationWizard({
         {step === 2 && (
           <div className="space-y-6">
             <div className="flex items-center gap-2 text-lg font-semibold">
-              <Sliders className="h-5 w-5" />
+              <Icon icon={icons.settings} className="h-5 w-5" />
               Configuration
             </div>
 
@@ -240,7 +231,7 @@ export function ConfigurationWizard({
 
             {!state.is_valid && (
               <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
+                <Icon icon={icons.warning} className="h-4 w-4" />
                 <AlertDescription>
                   Please fix the validation errors before proceeding
                 </AlertDescription>
@@ -253,7 +244,7 @@ export function ConfigurationWizard({
         {step === 3 && (
           <div className="space-y-6">
             <div className="flex items-center gap-2 text-lg font-semibold">
-              <Sliders className="h-5 w-5" />
+              <Icon icon={icons.settings} className="h-5 w-5" />
               Apply Rules (Optional)
             </div>
 
@@ -314,7 +305,7 @@ export function ConfigurationWizard({
         {step === 4 && (
           <div className="space-y-6">
             <div className="flex items-center gap-2 text-lg font-semibold">
-              <TestTube className="h-5 w-5" />
+              <Icon icon={icons.play} className="h-5 w-5" />
               Test & Deploy
             </div>
 
@@ -362,16 +353,16 @@ export function ConfigurationWizard({
                 disabled={isTesting}
                 className="w-full"
               >
-                {isTesting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isTesting && <Icon icon={icons.refresh} className="mr-2 h-4 w-4 animate-spin" />}
                 Test Configuration
               </Button>
 
               {testResult && (
                 <Alert variant={testResult.success ? 'default' : 'destructive'}>
                   {testResult.success ? (
-                    <CheckCircle2 className="h-4 w-4" />
+                    <Icon icon={icons.check} className="h-4 w-4" />
                   ) : (
-                    <AlertCircle className="h-4 w-4" />
+                    <Icon icon={icons.warning} className="h-4 w-4" />
                   )}
                   <AlertDescription>
                     {testResult.success ? (
@@ -393,7 +384,7 @@ export function ConfigurationWizard({
           <div>
             {step > 1 && (
               <Button variant="ghost" onClick={() => setStep(step - 1)}>
-                <ChevronLeft className="mr-2 h-4 w-4" />
+                <Icon icon={icons.chevronLeft} className="mr-2 h-4 w-4" />
                 Back
               </Button>
             )}
@@ -403,12 +394,12 @@ export function ConfigurationWizard({
             {step < 4 ? (
               <Button onClick={() => setStep(step + 1)} disabled={!canGoNext()}>
                 Next
-                <ChevronRight className="ml-2 h-4 w-4" />
+                <Icon icon={icons.chevronRight} className="ml-2 h-4 w-4" />
               </Button>
             ) : (
               <Button onClick={handleDeploy} disabled={!canDeploy || isConfiguring}>
-                {isConfiguring && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <Rocket className="mr-2 h-4 w-4" />
+                {isConfiguring && <Icon icon={icons.refresh} className="mr-2 h-4 w-4 animate-spin" />}
+                <Icon icon={icons.arrowRight} className="mr-2 h-4 w-4" />
                 Deploy Guardrail
               </Button>
             )}

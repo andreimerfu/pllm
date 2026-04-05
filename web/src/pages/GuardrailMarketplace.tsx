@@ -1,21 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import {
-  Shield,
-  Search,
-  Filter,
-  Star,
-  Download,
-  ExternalLink,
-  Lock,
-  ArrowRight,
-  CheckCircle,
-  AlertTriangle,
-  Info,
-  Github,
-  Book
-} from "lucide-react";
+import { Icon } from '@iconify/react';
+import { icons } from '@/lib/icons';
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -288,11 +275,11 @@ const MOCK_PROVIDERS: GuardrailProvider[] = [
 ];
 
 const CATEGORIES = [
-  { value: "all", label: "All Categories", icon: Shield },
-  { value: "privacy", label: "Privacy & PII", icon: Lock },
-  { value: "safety", label: "Content Safety", icon: AlertTriangle },
-  { value: "compliance", label: "Compliance", icon: CheckCircle },
-  { value: "security", label: "Security", icon: Shield }
+  { value: "all", label: "All Categories", icon: icons.shield },
+  { value: "privacy", label: "Privacy & PII", icon: icons.lock },
+  { value: "safety", label: "Content Safety", icon: icons.warning },
+  { value: "compliance", label: "Compliance", icon: icons.check },
+  { value: "security", label: "Security", icon: icons.shield }
 ];
 
 const PRICING_FILTERS = [
@@ -369,7 +356,7 @@ export default function GuardrailMarketplace() {
 
   const getCategoryIcon = (category: string) => {
     const categoryData = CATEGORIES.find(c => c.value === category);
-    return categoryData?.icon || Shield;
+    return categoryData?.icon || icons.shield;
   };
 
   return (
@@ -384,7 +371,7 @@ export default function GuardrailMarketplace() {
 
       {/* Featured Notice */}
       <Alert>
-        <Info className="h-4 w-4" />
+        <Icon icon={icons.info} className="h-4 w-4" />
         <AlertDescription>
           These guardrail providers offer various levels of PII detection, content safety, and compliance features.
           Choose based on your specific needs and integration requirements.
@@ -395,7 +382,7 @@ export default function GuardrailMarketplace() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
+            <Icon icon={icons.filter} className="h-5 w-5" />
             Filters & Search
           </CardTitle>
         </CardHeader>
@@ -403,7 +390,7 @@ export default function GuardrailMarketplace() {
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Icon icon={icons.search} className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search guardrails, providers, or features..."
                   value={searchQuery}
@@ -456,10 +443,9 @@ export default function GuardrailMarketplace() {
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
         <TabsList className="grid w-full grid-cols-5">
           {CATEGORIES.map((category) => {
-            const Icon = category.icon;
             return (
               <TabsTrigger key={category.value} value={category.value} className="flex items-center gap-2">
-                <Icon className="h-4 w-4" />
+                <Icon icon={category.icon} className="h-4 w-4" />
                 <span className="hidden md:inline">{category.label}</span>
               </TabsTrigger>
             );
@@ -488,7 +474,7 @@ export default function GuardrailMarketplace() {
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-primary/10 rounded-lg">
-                            <CategoryIcon className="h-5 w-5 text-primary" />
+                            <Icon icon={CategoryIcon} className="h-5 w-5 text-primary" />
                           </div>
                           <div className="flex-1">
                             <CardTitle className="text-lg leading-tight">{provider.name}</CardTitle>
@@ -499,7 +485,7 @@ export default function GuardrailMarketplace() {
                               </Avatar>
                               <span className="text-xs text-muted-foreground">{provider.author.name}</span>
                               {provider.author.verified && (
-                                <CheckCircle className="h-3 w-3 text-blue-500" />
+                                <Icon icon={icons.check} className="h-3 w-3 text-blue-500" />
                               )}
                             </div>
                           </div>
@@ -514,11 +500,11 @@ export default function GuardrailMarketplace() {
                       {/* Stats */}
                       <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-1">
-                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          <Icon icon={icons.star} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                           <span className="font-medium">{provider.rating}</span>
                         </div>
                         <div className="flex items-center gap-1 text-muted-foreground">
-                          <Download className="h-3 w-3" />
+                          <Icon icon={icons.download} className="h-3 w-3" />
                           <span>{formatDownloads(provider.downloads)}</span>
                         </div>
                       </div>
@@ -563,7 +549,7 @@ export default function GuardrailMarketplace() {
                                     <ul className="space-y-1">
                                       {remainingFeatures.map((feature, idx) => (
                                         <li key={idx} className="text-xs text-muted-foreground flex items-start">
-                                          <CheckCircle className="h-3 w-3 mr-2 mt-0.5 flex-shrink-0 text-green-600" />
+                                          <Icon icon={icons.check} className="h-3 w-3 mr-2 mt-0.5 flex-shrink-0 text-green-600" />
                                           {feature}
                                         </li>
                                       ))}
@@ -597,7 +583,7 @@ export default function GuardrailMarketplace() {
                           className="flex-1"
                           onClick={() => navigate(`/guardrails/config/new?provider=${provider.id}`)}
                         >
-                          <ArrowRight className="h-3 w-3 mr-1" />
+                          <Icon icon={icons.arrowRight} className="h-3 w-3 mr-1" />
                           Configure
                         </Button>
                         <div className="flex gap-1">
@@ -607,7 +593,7 @@ export default function GuardrailMarketplace() {
                               variant="outline"
                               onClick={() => window.open(provider.documentation_url, '_blank')}
                             >
-                              <Book className="h-3 w-3" />
+                              <Icon icon={icons.book} className="h-3 w-3" />
                             </Button>
                           )}
                           {provider.github_url && (
@@ -616,7 +602,7 @@ export default function GuardrailMarketplace() {
                               variant="outline"
                               onClick={() => window.open(provider.github_url, '_blank')}
                             >
-                              <Github className="h-3 w-3" />
+                              <Icon icon={icons.github} className="h-3 w-3" />
                             </Button>
                           )}
                           {provider.homepage_url && (
@@ -625,7 +611,7 @@ export default function GuardrailMarketplace() {
                               variant="outline"
                               onClick={() => window.open(provider.homepage_url, '_blank')}
                             >
-                              <ExternalLink className="h-3 w-3" />
+                              <Icon icon={icons.externalLink} className="h-3 w-3" />
                             </Button>
                           )}
                         </div>
@@ -639,7 +625,7 @@ export default function GuardrailMarketplace() {
             {filteredProviders.length === 0 && (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Shield className="h-12 w-12 text-muted-foreground mb-4" />
+                  <Icon icon={icons.shield} className="h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Guardrails Found</h3>
                   <p className="text-muted-foreground text-center max-w-md">
                     No guardrails match your current filters. Try adjusting your search criteria or browse all categories.

@@ -13,7 +13,8 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Globe, Package, FileEdit, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Icon } from '@iconify/react';
+import { icons } from '@/lib/icons';
 import { GuardrailSourceType } from '@/types/discovery'
 import { useDiscoverGuardrail, useGuardrailSources } from '@/hooks/useDiscovery'
 import { DiscoveryPreview } from './DiscoveryPreview'
@@ -84,15 +85,15 @@ export function AddSourceDialog({ open, onOpenChange }: AddSourceDialogProps) {
           <Tabs value={sourceType} onValueChange={(v) => setSourceType(v as GuardrailSourceType)}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="url" className="flex items-center gap-2">
-                <Globe className="h-4 w-4" />
+                <Icon icon={icons.globe} className="h-4 w-4" />
                 URL
               </TabsTrigger>
               <TabsTrigger value="preset" className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
+                <Icon icon={icons.layers} className="h-4 w-4" />
                 Preset
               </TabsTrigger>
               <TabsTrigger value="manual" className="flex items-center gap-2">
-                <FileEdit className="h-4 w-4" />
+                <Icon icon={icons.edit} className="h-4 w-4" />
                 Manual
               </TabsTrigger>
             </TabsList>
@@ -140,14 +141,14 @@ export function AddSourceDialog({ open, onOpenChange }: AddSourceDialogProps) {
 
                 {error && (
                   <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
+                    <Icon icon={icons.warning} className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
 
                 {discovery && (
                   <Alert>
-                    <CheckCircle2 className="h-4 w-4" />
+                    <Icon icon={icons.check} className="h-4 w-4" />
                     <AlertDescription>
                       Successfully discovered: {discovery.name} v{discovery.version}
                     </AlertDescription>
@@ -181,7 +182,7 @@ export function AddSourceDialog({ open, onOpenChange }: AddSourceDialogProps) {
                           <span className="font-medium">{preset.name}</span>
                           <Badge variant="secondary">{preset.provider}</Badge>
                           {preset.verified && (
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            <Icon icon={icons.check} className="h-4 w-4 text-green-500" />
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
@@ -213,7 +214,7 @@ export function AddSourceDialog({ open, onOpenChange }: AddSourceDialogProps) {
                 </div>
 
                 <Alert variant="default">
-                  <AlertCircle className="h-4 w-4" />
+                  <Icon icon={icons.warning} className="h-4 w-4" />
                   <AlertDescription>
                     Manual sources don't use the discovery protocol. You'll need to configure them
                     through the configuration file.
@@ -232,12 +233,12 @@ export function AddSourceDialog({ open, onOpenChange }: AddSourceDialogProps) {
           </Button>
           {!showPreview && sourceType === 'url' && (
             <Button onClick={handleDiscover} disabled={!canDiscover || isDiscovering}>
-              {isDiscovering && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isDiscovering && <Icon icon={icons.refresh} className="mr-2 h-4 w-4 animate-spin" />}
               Discover
             </Button>
           )}
           <Button onClick={handleAdd} disabled={!canAdd || isAdding}>
-            {isAdding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isAdding && <Icon icon={icons.refresh} className="mr-2 h-4 w-4 animate-spin" />}
             Add Source
           </Button>
         </DialogFooter>

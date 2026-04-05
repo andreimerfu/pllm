@@ -2,15 +2,8 @@ import { GuardrailDiscoveryResponse } from '@/types/discovery'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import {
-  CheckCircle2,
-  Clock,
-  Gauge,
-  Globe,
-  Shield,
-  Zap,
-  ExternalLink,
-} from 'lucide-react'
+import { Icon } from '@iconify/react';
+import { icons } from '@/lib/icons';
 
 interface DiscoveryPreviewProps {
   discovery: GuardrailDiscoveryResponse
@@ -44,7 +37,7 @@ export function DiscoveryPreview({ discovery }: DiscoveryPreviewProps) {
       {/* Provider Info */}
       <div>
         <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-          <Shield className="h-4 w-4" />
+          <Icon icon={icons.shield} className="h-4 w-4" />
           Provider
         </h4>
         <div className="text-sm space-y-1">
@@ -61,9 +54,9 @@ export function DiscoveryPreview({ discovery }: DiscoveryPreviewProps) {
               rel="noopener noreferrer"
               className="text-primary hover:underline inline-flex items-center gap-1"
             >
-              <Globe className="h-3 w-3" />
+              <Icon icon={icons.globe} className="h-3 w-3" />
               Website
-              <ExternalLink className="h-3 w-3" />
+              <Icon icon={icons.externalLink} className="h-3 w-3" />
             </a>
           )}
         </div>
@@ -72,7 +65,7 @@ export function DiscoveryPreview({ discovery }: DiscoveryPreviewProps) {
       {/* Capabilities */}
       <div>
         <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-          <Zap className="h-4 w-4" />
+          <Icon icon={icons.bolt} className="h-4 w-4" />
           Capabilities
         </h4>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -87,7 +80,7 @@ export function DiscoveryPreview({ discovery }: DiscoveryPreviewProps) {
           <CapabilityItem
             label="Streaming"
             value={discovery.capabilities.supports_streaming ? 'Yes' : 'No'}
-            icon={discovery.capabilities.supports_streaming ? CheckCircle2 : undefined}
+            icon={discovery.capabilities.supports_streaming ? icons.check : undefined}
           />
           <CapabilityItem
             label="Batch Processing"
@@ -96,10 +89,10 @@ export function DiscoveryPreview({ discovery }: DiscoveryPreviewProps) {
                 ? `Yes (max ${discovery.capabilities.max_batch_size || '∞'})`
                 : 'No'
             }
-            icon={discovery.capabilities.supports_batch ? CheckCircle2 : undefined}
+            icon={discovery.capabilities.supports_batch ? icons.check : undefined}
           />
           {discovery.capabilities.requires_api_key && (
-            <CapabilityItem label="API Key" value="Required" icon={Shield} />
+            <CapabilityItem label="API Key" value="Required" icon={icons.lock} />
           )}
         </div>
       </div>
@@ -108,7 +101,7 @@ export function DiscoveryPreview({ discovery }: DiscoveryPreviewProps) {
       {discovery.performance && (
         <div>
           <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-            <Gauge className="h-4 w-4" />
+            <Icon icon={icons.trendingUp} className="h-4 w-4" />
             Performance Characteristics
           </h4>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -116,14 +109,14 @@ export function DiscoveryPreview({ discovery }: DiscoveryPreviewProps) {
               <PerformanceItem
                 label="Avg Latency"
                 value={`${discovery.performance.avg_latency_ms}ms`}
-                icon={Clock}
+                icon={icons.clock}
               />
             )}
             {discovery.performance.max_latency_ms !== undefined && (
               <PerformanceItem
                 label="Max Latency"
                 value={`${discovery.performance.max_latency_ms}ms`}
-                icon={Clock}
+                icon={icons.clock}
               />
             )}
             {discovery.performance.throughput_req_per_sec !== undefined && (
@@ -191,7 +184,7 @@ export function DiscoveryPreview({ discovery }: DiscoveryPreviewProps) {
                 className="text-sm text-primary hover:underline inline-flex items-center gap-1"
               >
                 Documentation
-                <ExternalLink className="h-3 w-3" />
+                <Icon icon={icons.externalLink} className="h-3 w-3" />
               </a>
             )}
             {discovery.homepage && (
@@ -202,7 +195,7 @@ export function DiscoveryPreview({ discovery }: DiscoveryPreviewProps) {
                 className="text-sm text-primary hover:underline inline-flex items-center gap-1"
               >
                 Homepage
-                <ExternalLink className="h-3 w-3" />
+                <Icon icon={icons.externalLink} className="h-3 w-3" />
               </a>
             )}
             {discovery.repository && (
@@ -213,7 +206,7 @@ export function DiscoveryPreview({ discovery }: DiscoveryPreviewProps) {
                 className="text-sm text-primary hover:underline inline-flex items-center gap-1"
               >
                 Repository
-                <ExternalLink className="h-3 w-3" />
+                <Icon icon={icons.externalLink} className="h-3 w-3" />
               </a>
             )}
           </div>
@@ -226,15 +219,15 @@ export function DiscoveryPreview({ discovery }: DiscoveryPreviewProps) {
 function CapabilityItem({
   label,
   value,
-  icon: Icon,
+  icon: iconName,
 }: {
   label: string
   value: string
-  icon?: any
+  icon?: string
 }) {
   return (
     <div className="flex items-start gap-2 text-sm">
-      {Icon && <Icon className="h-4 w-4 mt-0.5 text-muted-foreground" />}
+      {iconName && <Icon icon={iconName} className="h-4 w-4 mt-0.5 text-muted-foreground" />}
       <div>
         <p className="font-medium text-muted-foreground">{label}</p>
         <p className="text-foreground">{value}</p>
@@ -246,15 +239,15 @@ function CapabilityItem({
 function PerformanceItem({
   label,
   value,
-  icon: Icon,
+  icon: iconName,
 }: {
   label: string
   value: string
-  icon?: any
+  icon?: string
 }) {
   return (
     <div className="flex items-center gap-2 text-sm">
-      {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+      {iconName && <Icon icon={iconName} className="h-4 w-4 text-muted-foreground" />}
       <div>
         <p className="font-medium text-muted-foreground">{label}</p>
         <p className="text-foreground">{value}</p>

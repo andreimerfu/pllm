@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Activity, Clock, AlertTriangle, CheckCircle, XCircle, Plus, Settings, Trash2, Edit3, MoreHorizontal, ArrowUpDown } from "lucide-react";
+import { Icon } from '@iconify/react';
+import { icons } from '@/lib/icons';
 import { Bar, BarChart } from "recharts";
 import {
   ColumnDef,
@@ -128,7 +129,7 @@ const createColumns = (
           className="h-auto p-0 font-semibold"
         >
           Name
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <Icon icon={icons.arrowUpDown} className="ml-2 h-4 w-4" />
         </Button>
       );
     },
@@ -142,16 +143,16 @@ const createColumns = (
             </div>
           ) : (
             <div className="p-2 bg-gray-50 rounded-lg">
-              <Shield className="h-5 w-5 text-gray-600" />
+              <Icon icon={icons.shield} className="h-5 w-5 text-gray-600" />
             </div>
           )}
           <div>
             <div className="font-semibold flex items-center gap-2">
               {guardrail.name}
               {guardrail.healthy ? (
-                <CheckCircle className="h-4 w-4 text-green-500" />
+                <Icon icon={icons.check} className="h-4 w-4 text-green-500" />
               ) : (
-                <XCircle className="h-4 w-4 text-red-500" />
+                <Icon icon={icons.error} className="h-4 w-4 text-red-500" />
               )}
             </div>
             <div className="text-sm text-muted-foreground">
@@ -225,7 +226,7 @@ const createColumns = (
           className="h-auto p-0 font-semibold"
         >
           Latency
-          <ArrowUpDown className="ml-2 h-4 w-4" />
+          <Icon icon={icons.arrowUpDown} className="ml-2 h-4 w-4" />
         </Button>
       );
     },
@@ -270,17 +271,17 @@ const createColumns = (
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">
               <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
+              <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem onClick={() => onConfigure(guardrail)}>
-              <Settings className="mr-2 h-4 w-4" />
+              <Icon icon={icons.settings} className="mr-2 h-4 w-4" />
               Configure
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onEdit(guardrail)}>
-              <Edit3 className="mr-2 h-4 w-4" />
+              <Icon icon={icons.edit} className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -288,7 +289,7 @@ const createColumns = (
               onClick={() => onDelete(guardrail)}
               className="text-red-600"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
+              <Icon icon={icons.delete} className="mr-2 h-4 w-4" />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -335,7 +336,7 @@ function GuardrailsTable({
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
-          <Shield className="h-12 w-12 text-muted-foreground mb-4" />
+          <Icon icon={icons.shield} className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No Guardrails Configured</h3>
           <p className="text-muted-foreground text-center max-w-md">
             No guardrails are currently configured. Add guardrails to your configuration to start protecting your LLM interactions.
@@ -432,9 +433,9 @@ export default function Guardrails() {
   const getHealthIcon = (healthy?: boolean) => {
     if (healthy === undefined) return null;
     return healthy ? (
-      <CheckCircle className="h-4 w-4 text-green-500" />
+      <Icon icon={icons.check} className="h-4 w-4 text-green-500" />
     ) : (
-      <XCircle className="h-4 w-4 text-red-500" />
+      <Icon icon={icons.error} className="h-4 w-4 text-red-500" />
     );
   };
 
@@ -456,13 +457,13 @@ export default function Guardrails() {
             variant="outline"
             onClick={() => navigate("/guardrails/marketplace")}
           >
-            <Shield className="h-4 w-4 mr-2" />
+            <Icon icon={icons.shield} className="h-4 w-4 mr-2" />
             Browse Marketplace
           </Button>
           <Button
             onClick={() => navigate("/guardrails/config/new")}
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Icon icon={icons.plus} className="h-4 w-4 mr-2" />
             Add Guardrail
           </Button>
         </div>
@@ -473,7 +474,7 @@ export default function Guardrails() {
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              <Icon icon={icons.warning} className="h-4 w-4 text-yellow-600" />
               <p className="text-sm text-yellow-800">
                 Guardrails system is currently disabled. Enable it in the configuration to start protecting your LLM interactions.
               </p>
@@ -505,7 +506,7 @@ export default function Guardrails() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
+                <Icon icon={icons.trendingUp} className="h-5 w-5" />
                 Execution Statistics
               </CardTitle>
               <CardDescription>
@@ -564,7 +565,7 @@ export default function Guardrails() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    <Activity className="h-5 w-5" />
+                    <Icon icon={icons.trendingUp} className="h-5 w-5" />
                     Health Status
                   </CardTitle>
                   <CardDescription>
@@ -585,9 +586,9 @@ export default function Guardrails() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 mb-4">
                     {allHealthy ? (
-                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <Icon icon={icons.check} className="h-5 w-5 text-green-500" />
                     ) : (
-                      <XCircle className="h-5 w-5 text-red-500" />
+                      <Icon icon={icons.error} className="h-5 w-5 text-red-500" />
                     )}
                     <span className={`font-medium ${allHealthy ? 'text-green-700' : 'text-red-700'}`}>
                       {allHealthy ? 'All Guardrails Healthy' : 'Some Guardrails Unhealthy'}
@@ -610,7 +611,7 @@ export default function Guardrails() {
 
                   {checkedAt && (
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-4">
-                      <Clock className="h-3 w-3" />
+                      <Icon icon={icons.clock} className="h-3 w-3" />
                       Last checked: {formatDateTime(checkedAt)}
                     </div>
                   )}
@@ -634,7 +635,7 @@ export default function Guardrails() {
                     </div>
                   ) : (
                     <div className="p-2 bg-gray-50 rounded-lg">
-                      <Shield className="h-5 w-5 text-gray-600" />
+                      <Icon icon={icons.shield} className="h-5 w-5 text-gray-600" />
                     </div>
                   )}
                   <div>
@@ -821,11 +822,11 @@ export default function Guardrails() {
 
                 <div className="flex gap-2 pt-4">
                   <Button variant="outline" className="flex-1">
-                    <Edit3 className="h-4 w-4 mr-2" />
+                    <Icon icon={icons.edit} className="h-4 w-4 mr-2" />
                     Edit Configuration
                   </Button>
                   <Button variant="outline" className="flex-1">
-                    <Settings className="h-4 w-4 mr-2" />
+                    <Icon icon={icons.settings} className="h-4 w-4 mr-2" />
                     Test Guardrail
                   </Button>
                 </div>

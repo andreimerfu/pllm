@@ -1,19 +1,8 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Shield,
-  Save,
-  ArrowLeft,
-  TestTube,
-  AlertTriangle,
-  CheckCircle,
-  Settings2,
-  Globe,
-  Clock,
-  Lock,
-  Zap
-} from "lucide-react";
+import { Icon } from '@iconify/react';
+import { icons } from '@/lib/icons';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -66,25 +55,25 @@ const EXECUTION_MODES = [
     value: "pre_call",
     label: "Pre-call",
     description: "Execute before sending to LLM",
-    icon: <ArrowLeft className="h-4 w-4" />
+    icon: <Icon icon={icons.arrowLeft} className="h-4 w-4" />
   },
   {
     value: "post_call",
     label: "Post-call",
     description: "Execute after LLM response",
-    icon: <CheckCircle className="h-4 w-4" />
+    icon: <Icon icon={icons.check} className="h-4 w-4" />
   },
   {
     value: "during_call",
     label: "During-call",
     description: "Execute in parallel with LLM",
-    icon: <Zap className="h-4 w-4" />
+    icon: <Icon icon={icons.bolt} className="h-4 w-4" />
   },
   {
     value: "logging_only",
     label: "Logging only",
     description: "Log violations without blocking",
-    icon: <AlertTriangle className="h-4 w-4" />
+    icon: <Icon icon={icons.warning} className="h-4 w-4" />
   }
 ];
 
@@ -241,7 +230,7 @@ export default function GuardrailConfig() {
                 size="icon"
                 onClick={() => navigate("/guardrails")}
               >
-                <ArrowLeft className="h-4 w-4" />
+                <Icon icon={icons.arrowLeft} className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -268,7 +257,7 @@ export default function GuardrailConfig() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" />
+                    <Icon icon={icons.shield} className="h-5 w-5" />
                     Basic Information
                   </CardTitle>
                   <CardDescription>
@@ -379,7 +368,7 @@ export default function GuardrailConfig() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Settings2 className="h-5 w-5" />
+                    <Icon icon={icons.settings} className="h-5 w-5" />
                     Execution Modes
                   </CardTitle>
                   <CardDescription>
@@ -435,7 +424,7 @@ export default function GuardrailConfig() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Globe className="h-5 w-5" />
+                    <Icon icon={icons.globe} className="h-5 w-5" />
                     Provider Configuration
                   </CardTitle>
                   <CardDescription>
@@ -565,7 +554,7 @@ export default function GuardrailConfig() {
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
                           <FormLabel className="text-base">
-                            <Lock className="inline h-4 w-4 mr-2" />
+                            <Icon icon={icons.lock} className="inline h-4 w-4 mr-2" />
                             Mask PII in Requests
                           </FormLabel>
                           <FormDescription>
@@ -648,7 +637,7 @@ export default function GuardrailConfig() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
+                    <Icon icon={icons.clock} className="h-5 w-5" />
                     Advanced Settings
                   </CardTitle>
                   <CardDescription>
@@ -754,7 +743,7 @@ export default function GuardrailConfig() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <TestTube className="h-5 w-5" />
+                    <Icon icon={icons.play} className="h-5 w-5" />
                     Test Configuration
                   </CardTitle>
                   <CardDescription>
@@ -776,7 +765,7 @@ export default function GuardrailConfig() {
                       </>
                     ) : (
                       <>
-                        <TestTube className="h-4 w-4 mr-2" />
+                        <Icon icon={icons.play} className="h-4 w-4 mr-2" />
                         Test Configuration
                       </>
                     )}
@@ -786,9 +775,9 @@ export default function GuardrailConfig() {
                     <Alert className={testResult.success ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
                       <div className="flex items-center gap-2">
                         {testResult.success ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <Icon icon={icons.check} className="h-4 w-4 text-green-600" />
                         ) : (
-                          <AlertTriangle className="h-4 w-4 text-red-600" />
+                          <Icon icon={icons.warning} className="h-4 w-4 text-red-600" />
                         )}
                         <span className="font-medium">
                           {testResult.success ? "Test Successful" : "Test Failed"}
@@ -842,7 +831,7 @@ export default function GuardrailConfig() {
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
+                  <Icon icon={icons.download} className="h-4 w-4 mr-2" />
                   {isEditing ? "Update Guardrail" : "Create Guardrail"}
                 </>
               )}
