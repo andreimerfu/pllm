@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Icon } from '@iconify/react'
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { icons } from '@/lib/icons'
+import { getProviderLogo } from '@/lib/provider-logos'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -61,7 +62,7 @@ function ModelCombobox({
           <div className="flex items-center gap-2">
             {selectedModelData && (
               <Icon
-                icon={getModelIcon(selectedModelData.id)}
+                icon={getProviderLogo(selectedModelData.owned_by || selectedModelData.id)}
                 className="h-4 w-4"
               />
             )}
@@ -69,7 +70,7 @@ function ModelCombobox({
               {selectedModelData ? (selectedModelData.name || selectedModelData.id) : "Select a model..."}
             </span>
           </div>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <Icon icon={icons.chevronsUpDown} className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0">
@@ -105,7 +106,8 @@ function ModelCombobox({
                         )}
                       </div>
                     </div>
-                    <Check
+                    <Icon
+                      icon={icons.check}
                       className={cn(
                         "ml-auto h-4 w-4",
                         selectedModel === model.id ? "opacity-100" : "opacity-0"
@@ -174,7 +176,7 @@ function RightSidebar({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="sm" onClick={onToggle} className="md:block lg:hidden">
-                    <Icon icon="lucide:x" className="h-4 w-4" />
+                    <Icon icon={icons.close} className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -272,7 +274,7 @@ function RightSidebar({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button size="sm" variant="ghost">
-                        <Icon icon="lucide:plus" className="h-4 w-4" />
+                        <Icon icon={icons.plus} className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -283,7 +285,7 @@ function RightSidebar({
               </div>
 
               <div className="relative mb-3">
-                <Icon icon="lucide:search" className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Icon icon={icons.search} className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search conversations..."
@@ -321,7 +323,7 @@ function RightSidebar({
 
         <div className="p-4 border-t">
           <Button className="w-full gap-2">
-            <Icon icon="lucide:plus" className="h-4 w-4" />
+            <Icon icon={icons.plus} className="h-4 w-4" />
             New Chat
           </Button>
         </div>
@@ -431,7 +433,7 @@ function EmptyState() {
     <div className="flex-1 flex items-center justify-center min-h-0 px-4">
       <div className="text-center max-w-md">
         <div className="mb-4">
-          <Icon icon="lucide:message-circle" className="h-16 w-16 text-muted-foreground mx-auto" />
+          <Icon icon={icons.chat} className="h-16 w-16 text-muted-foreground mx-auto" />
         </div>
         <h2 className="text-xl font-semibold mb-2">Start a conversation</h2>
         <p className="text-muted-foreground">
@@ -520,27 +522,27 @@ function MessageInput({
   }, [onChange])
 
   return (
-    <div className="border-t bg-background px-4 py-2">
+    <div className="border-t bg-secondary/50 px-4 py-2">
       <div className="max-w-4xl mx-auto">
         <div className="flex gap-2 mb-3">
           <Button variant="outline" size="sm" className="gap-2">
-            <Icon icon="lucide:image" className="h-4 w-4" />
+            <Icon icon={icons.image} className="h-4 w-4" />
             Image
           </Button>
           <Button variant="outline" size="sm" className="gap-2">
-            <Icon icon="lucide:code" className="h-4 w-4" />
+            <Icon icon={icons.code} className="h-4 w-4" />
             Interactive App
           </Button>
           <Button variant="outline" size="sm" className="gap-2">
-            <Icon icon="lucide:layout" className="h-4 w-4" />
+            <Icon icon={icons.layers} className="h-4 w-4" />
             Landing Page
           </Button>
           <Button variant="outline" size="sm" className="gap-2">
-            <Icon icon="lucide:gamepad-2" className="h-4 w-4" />
+            <Icon icon={icons.play} className="h-4 w-4" />
             2D Game
           </Button>
           <Button variant="outline" size="sm" className="gap-2">
-            <Icon icon="lucide:box" className="h-4 w-4" />
+            <Icon icon={icons.maximize} className="h-4 w-4" />
             3D Game
           </Button>
         </div>
@@ -551,7 +553,7 @@ function MessageInput({
             {attachments.map((file) => (
               <div key={file.id} className="relative group">
                 <div className="flex items-center gap-2 bg-muted rounded-md p-2 pr-8">
-                  <Icon icon="lucide:image" className="h-4 w-4" />
+                  <Icon icon={icons.image} className="h-4 w-4" />
                   <span className="text-sm truncate max-w-32">{file.filename}</span>
                 </div>
                 {onAttachmentRemove && (
@@ -584,7 +586,7 @@ function MessageInput({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button size="icon" variant="destructive" onClick={onStop}>
-                      <Icon icon="lucide:square" className="h-4 w-4" />
+                      <Icon icon={icons.stop} className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -598,8 +600,9 @@ function MessageInput({
                       size="icon"
                       onClick={onSubmit}
                       disabled={!value.trim()}
+                      className="bg-primary text-primary-foreground rounded-lg"
                     >
-                      <Icon icon="lucide:send" className="h-4 w-4" />
+                      <Icon icon={icons.send} className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -629,7 +632,7 @@ function MessageInput({
                     onClick={() => fileInputRef.current?.click()}
                     disabled={disabled}
                   >
-                    <Icon icon="lucide:paperclip" className="h-4 w-4" />
+                    <Icon icon="solar:paperclip-linear" className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -641,7 +644,7 @@ function MessageInput({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="sm" disabled>
-                    <Icon icon="lucide:mic" className="h-4 w-4" />
+                    <Icon icon="solar:microphone-linear" className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -652,7 +655,7 @@ function MessageInput({
           </div>
 
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Icon icon="lucide:globe" className="h-4 w-4" />
+            <Icon icon={icons.globe} className="h-4 w-4" />
             <span>Web search</span>
             <Switch
               checked={webSearchEnabled}
@@ -787,7 +790,7 @@ export default function Chat() {
         <div className="lg:hidden flex items-center justify-between p-4 border-b bg-background shrink-0">
           <h1 className="text-lg font-semibold">Chat</h1>
           <Button variant="ghost" size="sm" onClick={() => setIsSidebarCollapsed(false)}>
-            <Icon icon="lucide:settings" className="h-4 w-4 mr-2" />
+            <Icon icon={icons.settings} className="h-4 w-4 mr-2" />
             Settings
           </Button>
         </div>
@@ -831,7 +834,7 @@ export default function Chat() {
                             : "bg-muted"
                         )}>
                           <Icon
-                            icon={message.role === 'user' ? "lucide:user" : "lucide:bot"}
+                            icon={message.role === 'user' ? icons.user : icons.chat}
                             width="16"
                             height="16"
                           />
@@ -850,7 +853,7 @@ export default function Chat() {
                           "shadow-sm",
                           message.role === 'user'
                             ? "bg-primary text-primary-foreground"
-                            : "bg-card"
+                            : "bg-card border"
                         )}>
                           <CardContent className="p-4">
                             {message.role === 'user' ? (
@@ -866,6 +869,12 @@ export default function Chat() {
                             )}
                           </CardContent>
                         </Card>
+                        {message.role === 'assistant' && (
+                          <div className="mt-1 flex items-center gap-2 text-[10px] font-mono text-muted-foreground px-1">
+                            {message.model && <span>{message.model}</span>}
+                            <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -874,13 +883,13 @@ export default function Chat() {
                     <div className="flex gap-4">
                       <Avatar className="h-8 w-8 shrink-0">
                         <AvatarFallback className="bg-muted">
-                          <Icon icon="lucide:bot" width="16" height="16" />
+                          <Icon icon={icons.chat} width="16" height="16" />
                         </AvatarFallback>
                       </Avatar>
                       <Card className="bg-card shadow-sm">
                         <CardContent className="p-4">
                           <div className="flex items-center gap-2">
-                            <Icon icon="lucide:loader-2" width="16" height="16" className="animate-spin" />
+                            <Icon icon={icons.refresh} width="16" height="16" className="animate-spin" />
                             <span className="text-sm text-muted-foreground">Thinking...</span>
                           </div>
                         </CardContent>
