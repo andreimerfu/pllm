@@ -26,14 +26,14 @@ import { OIDCAuthProvider } from '@/contexts/OIDCAuthContext'
 import { PermissionProvider } from '@/contexts/PermissionContext'
 import { ConfigProvider } from '@/contexts/ConfigContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
-import { ThemeProvider } from '@/contexts/ThemeContext'
+import { ColorModeProvider } from '@/contexts/ColorModeContext'
 
 function App() {
   // Since the UI is only served when database is configured,
   // we don't need to check database status here
   return (
     <Router basename="/ui">
-      <ThemeProvider>
+      <ColorModeProvider>
         <OIDCAuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -75,7 +75,7 @@ function App() {
         </Routes>
         <Toaster />
         </OIDCAuthProvider>
-      </ThemeProvider>
+      </ColorModeProvider>
     </Router>
   )
 }
