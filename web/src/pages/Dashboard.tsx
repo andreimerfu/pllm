@@ -10,21 +10,9 @@ import {
 } from "@tanstack/react-table"
 import { useQuery } from "@tanstack/react-query"
 import { z } from "zod"
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  CheckCircle,
-  MoreHorizontal,
-  Columns,
-  Loader2,
-  Plus,
-  TrendingUp,
-  AlertCircle,
-} from "lucide-react"
 import { Icon } from "@iconify/react"
+import { icons } from "@/lib/icons"
+import { getProviderLogo } from "@/lib/provider-logos"
 import { getDashboardMetrics, getUsageTrends, getAdminModels } from "@/lib/api"
 import type { AdminModelsResponse } from "@/types/api"
 import { formatChartLabel, fillTimeGaps } from "@/lib/date-utils"
@@ -69,7 +57,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-// Navigation component
 // Metric Cards Component with real API data
 function MetricCards() {
   const { data: rawData, isLoading: loading } = useQuery({
@@ -91,17 +78,12 @@ function MetricCards() {
 
   if (loading || !metrics) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="h-4 w-24 bg-muted animate-pulse rounded" />
-              <div className="h-4 w-4 bg-muted animate-pulse rounded" />
-            </CardHeader>
-            <CardContent>
-              <div className="h-8 w-20 bg-muted animate-pulse rounded mb-2" />
-              <div className="h-3 w-32 bg-muted animate-pulse rounded" />
-            </CardContent>
+          <Card key={i} className="bg-card border rounded-lg p-4">
+            <div className="h-[11px] w-24 bg-muted animate-pulse rounded mb-3" />
+            <div className="h-8 w-20 bg-muted animate-pulse rounded mb-2" />
+            <div className="h-[11px] w-32 bg-muted animate-pulse rounded" />
           </Card>
         ))}
       </div>
@@ -109,62 +91,70 @@ function MetricCards() {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Total Requests Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+      <Card className="bg-card border rounded-lg p-4">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-0 pb-3">
+          <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Total Requests
+          </CardTitle>
+          <Icon icon={icons.trendingUp} className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{metrics.totalRequests.toLocaleString()}</div>
-          <p className="text-xs text-muted-foreground">
+        <CardContent className="p-0">
+          <div className="text-2xl font-bold font-mono">{metrics.totalRequests.toLocaleString()}</div>
+          <p className="text-[11px] text-muted-foreground mt-1">
             <span className="text-emerald-500">Live data</span> from backend
           </p>
         </CardContent>
       </Card>
 
       {/* Token Usage Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Tokens Used</CardTitle>
-          <Loader2 className="h-4 w-4 text-muted-foreground" />
+      <Card className="bg-card border rounded-lg p-4">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-0 pb-3">
+          <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Tokens Used
+          </CardTitle>
+          <Icon icon={icons.bolt} className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
+        <CardContent className="p-0">
+          <div className="text-2xl font-bold font-mono">
             {metrics.totalTokens > 1000000
               ? `${(metrics.totalTokens / 1000000).toFixed(1)}M`
               : metrics.totalTokens.toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[11px] text-muted-foreground mt-1">
             <span className="text-emerald-500">Live data</span> from backend
           </p>
         </CardContent>
       </Card>
 
       {/* Cost Budget Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Monthly Cost</CardTitle>
-          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+      <Card className="bg-card border rounded-lg p-4">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-0 pb-3">
+          <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Monthly Cost
+          </CardTitle>
+          <Icon icon={icons.warning} className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">${metrics.totalCost.toFixed(2)}</div>
-          <p className="text-xs text-muted-foreground">
+        <CardContent className="p-0">
+          <div className="text-2xl font-bold font-mono">${metrics.totalCost.toFixed(2)}</div>
+          <p className="text-[11px] text-muted-foreground mt-1">
             <span className="text-emerald-500">Live data</span> from backend
           </p>
         </CardContent>
       </Card>
 
       {/* Active Keys Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Active Keys</CardTitle>
-          <CheckCircle className="h-4 w-4 text-muted-foreground" />
+      <Card className="bg-card border rounded-lg p-4">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-0 pb-3">
+          <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+            Active Keys
+          </CardTitle>
+          <Icon icon={icons.check} className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{metrics.activeKeys}</div>
-          <p className="text-xs text-muted-foreground">
+        <CardContent className="p-0">
+          <div className="text-2xl font-bold font-mono">{metrics.activeKeys}</div>
+          <p className="text-[11px] text-muted-foreground mt-1">
             <span className="text-emerald-500">Live data</span> from backend
           </p>
         </CardContent>
@@ -180,11 +170,11 @@ const chartConfig = {
   },
   desktop: {
     label: "Requests",
-    color: "hsl(var(--chart-1))",
+    color: "#14B8A6",
   },
   mobile: {
     label: "Tokens (100s)",
-    color: "hsl(var(--chart-2))",
+    color: "#0D9488",
   },
 } satisfies ChartConfig
 
@@ -258,7 +248,7 @@ function ChartAreaInteractive() {
         {loading ? (
           <div className="aspect-auto h-[250px] w-full flex items-center justify-center">
             <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Icon icon={icons.refresh} className="h-4 w-4 animate-spin" />
               <span className="text-muted-foreground">Loading chart data...</span>
             </div>
           </div>
@@ -435,28 +425,15 @@ function ModelsTable() {
   return <DataTable data={models} />
 }
 
-// Provider icon mapping - using Iconify icons
+// Provider icon using provider-logos mapping
 const ProviderIcon = ({ provider }: { provider: string }) => {
-  const iconSize = 20
-
-  switch (provider.toLowerCase()) {
-    case "openai":
-      return <Icon icon="simple-icons:openai" width={iconSize} height={iconSize} className="text-green-600" />
-    case "anthropic":
-      return <Icon icon="simple-icons:anthropic" width={iconSize} height={iconSize} className="text-orange-500" />
-    case "google":
-      return <Icon icon="logos:google" width={iconSize} height={iconSize} />
-    case "meta":
-      return <Icon icon="logos:meta" width={iconSize} height={iconSize} />
-    case "mistral":
-      return <Icon icon="simple-icons:mistralai" width={iconSize} height={iconSize} className="text-red-500" />
-    default:
-      return (
-        <div className="w-5 h-5 rounded bg-muted flex items-center justify-center text-xs font-medium">
-          {provider.charAt(0).toUpperCase()}
-        </div>
-      )
-  }
+  return (
+    <Icon
+      icon={getProviderLogo(provider)}
+      width={20}
+      height={20}
+    />
+  )
 }
 
 // Table columns definition
@@ -471,7 +448,7 @@ const columns: ColumnDef<Model>[] = [
           <ProviderIcon provider={model.provider} />
           <div>
             <div className="font-medium">{model.name}</div>
-            <div className="text-sm text-muted-foreground">{model.provider}</div>
+            <div className="text-[13px] text-muted-foreground">{model.provider}</div>
           </div>
         </div>
       )
@@ -484,9 +461,9 @@ const columns: ColumnDef<Model>[] = [
     cell: ({ row }) => (
       <Badge variant={row.original.status === "Active" ? "default" : "secondary"}>
         {row.original.status === "Active" ? (
-          <CheckCircle className="mr-1 h-3 w-3" />
+          <Icon icon={icons.check} className="mr-1 h-3 w-3" />
         ) : (
-          <Loader2 className="mr-1 h-3 w-3" />
+          <Icon icon={icons.clock} className="mr-1 h-3 w-3" />
         )}
         {row.original.status}
       </Badge>
@@ -496,7 +473,7 @@ const columns: ColumnDef<Model>[] = [
     accessorKey: "requests",
     header: () => <div className="text-right">Requests</div>,
     cell: ({ row }) => (
-      <div className="text-right font-medium">
+      <div className="text-right font-medium font-mono">
         {row.original.requests.toLocaleString()}
       </div>
     ),
@@ -505,7 +482,7 @@ const columns: ColumnDef<Model>[] = [
     accessorKey: "cost",
     header: () => <div className="text-right">Cost</div>,
     cell: ({ row }) => (
-      <div className="text-right font-medium">
+      <div className="text-right font-medium font-mono">
         ${row.original.cost.toFixed(2)}
       </div>
     ),
@@ -514,7 +491,7 @@ const columns: ColumnDef<Model>[] = [
     accessorKey: "latency",
     header: () => <div className="text-right">Latency</div>,
     cell: ({ row }) => (
-      <div className="text-right font-medium">
+      <div className="text-right font-medium font-mono">
         {row.original.latency}ms
       </div>
     ),
@@ -528,7 +505,7 @@ const columns: ColumnDef<Model>[] = [
             variant="ghost"
             className="h-8 w-8 p-0"
           >
-            <MoreHorizontal className="h-4 w-4" />
+            <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
             <span className="sr-only">Open menu</span>
           </Button>
         </DropdownMenuTrigger>
@@ -573,18 +550,18 @@ function DataTable({ data }: { data: Model[] }) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-medium">Models</h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             Manage your AI models and their configurations
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm">
-            <Columns className="mr-2 h-4 w-4" />
+            <Icon icon={icons.layers} className="mr-2 h-4 w-4" />
             <span className="hidden lg:inline">Columns</span>
-            <ChevronDown className="ml-2 h-4 w-4" />
+            <Icon icon={icons.chevronDown} className="ml-2 h-4 w-4" />
           </Button>
           <Button size="sm">
-            <Plus className="mr-2 h-4 w-4" />
+            <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
             <span className="hidden lg:inline">Add Model</span>
           </Button>
         </div>
@@ -636,7 +613,7 @@ function DataTable({ data }: { data: Model[] }) {
       </div>
 
       <div className="flex items-center justify-between space-x-2 py-4">
-        <div className="text-muted-foreground text-sm">
+        <div className="text-muted-foreground text-[13px]">
           Showing {table.getFilteredRowModel().rows.length} row(s).
         </div>
         <div className="flex items-center space-x-6 lg:space-x-8">
@@ -672,7 +649,7 @@ function DataTable({ data }: { data: Model[] }) {
               disabled={!table.getCanPreviousPage()}
             >
               <span className="sr-only">Go to first page</span>
-              <ChevronsLeft className="h-4 w-4" />
+              <Icon icon="solar:double-alt-arrow-left-linear" className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
@@ -681,7 +658,7 @@ function DataTable({ data }: { data: Model[] }) {
               disabled={!table.getCanPreviousPage()}
             >
               <span className="sr-only">Go to previous page</span>
-              <ChevronLeft className="h-4 w-4" />
+              <Icon icon={icons.chevronLeft} className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
@@ -690,7 +667,7 @@ function DataTable({ data }: { data: Model[] }) {
               disabled={!table.getCanNextPage()}
             >
               <span className="sr-only">Go to next page</span>
-              <ChevronRight className="h-4 w-4" />
+              <Icon icon={icons.chevronRight} className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
@@ -699,7 +676,7 @@ function DataTable({ data }: { data: Model[] }) {
               disabled={!table.getCanNextPage()}
             >
               <span className="sr-only">Go to last page</span>
-              <ChevronsRight className="h-4 w-4" />
+              <Icon icon="solar:double-alt-arrow-right-linear" className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -713,12 +690,12 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between space-y-2">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          <h2 className="text-2xl font-bold tracking-tight">
             Dashboard
           </h2>
-          <p className="text-sm lg:text-base text-muted-foreground mt-1">
+          <p className="text-[13px] text-muted-foreground mt-1">
             Monitor your LLM gateway performance and usage
           </p>
         </div>
