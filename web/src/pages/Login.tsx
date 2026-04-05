@@ -20,8 +20,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Github, Mail, Shield, Key } from "lucide-react";
 import { getAuthConfig } from "@/lib/api";
 
 interface AuthConfig {
@@ -166,7 +166,7 @@ export default function Login() {
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
             <div className="p-3 rounded-lg bg-primary/10">
-              <Shield className="h-8 w-8 text-primary" />
+              <Icon icon={icons.shield} className="h-8 w-8 text-primary" />
             </div>
           </div>
           <CardTitle className="text-2xl text-center">pLLM Gateway</CardTitle>
@@ -177,7 +177,7 @@ export default function Login() {
         <CardContent className="space-y-4">
           {configLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Icon icon={icons.loader} className="h-6 w-6 animate-spin" />
               <span className="ml-2">Loading authentication options...</span>
             </div>
           ) : (
@@ -192,7 +192,7 @@ export default function Login() {
                       onClick={() => handleOAuthLogin("github")}
                       disabled={isLoading}
                     >
-                      <Github className="mr-2 h-4 w-4" />
+                      <Icon icon={icons.github} className="mr-2 h-4 w-4" />
                       Continue with GitHub
                     </Button>
                   )}
@@ -203,7 +203,7 @@ export default function Login() {
                       onClick={() => handleOAuthLogin("google")}
                       disabled={isLoading}
                     >
-                      <Mail className="mr-2 h-4 w-4" />
+                      <Icon icon={icons.mail} className="mr-2 h-4 w-4" />
                       Continue with Google
                     </Button>
                   )}
@@ -250,7 +250,7 @@ export default function Login() {
                   variant="ghost"
                   className="w-full text-xs text-muted-foreground hover:text-foreground"
                 >
-                  <Key className="mr-2 h-3 w-3" />
+                  <Icon icon={icons.keys} className="mr-2 h-3 w-3" />
                   Admin Login with Master Key
                 </Button>
               </DialogTrigger>
@@ -289,7 +289,7 @@ export default function Login() {
                   <Button type="submit" disabled={isLoading}>
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Icon icon={icons.loader} className="mr-2 h-4 w-4 animate-spin" />
                         Authenticating...
                       </>
                     ) : (
