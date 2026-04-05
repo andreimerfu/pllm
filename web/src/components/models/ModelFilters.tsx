@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Search, Filter, X } from "lucide-react";
+import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -75,7 +76,7 @@ export default function ModelFilters({ filters, onFiltersChange, onClearAll }: M
       {/* Search and Filter Controls */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Icon icon={icons.search} className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search models..."
             value={searchInput}
@@ -89,7 +90,7 @@ export default function ModelFilters({ filters, onFiltersChange, onClearAll }: M
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="gap-2">
-                <Filter className="h-4 w-4" />
+                <Icon icon={icons.filter} className="h-4 w-4" />
                 Provider
                 {filters.providers.length > 0 && (
                   <Badge variant="secondary" className="ml-1">
@@ -144,7 +145,7 @@ export default function ModelFilters({ filters, onFiltersChange, onClearAll }: M
           {/* Clear All */}
           {hasActiveFilters && (
             <Button variant="ghost" onClick={onClearAll} className="gap-2">
-              <X className="h-4 w-4" />
+              <Icon icon={icons.close} className="h-4 w-4" />
               Clear
             </Button>
           )}
@@ -161,7 +162,7 @@ export default function ModelFilters({ filters, onFiltersChange, onClearAll }: M
                 onClick={() => removeFilter('provider', provider)}
                 className="ml-1 hover:bg-secondary-foreground/20 rounded-full"
               >
-                <X className="h-3 w-3" />
+                <Icon icon={icons.close} className="h-3 w-3" />
               </button>
             </Badge>
           ))}
@@ -172,7 +173,7 @@ export default function ModelFilters({ filters, onFiltersChange, onClearAll }: M
                 onClick={() => removeFilter('status', status)}
                 className="ml-1 hover:bg-secondary-foreground/20 rounded-full"
               >
-                <X className="h-3 w-3" />
+                <Icon icon={icons.close} className="h-3 w-3" />
               </button>
             </Badge>
           ))}

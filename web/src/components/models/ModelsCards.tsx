@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { Activity, DollarSign, Zap, Clock, Pencil, Trash2 } from "lucide-react";
+import { icons } from "@/lib/icons";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -149,35 +149,35 @@ export default function ModelsCards({ models, onEdit, onDelete }: ModelsCardsPro
                     label="Total Requests"
                     value={formatNumber(usage.requests_total)}
                     trend={usage.trend_data?.slice(-7)} // Last 7 days
-                    icon={<Activity className="h-4 w-4 text-blue-500" />}
-                    color="#3b82f6"
+                    icon={<Icon icon={icons.trendingUp} className="h-4 w-4 text-teal-500" />}
+                    color="#14B8A6"
                   />
 
                   <MetricCard
                     label="Total Tokens"
                     value={formatNumber(usage.tokens_total)}
-                    icon={<Zap className="h-4 w-4 text-purple-500" />}
+                    icon={<Icon icon={icons.bolt} className="h-4 w-4 text-purple-500" />}
                     color="#8b5cf6"
                   />
 
                   <MetricCard
                     label="Total Cost"
                     value={formatCurrency(usage.cost_total)}
-                    icon={<DollarSign className="h-4 w-4 text-green-500" />}
+                    icon={<Icon icon="solar:dollar-minimalistic-linear" className="h-4 w-4 text-green-500" />}
                     color="#10b981"
                   />
 
                   <MetricCard
                     label="Avg Latency"
                     value={`${usage.avg_latency}ms`}
-                    icon={<Clock className="h-4 w-4 text-orange-500" />}
+                    icon={<Icon icon={icons.clock} className="h-4 w-4 text-orange-500" />}
                     color="#f59e0b"
                   />
                 </div>
               ) : (
                 <div className="flex items-center justify-center p-8 text-muted-foreground">
                   <div className="text-center">
-                    <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <Icon icon={icons.trendingUp} className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">No usage data available</p>
                   </div>
                 </div>
@@ -195,11 +195,7 @@ export default function ModelsCards({ models, onEdit, onDelete }: ModelsCardsPro
                   <SparklineChart
                     data={usage.trend_data}
                     type="area"
-                    color={providerInfo.color.includes('emerald') ? '#10b981' :
-                           providerInfo.color.includes('orange') ? '#f59e0b' :
-                           providerInfo.color.includes('blue') ? '#3b82f6' :
-                           providerInfo.color.includes('indigo') ? '#6366f1' :
-                           providerInfo.color.includes('red') ? '#ef4444' : '#3b82f6'}
+                    color="#14B8A6"
                     className="h-16 w-full"
                   />
                 </div>
@@ -233,7 +229,7 @@ export default function ModelsCards({ models, onEdit, onDelete }: ModelsCardsPro
                         className="h-7 text-xs gap-1 flex-1"
                         onClick={(e) => { e.stopPropagation(); onEdit(model); }}
                       >
-                        <Pencil className="h-3 w-3" />
+                        <Icon icon={icons.edit} className="h-3 w-3" />
                         Edit
                       </Button>
                     )}
@@ -244,7 +240,7 @@ export default function ModelsCards({ models, onEdit, onDelete }: ModelsCardsPro
                         className="h-7 text-xs gap-1 text-destructive hover:text-destructive flex-1"
                         onClick={(e) => { e.stopPropagation(); onDelete(model); }}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Icon icon={icons.delete} className="h-3 w-3" />
                         Delete
                       </Button>
                     )}

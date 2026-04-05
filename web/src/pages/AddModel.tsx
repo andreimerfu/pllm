@@ -2,22 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
-import {
-  ArrowLeft,
-  Check,
-  CheckCircle2,
-  ChevronRight,
-  Info,
-  Key,
-  Loader2,
-  Settings2,
-  Sparkles,
-  DollarSign,
-  Gauge,
-  Tag,
-  Wifi,
-  XCircle,
-} from "lucide-react";
+import { icons } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { createModel, testModelConnection } from "@/lib/api";
+import { createModel, testModelConnection, discoverModels } from "@/lib/api";
 import type { CreateModelRequest, ProviderConfig } from "@/types/api";
 
 // Provider definitions with icons, colors, and placeholder hints
@@ -70,9 +55,12 @@ const PROVIDERS = [
     bgColor: "bg-orange-50 dark:bg-orange-950/30",
     borderColor: "border-orange-200 dark:border-orange-800",
     ringColor: "ring-orange-500",
-    models: ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-3-5-haiku-20241022"],
+    models: ["claude-opus-4-5", "claude-sonnet-4-5", "claude-haiku-4-5-20251001", "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
+    authModes: ["api_key", "oauth_token"] as const,
     keyPlaceholder: "sk-ant-... or ${ANTHROPIC_API_KEY}",
     keyHint: "Found in console.anthropic.com/settings/keys",
+    oauthPlaceholder: "Bearer token from Claude Max subscription",
+    oauthHint: "Long-lived OAuth token from your Claude Max subscription",
   },
   {
     value: "azure",
@@ -113,7 +101,7 @@ const PROVIDERS = [
   {
     value: "openrouter",
     label: "OpenRouter",
-    icon: "lucide:globe",
+    icon: "solar:global-linear",
     color: "text-purple-600 dark:text-purple-400",
     bgColor: "bg-purple-50 dark:bg-purple-950/30",
     borderColor: "border-purple-200 dark:border-purple-800",
@@ -136,7 +124,13 @@ export default function AddModel() {
   const [modelName, setModelName] = useState("");
   const [providerModel, setProviderModel] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [oauthToken, setOauthToken] = useState("");
+  const [anthropicAuthMode, setAnthropicAuthMode] = useState<"api_key" | "oauth_token">("api_key");
   const [baseUrl, setBaseUrl] = useState("");
+
+  // Discover models state
+  const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
 
   // Azure
   const [azureDeployment, setAzureDeployment] = useState("");
@@ -185,7 +179,11 @@ export default function AddModel() {
       type: selectedProvider!,
       model: providerModel || "test",
     };
-    if (apiKey) provider.api_key = apiKey;
+    if (selectedProvider === "anthropic" && anthropicAuthMode === "oauth_token") {
+      if (oauthToken) provider.oauth_token = oauthToken;
+    } else {
+      if (apiKey) provider.api_key = apiKey;
+    }
     if (baseUrl) provider.base_url = baseUrl;
     if (selectedProvider === "azure") {
       if (azureDeployment) provider.azure_deployment = azureDeployment;
@@ -202,12 +200,33 @@ export default function AddModel() {
       if (vertexLocation) provider.vertex_location = vertexLocation;
     }
     return provider;
-  }, [selectedProvider, providerModel, apiKey, baseUrl, azureDeployment, azureEndpoint, apiVersion, awsRegion, awsAccessKeyId, awsSecretKey, vertexProject, vertexLocation]);
+  }, [selectedProvider, providerModel, apiKey, oauthToken, anthropicAuthMode, baseUrl, azureDeployment, azureEndpoint, apiVersion, awsRegion, awsAccessKeyId, awsSecretKey, vertexProject, vertexLocation]);
 
-  // Clear test result when provider config changes
+  // Clear test result and discovered models when provider config changes
   useEffect(() => {
     setTestResult(null);
-  }, [selectedProvider, apiKey, baseUrl, azureDeployment, azureEndpoint, apiVersion, awsAccessKeyId, awsSecretKey, awsRegion, vertexProject, vertexLocation]);
+    setDiscoveredModels([]);
+  }, [selectedProvider, apiKey, oauthToken, anthropicAuthMode, baseUrl, azureDeployment, azureEndpoint, apiVersion, awsAccessKeyId, awsSecretKey, awsRegion, vertexProject, vertexLocation]);
+
+  const handleDiscoverModels = async () => {
+    if (!selectedProvider || !providerValid) return;
+    setDiscoverLoading(true);
+    try {
+      const result = await discoverModels(buildProviderConfig());
+      setDiscoveredModels(result.models || []);
+      if (result.models?.length === 0) {
+        toast({ title: "No models found", description: "The provider returned an empty model list." });
+      }
+    } catch (err: any) {
+      toast({
+        title: "Failed to fetch models",
+        description: err.response?.data?.error || err.message || "Could not fetch model list",
+        variant: "destructive",
+      });
+    } finally {
+      setDiscoverLoading(false);
+    }
+  };
 
   const handleTestConnection = async () => {
     if (!selectedProvider || !providerValid) return;
@@ -283,6 +302,7 @@ export default function AddModel() {
     if (!selectedProvider) return false;
     switch (selectedProvider) {
       case "anthropic":
+        return anthropicAuthMode === "oauth_token" ? !!oauthToken : !!apiKey;
       case "openrouter":
         return !!apiKey;
       case "azure":
@@ -302,7 +322,7 @@ export default function AddModel() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/models")}>
-          <ArrowLeft className="h-5 w-5" />
+          <Icon icon={icons.arrowLeft} className="h-5 w-5" />
         </Button>
         <div>
           <h1 className="text-2xl font-bold">Add Model</h1>
@@ -317,7 +337,7 @@ export default function AddModel() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Sparkles className="h-5 w-5" />
+              <Icon icon="solar:star-shine-linear" className="h-5 w-5" />
               Choose Provider
             </CardTitle>
             <CardDescription>
@@ -341,7 +361,7 @@ export default function AddModel() {
                   >
                     {isSelected && (
                       <div className="absolute top-2 right-2">
-                        <Check className="h-4 w-4 text-primary" />
+                        <Icon icon={icons.check} className="h-4 w-4 text-primary" />
                       </div>
                     )}
                     <div className={`p-2 rounded-lg ${p.bgColor}`}>
@@ -361,7 +381,7 @@ export default function AddModel() {
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Settings2 className="h-5 w-5" />
+                  <Icon icon={icons.settings} className="h-5 w-5" />
                   Model Configuration
                 </CardTitle>
                 <CardDescription>
@@ -407,9 +427,10 @@ export default function AddModel() {
                     className="max-w-md"
                     required
                   />
-                  {providerInfo.models.length > 0 && (
+                  {/* Show discovered models if available, otherwise static defaults */}
+                  {(discoveredModels.length > 0 ? discoveredModels : providerInfo.models).length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
-                      {providerInfo.models.map((m) => (
+                      {(discoveredModels.length > 0 ? discoveredModels : providerInfo.models).map((m) => (
                         <Badge
                           key={m}
                           variant="outline"
@@ -429,7 +450,7 @@ export default function AddModel() {
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Key className="h-5 w-5" />
+                  <Icon icon={icons.keys} className="h-5 w-5" />
                   Authentication
                 </CardTitle>
                 <CardDescription>
@@ -437,6 +458,55 @@ export default function AddModel() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                {/* Anthropic auth mode toggle */}
+                {selectedProvider === "anthropic" && (
+                  <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setAnthropicAuthMode("api_key")}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                        anthropicAuthMode === "api_key"
+                          ? "bg-background shadow-sm font-medium"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      API Key
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAnthropicAuthMode("oauth_token")}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                        anthropicAuthMode === "oauth_token"
+                          ? "bg-background shadow-sm font-medium"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      OAuth Token (Claude Max)
+                    </button>
+                  </div>
+                )}
+
+                {/* OAuth token input for Anthropic */}
+                {selectedProvider === "anthropic" && anthropicAuthMode === "oauth_token" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="oauthToken" className="text-sm font-medium">
+                      OAuth Bearer Token <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="oauthToken"
+                      type="password"
+                      placeholder={(providerInfo as any).oauthPlaceholder || "Bearer token"}
+                      value={oauthToken}
+                      onChange={(e) => setOauthToken(e.target.value)}
+                      className="max-w-md font-mono"
+                      required
+                    />
+                    <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <Icon icon={icons.info} className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                      <p>{(providerInfo as any).oauthHint || "Long-lived OAuth token"}</p>
+                    </div>
+                  </div>
+                ) : (
                 <div className="space-y-2">
                   <Label htmlFor="apiKey" className="text-sm font-medium">
                     API Key
@@ -454,7 +524,7 @@ export default function AddModel() {
                     required={["anthropic", "openrouter", "vertex"].includes(selectedProvider)}
                   />
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                    <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                    <Icon icon={icons.info} className="h-3 w-3 mt-0.5 flex-shrink-0" />
                     <div>
                       <p>{providerInfo.keyHint}</p>
                       <p className="mt-1">
@@ -466,6 +536,7 @@ export default function AddModel() {
                     </div>
                   </div>
                 </div>
+                )}
 
                 {selectedProvider !== "bedrock" &&
                   selectedProvider !== "vertex" &&
@@ -605,7 +676,7 @@ export default function AddModel() {
                   </div>
                 )}
 
-                {/* Test Connection */}
+                {/* Test Connection + Fetch Models */}
                 <Separator />
                 <div className="flex items-center gap-3 flex-wrap">
                   <Button
@@ -616,24 +687,45 @@ export default function AddModel() {
                     onClick={handleTestConnection}
                   >
                     {testLoading ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Icon icon="solar:refresh-circle-linear" className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
-                      <Wifi className="h-4 w-4 mr-2" />
+                      <Icon icon="solar:wifi-linear" className="h-4 w-4 mr-2" />
                     )}
                     Test Connection
                   </Button>
+                  {selectedProvider === "anthropic" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!providerValid || discoverLoading}
+                      onClick={handleDiscoverModels}
+                    >
+                      {discoverLoading ? (
+                        <Icon icon="solar:refresh-circle-linear" className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Icon icon="solar:star-shine-linear" className="h-4 w-4 mr-2" />
+                      )}
+                      Fetch Available Models
+                    </Button>
+                  )}
                   {testResult && (
                     <div className={`flex items-center gap-2 text-sm ${testResult.success ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                       {testResult.success ? (
-                        <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                        <Icon icon={icons.check} className="h-4 w-4 flex-shrink-0" />
                       ) : (
-                        <XCircle className="h-4 w-4 flex-shrink-0" />
+                        <Icon icon={icons.error} className="h-4 w-4 flex-shrink-0" />
                       )}
                       <span>{testResult.message}</span>
                       {testResult.latency && (
                         <span className="text-muted-foreground">({testResult.latency})</span>
                       )}
                     </div>
+                  )}
+                  {discoveredModels.length > 0 && (
+                    <span className="text-sm text-green-600 dark:text-green-400">
+                      {discoveredModels.length} models fetched — click a badge above to select
+                    </span>
                   )}
                 </div>
               </CardContent>
@@ -643,7 +735,7 @@ export default function AddModel() {
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Sparkles className="h-5 w-5" />
+                  <Icon icon="solar:star-shine-linear" className="h-5 w-5" />
                   Capabilities
                 </CardTitle>
                 <CardDescription>
@@ -654,7 +746,7 @@ export default function AddModel() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex items-center justify-between p-3 rounded-lg border">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-blue-500" />
+                      <Icon icon="solar:star-shine-linear" className="h-4 w-4 text-blue-500" />
                       <Label className="text-sm cursor-pointer">Streaming</Label>
                     </div>
                     <Switch
@@ -664,7 +756,7 @@ export default function AddModel() {
                   </div>
                   <div className="flex items-center justify-between p-3 rounded-lg border">
                     <div className="flex items-center gap-2">
-                      <Icon icon="lucide:eye" width="16" height="16" className="text-purple-500" />
+                      <Icon icon={icons.eye} className="h-4 w-4 text-purple-500" />
                       <Label className="text-sm cursor-pointer">Vision</Label>
                     </div>
                     <Switch
@@ -674,7 +766,7 @@ export default function AddModel() {
                   </div>
                   <div className="flex items-center justify-between p-3 rounded-lg border">
                     <div className="flex items-center gap-2">
-                      <Icon icon="lucide:wrench" width="16" height="16" className="text-green-500" />
+                      <Icon icon="solar:settings-minimalistic-linear" className="h-4 w-4 text-green-500" />
                       <Label className="text-sm cursor-pointer">
                         Function Calling
                       </Label>
@@ -696,14 +788,15 @@ export default function AddModel() {
                     <div className="flex items-center justify-between">
                       <div>
                         <CardTitle className="flex items-center gap-2 text-lg">
-                          <Settings2 className="h-5 w-5" />
+                          <Icon icon={icons.settings} className="h-5 w-5" />
                           Advanced Settings
                         </CardTitle>
                         <CardDescription>
                           Rate limits, priority, pricing, and tags
                         </CardDescription>
                       </div>
-                      <ChevronRight
+                      <Icon
+                        icon={icons.chevronRight}
                         className={`h-5 w-5 text-muted-foreground transition-transform ${
                           advancedOpen ? "rotate-90" : ""
                         }`}
@@ -718,7 +811,7 @@ export default function AddModel() {
                     {/* Rate Limits */}
                     <div>
                       <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
-                        <Gauge className="h-4 w-4" />
+                        <Icon icon="solar:speed-linear" className="h-4 w-4" />
                         Rate Limits
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -756,7 +849,7 @@ export default function AddModel() {
                     {/* Load Balancing */}
                     <div>
                       <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
-                        <Settings2 className="h-4 w-4" />
+                        <Icon icon={icons.settings} className="h-4 w-4" />
                         Load Balancing
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -805,7 +898,7 @@ export default function AddModel() {
                     {/* Pricing */}
                     <div>
                       <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
-                        <DollarSign className="h-4 w-4" />
+                        <Icon icon="solar:dollar-minimalistic-linear" className="h-4 w-4" />
                         Pricing
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -835,7 +928,7 @@ export default function AddModel() {
                     {/* Tags */}
                     <div>
                       <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
-                        <Tag className="h-4 w-4" />
+                        <Icon icon="solar:tag-linear" className="h-4 w-4" />
                         Tags
                       </h4>
                       <Input
@@ -852,7 +945,7 @@ export default function AddModel() {
                     {/* Default Reasoning Effort */}
                     <div>
                       <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
-                        <Sparkles className="h-4 w-4" />
+                        <Icon icon="solar:star-shine-linear" className="h-4 w-4" />
                         Default Reasoning Effort
                       </h4>
                       <Select value={defaultReasoningEffort} onValueChange={setDefaultReasoningEffort}>
@@ -892,7 +985,7 @@ export default function AddModel() {
                   "Creating..."
                 ) : (
                   <>
-                    <Check className="h-4 w-4 mr-2" />
+                    <Icon icon={icons.check} className="h-4 w-4 mr-2" />
                     Create Model
                   </>
                 )}

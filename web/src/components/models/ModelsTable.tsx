@@ -10,7 +10,8 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronDown } from "lucide-react";
+import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,7 @@ export default function ModelsTable({ models, onEdit, onDelete }: ModelsTablePro
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="gap-2">
-              Columns <ChevronDown className="h-4 w-4" />
+              Columns <Icon icon={icons.chevronDown} className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">

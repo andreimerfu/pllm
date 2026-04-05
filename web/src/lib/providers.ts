@@ -64,7 +64,7 @@ export const PROVIDERS: Record<string, ProviderInfo> = {
     borderColor: "border-yellow-200 dark:border-yellow-800",
   },
   openrouter: {
-    icon: "lucide:globe",
+    icon: "solar:global-linear",
     name: "OpenRouter",
     color: "text-purple-600 dark:text-purple-400",
     bgColor: "bg-purple-50 dark:bg-purple-950/30",
@@ -78,7 +78,7 @@ export const PROVIDERS: Record<string, ProviderInfo> = {
     borderColor: "border-green-200 dark:border-green-800",
   },
   unknown: {
-    icon: "lucide:brain",
+    icon: "solar:cpu-bolt-linear",
     name: "Unknown",
     color: "text-muted-foreground",
     bgColor: "bg-muted/30",

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -54,7 +55,7 @@ export default function DeleteModelDialog({ modelId, modelName, trigger, open: c
       {!trigger && controlledOpen === undefined && (
         <DialogTrigger asChild>
           <Button variant="destructive" size="sm" className="gap-2">
-            <Trash2 className="h-3 w-3" />
+            <Icon icon={icons.delete} className="h-3 w-3" />
             Delete
           </Button>
         </DialogTrigger>

@@ -26,7 +26,7 @@ function ModelNode({ data }: { data: any }) {
 
   return (
     <div className={`px-4 py-3 border-2 rounded-lg bg-background shadow-sm ${
-      data.isPrimary ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'border-border'
+      data.isPrimary ? 'border-teal-500 bg-teal-50 dark:bg-teal-950' : 'border-border'
     }`}>
       <div className="flex items-center gap-3">
         <div className={`p-2 rounded-lg border ${providerInfo.bgColor} ${providerInfo.borderColor}`}>
@@ -128,7 +128,7 @@ export function FallbackDiagram({ primaryModel, allFallbacksConfig = {} }: Fallb
         type: 'smoothstep',
         animated: true,
         style: {
-          stroke: i === 0 ? '#3b82f6' : '#6366f1',
+          stroke: i === 0 ? '#14B8A6' : '#0d9488',
           strokeWidth: i === 0 ? 3 : 2,
         },
         label: i === 0 ? 'Primary Fallback' : `Fallback ${i}`,
@@ -140,7 +140,7 @@ export function FallbackDiagram({ primaryModel, allFallbacksConfig = {} }: Fallb
         labelBgStyle: { fill: 'white', fillOpacity: 0.9 },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: i === 0 ? '#3b82f6' : '#6366f1',
+          color: i === 0 ? '#14B8A6' : '#0d9488',
         },
       });
     }
@@ -193,7 +193,7 @@ export function FallbackDiagram({ primaryModel, allFallbacksConfig = {} }: Fallb
                 {uniqueChain.map((model, index) => (
                   <li key={model} className="flex items-center gap-2">
                     <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium ${
-                      index === 0 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+                      index === 0 ? 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300' :
                       'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
                     }`}>
                       {index + 1}
@@ -208,14 +208,14 @@ export function FallbackDiagram({ primaryModel, allFallbacksConfig = {} }: Fallb
               <div className="font-medium mb-2">Flow Legend:</div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-0.5 bg-blue-500 relative">
-                    <div className="absolute inset-0 bg-blue-400 animate-pulse"></div>
+                  <div className="w-8 h-0.5 bg-teal-500 relative">
+                    <div className="absolute inset-0 bg-teal-400 animate-pulse"></div>
                   </div>
                   <span className="text-muted-foreground">Primary failover path</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-0.5 bg-indigo-500 relative">
-                    <div className="absolute inset-0 bg-indigo-400 animate-pulse"></div>
+                  <div className="w-8 h-0.5 bg-teal-700 relative">
+                    <div className="absolute inset-0 bg-teal-600 animate-pulse"></div>
                   </div>
                   <span className="text-muted-foreground">Chain continuation</span>
                 </div>

@@ -1,6 +1,6 @@
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown, MoreHorizontal, TrendingUp, Activity, Pencil, Trash2 } from "lucide-react";
 import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -121,7 +121,7 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
         className="gap-1"
       >
         Total Requests
-        <ArrowUpDown className="h-4 w-4" />
+        <Icon icon={icons.arrowUpDown} className="h-4 w-4" />
       </Button>
     ),
     cell: ({ row }) => {
@@ -131,14 +131,14 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
       return (
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <Icon icon={icons.trendingUp} className="h-4 w-4 text-teal-500" />
             <span className="font-medium">{formatNumber(requests)}</span>
           </div>
           {trendData && trendData.length > 0 && (
-            <SparklineChart 
-              data={trendData} 
-              color="#3b82f6" 
-              className="h-6 w-16" 
+            <SparklineChart
+              data={trendData}
+              color="#14B8A6"
+              className="h-6 w-16"
             />
           )}
         </div>
@@ -154,14 +154,14 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
         className="gap-1"
       >
         Total Tokens
-        <ArrowUpDown className="h-4 w-4" />
+        <Icon icon={icons.arrowUpDown} className="h-4 w-4" />
       </Button>
     ),
     cell: ({ row }) => {
       const tokens = row.original.usage_stats?.tokens_total || 0;
       return (
         <div className="flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          <Icon icon={icons.trendingUp} className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium">{formatNumber(tokens)}</span>
         </div>
       );
@@ -176,7 +176,7 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
         className="gap-1"
       >
         Total Cost
-        <ArrowUpDown className="h-4 w-4" />
+        <Icon icon={icons.arrowUpDown} className="h-4 w-4" />
       </Button>
     ),
     cell: ({ row }) => {
@@ -251,7 +251,7 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
               onClick={(e) => e.stopPropagation()}
             >
               <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
+              <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -265,7 +265,7 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
             <DropdownMenuItem>View details</DropdownMenuItem>
             {isUserModel && (
               <DropdownMenuItem onClick={() => meta?.onEdit?.(model)}>
-                <Pencil className="h-3 w-3 mr-2" />
+                <Icon icon={icons.edit} className="h-3 w-3 mr-2" />
                 Edit model
               </DropdownMenuItem>
             )}
@@ -273,7 +273,7 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
               className="text-destructive"
               onClick={() => meta?.onDelete?.(model)}
             >
-              <Trash2 className="h-3 w-3 mr-2" />
+              <Icon icon={icons.delete} className="h-3 w-3 mr-2" />
               Delete model
             </DropdownMenuItem>
           </DropdownMenuContent>

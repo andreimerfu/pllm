@@ -1,5 +1,6 @@
 import { LineChart, Line, AreaChart, Area, ResponsiveContainer } from "recharts";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
 
 interface SparklineChartProps {
   data: number[];
@@ -16,7 +17,7 @@ export function SparklineChart({
 }: SparklineChartProps) {
   if (!data || data.length === 0) {
     return <div className={`${className} flex items-center justify-center text-muted-foreground`}>
-      <Minus className="h-4 w-4" />
+      <Icon icon={icons.minus} className="h-4 w-4" />
     </div>;
   }
 
@@ -60,7 +61,7 @@ interface TrendIndicatorProps {
 
 export function TrendIndicator({ current, previous, className = "" }: TrendIndicatorProps) {
   if (previous === 0) {
-    return <Minus className={`h-4 w-4 text-muted-foreground ${className}`} />;
+    return <Icon icon={icons.minus} className={`h-4 w-4 text-muted-foreground ${className}`} />;
   }
 
   const change = ((current - previous) / previous) * 100;
@@ -68,15 +69,15 @@ export function TrendIndicator({ current, previous, className = "" }: TrendIndic
   const isNeutral = Math.abs(change) < 1;
 
   if (isNeutral) {
-    return <Minus className={`h-4 w-4 text-muted-foreground ${className}`} />;
+    return <Icon icon={icons.minus} className={`h-4 w-4 text-muted-foreground ${className}`} />;
   }
 
   return (
     <div className={`flex items-center gap-1 ${className}`}>
       {isPositive ? (
-        <TrendingUp className="h-4 w-4 text-green-600" />
+        <Icon icon={icons.trendingUp} className="h-4 w-4 text-green-600" />
       ) : (
-        <TrendingDown className="h-4 w-4 text-red-600" />
+        <Icon icon={icons.trendingDown} className="h-4 w-4 text-red-600" />
       )}
       <span className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
         {Math.abs(change).toFixed(1)}%

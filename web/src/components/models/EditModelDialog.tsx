@@ -1,4 +1,5 @@
-import { Pencil } from "lucide-react";
+import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import type { AdminModel } from "@/types/api";
@@ -17,7 +18,7 @@ export default function EditModelButton({ model, trigger }: EditModelButtonProps
     <span onClick={() => navigate(`/models/edit/${model.id}`)}>
       {trigger || (
         <Button variant="outline" size="sm" className="gap-2">
-          <Pencil className="h-3 w-3" />
+          <Icon icon={icons.edit} className="h-3 w-3" />
           Edit
         </Button>
       )}

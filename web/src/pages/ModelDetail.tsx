@@ -1,8 +1,8 @@
 import { useParams, Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Settings, Activity, DollarSign, Zap, Clock, AlertCircle, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -197,7 +197,7 @@ export default function ModelDetail() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Icon icon="solar:refresh-circle-linear" className="h-8 w-8 animate-spin" />
         <span className="ml-2">Loading model details...</span>
       </div>
     );
@@ -266,15 +266,15 @@ export default function ModelDetail() {
   const getHealthIcon = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
+        return <Icon icon={icons.check} className="h-5 w-5 text-green-500" />;
       case 'degraded':
-        return <AlertCircle className="h-5 w-5 text-yellow-500" />;
+        return <Icon icon={icons.warning} className="h-5 w-5 text-yellow-500" />;
       case 'unhealthy':
-        return <XCircle className="h-5 w-5 text-red-500" />;
+        return <Icon icon={icons.error} className="h-5 w-5 text-red-500" />;
       case 'unknown':
-        return <Clock className="h-5 w-5 text-gray-400" />;
+        return <Icon icon={icons.clock} className="h-5 w-5 text-gray-400" />;
       default:
-        return <AlertCircle className="h-5 w-5 text-gray-500" />;
+        return <Icon icon={icons.warning} className="h-5 w-5 text-gray-500" />;
     }
   };
 
@@ -324,7 +324,7 @@ export default function ModelDetail() {
           {adminModel?.source === "user" && (
             <EditModelDialog model={adminModel} trigger={
               <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-1" />
+                <Icon icon={icons.settings} className="h-4 w-4 mr-1" />
                 Edit
               </Button>
             } />
@@ -349,25 +349,25 @@ export default function ModelDetail() {
           label="Total Requests"
           value={formatNumber(usage?.requests_total || 0)}
           trend={usage?.trend_data?.slice(-7)}
-          icon={<Activity className="h-4 w-4 text-blue-500" />}
-          color="#3b82f6"
+          icon={<Icon icon="solar:graph-up-linear" className="h-4 w-4 text-teal-500" />}
+          color="#14B8A6"
         />
         <MetricCard
           label="Total Tokens"
           value={formatNumber(usage?.tokens_total || 0)}
-          icon={<Zap className="h-4 w-4 text-purple-500" />}
+          icon={<Icon icon="solar:bolt-linear" className="h-4 w-4 text-purple-500" />}
           color="#8b5cf6"
         />
         <MetricCard
           label="Total Cost"
           value={formatCurrency(usage?.cost_total || 0)}
-          icon={<DollarSign className="h-4 w-4 text-green-500" />}
+          icon={<Icon icon="solar:dollar-minimalistic-linear" className="h-4 w-4 text-green-500" />}
           color="#10b981"
         />
         <MetricCard
           label="Avg Latency"
           value={`${usage?.avg_latency || 0}ms`}
-          icon={<Clock className="h-4 w-4 text-orange-500" />}
+          icon={<Icon icon={icons.clock} className="h-4 w-4 text-orange-500" />}
           color="#f59e0b"
         />
       </div>
@@ -405,10 +405,10 @@ export default function ModelDetail() {
               </CardHeader>
               <CardContent>
                 {usage?.trend_data && (
-                  <SparklineChart 
+                  <SparklineChart
                     data={usage.trend_data}
                     type="area"
-                    color="#3b82f6"
+                    color="#14B8A6"
                     className="h-32 w-full"
                   />
                 )}
@@ -533,7 +533,7 @@ export default function ModelDetail() {
                     <span className="font-medium text-sm truncate max-w-48">
                       {configuration?.endpoint || 'N/A'}
                     </span>
-                    {configuration?.endpoint && <ExternalLink className="h-3 w-3" />}
+                    {configuration?.endpoint && <Icon icon={icons.externalLink} className="h-3 w-3" />}
                   </div>
                 </div>
                 <div className="flex items-center justify-between">

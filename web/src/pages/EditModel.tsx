@@ -2,22 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
-import {
-  ArrowLeft,
-  Check,
-  CheckCircle2,
-  ChevronRight,
-  Info,
-  Key,
-  Loader2,
-  Settings2,
-  Sparkles,
-  DollarSign,
-  Gauge,
-  Tag,
-  Wifi,
-  XCircle,
-} from "lucide-react";
+import { icons } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,7 +38,7 @@ const PROVIDER_OPTIONS = [
   { value: "azure", label: "Azure OpenAI", icon: "logos:microsoft-azure", color: "text-blue-700 dark:text-blue-300", bgColor: "bg-blue-50 dark:bg-blue-950/30", borderColor: "border-blue-200 dark:border-blue-800" },
   { value: "bedrock", label: "AWS Bedrock", icon: "logos:aws", color: "text-yellow-600 dark:text-yellow-400", bgColor: "bg-yellow-50 dark:bg-yellow-950/30", borderColor: "border-yellow-200 dark:border-yellow-800" },
   { value: "vertex", label: "Google Vertex AI", icon: "logos:google-cloud", color: "text-red-600 dark:text-red-400", bgColor: "bg-red-50 dark:bg-red-950/30", borderColor: "border-red-200 dark:border-red-800" },
-  { value: "openrouter", label: "OpenRouter", icon: "lucide:globe", color: "text-purple-600 dark:text-purple-400", bgColor: "bg-purple-50 dark:bg-purple-950/30", borderColor: "border-purple-200 dark:border-purple-800" },
+  { value: "openrouter", label: "OpenRouter", icon: "solar:global-linear", color: "text-purple-600 dark:text-purple-400", bgColor: "bg-purple-50 dark:bg-purple-950/30", borderColor: "border-purple-200 dark:border-purple-800" },
 ];
 
 export default function EditModel() {
@@ -247,7 +232,7 @@ export default function EditModel() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Icon icon="solar:refresh-circle-linear" className="h-8 w-8 animate-spin" />
         <span className="ml-2">Loading model...</span>
       </div>
     );
@@ -293,7 +278,7 @@ export default function EditModel() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/models")}>
-          <ArrowLeft className="h-5 w-5" />
+          <Icon icon={icons.arrowLeft} className="h-5 w-5" />
         </Button>
         <div>
           <h1 className="text-2xl font-bold">Edit Model</h1>
@@ -308,7 +293,7 @@ export default function EditModel() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Sparkles className="h-5 w-5" />
+              <Icon icon="solar:star-shine-linear" className="h-5 w-5" />
               Provider
             </CardTitle>
           </CardHeader>
@@ -329,7 +314,7 @@ export default function EditModel() {
                   >
                     {isSelected && (
                       <div className="absolute top-2 right-2">
-                        <Check className="h-4 w-4 text-primary" />
+                        <Icon icon={icons.check} className="h-4 w-4 text-primary" />
                       </div>
                     )}
                     <div className={`p-2 rounded-lg ${p.bgColor}`}>
@@ -347,7 +332,7 @@ export default function EditModel() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Settings2 className="h-5 w-5" />
+              <Icon icon={icons.settings} className="h-5 w-5" />
               Model Configuration
             </CardTitle>
           </CardHeader>
@@ -367,7 +352,7 @@ export default function EditModel() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Key className="h-5 w-5" />
+              <Icon icon={icons.keys} className="h-5 w-5" />
               Authentication
             </CardTitle>
           </CardHeader>
@@ -382,7 +367,7 @@ export default function EditModel() {
                 className="max-w-md font-mono"
               />
               <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                <Icon icon={icons.info} className="h-3 w-3 mt-0.5 flex-shrink-0" />
                 <p>A key is currently set. Leave empty to keep it unchanged.</p>
               </div>
             </div>
@@ -475,9 +460,9 @@ export default function EditModel() {
                 onClick={handleTestConnection}
               >
                 {testLoading ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Icon icon="solar:refresh-circle-linear" className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
-                  <Wifi className="h-4 w-4 mr-2" />
+                  <Icon icon="solar:wifi-linear" className="h-4 w-4 mr-2" />
                 )}
                 Test Connection
               </Button>
@@ -489,9 +474,9 @@ export default function EditModel() {
               {testResult && (
                 <div className={`flex items-center gap-2 text-sm ${testResult.success ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                   {testResult.success ? (
-                    <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                    <Icon icon={icons.check} className="h-4 w-4 flex-shrink-0" />
                   ) : (
-                    <XCircle className="h-4 w-4 flex-shrink-0" />
+                    <Icon icon={icons.error} className="h-4 w-4 flex-shrink-0" />
                   )}
                   <span>{testResult.message}</span>
                   {testResult.latency && (
@@ -507,7 +492,7 @@ export default function EditModel() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Sparkles className="h-5 w-5" />
+              <Icon icon="solar:star-shine-linear" className="h-5 w-5" />
               Capabilities
             </CardTitle>
           </CardHeader>
@@ -515,21 +500,21 @@ export default function EditModel() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-center justify-between p-3 rounded-lg border">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-blue-500" />
+                  <Icon icon="solar:star-shine-linear" className="h-4 w-4 text-blue-500" />
                   <Label className="text-sm cursor-pointer">Streaming</Label>
                 </div>
                 <Switch checked={supportsStreaming} onCheckedChange={setSupportsStreaming} />
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg border">
                 <div className="flex items-center gap-2">
-                  <Icon icon="lucide:eye" width="16" height="16" className="text-purple-500" />
+                  <Icon icon={icons.eye} className="h-4 w-4 text-purple-500" />
                   <Label className="text-sm cursor-pointer">Vision</Label>
                 </div>
                 <Switch checked={supportsVision} onCheckedChange={setSupportsVision} />
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg border">
                 <div className="flex items-center gap-2">
-                  <Icon icon="lucide:wrench" width="16" height="16" className="text-green-500" />
+                  <Icon icon="solar:settings-minimalistic-linear" className="h-4 w-4 text-green-500" />
                   <Label className="text-sm cursor-pointer">Function Calling</Label>
                 </div>
                 <Switch checked={supportsFunctions} onCheckedChange={setSupportsFunctions} />
@@ -546,12 +531,12 @@ export default function EditModel() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2 text-lg">
-                      <Settings2 className="h-5 w-5" />
+                      <Icon icon={icons.settings} className="h-5 w-5" />
                       Advanced Settings
                     </CardTitle>
                     <CardDescription>Rate limits, priority, pricing, and tags</CardDescription>
                   </div>
-                  <ChevronRight className={`h-5 w-5 text-muted-foreground transition-transform ${advancedOpen ? "rotate-90" : ""}`} />
+                  <Icon icon={icons.chevronRight} className={`h-5 w-5 text-muted-foreground transition-transform ${advancedOpen ? "rotate-90" : ""}`} />
                 </div>
               </CardHeader>
             </CollapsibleTrigger>
@@ -559,7 +544,7 @@ export default function EditModel() {
               <CardContent className="space-y-6 pt-0">
                 <Separator />
                 <div>
-                  <h4 className="text-sm font-medium flex items-center gap-2 mb-3"><Gauge className="h-4 w-4" />Rate Limits</h4>
+                  <h4 className="text-sm font-medium flex items-center gap-2 mb-3"><Icon icon="solar:speed-linear" className="h-4 w-4" />Rate Limits</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm">RPM <span className="text-muted-foreground font-normal">(Requests/min)</span></Label>
@@ -572,7 +557,7 @@ export default function EditModel() {
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium flex items-center gap-2 mb-3"><Settings2 className="h-4 w-4" />Load Balancing</h4>
+                  <h4 className="text-sm font-medium flex items-center gap-2 mb-3"><Icon icon={icons.settings} className="h-4 w-4" />Load Balancing</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm">Priority (1-100)</Label>
@@ -589,7 +574,7 @@ export default function EditModel() {
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium flex items-center gap-2 mb-3"><DollarSign className="h-4 w-4" />Pricing</h4>
+                  <h4 className="text-sm font-medium flex items-center gap-2 mb-3"><Icon icon="solar:dollar-minimalistic-linear" className="h-4 w-4" />Pricing</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm">Input Cost / Token</Label>
@@ -602,11 +587,11 @@ export default function EditModel() {
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium flex items-center gap-2 mb-3"><Tag className="h-4 w-4" />Tags</h4>
+                  <h4 className="text-sm font-medium flex items-center gap-2 mb-3"><Icon icon="solar:tag-linear" className="h-4 w-4" />Tags</h4>
                   <Input placeholder="production, fast, custom" value={tags} onChange={(e) => setTags(e.target.value)} className="max-w-md" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium flex items-center gap-2 mb-3"><Sparkles className="h-4 w-4" />Default Reasoning Effort</h4>
+                  <h4 className="text-sm font-medium flex items-center gap-2 mb-3"><Icon icon="solar:star-shine-linear" className="h-4 w-4" />Default Reasoning Effort</h4>
                   <Select value={defaultReasoningEffort} onValueChange={setDefaultReasoningEffort}>
                     <SelectTrigger className="max-w-md">
                       <SelectValue placeholder="None (use provider default)" />
@@ -633,7 +618,7 @@ export default function EditModel() {
           </Button>
           <Button type="submit" disabled={mutation.isPending || !canSubmit} className="min-w-[140px]">
             {mutation.isPending ? "Saving..." : (
-              <><Check className="h-4 w-4 mr-2" />Save Changes</>
+              <><Icon icon={icons.check} className="h-4 w-4 mr-2" />Save Changes</>
             )}
           </Button>
         </div>

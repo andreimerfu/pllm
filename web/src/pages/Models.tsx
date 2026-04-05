@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { LayoutGrid, Table as TableIcon } from "lucide-react";
+import { Icon } from "@iconify/react";
 
 import { getModels, getDashboardMetrics, getAdminModels, getModelsHealth } from "@/lib/api";
 import type { ModelsResponse, ModelWithUsage, AdminModel, AdminModelsResponse, ModelsHealthResponse } from "@/types/api";
@@ -198,11 +198,11 @@ export default function Models() {
             onValueChange={(value: string) => value && setViewMode(value as ViewMode)}
           >
             <ToggleGroupItem value="cards" aria-label="Card view" className="gap-2">
-              <LayoutGrid className="h-4 w-4" />
+              <Icon icon="solar:widget-2-linear" className="h-4 w-4" />
               Cards
             </ToggleGroupItem>
             <ToggleGroupItem value="table" aria-label="Table view" className="gap-2">
-              <TableIcon className="h-4 w-4" />
+              <Icon icon="solar:table-linear" className="h-4 w-4" />
               Table
             </ToggleGroupItem>
           </ToggleGroup>

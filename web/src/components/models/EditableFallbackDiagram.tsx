@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Plus, Save, X } from "lucide-react";
+import { icons } from "@/lib/icons";
 import { toast } from "@/hooks/use-toast";
 import '@xyflow/react/dist/style.css';
 
@@ -110,14 +110,14 @@ function EditableModelNode({ data, id, selected }: any) {
           onClick={() => data.onDelete?.(id)}
           className="px-2 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600"
         >
-          <X className="w-3 h-3" />
+          <Icon icon={icons.close} className="w-3 h-3" />
         </button>
       </NodeToolbar>
 
-      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-blue-500" />
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-teal-500" />
 
       <div className={`px-4 py-3 border-2 rounded-lg bg-background shadow-sm ${
-        data.isPrimary ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'border-border'
+        data.isPrimary ? 'border-teal-500 bg-teal-50 dark:bg-teal-950' : 'border-border'
       }`}>
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-lg border ${providerInfo.bgColor} ${providerInfo.borderColor}`}>
@@ -142,7 +142,7 @@ function EditableModelNode({ data, id, selected }: any) {
         </div>
       </div>
 
-      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-blue-500" />
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-teal-500" />
     </>
   );
 }
@@ -207,13 +207,13 @@ function EditableFallbackDiagramInner({ primaryModel, allFallbacksConfig = {}, o
       type: 'smoothstep',
       animated: true,
       style: {
-        stroke: i === 0 ? '#3b82f6' : '#6366f1',
+        stroke: i === 0 ? '#14B8A6' : '#0d9488',
         strokeWidth: i === 0 ? 3 : 2,
       },
       label: i === 0 ? 'Primary Fallback' : `Fallback ${i}`,
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: i === 0 ? '#3b82f6' : '#6366f1',
+        color: i === 0 ? '#14B8A6' : '#0d9488',
       },
     });
   }
@@ -250,8 +250,8 @@ function EditableFallbackDiagramInner({ primaryModel, allFallbacksConfig = {}, o
       ...params,
       type: 'smoothstep',
       animated: true,
-      style: { stroke: '#6366f1', strokeWidth: 2 },
-      markerEnd: { type: MarkerType.ArrowClosed, color: '#6366f1' },
+      style: { stroke: '#0d9488', strokeWidth: 2 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#0d9488' },
     }, eds));
     setHasChanges(true);
   }, [edges, setEdges]);
@@ -343,7 +343,7 @@ function EditableFallbackDiagramInner({ primaryModel, allFallbacksConfig = {}, o
             <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" disabled={availableModels.length === 0 && selectableModels.length === 0}>
-                  <Plus className="w-4 h-4 mr-1" />
+                  <Icon icon={icons.plus} className="w-4 h-4 mr-1" />
                   Add Model
                 </Button>
               </PopoverTrigger>
@@ -378,7 +378,7 @@ function EditableFallbackDiagramInner({ primaryModel, allFallbacksConfig = {}, o
             </Popover>
             {hasChanges && (
               <Button onClick={handleSave} size="sm">
-                <Save className="w-4 h-4 mr-1" />
+                <Icon icon="solar:diskette-linear" className="w-4 h-4 mr-1" />
                 Save Changes
               </Button>
             )}
