@@ -308,6 +308,12 @@ export const testModelConnection = (provider: ProviderConfig): Promise<{
   latency?: string;
 }> =>
   axiosInstance.post("/api/admin/models/test-connection", { provider });
+
+export const discoverModels = (provider: ProviderConfig): Promise<{
+  models: string[];
+  count: number;
+}> =>
+  axiosInstance.post("/api/admin/models/discover-models", { provider });
 export const getAdminModels = () =>
   axiosInstance.get("/api/admin/models") as Promise<AdminModelsResponse>;
 export const createModel = (data: CreateModelRequest) =>
@@ -332,6 +338,13 @@ export const deleteRoute = (id: string) =>
   axiosInstance.delete(`/api/admin/routes/${id}`);
 export const getRouteStats = (id: string, hours = 24) =>
   axiosInstance.get(`/api/admin/routes/${id}/stats?hours=${hours}`) as Promise<RouteStatsResponse>;
+
+// Provider Profiles
+export const getProviderProfiles = () => axiosInstance.get('/api/admin/providers').then((r: any) => r.providers || r);
+export const getProviderProfile = (id: string) => axiosInstance.get(`/api/admin/providers/${id}`);
+export const createProviderProfile = (data: any) => axiosInstance.post('/api/admin/providers', data);
+export const updateProviderProfile = (id: string, data: any) => axiosInstance.put(`/api/admin/providers/${id}`, data);
+export const deleteProviderProfile = (id: string) => axiosInstance.delete(`/api/admin/providers/${id}`);
 
 // Guardrails
 export const getGuardrails = () => axiosInstance.get("/api/admin/guardrails");

@@ -69,6 +69,7 @@ export interface ProviderConfig {
   model: string;
   api_key?: string;
   api_secret?: string;
+  oauth_token?: string;
   base_url?: string;
   api_version?: string;
   org_id?: string;
@@ -110,6 +111,35 @@ export interface CreateModelRequest {
   timeout_seconds?: number;
   tags?: string[];
   enabled?: boolean;
+  provider_profile_id?: string;
+}
+
+export interface ProviderProfile {
+  id: string;
+  name: string;
+  type: string;
+  config: {
+    api_key?: string;
+    base_url?: string;
+    oauth_token?: string;
+    azure_endpoint?: string;
+    azure_deployment?: string;
+    api_version?: string;
+    aws_region_name?: string;
+    aws_access_key_id?: string;
+    aws_secret_access_key?: string;
+    vertex_project?: string;
+    vertex_location?: string;
+  };
+  model_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateProviderProfileRequest {
+  name: string;
+  type: string;
+  config: Record<string, string>;
 }
 
 export interface UpdateModelRequest extends Partial<CreateModelRequest> {}
