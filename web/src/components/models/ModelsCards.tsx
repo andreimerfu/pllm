@@ -156,6 +156,7 @@ export default function ModelsCards({ models, onEdit, onDelete }: ModelsCardsPro
                   <MetricCard
                     label="Total Tokens"
                     value={formatNumber(usage.tokens_total)}
+                    trend={usage.trend_data?.slice(-7)}
                     icon={<Icon icon={icons.bolt} className="h-4 w-4 text-purple-500" />}
                     color="#8b5cf6"
                   />
@@ -163,6 +164,7 @@ export default function ModelsCards({ models, onEdit, onDelete }: ModelsCardsPro
                   <MetricCard
                     label="Total Cost"
                     value={formatCurrency(usage.cost_total)}
+                    trend={usage.trend_data?.slice(-7)}
                     icon={<Icon icon="solar:dollar-minimalistic-linear" className="h-4 w-4 text-green-500" />}
                     color="#10b981"
                   />
@@ -170,6 +172,7 @@ export default function ModelsCards({ models, onEdit, onDelete }: ModelsCardsPro
                   <MetricCard
                     label="Avg Latency"
                     value={`${usage.avg_latency}ms`}
+                    trend={usage.trend_data?.slice(-7)}
                     icon={<Icon icon={icons.clock} className="h-4 w-4 text-orange-500" />}
                     color="#f59e0b"
                   />
