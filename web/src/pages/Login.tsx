@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Icon } from "@iconify/react";
 import { icons } from "@/lib/icons";
+import { useColorMode } from "@/contexts/ColorModeContext";
 import { useToast } from "@/hooks/use-toast";
 import { getAuthConfig } from "@/lib/api";
 
@@ -38,6 +39,7 @@ export default function Login() {
   const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
   const { loginWithMasterKey } = useAuth();
+  const { resolvedMode, setColorMode } = useColorMode();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -161,13 +163,19 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
+      {/* Theme toggle */}
+      <button
+        onClick={() => setColorMode(resolvedMode === 'dark' ? 'light' : 'dark')}
+        className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+      >
+        <Icon icon={resolvedMode === 'dark' ? icons.sun : icons.moon} className="w-5 h-5" />
+      </button>
+
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <div className="p-3 rounded-lg bg-primary/10">
-              <Icon icon={icons.shield} className="h-8 w-8 text-primary" />
-            </div>
+            <img src={`${import.meta.env.BASE_URL}robot.png`} alt="pLLM" className="w-14 h-14 rounded-xl" />
           </div>
           <CardTitle className="text-2xl text-center">pLLM Gateway</CardTitle>
           <CardDescription className="text-center">
