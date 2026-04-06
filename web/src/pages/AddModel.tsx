@@ -1176,17 +1176,6 @@ export default function AddModel() {
   // ─── Render ─────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Page Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/models")}>
-          <Icon icon={icons.arrowLeft} className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Add Model</h1>
-          <p className="text-[13px] text-muted-foreground">Configure a new model instance</p>
-        </div>
-      </div>
-
       {/* Step Content */}
       <div className="flex-1">
         {step === 1 && renderProviderStep()}
@@ -1197,7 +1186,7 @@ export default function AddModel() {
       </div>
 
       {/* Bottom Bar — sticks to bottom of content area */}
-      <div className="sticky bottom-0 z-40 -mx-6 lg:-mx-8 mt-6">
+      <div className="sticky bottom-0 z-40 -mx-6 lg:-mx-8">
         <div className="backdrop-blur-xl bg-background/90 border-t border-border">
           <div className="px-6 lg:px-8 py-3 flex items-center justify-between gap-6">
             {/* Left: Back / Cancel */}
