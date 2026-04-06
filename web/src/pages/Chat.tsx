@@ -6,10 +6,8 @@ import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { Button } from '../components/ui/button'
-import { Badge } from '../components/ui/badge'
 import { Textarea } from '../components/ui/textarea'
 import { ScrollArea } from '../components/ui/scroll-area'
-import { Card, CardContent } from '../components/ui/card'
 import { Avatar, AvatarFallback } from '../components/ui/avatar'
 import { Switch } from '../components/ui/switch'
 import { Slider } from '../components/ui/slider'
@@ -30,6 +28,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '../components/ui/popover'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '../components/ui/sheet'
 import { getModels, getRoutes } from '../lib/api'
 import { cn } from '../lib/utils'
 import { getModelIcon } from '../lib/chat-utils'
@@ -40,11 +45,13 @@ import { useChatConversations } from '../hooks/useChatConversations'
 function ModelCombobox({
   models,
   selectedModel,
-  onModelChange
+  onModelChange,
+  compact = false,
 }: {
   models: any[]
   selectedModel: string
   onModelChange: (model: string) => void
+  compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
 
@@ -57,7 +64,7 @@ function ModelCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className={cn("justify-between", compact ? "h-8 text-sm px-3" : "w-full")}
         >
           <div className="flex items-center gap-2">
             {selectedModelData && (
@@ -66,14 +73,14 @@ function ModelCombobox({
                 className="h-4 w-4"
               />
             )}
-            <span className="truncate">
-              {selectedModelData ? (selectedModelData.name || selectedModelData.id) : "Select a model..."}
+            <span className="truncate max-w-[200px]">
+              {selectedModelData ? (selectedModelData.name || selectedModelData.id) : "Select model..."}
             </span>
           </div>
-          <Icon icon={icons.chevronsUpDown} className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <Icon icon={icons.chevronsUpDown} className="ml-2 h-3 w-3 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0">
+      <PopoverContent className="w-[320px] p-0">
         <Command>
           <CommandInput placeholder="Search models..." className="h-9" />
           <CommandList>
@@ -124,11 +131,8 @@ function ModelCombobox({
 }
 
 
-function RightSidebar({
-  selectedModel,
-  setSelectedModel,
-  searchQuery,
-  setSearchQuery,
+// Settings Popover Content
+function SettingsPopover({
   temperature,
   setTemperature,
   maxTokens,
@@ -137,15 +141,7 @@ function RightSidebar({
   setReasoningEffort,
   cacheDisabled,
   setCacheDisabled,
-  isCollapsed,
-  onToggle,
-  availableModels,
-  conversations
 }: {
-  selectedModel: string
-  setSelectedModel: (model: string) => void
-  searchQuery: string
-  setSearchQuery: (query: string) => void
   temperature: number
   setTemperature: (temp: number) => void
   maxTokens: number
@@ -154,189 +150,83 @@ function RightSidebar({
   setReasoningEffort: (effort: string) => void
   cacheDisabled: boolean
   setCacheDisabled: (disabled: boolean) => void
-  isCollapsed: boolean
-  onToggle: () => void
-  availableModels: any[]
-  conversations: any[]
 }) {
-  const filteredConversations = conversations
-
   return (
-    <div className={cn(
-      "bg-background border-l transition-all duration-200 ease-in-out overflow-hidden",
-      "fixed top-16 right-0 bottom-0 z-30",
-      isCollapsed ? "w-0 translate-x-full" : "w-80 translate-x-0"
-    )}>
-      <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="p-4 border-b shrink-0">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Settings</h2>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" onClick={onToggle} className="md:block lg:hidden">
-                    <Icon icon={icons.close} className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Close settings</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+    <div className="w-72 space-y-4">
+      {/* Temperature */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium">Temperature</label>
+          <span className="text-xs font-mono text-muted-foreground">{temperature}</span>
         </div>
-
-        <ScrollArea className="flex-1 overflow-hidden">
-          <div className="p-4 space-y-6">
-            {/* Model Selection */}
-            <div>
-              <label className="text-sm font-medium mb-3 block">Model</label>
-              <ModelCombobox
-                models={availableModels}
-                selectedModel={selectedModel}
-                onModelChange={setSelectedModel}
-              />
-            </div>
-
-            {/* Temperature */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-medium">Temperature</label>
-                <span className="text-sm text-muted-foreground">{temperature}</span>
-              </div>
-              <Slider
-                value={[temperature]}
-                onValueChange={(value) => setTemperature(value[0])}
-                max={2}
-                min={0}
-                step={0.1}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>Precise</span>
-                <span>Creative</span>
-              </div>
-            </div>
-
-            {/* Max Tokens */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-medium">Max Tokens</label>
-                <span className="text-sm text-muted-foreground">{maxTokens}</span>
-              </div>
-              <Slider
-                value={[maxTokens]}
-                onValueChange={(value) => setMaxTokens(value[0])}
-                max={4000}
-                min={100}
-                step={100}
-                className="w-full"
-              />
-            </div>
-
-            {/* Reasoning Effort */}
-            <div>
-              <label className="text-sm font-medium mb-3 block">Reasoning Effort</label>
-              <Select value={reasoningEffort} onValueChange={setReasoningEffort}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Default" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">For reasoning models (o1, o3, GPT-5, etc.)</p>
-            </div>
-
-            {/* Disable Cache */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium">Disable Cache</label>
-                <p className="text-xs text-muted-foreground">Get fresh responses every time</p>
-              </div>
-              <Switch
-                checked={cacheDisabled}
-                onCheckedChange={setCacheDisabled}
-              />
-            </div>
-
-            <Separator />
-
-            {/* Conversations */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium">Conversations</h3>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button size="sm" variant="ghost">
-                        <Icon icon={icons.plus} className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>New conversation</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-
-              <div className="relative mb-3">
-                <Icon icon={icons.search} className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search conversations..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-
-              <div className="space-y-1">
-                {filteredConversations.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-4">
-                    <p className="text-sm">No conversations</p>
-                  </div>
-                ) : (
-                  filteredConversations.map((conversation) => (
-                    <Button
-                      key={conversation.id}
-                      variant="ghost"
-                      className="w-full justify-start text-left h-auto p-3 hover:bg-accent"
-                    >
-                      <div className="flex flex-col items-start w-full">
-                        <span className="font-medium truncate w-full text-sm">{conversation.title}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {conversation.updatedAt.toLocaleDateString()}
-                        </span>
-                      </div>
-                    </Button>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </ScrollArea>
-
-        <div className="p-4 border-t">
-          <Button className="w-full gap-2">
-            <Icon icon={icons.plus} className="h-4 w-4" />
-            New Chat
-          </Button>
+        <Slider
+          value={[temperature]}
+          onValueChange={(value) => setTemperature(value[0])}
+          max={2}
+          min={0}
+          step={0.1}
+          className="w-full"
+        />
+        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+          <span>Precise</span>
+          <span>Creative</span>
         </div>
+      </div>
+
+      {/* Max Tokens */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium">Max Tokens</label>
+          <span className="text-xs font-mono text-muted-foreground">{maxTokens}</span>
+        </div>
+        <Slider
+          value={[maxTokens]}
+          onValueChange={(value) => setMaxTokens(value[0])}
+          max={4000}
+          min={100}
+          step={100}
+          className="w-full"
+        />
+      </div>
+
+      {/* Reasoning Effort */}
+      <div>
+        <label className="text-sm font-medium mb-2 block">Reasoning Effort</label>
+        <Select value={reasoningEffort} onValueChange={setReasoningEffort}>
+          <SelectTrigger className="w-full h-8 text-sm">
+            <SelectValue placeholder="Default" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            <SelectItem value="low">Low</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground mt-1">For reasoning models (o1, o3, etc.)</p>
+      </div>
+
+      <Separator />
+
+      {/* Disable Cache */}
+      <div className="flex items-center justify-between">
+        <div>
+          <label className="text-sm font-medium">Disable Cache</label>
+          <p className="text-xs text-muted-foreground">Fresh responses every time</p>
+        </div>
+        <Switch
+          checked={cacheDisabled}
+          onCheckedChange={setCacheDisabled}
+        />
       </div>
     </div>
   )
 }
 
-function MessageContent({ content }: { content: string | MessageContent[] }) {
-  // Detect theme for syntax highlighting
+
+function MessageContentRenderer({ content }: { content: string | MessageContent[] }) {
   const isDark = document.documentElement.classList.contains('dark')
 
-  // Handle vision content format
   if (Array.isArray(content)) {
     return (
       <div className="space-y-3">
@@ -391,7 +281,6 @@ function MessageContent({ content }: { content: string | MessageContent[] }) {
     )
   }
 
-  // Handle regular string content
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
       <ReactMarkdown
@@ -431,13 +320,13 @@ function MessageContent({ content }: { content: string | MessageContent[] }) {
 function EmptyState() {
   return (
     <div className="flex-1 flex items-center justify-center min-h-0 px-4">
-      <div className="text-center max-w-md">
-        <div className="mb-4">
-          <Icon icon={icons.chat} className="h-16 w-16 text-muted-foreground mx-auto" />
+      <div className="text-center max-w-sm">
+        <div className="mb-3 inline-flex items-center justify-center w-12 h-12 rounded-lg bg-muted">
+          <Icon icon={icons.terminal} className="h-6 w-6 text-muted-foreground" />
         </div>
-        <h2 className="text-xl font-semibold mb-2">Start a conversation</h2>
-        <p className="text-muted-foreground">
-          Type your message below to begin chatting with AI models
+        <h2 className="text-lg font-semibold mb-1">Test a model</h2>
+        <p className="text-sm text-muted-foreground">
+          Select a model above and send a prompt to test your gateway configuration.
         </p>
       </div>
     </div>
@@ -463,7 +352,6 @@ function MessageInput({
   onAttachmentAdd?: (file: File) => void
   onAttachmentRemove?: (fileId: string) => void
 }) {
-  const [webSearchEnabled, setWebSearchEnabled] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -479,7 +367,6 @@ function MessageInput({
 
     const file = files[0]
 
-    // Validate file type (images only for now)
     if (!file.type.startsWith('image/')) {
       toast({
         title: "Invalid file type",
@@ -489,7 +376,6 @@ function MessageInput({
       return
     }
 
-    // Validate file size (10MB max)
     if (file.size > 10 * 1024 * 1024) {
       toast({
         title: "File too large",
@@ -499,7 +385,6 @@ function MessageInput({
       return
     }
 
-    // Pass the file directly to be processed in the parent component
     onAttachmentAdd(file)
 
     toast({
@@ -507,7 +392,6 @@ function MessageInput({
       description: `${file.name} ready to send`
     })
 
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -522,44 +406,21 @@ function MessageInput({
   }, [onChange])
 
   return (
-    <div className="border-t bg-secondary/50 px-4 py-2">
+    <div className="px-4 py-3">
       <div className="max-w-4xl mx-auto">
-        <div className="flex gap-2 mb-3">
-          <Button variant="outline" size="sm" className="gap-2">
-            <Icon icon={icons.image} className="h-4 w-4" />
-            Image
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Icon icon={icons.code} className="h-4 w-4" />
-            Interactive App
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Icon icon={icons.layers} className="h-4 w-4" />
-            Landing Page
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Icon icon={icons.play} className="h-4 w-4" />
-            2D Game
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Icon icon={icons.maximize} className="h-4 w-4" />
-            3D Game
-          </Button>
-        </div>
-
         {/* Attachments preview */}
         {attachments && attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
+          <div className="flex flex-wrap gap-2 mb-2">
             {attachments.map((file) => (
               <div key={file.id} className="relative group">
-                <div className="flex items-center gap-2 bg-muted rounded-md p-2 pr-8">
-                  <Icon icon={icons.image} className="h-4 w-4" />
-                  <span className="text-sm truncate max-w-32">{file.filename}</span>
+                <div className="flex items-center gap-2 bg-muted rounded-md p-1.5 pr-7 text-xs">
+                  <Icon icon={icons.image} className="h-3.5 w-3.5" />
+                  <span className="truncate max-w-32">{file.filename}</span>
                 </div>
                 {onAttachmentRemove && (
                   <button
                     onClick={() => onAttachmentRemove(file.id)}
-                    className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-destructive/80"
+                    className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center text-[10px] hover:bg-destructive/80"
                     aria-label="Remove attachment"
                   >
                     ×
@@ -570,119 +431,159 @@ function MessageInput({
           </div>
         )}
 
-        <div className="relative">
+        <div className="relative flex items-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            style={{ display: 'none' }}
+          />
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 h-9 w-9 text-muted-foreground hover:text-foreground"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={disabled}
+                >
+                  <Icon icon="solar:paperclip-linear" className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Attach image</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           <Textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Start a new message..."
-            className="min-h-[60px] max-h-[200px] resize-none pr-16 border-2 rounded-xl"
+            placeholder="Test a prompt..."
+            className="min-h-[40px] max-h-[200px] resize-none flex-1 text-sm"
             disabled={disabled}
           />
 
-          <div className="absolute bottom-3 right-3">
-            <TooltipProvider>
-              {disabled ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button size="icon" variant="destructive" onClick={onStop}>
-                      <Icon icon={icons.stop} className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Stop generation</p>
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon"
-                      onClick={onSubmit}
-                      disabled={!value.trim()}
-                      className="bg-primary text-primary-foreground rounded-lg"
-                    >
-                      <Icon icon={icons.send} className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Send message</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </TooltipProvider>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center gap-4">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              style={{ display: 'none' }}
-            />
-            <TooltipProvider>
+          <TooltipProvider>
+            {disabled ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="icon" variant="destructive" onClick={onStop} className="shrink-0 h-9 w-9">
+                    <Icon icon={icons.stop} className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Stop generation</p>
+                </TooltipContent>
+              </Tooltip>
+            ) : (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={disabled}
+                    size="icon"
+                    onClick={onSubmit}
+                    disabled={!value.trim() && (!attachments || attachments.length === 0)}
+                    className="shrink-0 h-9 w-9 bg-teal-600 hover:bg-teal-700 text-white"
                   >
-                    <Icon icon="solar:paperclip-linear" className="h-4 w-4" />
+                    <Icon icon={icons.send} className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Attach file</p>
+                  <p>Send (Enter)</p>
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" disabled>
-                    <Icon icon="solar:microphone-linear" className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Voice input (coming soon)</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Icon icon={icons.globe} className="h-4 w-4" />
-            <span>Web search</span>
-            <Switch
-              checked={webSearchEnabled}
-              onCheckedChange={setWebSearchEnabled}
-            />
-          </div>
+            )}
+          </TooltipProvider>
         </div>
       </div>
     </div>
   )
 }
 
+
+// Conversations sidebar as a Sheet (slide-over panel)
+function ConversationsSheet({
+  conversations,
+  searchQuery,
+  setSearchQuery,
+  children,
+}: {
+  conversations: any[]
+  searchQuery: string
+  setSearchQuery: (query: string) => void
+  children: React.ReactNode
+}) {
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        {children}
+      </SheetTrigger>
+      <SheetContent side="left" className="w-72 p-0">
+        <SheetHeader className="px-4 pt-4 pb-2">
+          <SheetTitle className="text-sm font-semibold">Conversations</SheetTitle>
+        </SheetHeader>
+
+        <div className="px-4 pb-3">
+          <div className="relative">
+            <Icon icon={icons.search} className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+        </div>
+
+        <ScrollArea className="flex-1 h-[calc(100vh-120px)]">
+          <div className="px-2 space-y-0.5">
+            {conversations.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                <p className="text-sm">No conversations</p>
+              </div>
+            ) : (
+              conversations.map((conversation) => (
+                <Button
+                  key={conversation.id}
+                  variant="ghost"
+                  className="w-full justify-start text-left h-auto py-2 px-3 hover:bg-accent"
+                >
+                  <div className="flex flex-col items-start w-full">
+                    <span className="font-medium truncate w-full text-sm">{conversation.title}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {conversation.updatedAt.toLocaleDateString()}
+                    </span>
+                  </div>
+                </Button>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+
 export default function Chat() {
   const [input, setInput] = useState('')
   const [selectedModel, setSelectedModel] = useState('gpt-4o')
   const [temperature, setTemperature] = useState(1)
   const [maxTokens, setMaxTokens] = useState(2048)
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true) // Start collapsed on mobile
   const [availableModels, setAvailableModels] = useState<any[]>([])
   const [currentAttachments, setCurrentAttachments] = useState<UploadedFile[]>([])
   const [reasoningEffort, setReasoningEffort] = useState('')
   const [cacheDisabled, setCacheDisabled] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Use custom hooks
-  const { messages, isLoading, sendMessage, stopGeneration } = useChatMessages({
+  const { messages, isLoading, sendMessage, stopGeneration, clearMessages } = useChatMessages({
     selectedModel,
     temperature,
     maxTokens,
@@ -700,10 +601,8 @@ export default function Chat() {
           getRoutes().catch(() => ({ routes: [] })),
         ])
 
-        // Filter out models with empty or invalid IDs
         const validModels = (modelsResponse.data || []).filter((m: any) => m.id && m.id.trim() !== '')
 
-        // Add enabled routes as selectable targets (using slug as the model ID)
         const routeEntries = (routesResponse.routes || [])
           .filter((r: any) => r.enabled)
           .map((r: any) => ({ id: r.slug, name: `${r.name} (route)`, owned_by: 'route' }))
@@ -715,7 +614,6 @@ export default function Chat() {
         }
       } catch (err) {
         console.error('Failed to fetch models:', err)
-        // Fallback to some default models if API fails
         const fallbackModels = [
           { id: 'gpt-4o', name: 'GPT-4o' },
           { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
@@ -729,25 +627,11 @@ export default function Chat() {
     fetchModels()
   }, [])
 
-  // Auto-collapse sidebar on desktop on load
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth >= 1024) { // lg breakpoint
-        setIsSidebarCollapsed(false)
-      }
-    }
-
-    handleResize() // Check on mount
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   const handleAttachmentAdd = (file: File) => {
-    // Convert file to base64 immediately and store locally
     const reader = new FileReader()
     reader.onload = (e) => {
       const base64Data = e.target?.result as string
@@ -756,7 +640,7 @@ export default function Chat() {
         filename: file.name,
         size: file.size,
         type: file.type,
-        url: base64Data // Store base64 directly instead of server URL
+        url: base64Data
       }
       setCurrentAttachments(prev => [...prev, uploadedFile])
     }
@@ -766,7 +650,6 @@ export default function Chat() {
   const handleAttachmentRemove = (fileId: string) => {
     setCurrentAttachments(prev => prev.filter(f => f.id !== fileId))
   }
-
 
   const handleSubmit = async () => {
     await sendMessage(input, currentAttachments)
@@ -778,131 +661,111 @@ export default function Chat() {
     stopGeneration()
   }
 
+  const handleNewChat = () => {
+    clearMessages()
+    setInput('')
+    setCurrentAttachments([])
+  }
+
+  const handleCopyMessage = (content: string | MessageContent[]) => {
+    const text = Array.isArray(content)
+      ? content.filter(c => c.type === 'text').map(c => c.text).join('\n')
+      : content
+    navigator.clipboard.writeText(text)
+    toast({ title: "Copied to clipboard" })
+  }
+
   return (
-    <div className="flex h-[calc(100vh-8rem)] overflow-hidden relative">
-      {/* Main Chat Area */}
-      <div className={cn(
-        "flex flex-col flex-1 min-w-0 h-full",
-        // Account for sidebar width on larger screens when not collapsed
-        !isSidebarCollapsed && "lg:pr-80"
-      )}>
-        {/* Mobile Sidebar Toggle */}
-        <div className="lg:hidden flex items-center justify-between p-4 border-b bg-background shrink-0">
-          <h1 className="text-lg font-semibold">Chat</h1>
-          <Button variant="ghost" size="sm" onClick={() => setIsSidebarCollapsed(false)}>
-            <Icon icon={icons.settings} className="h-4 w-4 mr-2" />
-            Settings
-          </Button>
+    <div className="flex flex-col h-[calc(100vh-8rem)] overflow-hidden">
+      {/* Compact Header Bar */}
+      <div className="flex items-center justify-between px-4 py-2 border-b bg-background shrink-0 gap-3">
+        {/* Left: Conversations + Title */}
+        <div className="flex items-center gap-2 shrink-0">
+          <ConversationsSheet
+            conversations={conversations}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+          >
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Icon icon={icons.clock} className="h-4 w-4" />
+            </Button>
+          </ConversationsSheet>
+          <span className="text-sm font-semibold text-muted-foreground hidden sm:block">Chat</span>
         </div>
 
-        {/* Chat Messages Area - Scrollable */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {messages.length === 0 ? (
-            <>
-              <EmptyState />
-              {/* Message Input - Always at Bottom */}
-              <div className="shrink-0 bg-background border-t">
-                <MessageInput
-                  value={input}
-                  onChange={setInput}
-                  onSubmit={handleSubmit}
-                  disabled={isLoading}
-                  onStop={handleStop}
-                  attachments={currentAttachments}
-                  onAttachmentAdd={handleAttachmentAdd}
-                  onAttachmentRemove={handleAttachmentRemove}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <ScrollArea className="h-full pb-40">
-                <div className="max-w-4xl mx-auto py-6 px-4 pb-32">
-                  <div className="space-y-6">
-                    {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={cn(
-                        "flex gap-4",
-                        message.role === 'user' ? "flex-row-reverse" : "flex-row"
-                      )}
-                    >
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarFallback className={cn(
-                          message.role === 'user'
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted"
-                        )}>
-                          <Icon
-                            icon={message.role === 'user' ? icons.user : icons.chat}
-                            width="16"
-                            height="16"
-                          />
-                        </AvatarFallback>
-                      </Avatar>
+        {/* Center: Model Selector */}
+        <div className="flex-1 flex justify-center max-w-md">
+          <ModelCombobox
+            models={availableModels}
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
+            compact
+          />
+        </div>
 
-                      <div className="flex flex-col min-w-0 max-w-[80%]">
-                        {message.role === 'assistant' && message.model && (
-                          <div className="mb-1">
-                            <Badge variant="secondary" className="text-xs">
-                              {message.model}
-                            </Badge>
-                          </div>
-                        )}
-                        <Card className={cn(
-                          "shadow-sm",
-                          message.role === 'user'
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-card border"
-                        )}>
-                          <CardContent className="p-4">
-                            {message.role === 'user' ? (
-                              Array.isArray(message.content) ? (
-                                <MessageContent content={message.content} />
-                              ) : (
-                                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                                  {message.content}
-                                </p>
-                              )
-                            ) : (
-                              <MessageContent content={message.content} />
-                            )}
-                          </CardContent>
-                        </Card>
-                        {message.role === 'assistant' && (
-                          <div className="mt-1 flex items-center gap-2 text-[10px] font-mono text-muted-foreground px-1">
-                            {message.model && <span>{message.model}</span>}
-                            <span>{message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+        {/* Right: Settings, Clear, New */}
+        <div className="flex items-center gap-1 shrink-0">
+          <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Icon icon={icons.settings} className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-auto">
+              <SettingsPopover
+                temperature={temperature}
+                setTemperature={setTemperature}
+                maxTokens={maxTokens}
+                setMaxTokens={setMaxTokens}
+                reasoningEffort={reasoningEffort}
+                setReasoningEffort={setReasoningEffort}
+                cacheDisabled={cacheDisabled}
+                setCacheDisabled={setCacheDisabled}
+              />
+            </PopoverContent>
+          </Popover>
 
-                  {isLoading && (
-                    <div className="flex gap-4">
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarFallback className="bg-muted">
-                          <Icon icon={icons.chat} width="16" height="16" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <Card className="bg-card shadow-sm">
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-2">
-                            <Icon icon={icons.refresh} width="16" height="16" className="animate-spin" />
-                            <span className="text-sm text-muted-foreground">Thinking...</span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              </div>
-            </ScrollArea>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={handleNewChat}
+                  disabled={messages.length === 0}
+                >
+                  <Icon icon={icons.delete} className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Clear chat</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-            {/* Message Input - Fixed at Bottom when messages exist */}
-            <div className="shrink-0 bg-background border-t">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={handleNewChat}
+                >
+                  <Icon icon={icons.plus} className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>New chat</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
+
+      {/* Message Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {messages.length === 0 ? (
+          <>
+            <EmptyState />
+            <div className="shrink-0 border-t bg-background">
               <MessageInput
                 value={input}
                 onChange={setInput}
@@ -914,39 +777,128 @@ export default function Chat() {
                 onAttachmentRemove={handleAttachmentRemove}
               />
             </div>
-            </>
-          )}
-        </div>
+          </>
+        ) : (
+          <>
+            <ScrollArea className="h-full">
+              <div className="max-w-4xl mx-auto py-4 px-4 pb-8">
+                <div className="space-y-4">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={cn(
+                        "flex gap-3",
+                        message.role === 'user' ? "flex-row-reverse" : "flex-row"
+                      )}
+                    >
+                      <Avatar className="h-7 w-7 shrink-0">
+                        <AvatarFallback className={cn(
+                          "text-xs",
+                          message.role === 'user'
+                            ? "bg-teal-600 text-white"
+                            : "bg-muted"
+                        )}>
+                          <Icon
+                            icon={message.role === 'user'
+                              ? icons.user
+                              : (message.model ? getModelIcon(message.model) : icons.chat)
+                            }
+                            width="14"
+                            height="14"
+                          />
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className={cn(
+                        "flex flex-col min-w-0 max-w-[80%]",
+                        message.role === 'user' ? "items-end" : "items-start"
+                      )}>
+                        {message.role === 'assistant' && message.model && (
+                          <div className="mb-1">
+                            <span className="text-xs font-mono text-muted-foreground">{message.model}</span>
+                          </div>
+                        )}
+
+                        <div className={cn(
+                          "rounded-lg px-3.5 py-2.5",
+                          message.role === 'user'
+                            ? "bg-teal-600 text-white"
+                            : "bg-card border shadow-sm"
+                        )}>
+                          {message.role === 'user' ? (
+                            Array.isArray(message.content) ? (
+                              <MessageContentRenderer content={message.content} />
+                            ) : (
+                              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                                {message.content}
+                              </p>
+                            )
+                          ) : (
+                            <MessageContentRenderer content={message.content} />
+                          )}
+                        </div>
+
+                        {/* Assistant message footer with metadata */}
+                        {message.role === 'assistant' && (
+                          <div className="mt-1 flex items-center gap-3 text-[10px] text-muted-foreground px-1">
+                            <span className="font-mono">
+                              {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={() => handleCopyMessage(message.content)}
+                                    className="hover:text-foreground transition-colors"
+                                  >
+                                    <Icon icon={icons.copy} className="h-3 w-3" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Copy response</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {isLoading && (
+                    <div className="flex gap-3">
+                      <Avatar className="h-7 w-7 shrink-0">
+                        <AvatarFallback className="bg-muted text-xs">
+                          <Icon icon={selectedModel ? getModelIcon(selectedModel) : icons.chat} width="14" height="14" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="rounded-lg px-3.5 py-2.5 bg-card border shadow-sm">
+                        <div className="flex items-center gap-2">
+                          <Icon icon={icons.refresh} width="14" height="14" className="animate-spin" />
+                          <span className="text-sm text-muted-foreground">Thinking...</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+            </ScrollArea>
+
+            {/* Input at bottom */}
+            <div className="shrink-0 border-t bg-background">
+              <MessageInput
+                value={input}
+                onChange={setInput}
+                onSubmit={handleSubmit}
+                disabled={isLoading}
+                onStop={handleStop}
+                attachments={currentAttachments}
+                onAttachmentAdd={handleAttachmentAdd}
+                onAttachmentRemove={handleAttachmentRemove}
+              />
+            </div>
+          </>
+        )}
       </div>
-
-
-      {/* Mobile Overlay */}
-      {!isSidebarCollapsed && (
-        <div
-          className="fixed inset-0 bg-black/20 z-20 lg:hidden"
-          onClick={() => setIsSidebarCollapsed(true)}
-        />
-      )}
-
-      {/* Right Sidebar */}
-      <RightSidebar
-        selectedModel={selectedModel}
-        setSelectedModel={setSelectedModel}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        temperature={temperature}
-        setTemperature={setTemperature}
-        maxTokens={maxTokens}
-        setMaxTokens={setMaxTokens}
-        reasoningEffort={reasoningEffort}
-        setReasoningEffort={setReasoningEffort}
-        cacheDisabled={cacheDisabled}
-        setCacheDisabled={setCacheDisabled}
-        isCollapsed={isSidebarCollapsed}
-        onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        availableModels={availableModels}
-        conversations={conversations}
-      />
     </div>
   )
 }
