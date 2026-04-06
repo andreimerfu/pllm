@@ -1175,7 +1175,7 @@ export default function AddModel() {
 
   // ─── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="relative pb-20">
+    <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 52px - 3rem)' }}>
       {/* Page Header */}
       <div className="flex items-center gap-4 mb-8">
         <Button variant="ghost" size="icon" onClick={() => navigate("/models")}>
@@ -1188,7 +1188,7 @@ export default function AddModel() {
       </div>
 
       {/* Step Content */}
-      <div className="max-w-3xl">
+      <div className="flex-1">
         {step === 1 && renderProviderStep()}
         {step === 2 && renderAuthStep()}
         {step === 3 && renderModelStep()}
@@ -1196,10 +1196,10 @@ export default function AddModel() {
         {step === 5 && renderReviewStep()}
       </div>
 
-      {/* Bottom Bar — fixed to viewport bottom */}
-      <div className="fixed bottom-0 left-0 right-0 z-50">
+      {/* Bottom Bar — sticks to bottom of content area */}
+      <div className="sticky bottom-0 z-40 -mx-6 lg:-mx-8 mt-6">
         <div className="backdrop-blur-xl bg-background/90 border-t border-border">
-          <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 py-3 flex items-center justify-between gap-6">
+          <div className="px-6 lg:px-8 py-3 flex items-center justify-between gap-6">
             {/* Left: Back / Cancel */}
             <div className="w-[100px] flex-shrink-0">
               {step === 1 ? (
