@@ -88,6 +88,12 @@ const navigation: NavGroup[] = [
         permission: null,
       },
       {
+        title: "Providers",
+        href: "/providers",
+        icon: icons.globe,
+        permission: null,
+      },
+      {
         title: "Teams",
         href: "/teams",
         icon: icons.teams,

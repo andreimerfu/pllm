@@ -10,6 +10,7 @@ import Keys from '@/pages/Keys'
 import Budget from '@/pages/Budget'
 import Settings from '@/pages/Settings'
 import AuditLogs from '@/pages/AuditLogs'
+import Providers from '@/pages/Providers'
 import Guardrails from '@/pages/Guardrails'
 import GuardrailConfig from '@/pages/GuardrailConfig'
 import GuardrailMarketplace from '@/pages/GuardrailMarketplace'
@@ -59,6 +60,7 @@ function App() {
                       <Route path="/users" element={<Users />} />
                       <Route path="/teams" element={<Teams />} />
                       <Route path="/keys" element={<Keys />} />
+                      <Route path="/providers" element={<Providers />} />
                       <Route path="/budget" element={<Budget />} />
                       <Route path="/audit-logs" element={<AuditLogs />} />
                       <Route path="/guardrails" element={<Guardrails />} />
