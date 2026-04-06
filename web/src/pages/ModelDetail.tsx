@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
 import { icons } from "@/lib/icons";
+import { getProviderLogo, getProviderColor } from "@/lib/provider-logos";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,18 +13,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ModelWithUsage } from "@/types/api";
 import { detectProvider } from "@/lib/providers";
-import { SparklineChart, MetricCard } from "@/components/models/ModelCharts";
+import { SparklineChart } from "@/components/models/ModelCharts";
 import { EditableFallbackDiagram } from "@/components/models/EditableFallbackDiagram";
 import EditModelDialog from "@/components/models/EditModelDialog";
 import DeleteModelDialog from "@/components/models/DeleteModelDialog";
@@ -44,6 +37,56 @@ const formatCurrency = (amount: number): string => {
     minimumFractionDigits: 2,
   }).format(amount);
 };
+
+// Pulsing status dot component
+function StatusDot({ status }: { status: string }) {
+  const colorMap: Record<string, string> = {
+    healthy: "bg-emerald-500",
+    degraded: "bg-amber-500",
+    unhealthy: "bg-red-500",
+    unknown: "bg-gray-400",
+  };
+  const glowMap: Record<string, string> = {
+    healthy: "shadow-emerald-500/50",
+    degraded: "shadow-amber-500/50",
+    unhealthy: "shadow-red-500/50",
+    unknown: "shadow-gray-400/50",
+  };
+  const dotColor = colorMap[status] || colorMap.unknown;
+  const glowColor = glowMap[status] || glowMap.unknown;
+
+  return (
+    <span className="relative flex h-3 w-3">
+      <span
+        className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${dotColor}`}
+      />
+      <span
+        className={`relative inline-flex rounded-full h-3 w-3 shadow-lg ${dotColor} ${glowColor}`}
+      />
+    </span>
+  );
+}
+
+// Metric chip — small inline card
+function MetricChip({
+  icon,
+  label,
+  value,
+  iconColor,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  iconColor?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2.5 px-4 py-2 rounded-full border bg-card/60 backdrop-blur-sm">
+      <Icon icon={icon} className={`h-4 w-4 flex-shrink-0 ${iconColor || "text-muted-foreground"}`} />
+      <span className="text-xs text-muted-foreground whitespace-nowrap">{label}</span>
+      <span className="text-sm font-semibold whitespace-nowrap">{value}</span>
+    </div>
+  );
+}
 
 export default function ModelDetail() {
   const { modelId } = useParams<{ modelId: string }>();
@@ -221,6 +264,8 @@ export default function ModelDetail() {
   // Use real provider type from admin model when available (e.g., "azure" instead of guessed "openai")
   const providerInfo = detectProvider(model.id, adminModel?.provider?.type || model.owned_by);
   const usage = model.usage_stats;
+  const providerColor = getProviderColor(adminModel?.provider?.type || model.owned_by || "");
+  const providerLogo = getProviderLogo(adminModel?.provider?.type || model.owned_by || "");
 
   // Derive health from real health-check data when available
   const modelHealthData = (() => {
@@ -263,332 +308,417 @@ export default function ModelDetail() {
     };
   })();
 
-  const getHealthIcon = (status: string) => {
-    switch (status) {
-      case 'healthy':
-        return <Icon icon={icons.check} className="h-5 w-5 text-green-500" />;
-      case 'degraded':
-        return <Icon icon={icons.warning} className="h-5 w-5 text-yellow-500" />;
-      case 'unhealthy':
-        return <Icon icon={icons.error} className="h-5 w-5 text-red-500" />;
-      case 'unknown':
-        return <Icon icon={icons.clock} className="h-5 w-5 text-gray-400" />;
-      default:
-        return <Icon icon={icons.warning} className="h-5 w-5 text-gray-500" />;
-    }
-  };
+  // Extract a friendly display name from the model ID
+  const displayName = (() => {
+    const id = model.id;
+    // Take the last segment after "/" if present, then capitalize words
+    const baseName = id.includes("/") ? id.split("/").pop()! : id;
+    return baseName
+      .replace(/[-_]/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  })();
 
-  const getHealthBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'healthy':
-        return "default";
-      case 'degraded':
-        return "secondary";
-      case 'unhealthy':
-        return "destructive";
-      default:
-        return "outline";
-    }
-  };
+  // Fallback chain for this model
+  const fallbackChain = allFallbacksConfig[model.id] || [];
+
+  // Capabilities derived from model name heuristics
+  const capabilities = (() => {
+    const id = model.id.toLowerCase();
+    const caps: string[] = [];
+    if (id.includes("vision") || id.includes("4o") || id.includes("gemini")) caps.push("Vision");
+    if (id.includes("code") || id.includes("codex")) caps.push("Code");
+    if (id.includes("embed")) caps.push("Embeddings");
+    if (!id.includes("embed")) caps.push("Chat");
+    if (id.includes("gpt-4") || id.includes("claude-3") || id.includes("gemini")) caps.push("Function Calling");
+    if (id.includes("whisper") || id.includes("tts")) caps.push("Audio");
+    return caps;
+  })();
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className={`p-3 rounded-xl border ${providerInfo.bgColor} ${providerInfo.borderColor}`}>
-            <Icon
-              icon={providerInfo.icon}
-              width="32"
-              height="32"
-              className={providerInfo.color}
-            />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">{model.id}</h1>
-            <p className={`text-lg ${providerInfo.color}`}>
-              {providerInfo.name}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {adminModel && (
-            <Badge variant={adminModel.source === "user" ? "outline" : "secondary"}>
-              {adminModel.source === "user" ? "User" : "System"}
-            </Badge>
-          )}
-          <Badge variant={getHealthBadgeVariant(health.status)} className="gap-1">
-            {getHealthIcon(health.status)}
-            {health.status}
-          </Badge>
-          {adminModel?.source === "user" && (
-            <EditModelDialog model={adminModel} trigger={
-              <Button variant="outline" size="sm">
-                <Icon icon={icons.settings} className="h-4 w-4 mr-1" />
-                Edit
-              </Button>
-            } />
-          )}
-          {adminModel && (
-            <DeleteModelDialog
-              modelId={adminModel.id}
-              modelName={adminModel.model_name}
-              trigger={
-                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-                  Delete
-                </Button>
-              }
-            />
-          )}
-        </div>
-      </div>
+      {/* ===== HERO SECTION ===== */}
+      <div
+        className="relative rounded-2xl border overflow-hidden"
+        style={{
+          background: `linear-gradient(135deg, ${providerColor}08 0%, ${providerColor}14 50%, transparent 100%)`,
+        }}
+      >
+        {/* Subtle decorative circles */}
+        <div
+          className="absolute -top-16 -right-16 w-64 h-64 rounded-full opacity-[0.04]"
+          style={{ background: providerColor }}
+        />
+        <div
+          className="absolute -bottom-8 -left-8 w-40 h-40 rounded-full opacity-[0.03]"
+          style={{ background: providerColor }}
+        />
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard
-          label="Total Requests"
-          value={formatNumber(usage?.requests_total || 0)}
-          trend={usage?.trend_data?.slice(-7)}
-          icon={<Icon icon="solar:graph-up-linear" className="h-4 w-4 text-teal-500" />}
-          color="#14B8A6"
-        />
-        <MetricCard
-          label="Total Tokens"
-          value={formatNumber(usage?.tokens_total || 0)}
-          icon={<Icon icon="solar:bolt-linear" className="h-4 w-4 text-purple-500" />}
-          color="#8b5cf6"
-        />
-        <MetricCard
-          label="Total Cost"
-          value={formatCurrency(usage?.cost_total || 0)}
-          icon={<Icon icon="solar:dollar-minimalistic-linear" className="h-4 w-4 text-green-500" />}
-          color="#10b981"
-        />
-        <MetricCard
-          label="Avg Latency"
-          value={`${usage?.avg_latency || 0}ms`}
-          icon={<Icon icon={icons.clock} className="h-4 w-4 text-orange-500" />}
-          color="#f59e0b"
-        />
-      </div>
-
-      {/* Main Content Tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="metrics">Metrics</TabsTrigger>
-          <TabsTrigger value="fallbacks">Fallbacks</TabsTrigger>
-          <TabsTrigger value="configuration">Configuration</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Usage Trend */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <div>
-                  <CardTitle>
-                    Usage Trend ({trendTimeRange === "24h" ? "24h" : trendTimeRange === "7d" ? "7 Days" : "30 Days"})
-                  </CardTitle>
-                  <CardDescription>Request volume over time</CardDescription>
+        <div className="relative p-6 md:p-8">
+          <div className="flex items-start justify-between gap-4">
+            {/* Left: Logo + Name */}
+            <div className="flex items-start gap-5">
+              <div
+                className="flex items-center justify-center w-14 h-14 rounded-xl border shadow-sm"
+                style={{
+                  backgroundColor: `${providerColor}10`,
+                  borderColor: `${providerColor}25`,
+                }}
+              >
+                <Icon
+                  icon={providerLogo}
+                  width="32"
+                  height="32"
+                  className={providerInfo.color}
+                />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-3 mb-1">
+                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate">
+                    {displayName}
+                  </h1>
+                  <StatusDot status={health.status} />
+                  <span className="text-xs font-medium capitalize text-muted-foreground">
+                    {health.status}
+                  </span>
                 </div>
-                <Select value={trendTimeRange} onValueChange={setTrendTimeRange}>
-                  <SelectTrigger className="w-[140px]" aria-label="Select time range">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="30d">Last 30 days</SelectItem>
-                    <SelectItem value="7d">Last 7 days</SelectItem>
-                    <SelectItem value="24h">Last 24 hours</SelectItem>
-                  </SelectContent>
-                </Select>
+                <p className="font-mono text-sm text-muted-foreground truncate">
+                  {model.id}
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge
+                    variant="outline"
+                    className="text-xs"
+                    style={{ borderColor: `${providerColor}40`, color: providerColor }}
+                  >
+                    {providerInfo.name}
+                  </Badge>
+                  {adminModel && (
+                    <Badge variant={adminModel.source === "user" ? "outline" : "secondary"} className="text-xs">
+                      {adminModel.source === "user" ? "User" : "System"}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Action buttons */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {adminModel?.source === "user" && (
+                <EditModelDialog model={adminModel} trigger={
+                  <Button variant="ghost" size="sm" className="gap-1.5">
+                    <Icon icon={icons.edit} className="h-4 w-4" />
+                    Edit
+                  </Button>
+                } />
+              )}
+              {adminModel && (
+                <DeleteModelDialog
+                  modelId={adminModel.id}
+                  modelName={adminModel.model_name}
+                  trigger={
+                    <Button variant="ghost" size="sm" className="gap-1.5 text-destructive hover:text-destructive">
+                      <Icon icon={icons.delete} className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  }
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Metric Chips row */}
+          <div className="flex flex-wrap items-center gap-2 mt-6">
+            <MetricChip
+              icon="solar:graph-up-linear"
+              label="Requests"
+              value={formatNumber(usage?.requests_total || 0)}
+              iconColor="text-teal-500"
+            />
+            <MetricChip
+              icon="solar:bolt-linear"
+              label="Tokens"
+              value={formatNumber(usage?.tokens_total || 0)}
+              iconColor="text-purple-500"
+            />
+            <MetricChip
+              icon="solar:dollar-minimalistic-linear"
+              label="Cost"
+              value={formatCurrency(usage?.cost_total || 0)}
+              iconColor="text-emerald-500"
+            />
+            <MetricChip
+              icon={icons.clock}
+              label="Avg Latency"
+              value={`${usage?.avg_latency || 0}ms`}
+              iconColor="text-amber-500"
+            />
+            <MetricChip
+              icon="solar:shield-check-linear"
+              label="Success"
+              value={`${(100 - (usage?.error_rate || 0)).toFixed(1)}%`}
+              iconColor="text-blue-500"
+            />
+            {(usage?.cache_hit_rate || 0) > 0 && (
+              <MetricChip
+                icon="solar:database-linear"
+                label="Cache Hit"
+                value={`${(usage?.cache_hit_rate || 0).toFixed(1)}%`}
+                iconColor="text-cyan-500"
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ===== MAIN CONTENT: Performance (2/3) + Configuration (1/3) ===== */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Performance Panel — left 2/3 */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Request Volume Chart */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle className="text-base">Request Volume</CardTitle>
+                <CardDescription>
+                  {trendTimeRange === "24h" ? "Last 24 hours" : trendTimeRange === "7d" ? "Last 7 days" : "Last 30 days"}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-1 bg-muted rounded-full p-0.5">
+                {(["24h", "7d", "30d"] as const).map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => setTrendTimeRange(range)}
+                    className={`px-3 py-1 text-xs font-medium rounded-full transition-all ${
+                      trendTimeRange === range
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {range}
+                  </button>
+                ))}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {usage?.trend_data && usage.trend_data.length > 0 ? (
+                <SparklineChart
+                  data={usage.trend_data}
+                  type="area"
+                  color="#14B8A6"
+                  className="h-40 w-full"
+                />
+              ) : (
+                <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">
+                  No trend data available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Latency & Health Stats */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Health &amp; Performance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Uptime</p>
+                  <p className="text-xl font-bold">{health.uptime.toFixed(1)}%</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Error Rate</p>
+                  <p className="text-xl font-bold">{health.errorRate.toFixed(2)}%</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">P99 Latency</p>
+                  <p className="text-xl font-bold">{Math.round(health.p99Latency)}ms</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Avg Latency</p>
+                  <p className="text-xl font-bold">{usage?.avg_latency || 0}ms</p>
+                </div>
+              </div>
+              {health.lastChecked && (
+                <>
+                  <Separator className="my-4" />
+                  <p className="text-xs text-muted-foreground">
+                    Last health check: {new Date(health.lastChecked).toLocaleString()}
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Usage breakdown */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Request Volume</CardTitle>
               </CardHeader>
-              <CardContent>
-                {usage?.trend_data && (
-                  <SparklineChart
-                    data={usage.trend_data}
-                    type="area"
-                    color="#14B8A6"
-                    className="h-32 w-full"
-                  />
-                )}
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Today</span>
+                  <span className="font-semibold">{formatNumber(usage?.requests_today || 0)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total</span>
+                  <span className="font-semibold">{formatNumber(usage?.requests_total || 0)}</span>
+                </div>
               </CardContent>
             </Card>
-
-            {/* Health Status */}
             <Card>
-              <CardHeader>
-                <CardTitle>Health Status</CardTitle>
-                <CardDescription>Current model health metrics</CardDescription>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Token Usage</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Status</span>
-                  <div className="flex items-center gap-2">
-                    {getHealthIcon(health.status)}
-                    <span className="capitalize">{health.status}</span>
-                  </div>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Uptime</span>
-                  <span>{health.uptime.toFixed(2)}%</span>
+                  <span className="text-sm text-muted-foreground">Today</span>
+                  <span className="font-semibold">{formatNumber(usage?.tokens_today || 0)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Error Rate</span>
-                  <span>{health.errorRate.toFixed(2)}%</span>
+                  <span className="text-sm text-muted-foreground">Total</span>
+                  <span className="font-semibold">{formatNumber(usage?.tokens_total || 0)}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">P99 Latency</span>
-                  <span>{health.p99Latency}ms</span>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Configuration Panel — right 1/3, dark sidebar style */}
+        <div className="space-y-6">
+          <Card className="bg-zinc-950 dark:bg-zinc-950 text-zinc-100 border-zinc-800">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+                Configuration
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Key-value pairs in monospace */}
+              <div className="space-y-3 font-mono text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="text-zinc-500">provider</span>
+                  <span className="text-zinc-200 truncate">{configuration?.provider || "N/A"}</span>
                 </div>
-                {health.lastChecked && (
-                  <>
-                    <Separator />
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Last Checked</span>
-                      <span className="text-sm text-muted-foreground">
-                        {new Date(health.lastChecked).toLocaleString()}
-                      </span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-zinc-500">max_tokens</span>
+                  <span className="text-zinc-200">{modelPricing?.max_tokens || configuration?.maxTokens || "N/A"}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-zinc-500">timeout</span>
+                  <span className="text-zinc-200">{configuration?.timeout ? `${configuration.timeout / 1000}s` : "N/A"}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-zinc-500">retries</span>
+                  <span className="text-zinc-200">{configuration?.retries ?? "N/A"}</span>
+                </div>
+                <Separator className="bg-zinc-800" />
+                <div className="flex justify-between gap-2">
+                  <span className="text-zinc-500">input_cost</span>
+                  <span className="text-zinc-200">
+                    {modelPricing?.input_cost_per_token
+                      ? `$${(modelPricing.input_cost_per_token * 1000).toFixed(4)}/1K`
+                      : "N/A"}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-zinc-500">output_cost</span>
+                  <span className="text-zinc-200">
+                    {modelPricing?.output_cost_per_token
+                      ? `$${(modelPricing.output_cost_per_token * 1000).toFixed(4)}/1K`
+                      : "N/A"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Capabilities as colored badges */}
+              {capabilities.length > 0 && (
+                <>
+                  <Separator className="bg-zinc-800" />
+                  <div>
+                    <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Capabilities</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {capabilities.map((cap) => {
+                        const capColors: Record<string, string> = {
+                          Chat: "bg-teal-500/20 text-teal-300 border-teal-500/30",
+                          Vision: "bg-violet-500/20 text-violet-300 border-violet-500/30",
+                          Code: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+                          Embeddings: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+                          "Function Calling": "bg-pink-500/20 text-pink-300 border-pink-500/30",
+                          Audio: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+                        };
+                        return (
+                          <span
+                            key={cap}
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${
+                              capColors[cap] || "bg-zinc-800 text-zinc-400 border-zinc-700"
+                            }`}
+                          >
+                            {cap}
+                          </span>
+                        );
+                      })}
                     </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+                  </div>
+                </>
+              )}
 
-        <TabsContent value="metrics" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Request Volume</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span>Today</span>
-                    <span className="font-medium">{formatNumber(usage?.requests_today || 0)}</span>
+              {/* Fallback chain in sidebar */}
+              {fallbackChain.length > 0 && (
+                <>
+                  <Separator className="bg-zinc-800" />
+                  <div>
+                    <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Fallback Chain</p>
+                    <div className="space-y-1">
+                      {/* Primary */}
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-zinc-900 border border-zinc-800">
+                        <Icon icon={providerLogo} width="14" height="14" />
+                        <span className="text-xs font-mono text-zinc-200 truncate">{model.id}</span>
+                        <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 border-teal-600 text-teal-400">
+                          primary
+                        </Badge>
+                      </div>
+                      {fallbackChain.map((fbId, idx) => {
+                        const fbProvider = detectProvider(fbId, "");
+                        const fbLogo = getProviderLogo(fbProvider.name.toLowerCase());
+                        return (
+                          <div key={fbId}>
+                            <div className="flex justify-center py-0.5">
+                              <Icon icon={icons.arrowDown} className="h-3 w-3 text-zinc-600" />
+                            </div>
+                            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-zinc-900 border border-zinc-800">
+                              <Icon icon={fbLogo} width="14" height="14" />
+                              <span className="text-xs font-mono text-zinc-300 truncate">{fbId}</span>
+                              <span className="ml-auto text-[10px] text-zinc-600">#{idx + 1}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span>Total</span>
-                    <span className="font-medium">{formatNumber(usage?.requests_total || 0)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Token Usage</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span>Today</span>
-                    <span className="font-medium">{formatNumber(usage?.tokens_today || 0)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Total</span>
-                    <span className="font-medium">{formatNumber(usage?.tokens_total || 0)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
-        <TabsContent value="fallbacks" className="space-y-6">
-          <EditableFallbackDiagram
-            primaryModel={model.id}
-            allFallbacksConfig={allFallbacksConfig}
-            availableModels={
-              (adminModelsData as AdminModelsResponse | undefined)?.models?.map(m => m.model_name) ?? []
-            }
-            onSave={async (newConfig) => {
-              try {
-                await updateConfig({ router: { fallbacks: newConfig } });
-                queryClient.invalidateQueries({ queryKey: ["system-config"] });
-              } catch (err) {
-                console.error('Failed to save fallback config:', err);
-              }
-            }}
-          />
-        </TabsContent>
-
-        <TabsContent value="configuration" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Provider Configuration</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span>Provider</span>
-                  <span className="font-medium">{configuration?.provider || 'N/A'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Endpoint</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm truncate max-w-48">
-                      {configuration?.endpoint || 'N/A'}
-                    </span>
-                    {configuration?.endpoint && <Icon icon={icons.externalLink} className="h-3 w-3" />}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Timeout</span>
-                  <span className="font-medium">{configuration?.timeout ? `${configuration.timeout / 1000}s` : 'N/A'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Max Retries</span>
-                  <span className="font-medium">{configuration?.retries ?? 'N/A'}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Model Parameters</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span>Max Tokens</span>
-                  <span className="font-medium">{modelPricing?.max_tokens || configuration?.maxTokens || 'N/A'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Provider</span>
-                  <span className="font-medium capitalize">{modelPricing?.provider || model.owned_by || 'N/A'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Input Cost (per token)</span>
-                  <span className="font-medium">
-                    {modelPricing?.input_cost_per_token ? `$${modelPricing.input_cost_per_token.toFixed(6)}` : 'N/A'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Output Cost (per token)</span>
-                  <span className="font-medium">
-                    {modelPricing?.output_cost_per_token ? `$${modelPricing.output_cost_per_token.toFixed(6)}` : 'N/A'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Input Cost (per 1K tokens)</span>
-                  <span className="font-medium">
-                    {modelPricing?.input_cost_per_token ? `$${(modelPricing.input_cost_per_token * 1000).toFixed(4)}` : 'N/A'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Output Cost (per 1K tokens)</span>
-                  <span className="font-medium">
-                    {modelPricing?.output_cost_per_token ? `$${(modelPricing.output_cost_per_token * 1000).toFixed(4)}` : 'N/A'}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+      {/* ===== FALLBACK DIAGRAM (full-width) ===== */}
+      <EditableFallbackDiagram
+        primaryModel={model.id}
+        allFallbacksConfig={allFallbacksConfig}
+        availableModels={
+          (adminModelsData as AdminModelsResponse | undefined)?.models?.map(m => m.model_name) ?? []
+        }
+        onSave={async (newConfig) => {
+          try {
+            await updateConfig({ router: { fallbacks: newConfig } });
+            queryClient.invalidateQueries({ queryKey: ["system-config"] });
+          } catch (err) {
+            console.error('Failed to save fallback config:', err);
+          }
+        }}
+      />
     </div>
   );
 }
