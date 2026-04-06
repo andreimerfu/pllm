@@ -412,140 +412,6 @@ export default function AddModel() {
     }
   };
 
-  // ─── Configuration Preview (for sidebar) ─────────────────────────────
-  const configPreview = () => {
-    const lines: string[] = ["{"];
-    if (selectedProvider) lines.push(`  "provider": "${selectedProvider}",`);
-    if (modelName) lines.push(`  "model_name": "${modelName}",`);
-    if (providerModel) lines.push(`  "model_id": "${providerModel}",`);
-    if (apiKey) lines.push(`  "api_key": "********",`);
-    if (oauthToken && selectedProvider === "anthropic") lines.push(`  "oauth": "********",`);
-    if (baseUrl) lines.push(`  "base_url": "${baseUrl}",`);
-    if (selectedProvider === "azure" && azureEndpoint) lines.push(`  "endpoint": "...azure.com",`);
-    if (selectedProvider === "bedrock" && awsRegion) lines.push(`  "region": "${awsRegion}",`);
-    if (selectedProvider === "vertex" && vertexProject) lines.push(`  "project": "${vertexProject}",`);
-    const caps = [];
-    if (supportsStreaming) caps.push("stream");
-    if (supportsVision) caps.push("vision");
-    if (supportsFunctions) caps.push("functions");
-    if (caps.length > 0) lines.push(`  "caps": [${caps.map(c => `"${c}"`).join(", ")}],`);
-    if (rpm) lines.push(`  "rpm": ${rpm},`);
-    if (tpm) lines.push(`  "tpm": ${tpm},`);
-    lines.push("}");
-    return lines.join("\n");
-  };
-
-  // Step value preview for completed steps in sidebar
-  const stepPreview = (s: number): string => {
-    switch (s) {
-      case 1: return providerInfo?.label || "";
-      case 2: {
-        if (selectedProfileId) {
-          const profile = providerProfiles?.find((p: ProviderProfile) => p.id === selectedProfileId);
-          return profile ? profile.name : "Saved profile";
-        }
-        if (selectedProvider === "anthropic" && anthropicAuthMode === "oauth_token") return oauthToken ? "OAuth ········" : "";
-        return apiKey ? "········" : (selectedProvider === "azure" && azureEndpoint ? "Azure endpoint set" : "");
-      }
-      case 3: return modelName ? `${modelName}` : "";
-      case 4: {
-        const c = [];
-        if (supportsStreaming) c.push("Stream");
-        if (supportsVision) c.push("Vision");
-        if (supportsFunctions) c.push("Fn");
-        return c.join(", ");
-      }
-      case 5: return "";
-      default: return "";
-    }
-  };
-
-  // ─── Left Sidebar: Progress Rail ────────────────────────────────────
-  const ProgressRail = () => (
-    <div className="w-[280px] flex-shrink-0 hidden lg:block">
-      <div className="sticky top-6">
-        {/* Progress steps card */}
-        <div className="bg-card backdrop-blur-xl rounded-2xl border border-border p-5 shadow-lg">
-          {/* Header */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center">
-              <Icon icon={icons.models} className="h-4 w-4 text-teal-500" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">New Model</p>
-              <p className="text-[11px] text-muted-foreground">Step {step} of 5</p>
-            </div>
-          </div>
-
-          {/* Steps */}
-          <div className="space-y-1">
-            {STEPS.map((s) => {
-              const isCompleted = step > s.id;
-              const isCurrent = step === s.id;
-
-              const canJump = s.id < step;
-              const preview = stepPreview(s.id);
-
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  disabled={!canJump}
-                  onClick={() => { if (canJump) setStep(s.id); }}
-                  className={`w-full text-left rounded-xl p-3 transition-all duration-200 group relative ${
-                    isCurrent
-                      ? "bg-teal-500/10 border-l-2 border-l-teal-400 shadow-[inset_0_0_20px_rgba(20,184,166,0.05)]"
-                      : canJump
-                      ? "hover:bg-muted/60 cursor-pointer border-l-2 border-l-transparent"
-                      : "border-l-2 border-l-transparent"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {/* Step number / check */}
-                    <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 text-xs font-bold transition-all ${
-                      isCompleted
-                        ? "bg-teal-500 text-white"
-                        : isCurrent
-                        ? "bg-teal-500/20 text-teal-500 ring-1 ring-teal-500/40"
-                        : "bg-muted text-muted-foreground/60"
-                    }`}>
-                      {isCompleted ? (
-                        <Icon icon={icons.check} className="h-3.5 w-3.5" />
-                      ) : (
-                        <span>{s.id}</span>
-                      )}
-                    </div>
-                    {/* Label + description */}
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium leading-tight ${
-                        isCurrent ? "text-teal-600 dark:text-teal-500" : isCompleted ? "text-foreground/80" : "text-muted-foreground/60"
-                      }`}>
-                        {s.label}
-                      </p>
-                      {isCurrent && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5">{s.description}</p>
-                      )}
-                      {isCompleted && preview && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5 font-mono truncate">{preview}</p>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Config preview */}
-          <div className="mt-6 pt-4 border-t border-border">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-semibold mb-2">Config Preview</p>
-            <pre className="text-[11px] font-mono text-muted-foreground leading-relaxed overflow-hidden max-h-48 whitespace-pre-wrap break-all">
-              {configPreview()}
-            </pre>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   // ─── Step 1: Provider ───────────────────────────────────────────────
   const renderProviderStep = () => (
@@ -579,7 +445,7 @@ export default function AddModel() {
                 </div>
               )}
               <div className={`p-3 rounded-xl ${isSelected ? "bg-teal-500/10" : "bg-muted/50 group-hover:bg-muted"} transition-colors`}>
-                <Icon icon={p.icon} width="36" height="36" className={isSelected ? "" : "opacity-60 group-hover:opacity-80"} />
+                <Icon icon={p.icon} width="36" height="36" className={`${isSelected ? "" : "opacity-60 group-hover:opacity-80"} ${p.color}`} />
               </div>
               <span className={`text-sm font-semibold ${isSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>
                 {p.label}
@@ -1294,7 +1160,7 @@ export default function AddModel() {
 
   // ─── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen pb-24 relative">
+    <div className="min-h-screen relative">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
         <Button variant="ghost" size="icon" onClick={() => navigate("/models")} className="rounded-xl">
@@ -1308,27 +1174,21 @@ export default function AddModel() {
         </div>
       </div>
 
-      {/* Two-panel layout */}
-      <div className="flex gap-8 items-start">
-        {/* Left: Progress Rail */}
-        <ProgressRail />
-
-        {/* Right: Step Content */}
-        <div className="flex-1 min-w-0">
-          {step === 1 && renderProviderStep()}
-          {step === 2 && renderAuthStep()}
-          {step === 3 && renderModelStep()}
-          {step === 4 && renderCapabilitiesStep()}
-          {step === 5 && renderReviewStep()}
-        </div>
+      {/* Step Content */}
+      <div className="min-w-0">
+        {step === 1 && renderProviderStep()}
+        {step === 2 && renderAuthStep()}
+        {step === 3 && renderModelStep()}
+        {step === 4 && renderCapabilitiesStep()}
+        {step === 5 && renderReviewStep()}
       </div>
 
-      {/* Floating Bottom Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50">
+      {/* Bottom Bar — sticky within the main content area */}
+      <div className="sticky bottom-0 z-40 -mx-6 lg:-mx-8 mt-8">
         <div className="backdrop-blur-xl bg-background/80 border-t border-border/50 shadow-[0_-4px_32px_rgba(0,0,0,0.08)]">
-          <div className="max-w-screen-xl mx-auto px-6 py-3 flex items-center justify-between">
+          <div className="px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
             {/* Left: Back / Cancel */}
-            <div className="w-[140px]">
+            <div className="w-[100px] flex-shrink-0">
               {step === 1 ? (
                 <Button type="button" variant="ghost" onClick={() => navigate("/models")} className="text-muted-foreground">
                   Cancel
@@ -1341,27 +1201,52 @@ export default function AddModel() {
               )}
             </div>
 
-            {/* Center: Step dots */}
-            <div className="flex items-center gap-2">
-              {STEPS.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => { if (s.id < step) setStep(s.id); }}
-                  className={`transition-all duration-200 rounded-full ${
-                    s.id === step
-                      ? "w-6 h-2 bg-teal-500"
-                      : s.id < step
-                      ? "w-2 h-2 bg-teal-500/60 cursor-pointer hover:bg-teal-500"
-                      : "w-2 h-2 bg-muted-foreground/20"
-                  }`}
-                  aria-label={`Step ${s.id}: ${s.label}`}
-                />
-              ))}
+            {/* Center: Step indicators */}
+            <div className="flex items-center gap-1">
+              {STEPS.map((s, idx) => {
+                const isCompleted = step > s.id;
+                const isCurrent = step === s.id;
+                const canJump = s.id < step;
+                return (
+                  <div key={s.id} className="flex items-center">
+                    <button
+                      type="button"
+                      disabled={!canJump}
+                      onClick={() => { if (canJump) setStep(s.id); }}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all text-xs ${
+                        isCurrent
+                          ? "bg-teal-500/10 text-teal-600 dark:text-teal-400 font-semibold"
+                          : isCompleted
+                          ? "text-muted-foreground hover:text-foreground cursor-pointer"
+                          : "text-muted-foreground/40"
+                      }`}
+                      aria-label={`Step ${s.id}: ${s.label}`}
+                    >
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                        isCompleted
+                          ? "bg-teal-500 text-white"
+                          : isCurrent
+                          ? "bg-teal-500/20 text-teal-600 dark:text-teal-400 ring-1 ring-teal-500/40"
+                          : "bg-muted text-muted-foreground/40"
+                      }`}>
+                        {isCompleted ? (
+                          <Icon icon={icons.check} className="h-3 w-3" />
+                        ) : (
+                          <span>{s.id}</span>
+                        )}
+                      </div>
+                      <span className="hidden sm:inline">{s.label}</span>
+                    </button>
+                    {idx < STEPS.length - 1 && (
+                      <Icon icon={icons.chevronRight} className="h-3 w-3 text-muted-foreground/30 mx-0.5" />
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Right: Next / Create */}
-            <div className="w-[140px] flex justify-end">
+            <div className="w-[140px] flex-shrink-0 flex justify-end">
               {step < 5 ? (
                 <Button
                   type="button"
