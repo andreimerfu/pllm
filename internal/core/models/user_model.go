@@ -20,6 +20,10 @@ type UserModel struct {
 	// Provider configuration stored as JSONB
 	ProviderConfig ProviderConfigJSON `gorm:"type:jsonb;not null" json:"provider_config"`
 
+	// Optional reference to a reusable provider profile
+	ProviderProfileID *uuid.UUID       `gorm:"type:uuid;index" json:"provider_profile_id,omitempty"`
+	ProviderProfile   *ProviderProfile `gorm:"foreignKey:ProviderProfileID" json:"provider_profile,omitempty"`
+
 	// Model info stored as JSONB
 	ModelInfoConfig ModelInfoJSON `gorm:"type:jsonb" json:"model_info_config"`
 
@@ -73,6 +77,7 @@ type ProviderConfigJSON struct {
 	VertexProject      string `json:"vertex_project,omitempty"`
 	VertexLocation     string `json:"vertex_location,omitempty"`
 	ReasoningEffort    string `json:"reasoning_effort,omitempty"`
+	OAuthToken         string `json:"oauth_token,omitempty"`
 }
 
 // Scan implements the sql.Scanner interface for JSONB
