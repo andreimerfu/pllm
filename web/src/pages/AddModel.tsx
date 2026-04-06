@@ -392,15 +392,15 @@ export default function AddModel() {
     <div className="w-[280px] flex-shrink-0 hidden lg:block">
       <div className="sticky top-6">
         {/* Progress steps card */}
-        <div className="bg-zinc-950/80 dark:bg-zinc-900/90 backdrop-blur-xl rounded-2xl border border-zinc-800/60 p-5 shadow-2xl shadow-black/20">
+        <div className="bg-card backdrop-blur-xl rounded-2xl border border-border p-5 shadow-lg">
           {/* Header */}
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center">
-              <Icon icon={icons.models} className="h-4 w-4 text-teal-400" />
+            <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center">
+              <Icon icon={icons.models} className="h-4 w-4 text-teal-500" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-zinc-100">New Model</p>
-              <p className="text-[11px] text-zinc-500">Step {step} of 5</p>
+              <p className="text-sm font-semibold text-foreground">New Model</p>
+              <p className="text-[11px] text-muted-foreground">Step {step} of 5</p>
             </div>
           </div>
 
@@ -423,7 +423,7 @@ export default function AddModel() {
                     isCurrent
                       ? "bg-teal-500/10 border-l-2 border-l-teal-400 shadow-[inset_0_0_20px_rgba(20,184,166,0.05)]"
                       : canJump
-                      ? "hover:bg-zinc-800/60 cursor-pointer border-l-2 border-l-transparent"
+                      ? "hover:bg-muted/60 cursor-pointer border-l-2 border-l-transparent"
                       : "border-l-2 border-l-transparent"
                   }`}
                 >
@@ -433,8 +433,8 @@ export default function AddModel() {
                       isCompleted
                         ? "bg-teal-500 text-white"
                         : isCurrent
-                        ? "bg-teal-500/20 text-teal-400 ring-1 ring-teal-500/40"
-                        : "bg-zinc-800 text-zinc-600"
+                        ? "bg-teal-500/20 text-teal-500 ring-1 ring-teal-500/40"
+                        : "bg-muted text-muted-foreground/60"
                     }`}>
                       {isCompleted ? (
                         <Icon icon={icons.check} className="h-3.5 w-3.5" />
@@ -445,15 +445,15 @@ export default function AddModel() {
                     {/* Label + description */}
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium leading-tight ${
-                        isCurrent ? "text-teal-300" : isCompleted ? "text-zinc-300" : "text-zinc-600"
+                        isCurrent ? "text-teal-600 dark:text-teal-500" : isCompleted ? "text-foreground/80" : "text-muted-foreground/60"
                       }`}>
                         {s.label}
                       </p>
                       {isCurrent && (
-                        <p className="text-[11px] text-zinc-500 mt-0.5">{s.description}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{s.description}</p>
                       )}
                       {isCompleted && preview && (
-                        <p className="text-[11px] text-zinc-500 mt-0.5 font-mono truncate">{preview}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 font-mono truncate">{preview}</p>
                       )}
                     </div>
                   </div>
@@ -463,9 +463,9 @@ export default function AddModel() {
           </div>
 
           {/* Config preview */}
-          <div className="mt-6 pt-4 border-t border-zinc-800/60">
-            <p className="text-[10px] uppercase tracking-widest text-zinc-600 font-semibold mb-2">Config Preview</p>
-            <pre className="text-[11px] font-mono text-zinc-500 leading-relaxed overflow-hidden max-h-48 whitespace-pre-wrap break-all">
+          <div className="mt-6 pt-4 border-t border-border">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-semibold mb-2">Config Preview</p>
+            <pre className="text-[11px] font-mono text-muted-foreground leading-relaxed overflow-hidden max-h-48 whitespace-pre-wrap break-all">
               {configPreview()}
             </pre>
           </div>
@@ -496,7 +496,7 @@ export default function AddModel() {
               onClick={() => setSelectedProvider(p.value)}
               className={`group relative flex flex-col items-center gap-4 p-6 rounded-2xl border-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] ${
                 isSelected
-                  ? `${p.borderColor} ${p.bgColor} ring-2 ring-teal-500/40 shadow-lg shadow-teal-500/5`
+                  ? "border-teal-500 bg-teal-500/5 dark:bg-teal-500/10 ring-2 ring-teal-500/30 shadow-lg shadow-teal-500/10"
                   : "border-border/50 hover:border-muted-foreground/30 hover:bg-muted/30"
               }`}
             >
@@ -505,8 +505,8 @@ export default function AddModel() {
                   <Icon icon={icons.check} className="h-3 w-3 text-white" />
                 </div>
               )}
-              <div className={`p-3 rounded-xl ${isSelected ? p.bgColor : "bg-muted/50 group-hover:bg-muted"} transition-colors`}>
-                <Icon icon={p.icon} width="36" height="36" className={isSelected ? p.color : "opacity-60 group-hover:opacity-80"} />
+              <div className={`p-3 rounded-xl ${isSelected ? "bg-teal-500/10" : "bg-muted/50 group-hover:bg-muted"} transition-colors`}>
+                <Icon icon={p.icon} width="36" height="36" className={isSelected ? "" : "opacity-60 group-hover:opacity-80"} />
               </div>
               <span className={`text-sm font-semibold ${isSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>
                 {p.label}
@@ -537,13 +537,13 @@ export default function AddModel() {
         <div className="space-y-6 max-w-xl">
           {/* Anthropic auth mode toggle */}
           {selectedProvider === "anthropic" && (
-            <div className="flex gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800/60 rounded-xl w-fit">
+            <div className="flex gap-1.5 p-1 bg-muted/60 rounded-xl w-fit">
               <button
                 type="button"
                 onClick={() => setAnthropicAuthMode("api_key")}
                 className={`px-4 py-2 text-sm rounded-lg transition-all ${
                   anthropicAuthMode === "api_key"
-                    ? "bg-white dark:bg-zinc-700 shadow-sm font-semibold text-foreground"
+                    ? "bg-background shadow-sm font-semibold text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -554,7 +554,7 @@ export default function AddModel() {
                 onClick={() => setAnthropicAuthMode("oauth_token")}
                 className={`px-4 py-2 text-sm rounded-lg transition-all ${
                   anthropicAuthMode === "oauth_token"
-                    ? "bg-white dark:bg-zinc-700 shadow-sm font-semibold text-foreground"
+                    ? "bg-background shadow-sm font-semibold text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -812,7 +812,7 @@ export default function AddModel() {
                     key={m}
                     variant="outline"
                     className={`cursor-pointer hover:bg-accent transition-colors text-xs ${
-                      providerModel === m ? "border-teal-500 bg-teal-500/10 text-teal-600 dark:text-teal-400" : ""
+                      providerModel === m ? "border-teal-500 bg-teal-500/10 text-teal-600 dark:text-teal-500" : ""
                     }`}
                     onClick={() => setProviderModel(m)}
                   >
@@ -843,7 +843,7 @@ export default function AddModel() {
                   Discover Models
                 </Button>
                 {discoveredModels.length > 0 && (
-                  <span className="text-sm text-teal-600 dark:text-teal-400">
+                  <span className="text-sm text-teal-600 dark:text-teal-500">
                     {discoveredModels.length} models fetched — click a badge above to select
                   </span>
                 )}
