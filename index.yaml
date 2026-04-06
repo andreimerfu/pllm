@@ -2,8 +2,44 @@ apiVersion: v1
 entries:
   pllm:
   - apiVersion: v2
+    appVersion: 1.2.0
+    created: "2026-04-06T09:44:03.40310538Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 15.5.23
+    - condition: redis.enabled
+      name: redis
+      repository: https://charts.bitnami.com/bitnami
+      version: 20.2.0
+    - condition: dex.enabled
+      name: dex
+      repository: https://charts.dexidp.io
+      version: 0.18.0
+    description: A Helm chart for PLLM (Proxy for LLM) - Multi-provider LLM proxy
+      with authentication, budgeting, and analytics
+    digest: ed8f1d80cbd9da70129a453ed563370feca3566a417885ceed73e8f3c3aeea17
+    home: https://github.com/andreimerfu/pllm
+    keywords:
+    - llm
+    - proxy
+    - ai
+    - openai
+    - anthropic
+    maintainers:
+    - name: PLLM Team
+      url: https://github.com/andreimerfu/pllm
+    name: pllm
+    sources:
+    - https://github.com/andreimerfu/pllm
+    type: application
+    urls:
+    - https://andreimerfu.github.io/pllm/pllm-1.2.0.tgz
+    version: 1.2.0
+  - apiVersion: v2
     appVersion: 1.1.1
-    created: "2026-02-12T07:27:36.357399944Z"
+    created: "2026-04-06T09:44:03.390866437Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -39,7 +75,7 @@ entries:
     version: 1.1.1
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-02-12T07:27:36.34632715Z"
+    created: "2026-04-06T09:44:03.377068405Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -75,7 +111,7 @@ entries:
     version: 1.1.0
   - apiVersion: v2
     appVersion: latest
-    created: "2026-02-12T07:27:36.334239762Z"
+    created: "2026-04-06T09:44:03.36505518Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -109,4 +145,4 @@ entries:
     urls:
     - https://andreimerfu.github.io/pllm/pllm-1.0.0.tgz
     version: 1.0.0
-generated: "2026-02-12T07:27:36.322696636Z"
+generated: "2026-04-06T09:44:03.345654863Z"
