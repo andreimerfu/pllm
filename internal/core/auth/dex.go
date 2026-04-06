@@ -3,9 +3,11 @@ package auth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -67,6 +69,18 @@ func NewDexAuthProvider(config *DexConfig) (*DexAuthProvider, error) {
 	// verification automatically.
 	if config.PublicIssuer != "" && config.PublicIssuer != config.Issuer {
 		ctx = oidc.InsecureIssuerURLContext(ctx, config.Issuer)
+		// The OIDC discovery document from Dex advertises the public issuer URL
+		// for jwks_uri. When the public URL uses a self-signed or internal cert,
+		// the default HTTP client rejects it. Provide a client that trusts
+		// internal TLS so JWKS key fetches succeed.
+		transport := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			DialContext: (&net.Dialer{
+				Timeout:   10 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+		}
+		ctx = oidc.ClientContext(ctx, &http.Client{Transport: transport})
 	}
 
 	provider, err := oidc.NewProvider(ctx, config.Issuer)
