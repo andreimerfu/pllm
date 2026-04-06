@@ -7,6 +7,7 @@ type ProviderConfig struct {
 	Type       string
 	APIKey     string
 	APISecret  string
+	OAuthToken string // Bearer token auth (e.g. Claude Max subscribers)
 	BaseURL    string
 	APIVersion string
 	OrgID      string

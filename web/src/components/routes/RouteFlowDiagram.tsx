@@ -15,7 +15,6 @@ import {
 } from '@xyflow/react';
 import { Icon } from "@iconify/react";
 import { icons } from "@/lib/icons";
-import { getProviderLogo } from "@/lib/provider-logos";
 import { detectProvider } from "@/lib/providers";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -63,7 +62,7 @@ function RouteEntryNode({ data }: any) {
 // Model node: one per model in the route
 function RouteModelNode({ data, id, selected }: any) {
   const providerInfo = detectProvider(data.modelName, "");
-  const providerLogo = getProviderLogo(providerInfo.name);
+  const providerLogo = providerInfo.icon;
 
   return (
     <>
@@ -259,49 +258,49 @@ function RouteFlowDiagramInner({
   }, [models, onChange]);
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="text-sm font-medium">Route Diagram</div>
-        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" disabled={selectableModels.length === 0} className="gap-1.5">
-              <Icon icon={icons.plus} className="w-4 h-4" />
-              Add Model
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64 p-0" align="end">
-            <Command>
-              <CommandInput placeholder="Search models..." />
-              <CommandList>
-                <CommandEmpty>No models available</CommandEmpty>
-                <CommandGroup>
-                  {selectableModels.map((modelName) => {
-                    const info = detectProvider(modelName, "");
-                    const logo = getProviderLogo(info.name);
-                    return (
-                      <CommandItem
-                        key={modelName}
-                        value={modelName}
-                        onSelect={() => addModel(modelName)}
-                      >
-                        <Icon
-                          icon={logo}
-                          width="16"
-                          height="16"
-                          className={`mr-2 ${info.color}`}
-                        />
-                        <span className="truncate">{modelName}</span>
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </div>
+    <div className="h-full w-full flex flex-col">
+      {/* Add Model button — floated top-right inside the diagram */}
+      <div className="relative flex-1 min-h-0 bg-muted/30 dark:bg-[#0F1117]">
+        <div className="absolute top-3 right-3 z-10">
+          <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" disabled={selectableModels.length === 0} className="gap-1.5 bg-background/80 backdrop-blur-sm h-7 text-xs">
+                <Icon icon={icons.plus} className="w-3.5 h-3.5" />
+                Add Model
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-0" align="end">
+              <Command>
+                <CommandInput placeholder="Search models..." />
+                <CommandList>
+                  <CommandEmpty>No models available</CommandEmpty>
+                  <CommandGroup>
+                    {selectableModels.map((modelName) => {
+                      const info = detectProvider(modelName, "");
+                      const logo = info.icon;
+                      return (
+                        <CommandItem
+                          key={modelName}
+                          value={modelName}
+                          onSelect={() => addModel(modelName)}
+                        >
+                          <Icon
+                            icon={logo}
+                            width="16"
+                            height="16"
+                            className={`mr-2 ${info.color}`}
+                          />
+                          <span className="truncate">{modelName}</span>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
 
-      <div className="h-[600px] w-full border border-border rounded-lg overflow-hidden bg-[#0F1117] dark:bg-[#0F1117]">
         <ReactFlow
           nodes={displayNodes}
           edges={edges}
@@ -317,8 +316,8 @@ function RouteFlowDiagramInner({
           deleteKeyCode="Delete"
           proOptions={{ hideAttribution: false }}
         >
-          <Background color="#1F2937" gap={24} size={1} />
-          <Controls className="[&>button]:bg-[#1F2937] [&>button]:border-[#374151] [&>button]:text-[#14B8A6]" />
+          <Background className="!stroke-border/40" gap={24} size={1} />
+          <Controls className="[&>button]:bg-background [&>button]:border-border [&>button]:text-primary [&>button]:hover:bg-muted" />
         </ReactFlow>
       </div>
     </div>

@@ -15,6 +15,9 @@ const providerLogos: Record<string, string> = {
   cohere: 'simple-icons:cohere',
   grok: 'simple-icons:x',
   mistral: 'simple-icons:mistral',
+  qwen: 'logos:qwen-icon',
+  nvidia: 'simple-icons:nvidia',
+  kimi: 'hugeicons:kimi-ai',
 };
 
 export const providerColors: Record<string, string> = {
@@ -30,10 +33,24 @@ export const providerColors: Record<string, string> = {
   cohere: '#39594D',
   grok: '#000000',
   mistral: '#F54E42',
+  qwen: '#6D28D9',
+  nvidia: '#76B900',
+  kimi: '#0EA5E9',
+};
+
+// Maps model identifier substrings to logos (checked before provider lookup).
+const modelLogos: Record<string, string> = {
+  qwen: 'logos:qwen-icon',
+  nvidia: 'simple-icons:nvidia',
+  kimi: 'hugeicons:kimi-ai',
 };
 
 export function getProviderLogo(provider: string): string {
   const key = provider.toLowerCase().replace(/[\s_]+/g, '-');
+  // Check if the identifier matches a known model family
+  for (const [pattern, logo] of Object.entries(modelLogos)) {
+    if (key.includes(pattern)) return logo;
+  }
   return providerLogos[key] ?? 'solar:cpu-bolt-linear';
 }
 

@@ -77,6 +77,27 @@ export const PROVIDERS: Record<string, ProviderInfo> = {
     bgColor: "bg-green-50 dark:bg-green-950/30",
     borderColor: "border-green-200 dark:border-green-800",
   },
+  qwen: {
+    icon: "logos:qwen-icon",
+    name: "Qwen",
+    color: "text-violet-600 dark:text-violet-400",
+    bgColor: "bg-violet-50 dark:bg-violet-950/30",
+    borderColor: "border-violet-200 dark:border-violet-800",
+  },
+  nvidia: {
+    icon: "simple-icons:nvidia",
+    name: "NVIDIA",
+    color: "text-green-600 dark:text-green-400",
+    bgColor: "bg-green-50 dark:bg-green-950/30",
+    borderColor: "border-green-200 dark:border-green-800",
+  },
+  kimi: {
+    icon: "hugeicons:kimi-ai",
+    name: "Kimi",
+    color: "text-sky-600 dark:text-sky-400",
+    bgColor: "bg-sky-50 dark:bg-sky-950/30",
+    borderColor: "border-sky-200 dark:border-sky-800",
+  },
   unknown: {
     icon: "solar:cpu-bolt-linear",
     name: "Unknown",
@@ -123,6 +144,21 @@ export function detectProvider(modelId: string, ownedBy: string): ProviderInfo {
   // AWS detection
   if (id.includes("bedrock") || owner.includes("aws") || id.includes("aws")) {
     return PROVIDERS.aws;
+  }
+
+  // Qwen detection
+  if (id.includes("qwen") || owner.includes("qwen")) {
+    return PROVIDERS.qwen;
+  }
+
+  // NVIDIA detection
+  if (id.includes("nvidia") || owner.includes("nvidia")) {
+    return PROVIDERS.nvidia;
+  }
+
+  // Kimi detection
+  if (id.includes("kimi") || owner.includes("kimi")) {
+    return PROVIDERS.kimi;
   }
 
   // OpenRouter detection

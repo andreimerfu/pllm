@@ -1,39 +1,8 @@
-// Model icon mapping function
+import { detectProvider } from './providers';
+
+// Model icon mapping function — delegates to the central detectProvider logic
 export function getModelIcon(modelId: string): string {
-  const id = modelId.toLowerCase();
-
-  // OpenAI models
-  if (id.includes('gpt-4') || id.includes('gpt-3.5') || id.includes('gpt-o1')) {
-    return 'simple-icons:openai';
-  }
-
-  // Anthropic models
-  if (id.includes('claude')) {
-    return 'simple-icons:anthropic';
-  }
-
-  // Google models
-  if (id.includes('gemini') || id.includes('bard') || id.includes('palm')) {
-    return 'simple-icons:google';
-  }
-
-  // Meta models
-  if (id.includes('llama') || id.includes('meta')) {
-    return 'simple-icons:meta';
-  }
-
-  // Mistral models
-  if (id.includes('mistral') || id.includes('mixtral')) {
-    return 'simple-icons:mistral';
-  }
-
-  // Cohere models
-  if (id.includes('cohere') || id.includes('command')) {
-    return 'simple-icons:cohere';
-  }
-
-  // Default icon for unknown models
-  return 'lucide:bot';
+  return detectProvider(modelId, '').icon;
 }
 
 // Mock conversations data

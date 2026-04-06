@@ -115,14 +115,18 @@ export default function Models() {
         last_used: modelUsage ? new Date().toISOString() : null,
       };
 
+      // Use the backend's enabled field from admin models; default to true
+      const adminModel = adminModelsByName.get(model.id);
+      const isActive = adminModel?.enabled ?? true;
+
       return {
         ...model,
         provider: providerInfo.name.toLowerCase(),
-        is_active: Boolean(modelUsage), // Active if it has usage data
+        is_active: isActive,
         usage_stats: usageData,
       };
     });
-  }, [rawModels, dashboardData, healthData]);
+  }, [rawModels, dashboardData, healthData, adminModelsByName]);
 
   // Filter models based on current filters
   const filteredModels = useMemo(() => {

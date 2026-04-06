@@ -180,7 +180,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-sidebar-border overflow-hidden">
+        <div className="flex items-center gap-2.5 px-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center py-3 border-b border-sidebar-border overflow-hidden">
           <img src={`${import.meta.env.BASE_URL}robot.png`} alt="pLLM" className="w-8 h-8 rounded-lg flex-shrink-0" />
           <div className="group-data-[collapsible=icon]:hidden">
             <div className="text-sm font-bold text-sidebar-foreground">pLLM</div>

@@ -60,6 +60,8 @@ export const icons = {
   logout: 'solar:logout-2-linear',
   book: 'solar:book-minimalistic-linear',
   github: 'solar:code-square-linear',
+  mail: 'solar:inbox-linear',
+  loader: 'solar:refresh-linear',
   trendingUp: 'solar:graph-up-linear',
   trendingDown: 'solar:graph-down-linear',
   minus: 'solar:minus-circle-linear',

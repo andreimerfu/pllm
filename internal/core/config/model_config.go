@@ -85,6 +85,9 @@ type ProviderParams struct {
 
 	// Reasoning model defaults
 	ReasoningEffort string `mapstructure:"reasoning_effort" json:"reasoning_effort,omitempty"`
+
+	// OAuth / Bearer token auth (e.g. Claude Max subscribers)
+	OAuthToken string `mapstructure:"oauth_token" json:"oauth_token,omitempty"`
 }
 
 // ModelInfo contains model capabilities and metadata

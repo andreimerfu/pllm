@@ -282,6 +282,12 @@ type ErrorResponse struct {
 	Error APIError `json:"error"`
 }
 
+// ModelDiscoverer is an optional interface providers can implement to expose
+// their available model list via a live API call.
+type ModelDiscoverer interface {
+	FetchAvailableModels(ctx context.Context) ([]string, error)
+}
+
 // Base provider implementation
 
 type BaseProvider struct {

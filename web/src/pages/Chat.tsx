@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Icon } from '@iconify/react'
 import { icons } from '@/lib/icons'
-import { getProviderLogo } from '@/lib/provider-logos'
+import { detectProvider } from '@/lib/providers'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -69,7 +69,7 @@ function ModelCombobox({
           <div className="flex items-center gap-2">
             {selectedModelData && (
               <Icon
-                icon={getProviderLogo(selectedModelData.owned_by || selectedModelData.id)}
+                icon={detectProvider(selectedModelData.id, selectedModelData.owned_by || "").icon}
                 className="h-4 w-4"
               />
             )}
@@ -92,8 +92,8 @@ function ModelCombobox({
                   <CommandItem
                     key={model.id}
                     value={model.id}
-                    onSelect={(currentValue) => {
-                      onModelChange(currentValue === selectedModel ? "" : currentValue)
+                    onSelect={() => {
+                      onModelChange(model.id === selectedModel ? "" : model.id)
                       setOpen(false)
                     }}
                   >

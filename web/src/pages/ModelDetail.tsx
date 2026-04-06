@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
 import { icons } from "@/lib/icons";
-import { getProviderLogo, getProviderColor } from "@/lib/provider-logos";
+import { getProviderColor } from "@/lib/provider-logos";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -184,7 +184,7 @@ export default function ModelDetail() {
       created: Math.floor(Date.now() / 1000),
       owned_by: providerInfo.name.toLowerCase(),
       provider: providerInfo.name.toLowerCase(),
-      is_active: metrics.total_requests > 0,
+      is_active: adminModel?.enabled ?? true,
       usage_stats: {
         requests_today: 0,
         requests_total: metrics.total_requests || 0,
@@ -265,7 +265,7 @@ export default function ModelDetail() {
   const providerInfo = detectProvider(model.id, adminModel?.provider?.type || model.owned_by);
   const usage = model.usage_stats;
   const providerColor = getProviderColor(adminModel?.provider?.type || model.owned_by || "");
-  const providerLogo = getProviderLogo(adminModel?.provider?.type || model.owned_by || "");
+  const providerLogo = providerInfo.icon;
 
   // Derive health from real health-check data when available
   const modelHealthData = (() => {
@@ -539,6 +539,38 @@ export default function ModelDetail() {
                   <p className="text-xl font-bold">{usage?.avg_latency || 0}ms</p>
                 </div>
               </div>
+              {/* Unhealthy instances with error reasons */}
+              {modelHealthData?.instances && modelHealthData.instances.some((inst: any) => !inst.healthy) && (
+                <>
+                  <Separator className="my-4" />
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-destructive flex items-center gap-1.5">
+                      <Icon icon={icons.warning} className="h-3.5 w-3.5" />
+                      Unhealthy Instances
+                    </p>
+                    <div className="space-y-1.5">
+                      {modelHealthData.instances
+                        .filter((inst: any) => !inst.healthy)
+                        .map((inst: any, i: number) => (
+                          <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg bg-destructive/5 border border-destructive/15 text-xs">
+                            <Icon icon={icons.error} className="h-3.5 w-3.5 text-destructive flex-shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                              <span className="font-medium text-foreground">{inst.provider_type || "instance"}</span>
+                              {inst.error && (
+                                <p className="text-muted-foreground mt-0.5 break-words">{inst.error}</p>
+                              )}
+                              {inst.checked_at && (
+                                <p className="text-muted-foreground/60 mt-0.5">
+                                  {new Date(inst.checked_at).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </>
+              )}
               {health.lastChecked && (
                 <>
                   <Separator className="my-4" />
@@ -585,11 +617,11 @@ export default function ModelDetail() {
           </div>
         </div>
 
-        {/* Configuration Panel — right 1/3, dark sidebar style */}
+        {/* Configuration Panel — right 1/3 */}
         <div className="space-y-6">
-          <Card className="bg-zinc-950 dark:bg-zinc-950 text-zinc-100 border-zinc-800">
+          <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                 Configuration
               </CardTitle>
             </CardHeader>
@@ -597,33 +629,33 @@ export default function ModelDetail() {
               {/* Key-value pairs in monospace */}
               <div className="space-y-3 font-mono text-sm">
                 <div className="flex justify-between gap-2">
-                  <span className="text-zinc-500">provider</span>
-                  <span className="text-zinc-200 truncate">{configuration?.provider || "N/A"}</span>
+                  <span className="text-muted-foreground">provider</span>
+                  <span className="text-foreground truncate">{configuration?.provider || "N/A"}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span className="text-zinc-500">max_tokens</span>
-                  <span className="text-zinc-200">{modelPricing?.max_tokens || configuration?.maxTokens || "N/A"}</span>
+                  <span className="text-muted-foreground">max_tokens</span>
+                  <span className="text-foreground">{modelPricing?.max_tokens || configuration?.maxTokens || "N/A"}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span className="text-zinc-500">timeout</span>
-                  <span className="text-zinc-200">{configuration?.timeout ? `${configuration.timeout / 1000}s` : "N/A"}</span>
+                  <span className="text-muted-foreground">timeout</span>
+                  <span className="text-foreground">{configuration?.timeout ? `${configuration.timeout / 1000}s` : "N/A"}</span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span className="text-zinc-500">retries</span>
-                  <span className="text-zinc-200">{configuration?.retries ?? "N/A"}</span>
+                  <span className="text-muted-foreground">retries</span>
+                  <span className="text-foreground">{configuration?.retries ?? "N/A"}</span>
                 </div>
-                <Separator className="bg-zinc-800" />
+                <Separator />
                 <div className="flex justify-between gap-2">
-                  <span className="text-zinc-500">input_cost</span>
-                  <span className="text-zinc-200">
+                  <span className="text-muted-foreground">input_cost</span>
+                  <span className="text-foreground">
                     {modelPricing?.input_cost_per_token
                       ? `$${(modelPricing.input_cost_per_token * 1000).toFixed(4)}/1K`
                       : "N/A"}
                   </span>
                 </div>
                 <div className="flex justify-between gap-2">
-                  <span className="text-zinc-500">output_cost</span>
-                  <span className="text-zinc-200">
+                  <span className="text-muted-foreground">output_cost</span>
+                  <span className="text-foreground">
                     {modelPricing?.output_cost_per_token
                       ? `$${(modelPricing.output_cost_per_token * 1000).toFixed(4)}/1K`
                       : "N/A"}
@@ -634,24 +666,24 @@ export default function ModelDetail() {
               {/* Capabilities as colored badges */}
               {capabilities.length > 0 && (
                 <>
-                  <Separator className="bg-zinc-800" />
+                  <Separator />
                   <div>
-                    <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Capabilities</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Capabilities</p>
                     <div className="flex flex-wrap gap-1.5">
                       {capabilities.map((cap) => {
                         const capColors: Record<string, string> = {
-                          Chat: "bg-teal-500/20 text-teal-300 border-teal-500/30",
-                          Vision: "bg-violet-500/20 text-violet-300 border-violet-500/30",
-                          Code: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-                          Embeddings: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-                          "Function Calling": "bg-pink-500/20 text-pink-300 border-pink-500/30",
-                          Audio: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+                          Chat: "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/20",
+                          Vision: "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20",
+                          Code: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20",
+                          Embeddings: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20",
+                          "Function Calling": "bg-pink-500/10 text-pink-700 dark:text-pink-300 border-pink-500/20",
+                          Audio: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20",
                         };
                         return (
                           <span
                             key={cap}
                             className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${
-                              capColors[cap] || "bg-zinc-800 text-zinc-400 border-zinc-700"
+                              capColors[cap] || "bg-muted text-muted-foreground border-border"
                             }`}
                           >
                             {cap}
@@ -666,30 +698,30 @@ export default function ModelDetail() {
               {/* Fallback chain in sidebar */}
               {fallbackChain.length > 0 && (
                 <>
-                  <Separator className="bg-zinc-800" />
+                  <Separator />
                   <div>
-                    <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">Fallback Chain</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">Fallback Chain</p>
                     <div className="space-y-1">
                       {/* Primary */}
-                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-zinc-900 border border-zinc-800">
+                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-muted/50 border border-border">
                         <Icon icon={providerLogo} width="14" height="14" />
-                        <span className="text-xs font-mono text-zinc-200 truncate">{model.id}</span>
-                        <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 border-teal-600 text-teal-400">
+                        <span className="text-xs font-mono text-foreground truncate">{model.id}</span>
+                        <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 border-teal-600 text-teal-600 dark:text-teal-400">
                           primary
                         </Badge>
                       </div>
                       {fallbackChain.map((fbId, idx) => {
                         const fbProvider = detectProvider(fbId, "");
-                        const fbLogo = getProviderLogo(fbProvider.name.toLowerCase());
+                        const fbLogo = fbProvider.icon;
                         return (
                           <div key={fbId}>
                             <div className="flex justify-center py-0.5">
-                              <Icon icon={icons.arrowDown} className="h-3 w-3 text-zinc-600" />
+                              <Icon icon={icons.arrowDown} className="h-3 w-3 text-muted-foreground/50" />
                             </div>
-                            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-zinc-900 border border-zinc-800">
+                            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded bg-muted/50 border border-border">
                               <Icon icon={fbLogo} width="14" height="14" />
-                              <span className="text-xs font-mono text-zinc-300 truncate">{fbId}</span>
-                              <span className="ml-auto text-[10px] text-zinc-600">#{idx + 1}</span>
+                              <span className="text-xs font-mono text-foreground/80 truncate">{fbId}</span>
+                              <span className="ml-auto text-[10px] text-muted-foreground">#{idx + 1}</span>
                             </div>
                           </div>
                         );

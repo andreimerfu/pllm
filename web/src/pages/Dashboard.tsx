@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Icon } from "@iconify/react"
 import { icons } from "@/lib/icons"
 import { getProviderLogo } from "@/lib/provider-logos"
+import { detectProvider } from "@/lib/providers"
 import { getDashboardMetrics, getUsageTrends, getAdminModels, getModelsHealth } from "@/lib/api"
 import type { AdminModelsResponse, ModelsHealthResponse } from "@/types/api"
 import { formatChartLabel, fillTimeGaps } from "@/lib/date-utils"
@@ -649,7 +650,7 @@ function ModelsActivityTable() {
                 <TableRow key={model.id} className="group">
                   <TableCell>
                     <div className="flex items-center gap-2.5">
-                      <Icon icon={getProviderLogo(model.provider)} width={18} height={18} />
+                      <Icon icon={detectProvider(model.name || model.id, model.provider).icon} width={18} height={18} />
                       <div>
                         <div className="font-medium text-sm">{model.name}</div>
                         <div className="text-[11px] text-muted-foreground capitalize">{model.provider}</div>

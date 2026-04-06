@@ -98,7 +98,7 @@ func (r *ModelRegistry) getOrCreateProvider(providerCfg config.ProviderParams) (
 		baseURL = providerCfg.AzureEndpoint
 	}
 
-	providerKey := fmt.Sprintf("%s:%s:%s", providerCfg.Type, baseURL, providerCfg.APIKey)
+	providerKey := fmt.Sprintf("%s:%s:%s:%s", providerCfg.Type, baseURL, providerCfg.APIKey, providerCfg.OAuthToken)
 
 	// Azure: include deployment in the key so each deployment gets its own provider.
 	if providerCfg.Type == "azure" && providerCfg.AzureDeployment != "" {
@@ -125,13 +125,14 @@ func (r *ModelRegistry) getOrCreateProvider(providerCfg config.ProviderParams) (
 func (r *ModelRegistry) CreateProvider(cfg config.ProviderParams) (providers.Provider, error) {
 	// Create a ProviderConfig from ProviderParams
 	providerCfg := providers.ProviderConfig{
-		Type:      cfg.Type,
-		APIKey:    cfg.APIKey,
-		APISecret: cfg.APISecret,
-		BaseURL:   cfg.BaseURL,
-		OrgID:     cfg.OrgID,
-		Region:    cfg.Region,
-		Enabled:   true,
+		Type:       cfg.Type,
+		APIKey:     cfg.APIKey,
+		APISecret:  cfg.APISecret,
+		OAuthToken: cfg.OAuthToken,
+		BaseURL:    cfg.BaseURL,
+		OrgID:      cfg.OrgID,
+		Region:     cfg.Region,
+		Enabled:    true,
 	}
 
 	// Map provider-specific fields via Extra

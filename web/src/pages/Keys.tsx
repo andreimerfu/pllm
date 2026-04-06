@@ -2,11 +2,10 @@ import React from 'react';
 import { useToast } from '../components/ui/use-toast';
 import { usePermissions } from '../contexts/PermissionContext';
 import { DataTable } from '../components/keys/data-table';
-import { createColumns, ApiKey } from '../components/keys/columns';
+import { createColumns, ApiKey, getKeyStatus } from '../components/keys/columns';
 import { CreateKeyDialog } from '../components/keys/create-key-dialog';
 import { LoadingState } from '../components/common/LoadingState';
-import { PageHeader } from '../components/common/PageHeader';
-import { StatCard } from '../components/common/StatCard';
+import { Icon } from '@iconify/react';
 import { icons } from '@/lib/icons';
 import { useKeys, useUserTeams } from '../hooks/useKeys';
 
@@ -23,7 +22,7 @@ const Keys: React.FC = () => {
   const handleGenerateKey = async (keyData: any) => {
     try {
       const data: any = await generateKeyMutation(keyData);
-      
+
       // Show the new key in a toast
       toast({
         title: 'Key Generated Successfully',
@@ -123,62 +122,106 @@ const Keys: React.FC = () => {
     }
   };
 
-  const getKeyStatus = (key: ApiKey) => {
-    if (key.revoked_at) return 'revoked';
-    if (key.expires_at && new Date(key.expires_at) < new Date()) return 'expired';
-    if (!key.is_active) return 'inactive';
-    return 'active';
-  };
-
   if (isLoading) {
     return <LoadingState text="Loading API keys..." />;
   }
 
+  const activeKeys = keys.filter(k => getKeyStatus(k) === 'active').length;
+  const inactiveKeys = keys.filter(k => getKeyStatus(k) === 'inactive').length;
+  const revokedKeys = keys.filter(k => getKeyStatus(k) === 'revoked').length;
+  const totalRequests = keys.reduce((sum, k) => sum + k.usage_count, 0);
+  const totalSpend = keys.reduce((sum, k) => sum + k.current_spend, 0);
+
+  // Calculate bar widths for the stacked bar
+  const total = keys.length || 1;
+  const activePercent = (activeKeys / total) * 100;
+  const inactivePercent = (inactiveKeys / total) * 100;
+  const revokedPercent = (revokedKeys / total) * 100;
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={isAdmin ? 'All API Keys' : 'My API Keys'}
-        description="Manage API keys and monitor usage"
-        actions={
-          <CreateKeyDialog
-            isAdmin={isAdmin}
-            userTeams={userTeams}
-            onCreateKey={handleGenerateKey}
-          />
-        }
-      />
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Keys"
-          value={keys.length.toString()}
-          icon={icons.keys}
-        />
-        <StatCard
-          title="Active Keys"
-          value={keys.filter(k => getKeyStatus(k) === 'active').length.toString()}
-          description={`${keys.filter(k => getKeyStatus(k) === 'inactive').length} inactive`}
-          icon={icons.check}
-        />
-        <StatCard
-          title="Total Usage"
-          value={keys.reduce((sum, k) => sum + k.usage_count, 0).toLocaleString()}
-          description="requests"
-          icon={icons.trendingUp}
-        />
-        <StatCard
-          title="Total Spend"
-          value={`$${keys.reduce((sum, k) => sum + k.current_spend, 0).toFixed(2)}`}
-          description="cumulative"
-          icon={icons.budget}
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight">
+            {isAdmin ? 'API Keys' : 'My API Keys'}
+          </h1>
+          <p className="text-[13px] text-muted-foreground">
+            Manage API access to your gateway
+          </p>
+        </div>
+        <CreateKeyDialog
+          isAdmin={isAdmin}
+          userTeams={userTeams}
+          onCreateKey={handleGenerateKey}
         />
       </div>
 
-      {/* Data Table */}
+      {/* Quick Stats Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Total Keys */}
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Keys</span>
+            <Icon icon={icons.keys} className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="text-2xl font-bold font-mono">{keys.length}</div>
+          {keys.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-muted">
+                <div className="bg-emerald-500 transition-all" style={{ width: `${activePercent}%` }} />
+                <div className="bg-zinc-400 transition-all" style={{ width: `${inactivePercent}%` }} />
+                <div className="bg-red-500 transition-all" style={{ width: `${revokedPercent}%` }} />
+              </div>
+              <div className="flex gap-3 text-[10px] text-muted-foreground">
+                <span>{activeKeys} active</span>
+                <span>{inactiveKeys} inactive</span>
+                {revokedKeys > 0 && <span>{revokedKeys} revoked</span>}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Active Keys */}
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Active Keys</span>
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          </div>
+          <div className="text-2xl font-bold font-mono">{activeKeys}</div>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            {keys.length > 0 ? `${Math.round((activeKeys / keys.length) * 100)}% of total` : 'No keys yet'}
+          </p>
+        </div>
+
+        {/* Total Requests */}
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Requests</span>
+            <Icon icon={icons.trendingUp} className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="text-2xl font-bold font-mono tabular-nums">{totalRequests.toLocaleString()}</div>
+          <p className="text-[11px] text-muted-foreground mt-1">across all keys</p>
+        </div>
+
+        {/* Total Spend */}
+        <div className="rounded-lg border bg-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Spend</span>
+            <Icon icon={icons.budget} className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="text-2xl font-bold font-mono tabular-nums">
+            <span className="text-muted-foreground text-lg">$</span>{totalSpend.toFixed(2)}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1">cumulative</p>
+        </div>
+      </div>
+
+      {/* Key Table */}
       <DataTable
         columns={createColumns(handleToggleKeyStatus, handleRevokeKey, handleDeleteKey)}
         data={keys}
+        teams={userTeams}
       />
     </div>
   );

@@ -15,14 +15,15 @@ import (
 
 type AnthropicProvider struct {
 	*BaseProvider
-	apiKey  string
-	baseURL string
-	client  *http.Client
+	apiKey     string
+	oauthToken string
+	baseURL    string
+	client     *http.Client
 }
 
 func NewAnthropicProvider(name string, cfg ProviderConfig) (*AnthropicProvider, error) {
-	if cfg.APIKey == "" {
-		return nil, fmt.Errorf("anthropic API key is required")
+	if cfg.APIKey == "" && cfg.OAuthToken == "" {
+		return nil, fmt.Errorf("anthropic requires either api_key or oauth_token")
 	}
 
 	baseURL := cfg.BaseURL
@@ -33,22 +34,77 @@ func NewAnthropicProvider(name string, cfg ProviderConfig) (*AnthropicProvider, 
 	models := cfg.Models
 	if len(models) == 0 {
 		models = []string{
+			"claude-opus-4-5",
+			"claude-sonnet-4-5",
+			"claude-haiku-4-5-20251001",
 			"claude-3-5-sonnet-20241022",
 			"claude-3-5-haiku-20241022",
 			"claude-3-opus-20240229",
-			"claude-3-sonnet-20240229",
-			"claude-3-haiku-20240307",
 		}
 	}
 
 	return &AnthropicProvider{
 		BaseProvider: NewBaseProvider(name, "anthropic", cfg.Priority, models),
 		apiKey:       cfg.APIKey,
+		oauthToken:   cfg.OAuthToken,
 		baseURL:      baseURL,
 		client: &http.Client{
 			Timeout: 60 * time.Second,
 		},
 	}, nil
+}
+
+// setAuthHeaders sets the appropriate authentication header on the request.
+// OAuth Bearer tokens take precedence over API keys.
+func (p *AnthropicProvider) setAuthHeaders(req *http.Request) {
+	if p.oauthToken != "" {
+		req.Header.Set("Authorization", "Bearer "+p.oauthToken)
+	} else {
+		req.Header.Set("x-api-key", p.apiKey)
+	}
+}
+
+// FetchAvailableModels queries the Anthropic /v1/models endpoint and returns
+// the list of model IDs available to the configured credential.
+func (p *AnthropicProvider) FetchAvailableModels(ctx context.Context) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", p.baseURL+"/v1/models", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	p.setAuthHeaders(req)
+	req.Header.Set("anthropic-version", "2023-06-01")
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch models: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		var errBody map[string]interface{}
+		if decErr := json.NewDecoder(resp.Body).Decode(&errBody); decErr == nil {
+			return nil, fmt.Errorf("anthropic models API error (status %d): %v", resp.StatusCode, errBody)
+		}
+		return nil, fmt.Errorf("anthropic models API returned status %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to parse models response: %w", err)
+	}
+
+	ids := make([]string, 0, len(result.Data))
+	for _, m := range result.Data {
+		if m.ID != "" {
+			ids = append(ids, m.ID)
+		}
+	}
+	return ids, nil
 }
 
 func (p *AnthropicProvider) ChatCompletion(ctx context.Context, request *ChatRequest) (*ChatResponse, error) {
@@ -74,7 +130,7 @@ func (p *AnthropicProvider) ChatCompletion(ctx context.Context, request *ChatReq
 
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", p.apiKey)
+	p.setAuthHeaders(req)
 	req.Header.Set("anthropic-version", "2023-06-01")
 
 	// Make the request
@@ -140,7 +196,7 @@ func (p *AnthropicProvider) ChatCompletionStream(ctx context.Context, request *C
 
 		// Set headers
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("x-api-key", p.apiKey)
+		p.setAuthHeaders(req)
 		req.Header.Set("anthropic-version", "2023-06-01")
 		req.Header.Set("Accept", "text/event-stream")
 
@@ -196,7 +252,7 @@ func (p *AnthropicProvider) HealthCheck(ctx context.Context) error {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("x-api-key", p.apiKey)
+	p.setAuthHeaders(req)
 	req.Header.Set("anthropic-version", "2023-06-01")
 
 	resp, err := p.client.Do(req)
