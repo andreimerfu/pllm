@@ -68,7 +68,10 @@ func NewDexAuthProvider(config *DexConfig) (*DexAuthProvider, error) {
 	// the external issuer. The provider stores the discovered issuer for token
 	// verification automatically.
 	if config.PublicIssuer != "" && config.PublicIssuer != config.Issuer {
-		ctx = oidc.InsecureIssuerURLContext(ctx, config.Issuer)
+		// Dex tokens carry the public issuer URL in the "iss" claim, so tell
+		// go-oidc to expect that value when verifying tokens.  NewProvider
+		// below will still fetch discovery from config.Issuer (internal URL).
+		ctx = oidc.InsecureIssuerURLContext(ctx, config.PublicIssuer)
 		// The OIDC discovery document from Dex advertises the public issuer URL
 		// for jwks_uri. When the public URL uses a self-signed or internal cert,
 		// the default HTTP client rejects it. Provide a client that trusts
