@@ -11,13 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -108,11 +101,11 @@ const PROVIDERS = [
 ];
 
 const STEPS = [
-  { id: 1, label: "Provider", icon: "solar:star-shine-linear" },
-  { id: 2, label: "Authentication", icon: icons.keys },
-  { id: 3, label: "Model", icon: icons.models },
-  { id: 4, label: "Capabilities", icon: icons.settings },
-  { id: 5, label: "Review & Test", icon: icons.check },
+  { id: 1, label: "Provider", description: "Choose LLM provider", icon: "solar:star-shine-linear" },
+  { id: 2, label: "Authentication", description: "API credentials", icon: icons.keys },
+  { id: 3, label: "Model", description: "Name & model ID", icon: icons.models },
+  { id: 4, label: "Capabilities", description: "Features & limits", icon: icons.settings },
+  { id: 5, label: "Review & Test", description: "Confirm & deploy", icon: icons.check },
 ];
 
 export default function AddModel() {
@@ -350,137 +343,207 @@ export default function AddModel() {
     }
   };
 
-  // ─── Step Indicator ─────────────────────────────────────────────────
-  const StepIndicator = () => (
-    <div className="flex items-center justify-between mb-8">
-      {STEPS.map((s, i) => {
-        const isCompleted = step > s.id;
-        const isCurrent = step === s.id;
-        const isClickable = s.id < step || (s.id === step);
-        // Allow jumping back to completed steps
-        const canJump = s.id < step;
+  // ─── Configuration Preview (for sidebar) ─────────────────────────────
+  const configPreview = () => {
+    const lines: string[] = ["{"];
+    if (selectedProvider) lines.push(`  "provider": "${selectedProvider}",`);
+    if (modelName) lines.push(`  "model_name": "${modelName}",`);
+    if (providerModel) lines.push(`  "model_id": "${providerModel}",`);
+    if (apiKey) lines.push(`  "api_key": "********",`);
+    if (oauthToken && selectedProvider === "anthropic") lines.push(`  "oauth": "********",`);
+    if (baseUrl) lines.push(`  "base_url": "${baseUrl}",`);
+    if (selectedProvider === "azure" && azureEndpoint) lines.push(`  "endpoint": "...azure.com",`);
+    if (selectedProvider === "bedrock" && awsRegion) lines.push(`  "region": "${awsRegion}",`);
+    if (selectedProvider === "vertex" && vertexProject) lines.push(`  "project": "${vertexProject}",`);
+    const caps = [];
+    if (supportsStreaming) caps.push("stream");
+    if (supportsVision) caps.push("vision");
+    if (supportsFunctions) caps.push("functions");
+    if (caps.length > 0) lines.push(`  "caps": [${caps.map(c => `"${c}"`).join(", ")}],`);
+    if (rpm) lines.push(`  "rpm": ${rpm},`);
+    if (tpm) lines.push(`  "tpm": ${tpm},`);
+    lines.push("}");
+    return lines.join("\n");
+  };
 
-        return (
-          <div key={s.id} className="flex items-center flex-1 last:flex-none">
-            {/* Step circle + label */}
-            <button
-              type="button"
-              disabled={!isClickable && !canJump}
-              onClick={() => { if (canJump) setStep(s.id); }}
-              className={`flex flex-col items-center gap-1.5 transition-all ${canJump ? "cursor-pointer" : "cursor-default"}`}
-            >
-              <div
-                className={`relative flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${
-                  isCurrent
-                    ? "border-teal-500 bg-teal-500/10 text-teal-500 ring-4 ring-teal-500/20"
-                    : isCompleted
-                    ? "border-teal-500 bg-teal-500 text-white"
-                    : "border-muted-foreground/30 text-muted-foreground/50"
-                }`}
-              >
-                {isCompleted ? (
-                  <Icon icon={icons.check} className="h-5 w-5" />
-                ) : (
-                  <Icon icon={s.icon} className="h-4 w-4" />
-                )}
-              </div>
-              <span
-                className={`text-xs font-medium hidden sm:block ${
-                  isCurrent
-                    ? "text-teal-500"
-                    : isCompleted
-                    ? "text-foreground"
-                    : "text-muted-foreground/50"
-                }`}
-              >
-                {s.label}
-              </span>
-            </button>
-            {/* Connector line */}
-            {i < STEPS.length - 1 && (
-              <div className="flex-1 mx-2 sm:mx-3">
-                <div
-                  className={`h-0.5 rounded-full transition-colors ${
-                    step > s.id ? "bg-teal-500" : "bg-muted-foreground/20"
-                  }`}
-                />
-              </div>
-            )}
+  // Step value preview for completed steps in sidebar
+  const stepPreview = (s: number): string => {
+    switch (s) {
+      case 1: return providerInfo?.label || "";
+      case 2: {
+        if (selectedProvider === "anthropic" && anthropicAuthMode === "oauth_token") return oauthToken ? "OAuth ········" : "";
+        return apiKey ? "········" : (selectedProvider === "azure" && azureEndpoint ? "Azure endpoint set" : "");
+      }
+      case 3: return modelName ? `${modelName}` : "";
+      case 4: {
+        const c = [];
+        if (supportsStreaming) c.push("Stream");
+        if (supportsVision) c.push("Vision");
+        if (supportsFunctions) c.push("Fn");
+        return c.join(", ");
+      }
+      case 5: return "";
+      default: return "";
+    }
+  };
+
+  // ─── Left Sidebar: Progress Rail ────────────────────────────────────
+  const ProgressRail = () => (
+    <div className="w-[280px] flex-shrink-0 hidden lg:block">
+      <div className="sticky top-6">
+        {/* Progress steps card */}
+        <div className="bg-zinc-950/80 dark:bg-zinc-900/90 backdrop-blur-xl rounded-2xl border border-zinc-800/60 p-5 shadow-2xl shadow-black/20">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center">
+              <Icon icon={icons.models} className="h-4 w-4 text-teal-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-zinc-100">New Model</p>
+              <p className="text-[11px] text-zinc-500">Step {step} of 5</p>
+            </div>
           </div>
-        );
-      })}
+
+          {/* Steps */}
+          <div className="space-y-1">
+            {STEPS.map((s) => {
+              const isCompleted = step > s.id;
+              const isCurrent = step === s.id;
+
+              const canJump = s.id < step;
+              const preview = stepPreview(s.id);
+
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  disabled={!canJump}
+                  onClick={() => { if (canJump) setStep(s.id); }}
+                  className={`w-full text-left rounded-xl p-3 transition-all duration-200 group relative ${
+                    isCurrent
+                      ? "bg-teal-500/10 border-l-2 border-l-teal-400 shadow-[inset_0_0_20px_rgba(20,184,166,0.05)]"
+                      : canJump
+                      ? "hover:bg-zinc-800/60 cursor-pointer border-l-2 border-l-transparent"
+                      : "border-l-2 border-l-transparent"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Step number / check */}
+                    <div className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 text-xs font-bold transition-all ${
+                      isCompleted
+                        ? "bg-teal-500 text-white"
+                        : isCurrent
+                        ? "bg-teal-500/20 text-teal-400 ring-1 ring-teal-500/40"
+                        : "bg-zinc-800 text-zinc-600"
+                    }`}>
+                      {isCompleted ? (
+                        <Icon icon={icons.check} className="h-3.5 w-3.5" />
+                      ) : (
+                        <span>{s.id}</span>
+                      )}
+                    </div>
+                    {/* Label + description */}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium leading-tight ${
+                        isCurrent ? "text-teal-300" : isCompleted ? "text-zinc-300" : "text-zinc-600"
+                      }`}>
+                        {s.label}
+                      </p>
+                      {isCurrent && (
+                        <p className="text-[11px] text-zinc-500 mt-0.5">{s.description}</p>
+                      )}
+                      {isCompleted && preview && (
+                        <p className="text-[11px] text-zinc-500 mt-0.5 font-mono truncate">{preview}</p>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Config preview */}
+          <div className="mt-6 pt-4 border-t border-zinc-800/60">
+            <p className="text-[10px] uppercase tracking-widest text-zinc-600 font-semibold mb-2">Config Preview</p>
+            <pre className="text-[11px] font-mono text-zinc-500 leading-relaxed overflow-hidden max-h-48 whitespace-pre-wrap break-all">
+              {configPreview()}
+            </pre>
+          </div>
+        </div>
+      </div>
     </div>
   );
 
   // ─── Step 1: Provider ───────────────────────────────────────────────
   const renderProviderStep = () => (
-    <Card className="border-muted-foreground/10">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Icon icon="solar:star-shine-linear" className="h-5 w-5 text-teal-500" />
-          Choose Provider
-        </CardTitle>
-        <CardDescription>
-          Select the LLM provider for this model instance
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {PROVIDERS.map((p) => {
-            const isSelected = selectedProvider === p.value;
-            return (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => setSelectedProvider(p.value)}
-                className={`relative flex flex-col items-center gap-3 p-5 rounded-xl border-2 transition-all hover:shadow-md ${
-                  isSelected
-                    ? `${p.borderColor} ${p.bgColor} ring-2 ring-teal-500/50`
-                    : "border-border hover:border-muted-foreground/30"
-                }`}
-              >
-                {isSelected && (
-                  <div className="absolute top-2 right-2">
-                    <Icon icon={icons.check} className="h-4 w-4 text-teal-500" />
-                  </div>
-                )}
-                <div className={`p-2.5 rounded-lg ${p.bgColor}`}>
-                  <Icon icon={p.icon} width="32" height="32" className={p.color} />
-                </div>
-                <span className="text-sm font-medium">{p.label}</span>
-              </button>
-            );
-          })}
+    <div>
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="h-8 w-1 rounded-full bg-gradient-to-b from-teal-400 to-teal-600" />
+          <h2 className="text-2xl font-bold tracking-tight">Choose Provider</h2>
         </div>
-      </CardContent>
-    </Card>
+        <p className="text-muted-foreground ml-[19px]">
+          Select the LLM provider for this model instance
+        </p>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        {PROVIDERS.map((p) => {
+          const isSelected = selectedProvider === p.value;
+          return (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => setSelectedProvider(p.value)}
+              className={`group relative flex flex-col items-center gap-4 p-6 rounded-2xl border-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] ${
+                isSelected
+                  ? `${p.borderColor} ${p.bgColor} ring-2 ring-teal-500/40 shadow-lg shadow-teal-500/5`
+                  : "border-border/50 hover:border-muted-foreground/30 hover:bg-muted/30"
+              }`}
+            >
+              {isSelected && (
+                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center">
+                  <Icon icon={icons.check} className="h-3 w-3 text-white" />
+                </div>
+              )}
+              <div className={`p-3 rounded-xl ${isSelected ? p.bgColor : "bg-muted/50 group-hover:bg-muted"} transition-colors`}>
+                <Icon icon={p.icon} width="36" height="36" className={isSelected ? p.color : "opacity-60 group-hover:opacity-80"} />
+              </div>
+              <span className={`text-sm font-semibold ${isSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>
+                {p.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 
   // ─── Step 2: Authentication ─────────────────────────────────────────
   const renderAuthStep = () => {
     if (!providerInfo) return null;
     return (
-      <Card className="border-muted-foreground/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Icon icon={icons.keys} className="h-5 w-5 text-teal-500" />
-            Authentication
-          </CardTitle>
-          <CardDescription>
+      <div>
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-8 w-1 rounded-full bg-gradient-to-b from-teal-400 to-teal-600" />
+            <h2 className="text-2xl font-bold tracking-tight">Authentication</h2>
+          </div>
+          <p className="text-muted-foreground ml-[19px]">
             API credentials for{" "}
             <span className={providerInfo.color}>{providerInfo.label}</span>
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+          </p>
+        </div>
+
+        <div className="space-y-6 max-w-xl">
           {/* Anthropic auth mode toggle */}
           {selectedProvider === "anthropic" && (
-            <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit">
+            <div className="flex gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800/60 rounded-xl w-fit">
               <button
                 type="button"
                 onClick={() => setAnthropicAuthMode("api_key")}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                className={`px-4 py-2 text-sm rounded-lg transition-all ${
                   anthropicAuthMode === "api_key"
-                    ? "bg-background shadow-sm font-medium"
+                    ? "bg-white dark:bg-zinc-700 shadow-sm font-semibold text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -489,9 +552,9 @@ export default function AddModel() {
               <button
                 type="button"
                 onClick={() => setAnthropicAuthMode("oauth_token")}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                className={`px-4 py-2 text-sm rounded-lg transition-all ${
                   anthropicAuthMode === "oauth_token"
-                    ? "bg-background shadow-sm font-medium"
+                    ? "bg-white dark:bg-zinc-700 shadow-sm font-semibold text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -512,7 +575,7 @@ export default function AddModel() {
                 placeholder={(providerInfo as any).oauthPlaceholder || "Bearer token"}
                 value={oauthToken}
                 onChange={(e) => setOauthToken(e.target.value)}
-                className="max-w-md font-mono"
+                className="font-mono"
                 required
               />
               <div className="flex items-start gap-2 text-xs text-muted-foreground">
@@ -534,7 +597,7 @@ export default function AddModel() {
                 placeholder={providerInfo.keyPlaceholder}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="max-w-md font-mono"
+                className="font-mono"
                 required={["anthropic", "openrouter", "vertex"].includes(selectedProvider!)}
               />
               <div className="flex items-start gap-2 text-xs text-muted-foreground">
@@ -565,17 +628,16 @@ export default function AddModel() {
                   placeholder="Leave empty for default endpoint"
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
-                  className="max-w-md"
                 />
               </div>
             )}
 
           {/* Azure-specific */}
           {selectedProvider === "azure" && (
-            <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+            <div className="space-y-4 p-5 rounded-xl border border-blue-200/40 dark:border-blue-800/40 bg-blue-50/30 dark:bg-blue-950/20">
               <div className="flex items-center gap-2">
                 <Icon icon="logos:microsoft-azure" width="16" height="16" />
-                <span className="text-sm font-medium">Azure Configuration</span>
+                <span className="text-sm font-semibold">Azure Configuration</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -614,12 +676,12 @@ export default function AddModel() {
 
           {/* Bedrock-specific */}
           {selectedProvider === "bedrock" && (
-            <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+            <div className="space-y-4 p-5 rounded-xl border border-yellow-200/40 dark:border-yellow-800/40 bg-yellow-50/30 dark:bg-yellow-950/20">
               <div className="flex items-center gap-2">
                 <Icon icon="logos:aws" width="20" height="14" />
-                <span className="text-sm font-medium">AWS Configuration</span>
+                <span className="text-sm font-semibold">AWS Configuration</span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm">Region</Label>
                   <Input
@@ -628,31 +690,33 @@ export default function AddModel() {
                     onChange={(e) => setAwsRegion(e.target.value)}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-sm">
-                    Access Key ID <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    type="password"
-                    placeholder="${AWS_ACCESS_KEY_ID}"
-                    value={awsAccessKeyId}
-                    onChange={(e) => setAwsAccessKeyId(e.target.value)}
-                    className="font-mono"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm">
-                    Secret Access Key <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    type="password"
-                    placeholder="${AWS_SECRET_ACCESS_KEY}"
-                    value={awsSecretKey}
-                    onChange={(e) => setAwsSecretKey(e.target.value)}
-                    className="font-mono"
-                    required
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm">
+                      Access Key ID <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="password"
+                      placeholder="${AWS_ACCESS_KEY_ID}"
+                      value={awsAccessKeyId}
+                      onChange={(e) => setAwsAccessKeyId(e.target.value)}
+                      className="font-mono"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm">
+                      Secret Access Key <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="password"
+                      placeholder="${AWS_SECRET_ACCESS_KEY}"
+                      value={awsSecretKey}
+                      onChange={(e) => setAwsSecretKey(e.target.value)}
+                      className="font-mono"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -660,10 +724,10 @@ export default function AddModel() {
 
           {/* Vertex-specific */}
           {selectedProvider === "vertex" && (
-            <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+            <div className="space-y-4 p-5 rounded-xl border border-red-200/40 dark:border-red-800/40 bg-red-50/30 dark:bg-red-950/20">
               <div className="flex items-center gap-2">
                 <Icon icon="logos:google-cloud" width="20" height="16" />
-                <span className="text-sm font-medium">Vertex AI Configuration</span>
+                <span className="text-sm font-semibold">Vertex AI Configuration</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -685,8 +749,8 @@ export default function AddModel() {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   };
 
@@ -694,18 +758,19 @@ export default function AddModel() {
   const renderModelStep = () => {
     if (!providerInfo) return null;
     return (
-      <Card className="border-muted-foreground/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Icon icon={icons.models} className="h-5 w-5 text-teal-500" />
-            Model Configuration
-          </CardTitle>
-          <CardDescription>
+      <div>
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-8 w-1 rounded-full bg-gradient-to-b from-teal-400 to-teal-600" />
+            <h2 className="text-2xl font-bold tracking-tight">Model Configuration</h2>
+          </div>
+          <p className="text-muted-foreground ml-[19px]">
             Configure the model instance for{" "}
             <span className={providerInfo.color}>{providerInfo.label}</span>
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+          </p>
+        </div>
+
+        <div className="space-y-6 max-w-xl">
           {/* Model Name */}
           <div className="space-y-2">
             <Label htmlFor="modelName" className="text-sm font-medium">
@@ -716,7 +781,6 @@ export default function AddModel() {
               placeholder="e.g. my-gpt-4o, fast-claude"
               value={modelName}
               onChange={(e) => setModelName(e.target.value)}
-              className="max-w-md"
               required
             />
             <p className="text-xs text-muted-foreground">
@@ -738,7 +802,6 @@ export default function AddModel() {
               placeholder={providerInfo.models[0] || "Model identifier"}
               value={providerModel}
               onChange={(e) => setProviderModel(e.target.value)}
-              className="max-w-md"
               required
             />
             {/* Show discovered models if available, otherwise static defaults */}
@@ -787,60 +850,59 @@ export default function AddModel() {
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   };
 
   // ─── Step 4: Capabilities & Config ──────────────────────────────────
   const renderCapabilitiesStep = () => (
-    <div className="space-y-6">
-      {/* Capabilities */}
-      <Card className="border-muted-foreground/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Icon icon="solar:star-shine-linear" className="h-5 w-5 text-teal-500" />
-            Capabilities
-          </CardTitle>
-          <CardDescription>Declare what this model supports</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center justify-between p-3 rounded-lg border">
-              <div className="flex items-center gap-2">
-                <Icon icon="solar:star-shine-linear" className="h-4 w-4 text-blue-500" />
-                <Label className="text-sm cursor-pointer">Streaming</Label>
-              </div>
-              <Switch checked={supportsStreaming} onCheckedChange={setSupportsStreaming} />
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg border">
-              <div className="flex items-center gap-2">
-                <Icon icon={icons.eye} className="h-4 w-4 text-purple-500" />
-                <Label className="text-sm cursor-pointer">Vision</Label>
-              </div>
-              <Switch checked={supportsVision} onCheckedChange={setSupportsVision} />
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg border">
-              <div className="flex items-center gap-2">
-                <Icon icon="solar:settings-minimalistic-linear" className="h-4 w-4 text-green-500" />
-                <Label className="text-sm cursor-pointer">Function Calling</Label>
-              </div>
-              <Switch checked={supportsFunctions} onCheckedChange={setSupportsFunctions} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div>
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="h-8 w-1 rounded-full bg-gradient-to-b from-teal-400 to-teal-600" />
+          <h2 className="text-2xl font-bold tracking-tight">Capabilities & Config</h2>
+        </div>
+        <p className="text-muted-foreground ml-[19px]">
+          Declare features, limits, and pricing for this model
+        </p>
+      </div>
 
-      {/* Rate Limits */}
-      <Card className="border-muted-foreground/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Icon icon="solar:speed-linear" className="h-5 w-5 text-teal-500" />
-            Rate Limits
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-8">
+        {/* Capabilities - toggle cards */}
+        <div>
+          <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">Capabilities</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {[
+              { label: "Streaming", desc: "Server-sent events", icon: "solar:star-shine-linear", iconColor: "text-blue-500", checked: supportsStreaming, onChange: setSupportsStreaming },
+              { label: "Vision", desc: "Image understanding", icon: icons.eye, iconColor: "text-purple-500", checked: supportsVision, onChange: setSupportsVision },
+              { label: "Function Calling", desc: "Tool use support", icon: "solar:settings-minimalistic-linear", iconColor: "text-green-500", checked: supportsFunctions, onChange: setSupportsFunctions },
+            ].map((cap) => (
+              <div
+                key={cap.label}
+                className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${
+                  cap.checked ? "border-teal-500/30 bg-teal-500/5" : "border-border/50"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cap.checked ? "bg-teal-500/10" : "bg-muted/50"}`}>
+                    <Icon icon={cap.icon} className={`h-4 w-4 ${cap.checked ? cap.iconColor : "text-muted-foreground"}`} />
+                  </div>
+                  <div>
+                    <Label className="text-sm cursor-pointer font-medium">{cap.label}</Label>
+                    <p className="text-[11px] text-muted-foreground">{cap.desc}</p>
+                  </div>
+                </div>
+                <Switch checked={cap.checked} onCheckedChange={cap.onChange} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Rate Limits */}
+        <div>
+          <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">Rate Limits</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl">
             <div className="space-y-2">
               <Label className="text-sm">
                 RPM <span className="text-muted-foreground font-normal">(Requests/min)</span>
@@ -854,19 +916,12 @@ export default function AddModel() {
               <Input type="number" placeholder="100,000" value={tpm} onChange={(e) => setTpm(e.target.value)} />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Load Balancing */}
-      <Card className="border-muted-foreground/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Icon icon={icons.settings} className="h-5 w-5 text-teal-500" />
-            Load Balancing
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Load Balancing */}
+        <div>
+          <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">Load Balancing</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-xl">
             <div className="space-y-2">
               <Label className="text-sm">Priority (1-100)</Label>
               <Input type="number" placeholder="50" min="1" max="100" value={priority} onChange={(e) => setPriority(e.target.value)} />
@@ -883,19 +938,12 @@ export default function AddModel() {
               <p className="text-xs text-muted-foreground">Request timeout</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Pricing */}
-      <Card className="border-muted-foreground/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Icon icon="solar:dollar-minimalistic-linear" className="h-5 w-5 text-teal-500" />
-            Pricing
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Pricing */}
+        <div>
+          <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">Pricing</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl">
             <div className="space-y-2">
               <Label className="text-sm">Input Cost / Token</Label>
               <Input type="number" step="0.000001" placeholder="0.000005" value={inputCost} onChange={(e) => setInputCost(e.target.value)} />
@@ -905,46 +953,40 @@ export default function AddModel() {
               <Input type="number" step="0.000001" placeholder="0.000015" value={outputCost} onChange={(e) => setOutputCost(e.target.value)} />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Tags + Reasoning Effort */}
-      <Card className="border-muted-foreground/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Icon icon="solar:tag-linear" className="h-5 w-5 text-teal-500" />
-            Tags & Reasoning
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label className="text-sm">Tags</Label>
-            <Input
-              placeholder="production, fast, custom"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              className="max-w-md"
-            />
-            <p className="text-xs text-muted-foreground">Comma-separated labels for filtering and grouping</p>
+        {/* Tags + Reasoning Effort */}
+        <div>
+          <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">Tags & Reasoning</h3>
+          <div className="space-y-4 max-w-xl">
+            <div className="space-y-2">
+              <Label className="text-sm">Tags</Label>
+              <Input
+                placeholder="production, fast, custom"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">Comma-separated labels for filtering and grouping</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Default Reasoning Effort</Label>
+              <Select value={defaultReasoningEffort} onValueChange={setDefaultReasoningEffort}>
+                <SelectTrigger>
+                  <SelectValue placeholder="None (use provider default)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Default reasoning effort for reasoning models (o1, o3, GPT-5, etc.). Applied when callers don't specify one.
+              </p>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label className="text-sm">Default Reasoning Effort</Label>
-            <Select value={defaultReasoningEffort} onValueChange={setDefaultReasoningEffort}>
-              <SelectTrigger className="max-w-md">
-                <SelectValue placeholder="None (use provider default)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Default reasoning effort for reasoning models (o1, o3, GPT-5, etc.). Applied when callers don't specify one.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 
@@ -1000,21 +1042,23 @@ export default function AddModel() {
     if (defaultReasoningEffort) summaryRows.push({ label: "Reasoning Effort", value: defaultReasoningEffort });
 
     return (
-      <div className="space-y-6">
-        <Card className="border-muted-foreground/10">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Icon icon={icons.check} className="h-5 w-5 text-teal-500" />
-              Review Configuration
-            </CardTitle>
-            <CardDescription>
-              Confirm all settings before creating the model
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-0 divide-y divide-border rounded-lg border overflow-hidden">
+      <div>
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-8 w-1 rounded-full bg-gradient-to-b from-teal-400 to-teal-600" />
+            <h2 className="text-2xl font-bold tracking-tight">Review & Test</h2>
+          </div>
+          <p className="text-muted-foreground ml-[19px]">
+            Confirm all settings before creating the model
+          </p>
+        </div>
+
+        <div className="space-y-6">
+          {/* Summary table */}
+          <div className="rounded-xl border overflow-hidden">
+            <div className="divide-y divide-border">
               {summaryRows.map((row, i) => (
-                <div key={i} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30">
+                <div key={i} className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/30 transition-colors">
                   <span className="text-sm text-muted-foreground">{row.label}</span>
                   <span className={`text-sm font-medium ${row.mono ? "font-mono" : ""}`}>
                     {row.value || <span className="text-muted-foreground/50">--</span>}
@@ -1022,21 +1066,15 @@ export default function AddModel() {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Test Connection */}
-        <Card className="border-muted-foreground/10">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
+          {/* Test Connection */}
+          <div className="rounded-xl border p-5 space-y-4">
+            <div className="flex items-center gap-2">
               <Icon icon="solar:wifi-linear" className="h-5 w-5 text-teal-500" />
-              Test Connection
-            </CardTitle>
-            <CardDescription>
-              Verify the provider is reachable before creating
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+              <h3 className="text-sm font-semibold">Test Connection</h3>
+              <span className="text-xs text-muted-foreground ml-1">Verify the provider is reachable</span>
+            </div>
             <div className="flex items-center gap-3 flex-wrap">
               <Button
                 type="button"
@@ -1072,85 +1110,111 @@ export default function AddModel() {
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   };
 
   // ─── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen pb-24 relative">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/models")}>
+      <div className="flex items-center gap-4 mb-8">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/models")} className="rounded-xl">
           <Icon icon={icons.arrowLeft} className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">Add Model</h1>
-          <p className="text-muted-foreground">
-            Configure a new model instance. It will be persisted and survive restarts.
+          <h1 className="text-2xl font-bold tracking-tight">Add Model</h1>
+          <p className="text-sm text-muted-foreground">
+            Configure a new model instance
           </p>
         </div>
       </div>
 
-      {/* Step Indicator */}
-      <StepIndicator />
+      {/* Two-panel layout */}
+      <div className="flex gap-8 items-start">
+        {/* Left: Progress Rail */}
+        <ProgressRail />
 
-      {/* Step Content */}
-      <div className="mb-8">
-        {step === 1 && renderProviderStep()}
-        {step === 2 && renderAuthStep()}
-        {step === 3 && renderModelStep()}
-        {step === 4 && renderCapabilitiesStep()}
-        {step === 5 && renderReviewStep()}
+        {/* Right: Step Content */}
+        <div className="flex-1 min-w-0">
+          {step === 1 && renderProviderStep()}
+          {step === 2 && renderAuthStep()}
+          {step === 3 && renderModelStep()}
+          {step === 4 && renderCapabilitiesStep()}
+          {step === 5 && renderReviewStep()}
+        </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between py-4 border-t">
-        <div>
-          {step === 1 ? (
-            <Button type="button" variant="ghost" onClick={() => navigate("/models")}>
-              Cancel
-            </Button>
-          ) : (
-            <Button type="button" variant="ghost" onClick={handleBack}>
-              <Icon icon={icons.arrowLeft} className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground mr-2">
-            Step {step} of 5
-          </span>
-          {step < 5 ? (
-            <Button
-              type="button"
-              disabled={!stepValid(step)}
-              onClick={handleNext}
-              className="min-w-[120px] bg-teal-600 hover:bg-teal-700 text-white"
-            >
-              Next
-              <Icon icon={icons.arrowRight} className="h-4 w-4 ml-2" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              disabled={mutation.isPending || !stepValid(5)}
-              onClick={handleSubmit}
-              className="min-w-[140px] bg-teal-600 hover:bg-teal-700 text-white"
-            >
-              {mutation.isPending ? (
-                "Creating..."
+      {/* Floating Bottom Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-50">
+        <div className="backdrop-blur-xl bg-background/80 border-t border-border/50 shadow-[0_-4px_32px_rgba(0,0,0,0.08)]">
+          <div className="max-w-screen-xl mx-auto px-6 py-3 flex items-center justify-between">
+            {/* Left: Back / Cancel */}
+            <div className="w-[140px]">
+              {step === 1 ? (
+                <Button type="button" variant="ghost" onClick={() => navigate("/models")} className="text-muted-foreground">
+                  Cancel
+                </Button>
               ) : (
-                <>
-                  <Icon icon={icons.check} className="h-4 w-4 mr-2" />
-                  Create Model
-                </>
+                <Button type="button" variant="ghost" onClick={handleBack} className="text-muted-foreground">
+                  <Icon icon={icons.arrowLeft} className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
               )}
-            </Button>
-          )}
+            </div>
+
+            {/* Center: Step dots */}
+            <div className="flex items-center gap-2">
+              {STEPS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => { if (s.id < step) setStep(s.id); }}
+                  className={`transition-all duration-200 rounded-full ${
+                    s.id === step
+                      ? "w-6 h-2 bg-teal-500"
+                      : s.id < step
+                      ? "w-2 h-2 bg-teal-500/60 cursor-pointer hover:bg-teal-500"
+                      : "w-2 h-2 bg-muted-foreground/20"
+                  }`}
+                  aria-label={`Step ${s.id}: ${s.label}`}
+                />
+              ))}
+            </div>
+
+            {/* Right: Next / Create */}
+            <div className="w-[140px] flex justify-end">
+              {step < 5 ? (
+                <Button
+                  type="button"
+                  disabled={!stepValid(step)}
+                  onClick={handleNext}
+                  className="bg-teal-600 hover:bg-teal-700 text-white rounded-xl px-6"
+                >
+                  Next
+                  <Icon icon={icons.arrowRight} className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  disabled={mutation.isPending || !stepValid(5)}
+                  onClick={handleSubmit}
+                  className="bg-teal-600 hover:bg-teal-700 text-white rounded-xl px-6"
+                >
+                  {mutation.isPending ? (
+                    "Creating..."
+                  ) : (
+                    <>
+                      <Icon icon={icons.check} className="h-4 w-4 mr-2" />
+                      Create Model
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
