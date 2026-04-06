@@ -10,8 +10,6 @@
     "lint": "eslint . --ext ts,tsx"
   },
   "dependencies": {
-    "@fontsource/inter": "^5.2.8",
-    "@fontsource/jetbrains-mono": "^5.2.8",
     "@hookform/resolvers": "^3.10.0",
     "@iconify/react": "^6.0.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
