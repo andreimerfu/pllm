@@ -186,10 +186,21 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Get("/", modelCRUDHandler.ListModels)
 			r.Post("/", modelCRUDHandler.CreateModel)
 			r.Post("/test-connection", modelCRUDHandler.TestConnection)
+			r.Post("/discover-models", modelCRUDHandler.DiscoverModels)
 			r.Get("/health", modelCRUDHandler.GetModelsHealth)
 			r.Get("/{modelID}", modelCRUDHandler.GetModel)
 			r.Put("/{modelID}", modelCRUDHandler.UpdateModel)
 			r.Delete("/{modelID}", modelCRUDHandler.DeleteModel)
+		})
+
+		// Provider profile management
+		providerHandler := admin.NewProviderHandler(cfg.Logger, cfg.DB)
+		r.Route("/providers", func(r chi.Router) {
+			r.Get("/", providerHandler.ListProviders)
+			r.Post("/", providerHandler.CreateProvider)
+			r.Get("/{providerID}", providerHandler.GetProvider)
+			r.Put("/{providerID}", providerHandler.UpdateProvider)
+			r.Delete("/{providerID}", providerHandler.DeleteProvider)
 		})
 
 		// Route management

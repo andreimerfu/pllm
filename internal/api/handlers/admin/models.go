@@ -14,6 +14,7 @@ import (
 	"github.com/amerfu/pllm/internal/core/models"
 	modelService "github.com/amerfu/pllm/internal/services/integrations/model"
 	llmModels "github.com/amerfu/pllm/internal/services/llm/models"
+	"github.com/amerfu/pllm/internal/services/llm/providers"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -53,6 +54,7 @@ type CreateModelRequest struct {
 	TimeoutSeconds     int                       `json:"timeout_seconds,omitempty"`
 	Tags               []string                  `json:"tags,omitempty"`
 	Enabled            *bool                     `json:"enabled,omitempty"`
+	ProviderProfileID  *string                   `json:"provider_profile_id,omitempty"`
 }
 
 // modelResponse is the response format for a single model in the list.
@@ -124,6 +126,9 @@ func (h *ModelCRUDHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 			if maskedProvider.AWSSecretAccessKey != "" {
 				maskedProvider.AWSSecretAccessKey = "********"
 			}
+			if maskedProvider.OAuthToken != "" {
+				maskedProvider.OAuthToken = "********"
+			}
 
 			resp := modelResponse{
 				ID:                 um.ID.String(),
@@ -183,6 +188,39 @@ func (h *ModelCRUDHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, http.StatusBadRequest, "model_name is required")
 		return
 	}
+
+	// Resolve provider profile if specified
+	var resolvedProfileID *uuid.UUID
+	if req.ProviderProfileID != nil && *req.ProviderProfileID != "" {
+		profileID, err := uuid.Parse(*req.ProviderProfileID)
+		if err != nil {
+			h.sendError(w, http.StatusBadRequest, "Invalid provider_profile_id")
+			return
+		}
+		var profile models.ProviderProfile
+		if err := h.db.First(&profile, "id = ?", profileID).Error; err != nil {
+			h.sendError(w, http.StatusNotFound, "Provider profile not found")
+			return
+		}
+		// Build provider config from profile, keeping the model from the request
+		req.Provider = models.ProviderConfigJSON{
+			Type:               profile.Type,
+			Model:              req.Provider.Model,
+			APIKey:             profile.Config.APIKey,
+			BaseURL:            profile.Config.BaseURL,
+			OAuthToken:         profile.Config.OAuthToken,
+			AzureEndpoint:      profile.Config.AzureEndpoint,
+			AzureDeployment:    profile.Config.AzureDeployment,
+			APIVersion:         profile.Config.APIVersion,
+			AWSRegionName:      profile.Config.AWSRegionName,
+			AWSAccessKeyID:     profile.Config.AWSAccessKeyID,
+			AWSSecretAccessKey: profile.Config.AWSSecretAccessKey,
+			VertexProject:      profile.Config.VertexProject,
+			VertexLocation:     profile.Config.VertexLocation,
+		}
+		resolvedProfileID = &profileID
+	}
+
 	if req.Provider.Type == "" {
 		h.sendError(w, http.StatusBadRequest, "provider.type is required")
 		return
@@ -207,6 +245,7 @@ func (h *ModelCRUDHandler) CreateModel(w http.ResponseWriter, r *http.Request) {
 		ModelName:          req.ModelName,
 		InstanceName:       req.InstanceName,
 		ProviderConfig:     req.Provider,
+		ProviderProfileID:  resolvedProfileID,
 		ModelInfoConfig:    req.ModelInfo,
 		RPM:                req.RPM,
 		TPM:                req.TPM,
@@ -270,6 +309,9 @@ func (h *ModelCRUDHandler) GetModel(w http.ResponseWriter, r *http.Request) {
 		}
 		if maskedProvider.AWSSecretAccessKey != "" {
 			maskedProvider.AWSSecretAccessKey = "********"
+		}
+		if maskedProvider.OAuthToken != "" {
+			maskedProvider.OAuthToken = "********"
 		}
 
 		resp := modelResponse{
@@ -412,6 +454,9 @@ func (h *ModelCRUDHandler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 		if req.Provider.ReasoningEffort != "" {
 			merged.ReasoningEffort = req.Provider.ReasoningEffort
 		}
+		if req.Provider.OAuthToken != "" {
+			merged.OAuthToken = req.Provider.OAuthToken
+		}
 		updates["provider_config"] = merged
 	}
 	if req.ModelInfo.Mode != "" || req.ModelInfo.SupportsStreaming || req.ModelInfo.SupportsFunctions || req.ModelInfo.SupportsVision {
@@ -526,6 +571,7 @@ func convertProviderConfigToParams(p models.ProviderConfigJSON) config.ProviderP
 		Model:              p.Model,
 		APIKey:             expandEnvVars(p.APIKey),
 		APISecret:          expandEnvVars(p.APISecret),
+		OAuthToken:         expandEnvVars(p.OAuthToken),
 		BaseURL:            p.BaseURL,
 		APIVersion:         p.APIVersion,
 		OrgID:              p.OrgID,
@@ -641,12 +687,74 @@ func (h *ModelCRUDHandler) GetModelsHealth(w http.ResponseWriter, r *http.Reques
 	})
 }
 
+// DiscoverModelsRequest is the request body for discovering available models.
+type DiscoverModelsRequest struct {
+	Provider models.ProviderConfigJSON `json:"provider"`
+}
+
+// DiscoverModelsResponse is the response body for discover-models.
+type DiscoverModelsResponse struct {
+	Models []string `json:"models"`
+	Count  int      `json:"count"`
+}
+
+// DiscoverModels fetches the list of available models from a provider's API.
+func (h *ModelCRUDHandler) DiscoverModels(w http.ResponseWriter, r *http.Request) {
+	var req DiscoverModelsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "Invalid request body: "+err.Error())
+		return
+	}
+
+	if req.Provider.Type == "" {
+		h.sendError(w, http.StatusBadRequest, "provider.type is required")
+		return
+	}
+
+	// Validate credentials exist
+	if err := validateProviderConfig(req.Provider); err != nil {
+		h.sendError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Convert with env var expansion
+	params := convertProviderConfigToParams(req.Provider)
+
+	// Create temporary provider instance
+	provider, err := h.modelManager.CreateProvider(params)
+	if err != nil {
+		h.sendError(w, http.StatusBadRequest, "Failed to initialize provider: "+err.Error())
+		return
+	}
+
+	// Check if the provider supports model discovery
+	discoverer, ok := provider.(providers.ModelDiscoverer)
+	if !ok {
+		h.sendError(w, http.StatusBadRequest, "Provider does not support model discovery")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	modelList, err := discoverer.FetchAvailableModels(ctx)
+	if err != nil {
+		h.sendError(w, http.StatusBadGateway, "Failed to fetch models: "+err.Error())
+		return
+	}
+
+	h.sendResponse(w, http.StatusOK, DiscoverModelsResponse{
+		Models: modelList,
+		Count:  len(modelList),
+	})
+}
+
 // validateProviderConfig checks provider-specific required fields.
 func validateProviderConfig(p models.ProviderConfigJSON) error {
 	switch p.Type {
 	case "anthropic":
-		if p.APIKey == "" {
-			return fmt.Errorf("API key is required for Anthropic")
+		if p.APIKey == "" && p.OAuthToken == "" {
+			return fmt.Errorf("anthropic requires either api_key or oauth_token")
 		}
 	case "azure":
 		if p.BaseURL == "" && p.AzureEndpoint == "" {

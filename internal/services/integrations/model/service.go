@@ -115,9 +115,53 @@ func (s *Service) DeleteUserModel(id uuid.UUID) error {
 }
 
 // ConvertToModelInstance converts a UserModel into a config.ModelInstance
-// suitable for loading into the model registry. Environment variables
+// suitable for loading into the model registry. If the model references a
+// provider profile, its credentials are resolved first. Environment variables
 // in the format ${VAR_NAME} are expanded at this point.
 func (s *Service) ConvertToModelInstance(um models.UserModel) config.ModelInstance {
+	// If model references a provider profile, load and use its credentials
+	if um.ProviderProfileID != nil {
+		var profile models.ProviderProfile
+		if err := s.db.First(&profile, "id = ?", um.ProviderProfileID).Error; err == nil {
+			providerConfig := um.ProviderConfig
+			providerConfig.Type = profile.Type
+			if profile.Config.APIKey != "" {
+				providerConfig.APIKey = profile.Config.APIKey
+			}
+			if profile.Config.BaseURL != "" {
+				providerConfig.BaseURL = profile.Config.BaseURL
+			}
+			if profile.Config.OAuthToken != "" {
+				providerConfig.OAuthToken = profile.Config.OAuthToken
+			}
+			if profile.Config.AzureEndpoint != "" {
+				providerConfig.AzureEndpoint = profile.Config.AzureEndpoint
+			}
+			if profile.Config.AzureDeployment != "" {
+				providerConfig.AzureDeployment = profile.Config.AzureDeployment
+			}
+			if profile.Config.APIVersion != "" {
+				providerConfig.APIVersion = profile.Config.APIVersion
+			}
+			if profile.Config.AWSRegionName != "" {
+				providerConfig.AWSRegionName = profile.Config.AWSRegionName
+			}
+			if profile.Config.AWSAccessKeyID != "" {
+				providerConfig.AWSAccessKeyID = profile.Config.AWSAccessKeyID
+			}
+			if profile.Config.AWSSecretAccessKey != "" {
+				providerConfig.AWSSecretAccessKey = profile.Config.AWSSecretAccessKey
+			}
+			if profile.Config.VertexProject != "" {
+				providerConfig.VertexProject = profile.Config.VertexProject
+			}
+			if profile.Config.VertexLocation != "" {
+				providerConfig.VertexLocation = profile.Config.VertexLocation
+			}
+			um.ProviderConfig = providerConfig
+		}
+	}
+
 	provider := config.ProviderParams{
 		Type:               um.ProviderConfig.Type,
 		Model:              um.ProviderConfig.Model,
