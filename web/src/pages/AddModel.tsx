@@ -18,8 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useProviderProfiles, useCreateProviderProfile } from "@/hooks/useProviders";
 import { createModel, testModelConnection, discoverModels } from "@/lib/api";
-import type { CreateModelRequest, ProviderConfig } from "@/types/api";
+import type { CreateModelRequest, ProviderConfig, ProviderProfile } from "@/types/api";
 
 // Provider definitions with icons, colors, and placeholder hints
 const PROVIDERS = [
@@ -119,6 +120,13 @@ export default function AddModel() {
   // Provider
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
 
+  // Provider profiles
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [saveAsProfile, setSaveAsProfile] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const { data: providerProfiles } = useProviderProfiles();
+  const createProfileMutation = useCreateProviderProfile();
+
   // Form state
   const [modelName, setModelName] = useState("");
   const [providerModel, setProviderModel] = useState("");
@@ -200,6 +208,13 @@ export default function AddModel() {
     return provider;
   }, [selectedProvider, providerModel, apiKey, oauthToken, anthropicAuthMode, baseUrl, azureDeployment, azureEndpoint, apiVersion, awsRegion, awsAccessKeyId, awsSecretKey, vertexProject, vertexLocation]);
 
+  // Reset profile selection when provider changes
+  useEffect(() => {
+    setSelectedProfileId(null);
+    setSaveAsProfile(false);
+    setProfileName("");
+  }, [selectedProvider]);
+
   // Clear test result and discovered models when provider config changes
   useEffect(() => {
     setTestResult(null);
@@ -261,10 +276,62 @@ export default function AddModel() {
     },
   });
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedProvider || !modelName || !providerModel) return;
 
-    const provider = buildProviderConfig();
+    let profileId = selectedProfileId;
+
+    // If saving as a new profile, create it first
+    if (!profileId && saveAsProfile && profileName.trim()) {
+      try {
+        const config: Record<string, string> = {};
+        if (selectedProvider === "anthropic" && anthropicAuthMode === "oauth_token") {
+          if (oauthToken) config.oauth_token = oauthToken;
+        } else {
+          if (apiKey) config.api_key = apiKey;
+        }
+        if (baseUrl) config.base_url = baseUrl;
+        if (selectedProvider === "azure") {
+          if (azureEndpoint) config.azure_endpoint = azureEndpoint;
+          if (azureDeployment) config.azure_deployment = azureDeployment;
+          if (apiVersion) config.api_version = apiVersion;
+        }
+        if (selectedProvider === "bedrock") {
+          if (awsRegion) config.aws_region_name = awsRegion;
+          if (awsAccessKeyId) config.aws_access_key_id = awsAccessKeyId;
+          if (awsSecretKey) config.aws_secret_access_key = awsSecretKey;
+        }
+        if (selectedProvider === "vertex") {
+          if (vertexProject) config.vertex_project = vertexProject;
+          if (vertexLocation) config.vertex_location = vertexLocation;
+        }
+        const resp: any = await createProfileMutation.mutateAsync({
+          name: profileName.trim(),
+          type: selectedProvider,
+          config,
+        });
+        profileId = resp?.data?.id || resp?.id;
+      } catch (err: any) {
+        toast({
+          title: "Failed to save profile",
+          description: err.response?.data?.error || err.message || "Could not save credentials profile",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    const provider: ProviderConfig = {
+      type: selectedProvider,
+      model: providerModel,
+    };
+
+    // If using a profile, only send type + model; otherwise send full inline credentials
+    if (!profileId) {
+      const fullProvider = buildProviderConfig();
+      Object.assign(provider, fullProvider);
+    }
+
     provider.model = providerModel;
     if (defaultReasoningEffort) provider.reasoning_effort = defaultReasoningEffort;
 
@@ -278,6 +345,8 @@ export default function AddModel() {
         supports_functions: supportsFunctions,
       },
     };
+
+    if (profileId) request.provider_profile_id = profileId;
 
     if (rpm) request.rpm = parseInt(rpm);
     if (tpm) request.tpm = parseInt(tpm);
@@ -319,13 +388,13 @@ export default function AddModel() {
       case 1:
         return !!selectedProvider;
       case 2:
-        return providerValid;
+        return !!selectedProfileId || providerValid;
       case 3:
         return !!modelName && !!providerModel;
       case 4:
         return true; // capabilities are always valid (toggles have defaults)
       case 5:
-        return !!selectedProvider && !!modelName && !!providerModel && providerValid;
+        return !!selectedProvider && !!modelName && !!providerModel && (!!selectedProfileId || providerValid);
       default:
         return false;
     }
@@ -371,6 +440,10 @@ export default function AddModel() {
     switch (s) {
       case 1: return providerInfo?.label || "";
       case 2: {
+        if (selectedProfileId) {
+          const profile = providerProfiles?.find((p: ProviderProfile) => p.id === selectedProfileId);
+          return profile ? profile.name : "Saved profile";
+        }
         if (selectedProvider === "anthropic" && anthropicAuthMode === "oauth_token") return oauthToken ? "OAuth ········" : "";
         return apiKey ? "········" : (selectedProvider === "azure" && azureEndpoint ? "Azure endpoint set" : "");
       }
@@ -521,6 +594,9 @@ export default function AddModel() {
   // ─── Step 2: Authentication ─────────────────────────────────────────
   const renderAuthStep = () => {
     if (!providerInfo) return null;
+
+    const matchingProfiles: ProviderProfile[] = providerProfiles?.filter((p: ProviderProfile) => p.type === selectedProvider) || [];
+
     return (
       <div>
         <div className="mb-8">
@@ -535,6 +611,76 @@ export default function AddModel() {
         </div>
 
         <div className="space-y-6 max-w-xl">
+          {/* Saved Credentials */}
+          {matchingProfiles.length > 0 && (
+            <>
+              <div>
+                <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">Saved Credentials</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  {matchingProfiles.map((profile) => {
+                    const isSelected = selectedProfileId === profile.id;
+                    const maskedKey = profile.config.api_key
+                      ? profile.config.api_key.slice(0, 6) + "····"
+                      : profile.config.oauth_token
+                      ? "oauth····"
+                      : profile.config.azure_endpoint
+                      ? "azure····"
+                      : profile.config.aws_access_key_id
+                      ? "aws····"
+                      : "configured";
+                    return (
+                      <button
+                        key={profile.id}
+                        type="button"
+                        onClick={() => setSelectedProfileId(isSelected ? null : profile.id)}
+                        className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-200 text-left ${
+                          isSelected
+                            ? "border-teal-500 bg-teal-500/5 dark:bg-teal-500/10 ring-2 ring-teal-500/30"
+                            : "border-border/50 hover:border-muted-foreground/30 hover:bg-muted/30"
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold truncate">{profile.name}</p>
+                          <p className="text-xs font-mono text-muted-foreground mt-0.5">{maskedKey}</p>
+                        </div>
+                        {(profile.model_count ?? 0) > 0 && (
+                          <Badge variant="secondary" className="text-[10px] flex-shrink-0">
+                            {profile.model_count} model{profile.model_count !== 1 ? "s" : ""}
+                          </Badge>
+                        )}
+                        {isSelected && (
+                          <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center flex-shrink-0">
+                            <Icon icon={icons.check} className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {selectedProfileId ? (
+                <button
+                  type="button"
+                  onClick={() => setSelectedProfileId(null)}
+                  className="text-sm text-teal-600 dark:text-teal-500 hover:underline"
+                >
+                  Use different credentials
+                </button>
+              ) : (
+                <div className="relative">
+                  <Separator />
+                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs text-muted-foreground">
+                    Or enter new credentials
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Credential form -- hidden when a profile is selected */}
+          {!selectedProfileId && (
+            <>
           {/* Anthropic auth mode toggle */}
           {selectedProvider === "anthropic" && (
             <div className="flex gap-1.5 p-1 bg-muted/60 rounded-xl w-fit">
@@ -748,6 +894,33 @@ export default function AddModel() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Save as profile */}
+          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-border">
+            <input
+              type="checkbox"
+              id="saveProfile"
+              checked={saveAsProfile}
+              onChange={(e) => setSaveAsProfile(e.target.checked)}
+              className="rounded border-border"
+            />
+            <Label htmlFor="saveProfile" className="text-sm cursor-pointer">
+              Save these credentials for reuse
+            </Label>
+          </div>
+          {saveAsProfile && (
+            <div className="mt-3">
+              <Label className="text-sm">Profile name</Label>
+              <Input
+                placeholder="e.g., Our OpenRouter Account"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                className="mt-1 max-w-md"
+              />
+            </div>
+          )}
+            </>
           )}
         </div>
       </div>
@@ -1001,7 +1174,10 @@ export default function AddModel() {
     ];
 
     // Auth summary (masked)
-    if (selectedProvider === "anthropic" && anthropicAuthMode === "oauth_token") {
+    if (selectedProfileId) {
+      const profile = providerProfiles?.find((p: ProviderProfile) => p.id === selectedProfileId);
+      summaryRows.push({ label: "Credentials", value: profile ? `Profile: ${profile.name}` : "Saved profile" });
+    } else if (selectedProvider === "anthropic" && anthropicAuthMode === "oauth_token") {
       summaryRows.push({ label: "Auth Mode", value: "OAuth Token" });
       summaryRows.push({ label: "OAuth Token", value: oauthToken ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" : "Not set" });
     } else {
@@ -1079,7 +1255,7 @@ export default function AddModel() {
               <Button
                 type="button"
                 variant="outline"
-                disabled={!providerValid || testLoading}
+                disabled={(!providerValid && !selectedProfileId) || testLoading}
                 onClick={handleTestConnection}
                 className="border-teal-500/30 hover:border-teal-500/60 hover:bg-teal-500/5"
               >
