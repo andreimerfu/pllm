@@ -1175,7 +1175,7 @@ export default function AddModel() {
 
   // ─── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 52px - 3rem)' }}>
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Page Header */}
       <div className="flex items-center gap-4 mb-8">
         <Button variant="ghost" size="icon" onClick={() => navigate("/models")}>
