@@ -175,7 +175,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-sidebar-border">
-          <img src="/robot.png" alt="pLLM" className="w-8 h-8 rounded-lg" />
+          <img src={`${import.meta.env.BASE_URL}robot.png`} alt="pLLM" className="w-8 h-8 rounded-lg" />
           <div>
             <div className="text-sm font-bold text-sidebar-foreground">pLLM</div>
             <div className="text-[11px] text-muted-foreground">Gateway Console</div>

@@ -1,4 +1,5 @@
-import { useLocation, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -9,9 +10,31 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import {
+  CommandDialog,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
 import { Icon } from '@iconify/react';
 import { icons } from '@/lib/icons';
 import { useColorMode } from '@/contexts/ColorModeContext';
+
+const navCommands = [
+  { label: "Dashboard", path: "/dashboard", icon: icons.dashboard },
+  { label: "Chat", path: "/chat", icon: icons.chat },
+  { label: "Models", path: "/models", icon: icons.models },
+  { label: "Routes", path: "/routes", icon: icons.routes },
+  { label: "API Keys", path: "/keys", icon: icons.keys },
+  { label: "Teams", path: "/teams", icon: icons.teams },
+  { label: "Users", path: "/users", icon: icons.users },
+  { label: "Budget", path: "/budget", icon: icons.budget },
+  { label: "Audit Logs", path: "/audit-logs", icon: icons.auditLogs },
+  { label: "Guardrails", path: "/guardrails", icon: icons.guardrails },
+  { label: "Settings", path: "/settings", icon: icons.settings },
+];
 
 const routeNames: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -55,8 +78,21 @@ const getDynamicSegmentLabel = (segment: string, parentPath: string): string => 
 
 export function AppNavbar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { resolvedMode, setColorMode } = useColorMode();
+  const [commandOpen, setCommandOpen] = useState(false);
   const pathSegments = location.pathname.split("/").filter(Boolean);
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setCommandOpen((prev) => !prev);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
 
   // Generate breadcrumb items
   const breadcrumbItems: Array<{ path: string; label: string }> = [];
@@ -104,11 +140,14 @@ export function AppNavbar() {
 
       <div className="ml-auto flex items-center gap-3">
         {/* Search trigger */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-secondary border border-border rounded-[6px] text-muted-foreground text-xs cursor-pointer hover:bg-accent">
+        <button
+          onClick={() => setCommandOpen(true)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-secondary border border-border rounded-[6px] text-muted-foreground text-xs cursor-pointer hover:bg-accent"
+        >
           <Icon icon={icons.search} className="w-3.5 h-3.5" />
           <span>Search...</span>
           <kbd className="bg-background px-1.5 py-0.5 rounded text-[10px] font-mono border border-border">⌘K</kbd>
-        </div>
+        </button>
         {/* Theme toggle */}
         <button
           onClick={() => setColorMode(resolvedMode === 'dark' ? 'light' : 'dark')}
@@ -119,6 +158,26 @@ export function AppNavbar() {
         {/* Version badge */}
         <span className="text-[11px] text-muted-foreground bg-secondary border border-border px-2 py-0.5 rounded-full font-mono">v2.0.0</span>
       </div>
+      <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
+        <CommandInput placeholder="Search pages..." />
+        <CommandList>
+          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandGroup heading="Pages">
+            {navCommands.map((cmd) => (
+              <CommandItem
+                key={cmd.path}
+                onSelect={() => {
+                  navigate(cmd.path);
+                  setCommandOpen(false);
+                }}
+              >
+                <Icon icon={cmd.icon} className="mr-2 h-4 w-4" />
+                {cmd.label}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
     </header>
   );
 }
