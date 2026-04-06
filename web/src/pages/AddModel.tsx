@@ -23,6 +23,7 @@ import { createModel, testModelConnection, discoverModels } from "@/lib/api";
 import type { CreateModelRequest, ProviderConfig, ProviderProfile } from "@/types/api";
 
 // Provider definitions with icons, colors, and placeholder hints
+// logoBg provides a light-enough surface for brand SVG logos to remain visible in dark mode
 const PROVIDERS = [
   {
     value: "openai",
@@ -32,6 +33,8 @@ const PROVIDERS = [
     bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
     borderColor: "border-emerald-200 dark:border-emerald-800",
     ringColor: "ring-emerald-500",
+    logoBg: "bg-white dark:bg-zinc-200",
+    accent: "#10b981",
     models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "o1", "o1-mini", "o3-mini"],
     keyPlaceholder: "sk-... or ${OPENAI_API_KEY}",
     keyHint: "Found in platform.openai.com/api-keys",
@@ -44,6 +47,8 @@ const PROVIDERS = [
     bgColor: "bg-orange-50 dark:bg-orange-950/30",
     borderColor: "border-orange-200 dark:border-orange-800",
     ringColor: "ring-orange-500",
+    logoBg: "bg-white dark:bg-zinc-200",
+    accent: "#f97316",
     models: ["claude-opus-4-5", "claude-sonnet-4-5", "claude-haiku-4-5-20251001", "claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
     authModes: ["api_key", "oauth_token"] as const,
     keyPlaceholder: "sk-ant-... or ${ANTHROPIC_API_KEY}",
@@ -59,6 +64,8 @@ const PROVIDERS = [
     bgColor: "bg-blue-50 dark:bg-blue-950/30",
     borderColor: "border-blue-200 dark:border-blue-800",
     ringColor: "ring-blue-500",
+    logoBg: "bg-white dark:bg-zinc-200",
+    accent: "#3b82f6",
     models: ["gpt-4o", "gpt-4", "gpt-35-turbo"],
     keyPlaceholder: "${AZURE_API_KEY}",
     keyHint: "Found in Azure Portal > your resource > Keys",
@@ -71,6 +78,8 @@ const PROVIDERS = [
     bgColor: "bg-yellow-50 dark:bg-yellow-950/30",
     borderColor: "border-yellow-200 dark:border-yellow-800",
     ringColor: "ring-yellow-500",
+    logoBg: "bg-white dark:bg-zinc-200",
+    accent: "#f59e0b",
     models: ["anthropic.claude-3-5-sonnet-20241022-v2:0", "amazon.titan-text-premier-v1:0"],
     keyPlaceholder: "${AWS_ACCESS_KEY_ID}",
     keyHint: "Uses AWS credentials (access key + secret key)",
@@ -83,6 +92,8 @@ const PROVIDERS = [
     bgColor: "bg-red-50 dark:bg-red-950/30",
     borderColor: "border-red-200 dark:border-red-800",
     ringColor: "ring-red-500",
+    logoBg: "bg-white dark:bg-zinc-200",
+    accent: "#ef4444",
     models: ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
     keyPlaceholder: "${GOOGLE_API_KEY}",
     keyHint: "Uses Google Cloud service account credentials",
@@ -95,6 +106,8 @@ const PROVIDERS = [
     bgColor: "bg-purple-50 dark:bg-purple-950/30",
     borderColor: "border-purple-200 dark:border-purple-800",
     ringColor: "ring-purple-500",
+    logoBg: "bg-purple-100 dark:bg-purple-200",
+    accent: "#a855f7",
     models: ["openai/gpt-4o", "anthropic/claude-sonnet-4-20250514", "google/gemini-2.0-flash-exp"],
     keyPlaceholder: "sk-or-... or ${OPENROUTER_API_KEY}",
     keyHint: "Found in openrouter.ai/keys",
@@ -433,21 +446,23 @@ export default function AddModel() {
               key={p.value}
               type="button"
               onClick={() => setSelectedProvider(p.value)}
-              className={`group relative flex flex-col items-center gap-4 p-6 rounded-2xl border-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] ${
+              className={`group relative flex flex-col items-center gap-5 p-8 rounded-2xl border transition-all duration-200 hover:shadow-md active:scale-[0.98] ${
                 isSelected
-                  ? "border-teal-500 bg-teal-500/5 dark:bg-teal-500/10 ring-2 ring-teal-500/30 shadow-lg shadow-teal-500/10"
-                  : "border-border/50 hover:border-muted-foreground/30 hover:bg-muted/30"
+                  ? "border-teal-500 bg-teal-500/5 dark:bg-teal-500/8 shadow-lg"
+                  : "border-border hover:border-border hover:bg-muted/40"
               }`}
+              style={isSelected ? { boxShadow: `0 0 0 1px ${p.accent}22, 0 4px 24px ${p.accent}15` } : undefined}
             >
               {isSelected && (
                 <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center">
                   <Icon icon={icons.check} className="h-3 w-3 text-white" />
                 </div>
               )}
-              <div className={`p-3 rounded-xl ${isSelected ? "bg-teal-500/10" : "bg-muted/50 group-hover:bg-muted"} transition-colors`}>
-                <Icon icon={p.icon} width="36" height="36" className={`${isSelected ? "" : "opacity-60 group-hover:opacity-80"} ${p.color}`} />
+              {/* Logo pill — light surface so brand SVGs stay visible in dark mode */}
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${p.logoBg} shadow-sm`}>
+                <Icon icon={p.icon} width="30" height="30" />
               </div>
-              <span className={`text-sm font-semibold ${isSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>
+              <span className={`text-sm font-semibold tracking-tight ${isSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>
                 {p.label}
               </span>
             </button>
@@ -1160,22 +1175,20 @@ export default function AddModel() {
 
   // ─── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen relative">
-      {/* Header */}
+    <div className="relative pb-20">
+      {/* Page Header */}
       <div className="flex items-center gap-4 mb-8">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/models")} className="rounded-xl">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/models")}>
           <Icon icon={icons.arrowLeft} className="h-5 w-5" />
         </Button>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Add Model</h1>
-          <p className="text-sm text-muted-foreground">
-            Configure a new model instance
-          </p>
+          <p className="text-[13px] text-muted-foreground">Configure a new model instance</p>
         </div>
       </div>
 
       {/* Step Content */}
-      <div className="min-w-0">
+      <div className="max-w-3xl">
         {step === 1 && renderProviderStep()}
         {step === 2 && renderAuthStep()}
         {step === 3 && renderModelStep()}
@@ -1183,26 +1196,26 @@ export default function AddModel() {
         {step === 5 && renderReviewStep()}
       </div>
 
-      {/* Bottom Bar — sticky within the main content area */}
-      <div className="sticky bottom-0 z-40 -mx-6 lg:-mx-8 mt-8">
-        <div className="backdrop-blur-xl bg-background/80 border-t border-border/50 shadow-[0_-4px_32px_rgba(0,0,0,0.08)]">
-          <div className="px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
+      {/* Bottom Bar — fixed to viewport bottom */}
+      <div className="fixed bottom-0 left-0 right-0 z-50">
+        <div className="backdrop-blur-xl bg-background/90 border-t border-border">
+          <div className="max-w-screen-2xl mx-auto px-6 lg:px-8 py-3 flex items-center justify-between gap-6">
             {/* Left: Back / Cancel */}
             <div className="w-[100px] flex-shrink-0">
               {step === 1 ? (
-                <Button type="button" variant="ghost" onClick={() => navigate("/models")} className="text-muted-foreground">
+                <Button type="button" variant="ghost" size="sm" onClick={() => navigate("/models")} className="text-muted-foreground">
                   Cancel
                 </Button>
               ) : (
-                <Button type="button" variant="ghost" onClick={handleBack} className="text-muted-foreground">
-                  <Icon icon={icons.arrowLeft} className="h-4 w-4 mr-2" />
+                <Button type="button" variant="ghost" size="sm" onClick={handleBack} className="text-muted-foreground gap-1.5">
+                  <Icon icon={icons.arrowLeft} className="h-3.5 w-3.5" />
                   Back
                 </Button>
               )}
             </div>
 
-            {/* Center: Step indicators */}
-            <div className="flex items-center gap-1">
+            {/* Center: Step indicators with connecting lines */}
+            <div className="flex items-center">
               {STEPS.map((s, idx) => {
                 const isCompleted = step > s.id;
                 const isCurrent = step === s.id;
@@ -1213,21 +1226,18 @@ export default function AddModel() {
                       type="button"
                       disabled={!canJump}
                       onClick={() => { if (canJump) setStep(s.id); }}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all text-xs ${
-                        isCurrent
-                          ? "bg-teal-500/10 text-teal-600 dark:text-teal-400 font-semibold"
-                          : isCompleted
-                          ? "text-muted-foreground hover:text-foreground cursor-pointer"
-                          : "text-muted-foreground/40"
+                      className={`flex items-center gap-1.5 transition-all ${
+                        canJump ? "cursor-pointer" : ""
                       }`}
                       aria-label={`Step ${s.id}: ${s.label}`}
                     >
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
+                      {/* Step dot */}
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 transition-all ${
                         isCompleted
                           ? "bg-teal-500 text-white"
                           : isCurrent
-                          ? "bg-teal-500/20 text-teal-600 dark:text-teal-400 ring-1 ring-teal-500/40"
-                          : "bg-muted text-muted-foreground/40"
+                          ? "bg-teal-500/15 text-teal-600 dark:text-teal-400 ring-2 ring-teal-500/50"
+                          : "bg-muted/80 text-muted-foreground/40"
                       }`}>
                         {isCompleted ? (
                           <Icon icon={icons.check} className="h-3 w-3" />
@@ -1235,10 +1245,25 @@ export default function AddModel() {
                           <span>{s.id}</span>
                         )}
                       </div>
-                      <span className="hidden sm:inline">{s.label}</span>
+                      {/* Label */}
+                      <span className={`hidden sm:inline text-xs transition-colors ${
+                        isCurrent
+                          ? "text-foreground font-semibold"
+                          : isCompleted
+                          ? "text-muted-foreground hover:text-foreground"
+                          : "text-muted-foreground/40"
+                      }`}>{s.label}</span>
                     </button>
+                    {/* Connecting line */}
                     {idx < STEPS.length - 1 && (
-                      <Icon icon={icons.chevronRight} className="h-3 w-3 text-muted-foreground/30 mx-0.5" />
+                      <div className={`hidden sm:block w-8 h-px mx-2 transition-colors ${
+                        step > s.id + 1 || (step > s.id && step > idx + 1)
+                          ? "bg-teal-500/50"
+                          : "bg-border"
+                      }`} />
+                    )}
+                    {idx < STEPS.length - 1 && (
+                      <div className="sm:hidden w-3" />
                     )}
                   </div>
                 );
@@ -1252,23 +1277,23 @@ export default function AddModel() {
                   type="button"
                   disabled={!stepValid(step)}
                   onClick={handleNext}
-                  className="bg-teal-600 hover:bg-teal-700 text-white rounded-xl px-6"
+                  className="bg-teal-600 hover:bg-teal-700 text-white rounded-xl px-5 gap-1.5"
                 >
                   Next
-                  <Icon icon={icons.arrowRight} className="h-4 w-4 ml-2" />
+                  <Icon icon={icons.arrowRight} className="h-3.5 w-3.5" />
                 </Button>
               ) : (
                 <Button
                   type="button"
                   disabled={mutation.isPending || !stepValid(5)}
                   onClick={handleSubmit}
-                  className="bg-teal-600 hover:bg-teal-700 text-white rounded-xl px-6"
+                  className="bg-teal-600 hover:bg-teal-700 text-white rounded-xl px-5 gap-1.5"
                 >
                   {mutation.isPending ? (
                     "Creating..."
                   ) : (
                     <>
-                      <Icon icon={icons.check} className="h-4 w-4 mr-2" />
+                      <Icon icon={icons.check} className="h-3.5 w-3.5" />
                       Create Model
                     </>
                   )}
