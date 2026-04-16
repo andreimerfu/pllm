@@ -2,8 +2,44 @@ apiVersion: v1
 entries:
   pllm:
   - apiVersion: v2
+    appVersion: 1.3.2
+    created: "2026-04-16T08:09:00.823889346Z"
+    dependencies:
+    - condition: postgresql.enabled
+      name: postgresql
+      repository: https://charts.bitnami.com/bitnami
+      version: 15.5.23
+    - condition: redis.enabled
+      name: redis
+      repository: https://charts.bitnami.com/bitnami
+      version: 20.2.0
+    - condition: dex.enabled
+      name: dex
+      repository: https://charts.dexidp.io
+      version: 0.18.0
+    description: A Helm chart for PLLM (Proxy for LLM) - Multi-provider LLM proxy
+      with authentication, budgeting, and analytics
+    digest: 9a6040e23595e139b2feb587d824c602cc5acd37540bad03d92829f62f943533
+    home: https://github.com/andreimerfu/pllm
+    keywords:
+    - llm
+    - proxy
+    - ai
+    - openai
+    - anthropic
+    maintainers:
+    - name: PLLM Team
+      url: https://github.com/andreimerfu/pllm
+    name: pllm
+    sources:
+    - https://github.com/andreimerfu/pllm
+    type: application
+    urls:
+    - https://andreimerfu.github.io/pllm/pllm-1.3.2.tgz
+    version: 1.3.2
+  - apiVersion: v2
     appVersion: 1.3.1
-    created: "2026-04-16T07:23:31.984360236Z"
+    created: "2026-04-16T08:09:00.810333709Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -39,7 +75,7 @@ entries:
     version: 1.3.1
   - apiVersion: v2
     appVersion: 1.3.0
-    created: "2026-04-16T07:23:31.971644919Z"
+    created: "2026-04-16T08:09:00.793357992Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -75,7 +111,7 @@ entries:
     version: 1.3.0
   - apiVersion: v2
     appVersion: 1.2.0
-    created: "2026-04-16T07:23:31.960156899Z"
+    created: "2026-04-16T08:09:00.780588001Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -111,7 +147,7 @@ entries:
     version: 1.2.0
   - apiVersion: v2
     appVersion: 1.1.1
-    created: "2026-04-16T07:23:31.939697406Z"
+    created: "2026-04-16T08:09:00.766995531Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -147,7 +183,7 @@ entries:
     version: 1.1.1
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-04-16T07:23:31.921295539Z"
+    created: "2026-04-16T08:09:00.755014393Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -183,7 +219,7 @@ entries:
     version: 1.1.0
   - apiVersion: v2
     appVersion: latest
-    created: "2026-04-16T07:23:31.904128124Z"
+    created: "2026-04-16T08:09:00.736077365Z"
     dependencies:
     - condition: postgresql.enabled
       name: postgresql
@@ -217,4 +253,4 @@ entries:
     urls:
     - https://andreimerfu.github.io/pllm/pllm-1.0.0.tgz
     version: 1.0.0
-generated: "2026-04-16T07:23:31.89052361Z"
+generated: "2026-04-16T08:09:00.718160451Z"
