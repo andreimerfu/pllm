@@ -81,7 +81,15 @@ type ImageURL struct {
 }
 
 type ResponseFormat struct {
-	Type string `json:"type"`
+	Type       string                `json:"type"`
+	JSONSchema *ResponseFormatSchema `json:"json_schema,omitempty"`
+}
+
+type ResponseFormatSchema struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description,omitempty"`
+	Schema      map[string]interface{} `json:"schema,omitempty"`
+	Strict      *bool                  `json:"strict,omitempty"`
 }
 
 type Tool struct {
