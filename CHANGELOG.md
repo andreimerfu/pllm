@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.3.2](https://github.com/andreimerfu/pllm/compare/v1.3.1...v1.3.2) (2026-04-16)
+
+
+### 🐛 Bug Fixes
+
+* user view for teams page and providers ([ace91f9](https://github.com/andreimerfu/pllm/commit/ace91f958e3235c0bec56d498f2e11b87ca93202))
+
 ## [1.3.1](https://github.com/andreimerfu/pllm/compare/v1.3.0...v1.3.1) (2026-04-16)
 
 
