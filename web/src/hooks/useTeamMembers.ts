@@ -1,15 +1,24 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 
+export interface TeamMemberUser {
+  id: string;
+  email?: string;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar_url?: string;
+}
+
 export interface TeamMember {
   id: string;
   user_id: string;
   team_id: string;
-  role: 'admin' | 'member' | 'viewer';
-  email?: string;
-  name?: string;
-  created_at: string;
-  updated_at: string;
+  role: 'owner' | 'admin' | 'member' | 'viewer';
+  user?: TeamMemberUser;
+  joined_at?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface AddMemberInput {

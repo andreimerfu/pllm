@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useTeamMembers, type TeamMember } from '@/hooks/useTeamMembers';
+import { getMemberDisplayName } from '@/lib/team-member-display';
 import { updateMemberSchema, type UpdateMemberFormData } from '@/lib/schemas/team-schemas';
 import { useToast } from '@/hooks/use-toast';
 
@@ -48,7 +49,7 @@ export function EditMemberModal({ open, onOpenChange, teamId, member }: EditMemb
   useEffect(() => {
     if (member) {
       reset({
-        role: member.role,
+        role: member.role === 'owner' ? 'admin' : member.role,
       });
     }
   }, [member, reset]);
@@ -78,7 +79,7 @@ export function EditMemberModal({ open, onOpenChange, teamId, member }: EditMemb
         <DialogHeader>
           <DialogTitle>Edit Member Role</DialogTitle>
           <DialogDescription>
-            Update the role for {member?.name || member?.email}
+            Update the role for {member ? getMemberDisplayName(member) : ''}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>

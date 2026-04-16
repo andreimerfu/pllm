@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/amerfu/pllm/internal/core/models"
@@ -409,22 +410,43 @@ func calculateNextReset(period models.BudgetPeriod) time.Time {
 	}
 }
 
-// getProviderIcon returns an icon identifier for the OAuth provider
+// getProviderIcon returns an icon identifier for the OAuth provider.
+// Matches common naming variants used by Dex connectors and OIDC issuers.
 func getProviderIcon(provider string) string {
-	switch provider {
-	case "github":
+	p := strings.ToLower(strings.TrimSpace(provider))
+	if p == "" {
+		return "user"
+	}
+
+	switch {
+	case strings.Contains(p, "github"):
 		return "github"
-	case "google":
-		return "google"
-	case "microsoft":
-		return "microsoft"
-	case "gitlab":
+	case strings.Contains(p, "gitlab"):
 		return "gitlab"
-	case "ldap":
+	case strings.Contains(p, "bitbucket"):
+		return "bitbucket"
+	case strings.Contains(p, "microsoft") ||
+		strings.Contains(p, "azure") ||
+		strings.Contains(p, "entra") ||
+		p == "ms" || p == "msft" || p == "aad":
+		return "microsoft"
+	case strings.Contains(p, "google") || strings.Contains(p, "workspace"):
+		return "google"
+	case strings.Contains(p, "okta"):
+		return "okta"
+	case strings.Contains(p, "auth0"):
+		return "auth0"
+	case strings.Contains(p, "ldap"):
 		return "ldap"
-	case "local":
-		return "key" // Key icon for local accounts
+	case strings.Contains(p, "saml"):
+		return "saml"
+	case strings.Contains(p, "keycloak"):
+		return "keycloak"
+	case p == "local" || p == "password" || p == "static":
+		return "key"
+	case p == "master_key":
+		return "master_key"
 	default:
-		return "user" // Generic user icon
+		return "user"
 	}
 }

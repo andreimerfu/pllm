@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '../components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { formatDate } from '../lib/date-utils';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingState } from '../components/common/LoadingState';
@@ -25,6 +25,12 @@ import { CreateTeamModal } from '../components/teams/CreateTeamModal';
 import { EditTeamModal } from '../components/teams/EditTeamModal';
 import { AddMemberModal } from '../components/teams/AddMemberModal';
 import { EditMemberModal } from '../components/teams/EditMemberModal';
+import {
+  getMemberDisplayName,
+  getMemberInitial,
+  getMemberEmail,
+  getMemberAvatarUrl,
+} from '../lib/team-member-display';
 
 const Teams: React.FC = () => {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
@@ -272,13 +278,19 @@ const Teams: React.FC = () => {
                         >
                           <div className="flex items-center gap-4">
                             <Avatar>
-                              <AvatarFallback>
-                                {member.email?.[0]?.toUpperCase() || 'U'}
-                              </AvatarFallback>
+                              {getMemberAvatarUrl(member) && (
+                                <AvatarImage
+                                  src={getMemberAvatarUrl(member)}
+                                  alt={getMemberDisplayName(member)}
+                                />
+                              )}
+                              <AvatarFallback>{getMemberInitial(member)}</AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="font-medium">{member.name || member.email}</p>
-                              <p className="text-sm text-muted-foreground">{member.email}</p>
+                              <p className="font-medium">{getMemberDisplayName(member)}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {getMemberEmail(member) || '\u2014'}
+                              </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
