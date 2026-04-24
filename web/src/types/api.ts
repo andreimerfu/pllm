@@ -537,6 +537,35 @@ export interface Deployment {
   updated_at?: string;
 }
 
+export interface AgentDeployment {
+  id: string;
+  registry_agent_id: string;
+  resource_name: string;
+  resource_version: string;
+  use_case_id: string;
+  platform: string;
+  namespace: string;
+  workload_name: string;
+  replicas: number;
+  status: DeploymentStatus;
+  status_reason?: string;
+  endpoint?: string;
+  provisioned_key_id?: string;
+  secret_name?: string;
+  created_at: string;
+  updated_at: string;
+  last_applied_at?: string;
+}
+
+export interface DeployAgentRequest {
+  agent_id: string;
+  use_case_id: string;
+  namespace?: string;
+  replicas?: number;
+  image_override?: string;
+  extra_env?: Record<string, string>;
+}
+
 // Wire shape of entries in RegistryServer.packages.
 export interface RegistryPackage {
   registry_type?: string; // npm | pypi | oci | docker | ...

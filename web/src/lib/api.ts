@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse, RoutesResponse, Route, RouteStatsResponse, MCPServer, MCPUpsertRequest, MCPHealthProbeResponse, RegistryServer, RegistryServerDetail, RegistryAgent, RegistryAgentWithRefs, RegistrySkill, RegistryPrompt, RegistryListResponse, Deployment, RegistryDependent, RegistryKind, UseCase, UseCaseWithRefs, UseCaseUpsertRequest, ScopeEvent, ScopeEventStats, Webhook, WebhookUpsertRequest } from "@/types/api";
+import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse, RoutesResponse, Route, RouteStatsResponse, MCPServer, MCPUpsertRequest, MCPHealthProbeResponse, RegistryServer, RegistryServerDetail, RegistryAgent, RegistryAgentWithRefs, RegistrySkill, RegistryPrompt, RegistryListResponse, Deployment, RegistryDependent, RegistryKind, UseCase, UseCaseWithRefs, UseCaseUpsertRequest, ScopeEvent, ScopeEventStats, Webhook, WebhookUpsertRequest, AgentDeployment, DeployAgentRequest } from "@/types/api";
 
 const API_BASE = import.meta.env.DEV ? "http://localhost:8080" : "";
 
@@ -452,6 +452,18 @@ export const refreshDeploymentStatus = (id: string) =>
   axiosInstance.post(`/api/admin/deployments/${id}/status`, {}) as Promise<Deployment>;
 export const deleteDeployment = (id: string) =>
   axiosInstance.delete(`/api/admin/deployments/${id}`);
+
+// Agents
+export const listAgents = () =>
+  axiosInstance.get("/api/admin/agents") as Promise<{ agents: AgentDeployment[] }>;
+export const getAgent = (id: string) =>
+  axiosInstance.get(`/api/admin/agents/${id}`) as Promise<AgentDeployment>;
+export const deployAgent = (body: DeployAgentRequest) =>
+  axiosInstance.post(`/api/admin/agents`, body) as Promise<AgentDeployment>;
+export const refreshAgentStatus = (id: string) =>
+  axiosInstance.post(`/api/admin/agents/${id}/status`, {}) as Promise<AgentDeployment>;
+export const deleteAgent = (id: string) =>
+  axiosInstance.delete(`/api/admin/agents/${id}`);
 
 // Use Cases
 export type UseCaseListParams = {

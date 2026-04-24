@@ -19,6 +19,7 @@ import RouteDetail from '@/pages/RouteDetail'
 import MCPServers from '@/pages/MCPServers'
 import Registry from '@/pages/Registry'
 import Deployments from '@/pages/Deployments'
+import Agents from '@/pages/Agents'
 import UseCases from '@/pages/UseCases'
 import Compliance from '@/pages/Compliance'
 import Playground from '@/pages/Playground'
@@ -66,6 +67,7 @@ function App() {
                       <Route path="/mcp-servers" element={<MCPServers />} />
                       <Route path="/registry" element={<Registry />} />
                       <Route path="/deployments" element={<Deployments />} />
+                      <Route path="/agents" element={<Agents />} />
                       <Route path="/use-cases" element={<UseCases />} />
                       <Route path="/compliance" element={<Compliance />} />
                       <Route path="/users" element={<Users />} />

@@ -93,6 +93,7 @@ export const icons = {
   skill: 'solar:diploma-linear',
   prompt: 'solar:document-text-linear',
   deployment: 'solar:cloud-linear',
+  agents: 'solar:bot-linear',
   rocket: 'solar:rocket-linear',
   useCase: 'solar:target-linear',
   llm: 'solar:atom-linear',
