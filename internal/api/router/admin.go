@@ -39,6 +39,7 @@ type AdminRouterConfig struct {
 	RegistryHandler       *registryhandlers.Handler
 	RegistryImportHandler *registryhandlers.ImportHandler
 	DeploymentHandler     *deploymenthandlers.Handler
+	AgentDeployHandler    *deploymenthandlers.AgentHandler
 	UseCaseHandler        *usecasehandlers.Handler
 	WebhookHandler        *webhookhandlers.Handler
 }
@@ -303,6 +304,18 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 				rr.Get("/{id}", dh.Get)
 				rr.Delete("/{id}", dh.Delete)
 				rr.Post("/{id}/status", dh.RefreshStatus)
+			})
+		}
+
+		// Agent deployment routes — admin only.
+		if cfg.AgentDeployHandler != nil {
+			ah := cfg.AgentDeployHandler
+			r.Route("/agents", func(rr chi.Router) {
+				rr.Get("/", ah.List)
+				rr.Post("/", ah.Deploy)
+				rr.Get("/{id}", ah.Get)
+				rr.Delete("/{id}", ah.Delete)
+				rr.Post("/{id}/status", ah.RefreshStatus)
 			})
 		}
 	})
