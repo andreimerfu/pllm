@@ -101,18 +101,18 @@ agent-echo-image: ## Build the echo reference agent image (pllm/agent-echo:dev)
 	docker build -t pllm/agent-echo:dev deploy/agent-reference/echo
 
 .PHONY: agent-echo-image-minikube
-agent-echo-image-minikube: agent-echo-image ## Build the echo agent image and load it into minikube
+agent-echo-image-minikube: ## Build the echo agent image directly in minikube's daemon
 	@which minikube > /dev/null || (echo "minikube not found" && exit 1)
-	minikube image load pllm/agent-echo:dev
+	minikube image build -t pllm/agent-echo:dev deploy/agent-reference/echo
 
 .PHONY: agent-research-image
 agent-research-image: ## Build the research reference agent image (pllm/agent-research:dev)
 	docker build -t pllm/agent-research:dev deploy/agent-reference/research
 
 .PHONY: agent-research-image-minikube
-agent-research-image-minikube: agent-research-image ## Build the research agent image and load it into minikube
+agent-research-image-minikube: ## Build the research agent image directly in minikube's daemon
 	@which minikube > /dev/null || (echo "minikube not found" && exit 1)
-	minikube image load pllm/agent-research:dev
+	minikube image build -t pllm/agent-research:dev deploy/agent-reference/research
 
 ##@ Kubernetes & Helm
 
