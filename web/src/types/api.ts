@@ -423,7 +423,10 @@ export interface MCPHealthProbeResponse {
 }
 
 export type RegistryStatus = 'active' | 'deprecated' | 'deleted';
-export type RegistryKind = 'server' | 'agent' | 'skill' | 'prompt';
+// Both the registry resource kinds AND the owner-kinds that appear on
+// RegistryRef edges. `llm` is a target kind (resolves against UserModel);
+// `use_case` is an owner kind (the UseCase entity).
+export type RegistryKind = 'server' | 'agent' | 'skill' | 'prompt' | 'llm' | 'use_case';
 
 export interface RegistryBase {
   id: string;
@@ -532,5 +535,138 @@ export interface Deployment {
   last_applied_at?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+// Wire shape of entries in RegistryServer.packages.
+export interface RegistryPackage {
+  registry_type?: string; // npm | pypi | oci | docker | ...
+  identifier?: string;
+  version?: string;
+  transport?: { type?: string };
+}
+
+export interface RegistryDependent {
+  owner_kind: RegistryKind;
+  name: string;
+  version: string;
+  title?: string;
+  description?: string;
+  is_latest: boolean;
+  target_version?: string;
+  local_name?: string;
+}
+
+export type UseCaseRiskTier = 'tier1' | 'tier2' | 'tier3' | 'tier4';
+export type UseCaseStatus = 'draft' | 'under_review' | 'approved' | 'retired';
+// The registry kinds a use case can reference as components.
+export type UseCaseRefKind = 'server' | 'agent' | 'skill' | 'prompt' | 'llm';
+
+export interface UseCase {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  risk_tier: UseCaseRiskTier;
+  status: UseCaseStatus;
+  business_owner_user_id?: string;
+  approver_user_id?: string;
+  team_id?: string;
+  data_classifications?: string[];
+  effective_classifications?: string[];
+  approval_record?: unknown;
+  compliance_flag?: boolean;
+  compliance_flag_reason?: string;
+  last_graph_computed_at?: string;
+  enforce_scope?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface UseCaseRef {
+  target_kind: UseCaseRefKind;
+  target_name: string;
+  target_version?: string;
+  local_name?: string;
+}
+
+export interface UseCaseWithRefs {
+  use_case: UseCase;
+  servers?: UseCaseRef[];
+  agents?: UseCaseRef[];
+  skills?: UseCaseRef[];
+  prompts?: UseCaseRef[];
+  llms?: UseCaseRef[];
+}
+
+export interface UseCaseUpsertRequest {
+  name: string;
+  slug?: string;
+  description?: string;
+  risk_tier?: UseCaseRiskTier;
+  status?: UseCaseStatus;
+  business_owner_user_id?: string;
+  approver_user_id?: string;
+  team_id?: string;
+  data_classifications?: string[];
+  refs?: UseCaseRef[];
+  enforce_scope?: boolean;
+}
+
+export type ScopeEventKind = 'mcp_tool' | 'llm';
+export type ScopeEventOutcome = 'denied' | 'flagged';
+
+export interface ScopeEvent {
+  id: string;
+  use_case_id: string;
+  key_id?: string;
+  key_name?: string;
+  user_id?: string;
+  kind: ScopeEventKind;
+  target_name: string;
+  outcome: ScopeEventOutcome;
+  reason?: string;
+  remote_addr?: string;
+  request_id?: string;
+  created_at?: string;
+}
+
+export interface ScopeEventStats {
+  last_24h_denied: number;
+  last_24h_flagged: number;
+  last_7d_denied: number;
+  last_7d_flagged: number;
+}
+
+export type WebhookEventType =
+  | 'scope.denied'
+  | 'scope.flagged'
+  | 'use_case.created'
+  | 'use_case.updated'
+  | 'use_case.deleted'
+  | 'use_case.compliance_flag'
+  | 'registry.server.saved';
+
+export interface Webhook {
+  id: string;
+  name: string;
+  url: string;
+  secret: string;
+  events?: WebhookEventType[];
+  enabled: boolean;
+  team_id?: string;
+  last_delivery_status?: number;
+  last_delivery_error?: string;
+  last_delivery_at?: string;
+  failure_count: number;
+  created_at?: string;
+}
+
+export interface WebhookUpsertRequest {
+  name: string;
+  url: string;
+  secret?: string;
+  events?: WebhookEventType[];
+  enabled?: boolean;
+  team_id?: string;
 }
 

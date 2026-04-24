@@ -4,9 +4,10 @@ import { icons } from '@/lib/icons'
 import { useUsers } from '@/hooks/useUsers'
 import { LoadingState } from '@/components/common/LoadingState'
 import { EmptyState } from '@/components/common/EmptyState'
-import { PageHeader } from '@/components/common/PageHeader'
 import { DataTable } from '@/components/common/DataTable'
 import { createColumns } from '@/components/users/columns'
+import { PageShell } from '@/components/common/page-shell'
+import { PageActions } from '@/components/common/page-chrome'
 
 export default function Users() {
   const { users, isLoading, refetch } = useUsers()
@@ -17,21 +18,22 @@ export default function Users() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Users"
-        description="View users authenticated through Dex"
-        actions={
-          <Button
-            onClick={() => refetch()}
-            variant="outline"
-            disabled={isLoading}
-          >
-            <Icon icon={icons.refresh} className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        }
-      />
+    <PageShell
+      eyebrow="Access"
+      title="Authenticated"
+      accent="users"
+      description="Identities provisioned through Dex OIDC. Roles drive admin-scope checks across the console."
+    >
+      <PageActions>
+        <Button
+          onClick={() => refetch()}
+          variant="outline"
+          disabled={isLoading}
+        >
+          <Icon icon={icons.refresh} className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </PageActions>
 
       {users.length === 0 ? (
         <EmptyState
@@ -43,6 +45,6 @@ export default function Users() {
       ) : (
         <DataTable columns={columns} data={users} searchPlaceholder="Search users..." />
       )}
-    </div>
+    </PageShell>
   )
 }

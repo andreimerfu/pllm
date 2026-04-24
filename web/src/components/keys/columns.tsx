@@ -30,6 +30,7 @@ export interface ApiKey {
   name: string
   user_id?: string
   team_id?: string
+  use_case_id?: string
   user?: {
     id: string
     username: string

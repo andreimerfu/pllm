@@ -17,7 +17,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { formatDate } from '../lib/date-utils';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingState } from '../components/common/LoadingState';
-import { PageHeader } from '../components/common/PageHeader';
+import { PageShell } from '../components/common/page-shell';
+import { PageActions } from '../components/common/page-chrome';
 import { useTeams, type Team } from '../hooks/useTeams';
 import { useTeamMembers, type TeamMember } from '../hooks/useTeamMembers';
 import { useTeamAnalytics } from '../hooks/useTeamAnalytics';
@@ -102,17 +103,18 @@ const Teams: React.FC = () => {
 
   if (teams.length === 0) {
     return (
-      <>
-        <PageHeader
-          title="Teams"
-          description="Manage teams and their members"
-          actions={
-            <Button onClick={() => setShowCreateModal(true)}>
-              <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
-              Create Team
-            </Button>
-          }
-        />
+      <PageShell
+        eyebrow="Access"
+        title="Team"
+        accent="workspaces"
+        description="Groups that scope keys, budgets, and model access."
+      >
+        <PageActions>
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
+            Create Team
+          </Button>
+        </PageActions>
         <EmptyState
           icon={icons.teams}
           title="No teams"
@@ -126,22 +128,23 @@ const Teams: React.FC = () => {
           }
         />
         <CreateTeamModal open={showCreateModal} onOpenChange={setShowCreateModal} />
-      </>
+      </PageShell>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Teams"
-        description="Manage teams and their members"
-        actions={
-          <Button onClick={() => setShowCreateModal(true)}>
-            <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
-            Create Team
-          </Button>
-        }
-      />
+    <PageShell
+      eyebrow="Access"
+      title="Team"
+      accent="workspaces"
+      description="Groups that scope keys, budgets, and model access. Membership maps to Dex groups."
+    >
+      <PageActions>
+        <Button onClick={() => setShowCreateModal(true)}>
+          <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
+          Create Team
+        </Button>
+      </PageActions>
 
       <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[300px_1fr] gap-6">
         {/* Teams List Sidebar */}
@@ -435,7 +438,7 @@ const Teams: React.FC = () => {
         teamId={selectedTeam?.id || null}
         member={editingMember}
       />
-    </div>
+    </PageShell>
   );
 };
 

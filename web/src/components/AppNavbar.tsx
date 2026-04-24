@@ -21,67 +21,60 @@ import {
 import { Icon } from '@iconify/react';
 import { icons } from '@/lib/icons';
 import { useColorMode } from '@/contexts/ColorModeContext';
+import { useConfig } from '@/contexts/ConfigContext';
+import { usePageChrome } from '@/components/common/page-chrome';
+import { cn } from '@/lib/utils';
 
-const navCommands = [
-  { label: "Dashboard", path: "/dashboard", icon: icons.dashboard },
-  { label: "Chat", path: "/chat", icon: icons.chat },
-  { label: "Models", path: "/models", icon: icons.models },
-  { label: "Routes", path: "/routes", icon: icons.routes },
-  { label: "API Keys", path: "/keys", icon: icons.keys },
-  { label: "Teams", path: "/teams", icon: icons.teams },
-  { label: "Users", path: "/users", icon: icons.users },
-  { label: "Budget", path: "/budget", icon: icons.budget },
-  { label: "Audit Logs", path: "/audit-logs", icon: icons.auditLogs },
-  { label: "Guardrails", path: "/guardrails", icon: icons.guardrails },
-  { label: "Settings", path: "/settings", icon: icons.settings },
-];
+// Route metadata keeps the breadcrumb group/page mapping and the ⌘K
+// palette in sync with app-sidebar.tsx. When the sidebar gains an item
+// add it here too.
+type RouteMeta = { label: string; group: string; icon: string };
 
-const routeNames: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/chat": "Chat",
-  "/models": "Models",
-  "/users": "Users",
-  "/teams": "Teams",
-  "/keys": "API Keys",
-  "/budget": "Budget",
-  "/audit-logs": "Audit Logs",
-  "/guardrails": "Guardrails",
-  "/settings": "Settings",
+const routes: Record<string, RouteMeta> = {
+  "/dashboard":     { label: "Dashboard",    group: "Overview",         icon: icons.dashboard },
+  "/chat":          { label: "Playground",   group: "LLM Gateway",      icon: icons.chat },
+  "/models":        { label: "Models",       group: "LLM Gateway",      icon: icons.models },
+  "/routes":        { label: "Routes",       group: "LLM Gateway",      icon: icons.routes },
+  "/providers":     { label: "Providers",    group: "LLM Gateway",      icon: icons.globe },
+  "/guardrails":    { label: "Guardrails",   group: "LLM Gateway",      icon: icons.guardrails },
+  "/registry":      { label: "Registry",     group: "Agents & MCP",     icon: icons.registry },
+  "/mcp-servers":   { label: "MCP Servers",  group: "Agents & MCP",     icon: icons.mcp },
+  "/deployments":   { label: "Deployments",  group: "Agents & MCP",     icon: icons.deployment },
+  "/use-cases":     { label: "Use Cases",    group: "Governance",       icon: icons.useCase },
+  "/compliance":    { label: "Compliance",   group: "Governance",       icon: icons.shield },
+  "/keys":          { label: "API Keys",     group: "Access & Activity", icon: icons.keys },
+  "/teams":         { label: "Teams",        group: "Access & Activity", icon: icons.teams },
+  "/users":         { label: "Users",        group: "Access & Activity", icon: icons.users },
+  "/budget":        { label: "Budget",       group: "Access & Activity", icon: icons.budget },
+  "/audit-logs":    { label: "Audit Logs",   group: "Access & Activity", icon: icons.auditLogs },
+  "/settings":      { label: "Settings",     group: "System",           icon: icons.settings },
 };
 
-// Function to get display name for dynamic segments
-const getDynamicSegmentLabel = (segment: string, parentPath: string): string => {
-  // For model IDs, decode and shorten if needed
-  if (parentPath.includes('/models')) {
-    try {
-      const decoded = decodeURIComponent(segment);
-      // Shorten long model names for breadcrumb
-      return decoded.length > 40 ? decoded.substring(0, 40) + '...' : decoded;
-    } catch {
-      return segment;
-    }
+function matchBaseRoute(pathname: string): string | null {
+  const prefixes = Object.keys(routes).sort((a, b) => b.length - a.length);
+  for (const p of prefixes) {
+    if (pathname === p || pathname.startsWith(p + "/")) return p;
   }
+  return null;
+}
 
-  // For guardrail config
-  if (parentPath.includes('/guardrails/config')) {
-    return segment === 'new' ? 'New Guardrail' : `Config ${segment}`;
-  }
-
-  // Default: capitalize and decode
+function prettyDynamic(segment: string): string {
   try {
     const decoded = decodeURIComponent(segment);
-    return decoded.charAt(0).toUpperCase() + decoded.slice(1);
+    if (decoded.length > 40) return decoded.substring(0, 40) + "…";
+    return decoded;
   } catch {
-    return segment.charAt(0).toUpperCase() + segment.slice(1);
+    return segment;
   }
-};
+}
 
 export function AppNavbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { resolvedMode, setColorMode } = useColorMode();
+  const { config } = useConfig();
+  const { actions, entityCrumb } = usePageChrome();
   const [commandOpen, setCommandOpen] = useState(false);
-  const pathSegments = location.pathname.split("/").filter(Boolean);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -94,88 +87,138 @@ export function AppNavbar() {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
-  // Generate breadcrumb items
-  const breadcrumbItems: Array<{ path: string; label: string }> = [];
-  let currentPath = "";
+  const basePath = matchBaseRoute(location.pathname);
+  const meta = basePath ? routes[basePath] : null;
 
-  pathSegments.forEach((segment) => {
-    currentPath += `/${segment}`;
-
-    // Check if this is a known route
-    const knownRoute = routeNames[currentPath];
-
-    if (knownRoute) {
-      breadcrumbItems.push({ path: currentPath, label: knownRoute });
-    } else {
-      // This is a dynamic segment
-      const parentPath = breadcrumbItems.length > 0 ? breadcrumbItems[breadcrumbItems.length - 1].path : '';
-      const label = getDynamicSegmentLabel(segment, parentPath);
-      breadcrumbItems.push({ path: currentPath, label });
+  // Build the crumb trail. Group ▸ Page ▸ (Entity). Drilled-in entity
+  // comes from PageEntityCrumb (drawers without routing) or the URL tail.
+  const crumbs: Array<{ label: string; to?: string; mono?: boolean }> = [];
+  if (meta) {
+    crumbs.push({ label: meta.group });
+    crumbs.push({ label: meta.label, to: basePath ?? undefined });
+    const extra = basePath ? location.pathname.slice(basePath.length).replace(/^\//, "") : "";
+    if (entityCrumb) {
+      crumbs.push({ label: entityCrumb, mono: true });
+    } else if (extra) {
+      const segs = extra.split("/").filter(Boolean).filter((s) => !["edit", "new"].includes(s));
+      const tail = segs[segs.length - 1];
+      if (tail) crumbs.push({ label: prettyDynamic(tail), mono: true });
     }
-  });
+  } else {
+    crumbs.push({ label: "pLLM" });
+  }
+
+  const env = config?.environment?.trim();
+  const envPaletteMap: Record<string, string> = {
+    prod: "bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-rose-500/30",
+    production: "bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-rose-500/30",
+    staging: "bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-500/30",
+    dev: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30",
+    development: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30",
+    local: "bg-slate-500/10 text-slate-700 dark:text-slate-300 ring-slate-500/30",
+  };
+  const envPalette = env ? envPaletteMap[env.toLowerCase()] ?? envPaletteMap.local : null;
 
   return (
-    <header className="sticky top-0 z-10 flex h-[52px] shrink-0 items-center gap-2 border-b border-border bg-background px-4">
-      <SidebarTrigger className="-ml-1" />
+    <header className="sticky top-0 z-10 flex h-11 shrink-0 items-center gap-2 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 px-4">
+      <SidebarTrigger className="-ml-1 h-7 w-7" />
       <Separator orientation="vertical" className="h-4" />
 
-      <Breadcrumb>
-        <BreadcrumbList>
-          {breadcrumbItems.map((item, index) => (
-            <div key={item.path} className="flex items-center gap-1.5">
-              {index > 0 && <BreadcrumbSeparator />}
-              <BreadcrumbItem>
-                {index === breadcrumbItems.length - 1 ? (
-                  <BreadcrumbPage className="max-w-[200px] truncate">{item.label}</BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink asChild>
-                    <Link to={item.path} className="max-w-[200px] truncate">{item.label}</Link>
-                  </BreadcrumbLink>
-                )}
-              </BreadcrumbItem>
-            </div>
-          ))}
+      <Breadcrumb className="min-w-0">
+        <BreadcrumbList className="flex-nowrap">
+          {crumbs.map((c, i) => {
+            const last = i === crumbs.length - 1;
+            return (
+              <div key={`${c.label}-${i}`} className="flex items-center gap-1.5 min-w-0">
+                {i > 0 && <BreadcrumbSeparator />}
+                <BreadcrumbItem>
+                  {last ? (
+                    <BreadcrumbPage
+                      className={cn(
+                        "max-w-[320px] truncate text-[13px]",
+                        c.mono && "font-mono text-[12px]",
+                      )}
+                    >
+                      {c.label}
+                    </BreadcrumbPage>
+                  ) : c.to ? (
+                    <BreadcrumbLink asChild>
+                      <Link to={c.to} className="max-w-[220px] truncate text-[13px]">
+                        {c.label}
+                      </Link>
+                    </BreadcrumbLink>
+                  ) : (
+                    <span className="text-muted-foreground text-[13px]">
+                      {c.label}
+                    </span>
+                  )}
+                </BreadcrumbItem>
+              </div>
+            );
+          })}
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="ml-auto flex items-center gap-3">
-        {/* Search trigger */}
+      {/* Back-compat slot. Pages should move CTAs into their own header
+          via <PageShell actions={...}> — this slot will be removed when
+          every page is migrated. Rendered small to discourage new use. */}
+      {actions && (
+        <div className="ml-3 flex items-center gap-2 [&_button]:h-7 [&_button]:text-[12px]">
+          {actions}
+        </div>
+      )}
+
+      <div className="ml-auto flex items-center gap-2">
+        {env && envPalette && (
+          <span
+            className={cn(
+              "hidden sm:inline-flex items-center h-6 px-2 rounded-full font-mono text-[10px] uppercase tracking-widest ring-1",
+              envPalette,
+            )}
+            title={`Environment: ${env}`}
+          >
+            {env}
+          </span>
+        )}
         <button
           onClick={() => setCommandOpen(true)}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 bg-secondary border border-border rounded-[6px] text-muted-foreground text-xs cursor-pointer hover:bg-accent"
+          className="flex items-center gap-1.5 px-2 py-1 bg-secondary/60 border border-border rounded-md text-muted-foreground text-[12px] cursor-pointer hover:bg-accent"
         >
           <Icon icon={icons.search} className="w-3.5 h-3.5" />
-          <span>Search...</span>
-          <kbd className="bg-background px-1.5 py-0.5 rounded text-[10px] font-mono border border-border">⌘K</kbd>
+          <span>Search</span>
+          <kbd className="bg-background px-1 py-0 rounded text-[10px] font-mono border border-border">⌘K</kbd>
         </button>
-        {/* Theme toggle */}
         <button
           onClick={() => setColorMode(resolvedMode === 'dark' ? 'light' : 'dark')}
-          className="w-8 h-8 flex items-center justify-center rounded-[6px] text-muted-foreground hover:bg-accent"
+          className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+          aria-label="Toggle theme"
         >
           <Icon icon={resolvedMode === 'dark' ? icons.sun : icons.moon} className="w-4 h-4" />
         </button>
-        {/* Version badge */}
-        <span className="text-[11px] text-muted-foreground bg-secondary border border-border px-2 py-0.5 rounded-full font-mono">v2.0.0</span>
       </div>
+
       <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
-        <CommandInput placeholder="Search pages..." />
+        <CommandInput placeholder="Search pages…" />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Pages">
-            {navCommands.map((cmd) => (
-              <CommandItem
-                key={cmd.path}
-                onSelect={() => {
-                  navigate(cmd.path);
-                  setCommandOpen(false);
-                }}
-              >
-                <Icon icon={cmd.icon} className="mr-2 h-4 w-4" />
-                {cmd.label}
-              </CommandItem>
-            ))}
-          </CommandGroup>
+          {Array.from(new Set(Object.values(routes).map((r) => r.group))).map((group) => (
+            <CommandGroup key={group} heading={group}>
+              {Object.entries(routes)
+                .filter(([, r]) => r.group === group)
+                .map(([path, r]) => (
+                  <CommandItem
+                    key={path}
+                    onSelect={() => {
+                      navigate(path);
+                      setCommandOpen(false);
+                    }}
+                  >
+                    <Icon icon={r.icon} className="mr-2 h-4 w-4" />
+                    {r.label}
+                  </CommandItem>
+                ))}
+            </CommandGroup>
+          ))}
         </CommandList>
       </CommandDialog>
     </header>

@@ -35,6 +35,12 @@ import { useAuditLogs } from "@/hooks/useAuditLogs"
 import { getStatusBadge } from "@/components/audit-logs/columns"
 import { DetailItem } from "@/components/common/DetailItem"
 import { JsonViewer } from "@/components/common/JsonViewer"
+import { PageShell } from "@/components/common/page-shell"
+import {
+  EventsTimeline,
+  OutcomeDonut,
+  TopBars,
+} from "@/components/audit-logs/audit-overview"
 
 // Status dot color
 const getResultDot = (result: string) => {
@@ -156,23 +162,11 @@ export default function AuditLogs() {
   }
 
   return (
-    <div className="space-y-0">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Audit Logs</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              System events and security activity
-            </p>
-          </div>
-          {!isLoading && (
-            <Badge variant="secondary" className="font-mono text-xs tabular-nums h-6 px-2.5">
-              {total.toLocaleString()}
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
+    <PageShell
+      title="Audit logs"
+      description="System events, security activity, and administrative changes across the gateway."
+      actions={
+        <>
           <Button variant="outline" size="sm" onClick={handleExportAll} disabled={auditLogs.length === 0}>
             <Icon icon={icons.download} className="h-3.5 w-3.5 mr-1.5" />
             Export
@@ -181,8 +175,36 @@ export default function AuditLogs() {
             <Icon icon={icons.refresh} className={`h-3.5 w-3.5 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-        </div>
+        </>
+      }
+    >
+      {/* ── Overview charts ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4">
+        <EventsTimeline logs={auditLogs} />
+        <OutcomeDonut logs={auditLogs} />
       </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <TopBars
+          logs={auditLogs}
+          kind="action"
+          onPick={(v) => setSearchInput(v)}
+        />
+        <TopBars
+          logs={auditLogs}
+          kind="resource"
+          onPick={(v) => setFilters(prev => ({ ...prev, resource: v }))}
+        />
+        <TopBars logs={auditLogs} kind="user" />
+      </div>
+
+      {!isLoading && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">total events</span>
+          <Badge variant="secondary" className="font-mono text-xs tabular-nums h-6 px-2.5">
+            {total.toLocaleString()}
+          </Badge>
+        </div>
+      )}
 
       {/* ── Filter Bar ── */}
       <div className="rounded-xl border bg-card/60 backdrop-blur-sm px-3 py-2.5 mb-4">
@@ -880,6 +902,6 @@ export default function AuditLogs() {
           })()}
         </SheetContent>
       </Sheet>
-    </div>
+    </PageShell>
   )
 }

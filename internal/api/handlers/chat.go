@@ -7,17 +7,41 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+
 	"github.com/amerfu/pllm/internal/infrastructure/middleware"
-	"github.com/amerfu/pllm/internal/services/monitoring/metrics"
 	"github.com/amerfu/pllm/internal/services/llm/models"
 	"github.com/amerfu/pllm/internal/services/llm/providers"
-	"go.uber.org/zap"
+	"github.com/amerfu/pllm/internal/services/monitoring/metrics"
 )
+
+// LLMScopeChecker is the narrow surface this handler needs from the
+// use-cases package. Mirrors what the MCP handler uses — kept separate so
+// each handler can evolve independently.
+type LLMScopeChecker interface {
+	AllowLLM(ctx context.Context, useCaseID *uuid.UUID, modelName string) LLMScopeDecision
+}
+
+type LLMScopeDecision struct {
+	Allowed     bool
+	EnforceMode bool
+	Reason      string
+}
+
+// LLMScopeEventRecorder persists audit rows for out-of-scope LLM calls.
+// Same split-of-concerns as LLMScopeChecker: we keep the interface narrow
+// so the handler stays testable without importing the concrete package.
+type LLMScopeEventRecorder interface {
+	RecordLLMDenial(ctx context.Context, useCaseID uuid.UUID, keyID *uuid.UUID, keyName, target, reason string, enforced bool, remoteAddr, requestID string)
+}
 
 type ChatHandler struct {
 	logger         *zap.Logger
 	modelManager   *models.ModelManager
 	metricsEmitter *metrics.MetricEventEmitter
+	scope          LLMScopeChecker       // optional
+	recorder       LLMScopeEventRecorder // optional
 }
 
 func NewChatHandler(logger *zap.Logger, modelManager *models.ModelManager) *ChatHandler {
@@ -33,6 +57,20 @@ func NewChatHandlerWithMetrics(logger *zap.Logger, modelManager *models.ModelMan
 		modelManager:   modelManager,
 		metricsEmitter: metricsEmitter,
 	}
+}
+
+// WithScope returns the handler with use-case scope enforcement enabled.
+// Called from the router when a ScopeResolver is available.
+func (h *ChatHandler) WithScope(s LLMScopeChecker) *ChatHandler {
+	h.scope = s
+	return h
+}
+
+// WithRecorder attaches the scope-event recorder. Called from the router
+// when an EventRecorder is available.
+func (h *ChatHandler) WithRecorder(r LLMScopeEventRecorder) *ChatHandler {
+	h.recorder = r
+	return h
 }
 
 // ChatCompletions creates a chat completion
@@ -64,6 +102,36 @@ func (h *ChatHandler) ChatCompletions(w http.ResponseWriter, r *http.Request) {
 		zap.String("model", request.Model),
 		zap.Int("num_messages", len(request.Messages)),
 		zap.Bool("stream", request.Stream))
+
+	// Use-case scope check. Master-key and unscoped keys bypass. Flag
+	// mode logs; block mode returns 403.
+	if h.scope != nil && !middleware.IsMasterKey(r.Context()) {
+		if key, ok := middleware.GetKey(r.Context()); ok && key != nil && key.UseCaseID != nil {
+			decision := h.scope.AllowLLM(r.Context(), key.UseCaseID, request.Model)
+			if !decision.Allowed {
+				h.logger.Warn("llm call out-of-scope",
+					zap.String("model", request.Model),
+					zap.String("use_case", key.UseCaseID.String()),
+					zap.Bool("enforced", decision.EnforceMode),
+					zap.String("reason", decision.Reason))
+				if h.recorder != nil {
+					h.recorder.RecordLLMDenial(
+						r.Context(),
+						*key.UseCaseID,
+						&key.ID, key.Name,
+						request.Model, decision.Reason,
+						decision.EnforceMode,
+						r.RemoteAddr, r.Header.Get("X-Request-Id"),
+					)
+				}
+				if decision.EnforceMode {
+					h.sendError(w, http.StatusForbidden,
+						"model "+request.Model+" is not declared by the bound use case")
+					return
+				}
+			}
+		}
+	}
 	
 	for i, msg := range request.Messages {
 		h.logger.Info("Message content",

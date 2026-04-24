@@ -1,9 +1,9 @@
 import axios from "axios";
-import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse, RoutesResponse, Route, RouteStatsResponse, MCPServer, MCPUpsertRequest, MCPHealthProbeResponse, RegistryServer, RegistryServerDetail, RegistryAgent, RegistryAgentWithRefs, RegistrySkill, RegistryPrompt, RegistryListResponse, Deployment } from "@/types/api";
+import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse, RoutesResponse, Route, RouteStatsResponse, MCPServer, MCPUpsertRequest, MCPHealthProbeResponse, RegistryServer, RegistryServerDetail, RegistryAgent, RegistryAgentWithRefs, RegistrySkill, RegistryPrompt, RegistryListResponse, Deployment, RegistryDependent, RegistryKind, UseCase, UseCaseWithRefs, UseCaseUpsertRequest, ScopeEvent, ScopeEventStats, Webhook, WebhookUpsertRequest } from "@/types/api";
 
 const API_BASE = import.meta.env.DEV ? "http://localhost:8080" : "";
 
-const axiosInstance = axios.create({
+export const axiosInstance = axios.create({
   baseURL: API_BASE,
   headers: {
     "Content-Type": "application/json",
@@ -391,6 +391,14 @@ export const getRegistryServer = (name: string, version?: string) =>
   axiosInstance.get(`/v1/registry/servers/${encodeURIComponent(name)}${version ? `?version=${encodeURIComponent(version)}` : ""}`) as Promise<RegistryServer | RegistryServerDetail>;
 export const listRegistryServerVersions = (name: string) =>
   axiosInstance.get(`/v1/registry/servers/${encodeURIComponent(name)}/versions`) as Promise<{ versions: RegistryServer[] }>;
+export const listRegistryAgentVersions = (name: string) =>
+  axiosInstance.get(`/v1/registry/agents/${encodeURIComponent(name)}/versions`) as Promise<{ versions: RegistryAgent[] }>;
+export const listRegistrySkillVersions = (name: string) =>
+  axiosInstance.get(`/v1/registry/skills/${encodeURIComponent(name)}/versions`) as Promise<{ versions: RegistrySkill[] }>;
+export const listRegistryPromptVersions = (name: string) =>
+  axiosInstance.get(`/v1/registry/prompts/${encodeURIComponent(name)}/versions`) as Promise<{ versions: RegistryPrompt[] }>;
+export const listRegistryDependents = (targetKind: RegistryKind, targetName: string) =>
+  axiosInstance.get(`/v1/registry/refs?target_kind=${encodeURIComponent(targetKind)}&target_name=${encodeURIComponent(targetName)}`) as Promise<{ dependents: RegistryDependent[] }>;
 export const upsertRegistryServer = (body: Partial<RegistryServer>) =>
   axiosInstance.post(`/api/admin/registry/servers`, body) as Promise<RegistryServer>;
 export const deleteRegistryServerVersion = (name: string, version: string) =>
@@ -444,3 +452,77 @@ export const refreshDeploymentStatus = (id: string) =>
   axiosInstance.post(`/api/admin/deployments/${id}/status`, {}) as Promise<Deployment>;
 export const deleteDeployment = (id: string) =>
   axiosInstance.delete(`/api/admin/deployments/${id}`);
+
+// Use Cases
+export type UseCaseListParams = {
+  search?: string;
+  status?: string;
+  risk_tier?: string;
+  classification?: string;
+  effective_classification?: string;
+  compliance_flag?: boolean;
+  has_third_party?: boolean;
+};
+export const listUseCases = (params?: UseCaseListParams) => {
+  const qs = new URLSearchParams();
+  if (params?.search) qs.set("search", params.search);
+  if (params?.status) qs.set("status", params.status);
+  if (params?.risk_tier) qs.set("risk_tier", params.risk_tier);
+  if (params?.classification) qs.set("classification", params.classification);
+  if (params?.effective_classification)
+    qs.set("effective_classification", params.effective_classification);
+  if (params?.compliance_flag != null)
+    qs.set("compliance_flag", String(params.compliance_flag));
+  if (params?.has_third_party != null)
+    qs.set("has_third_party", String(params.has_third_party));
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return axiosInstance.get(`/api/admin/use-cases${suffix}`) as Promise<{ use_cases: UseCase[] }>;
+};
+export const getUseCase = (idOrSlug: string) =>
+  axiosInstance.get(`/api/admin/use-cases/${encodeURIComponent(idOrSlug)}`) as Promise<UseCaseWithRefs>;
+export const createUseCase = (body: UseCaseUpsertRequest) =>
+  axiosInstance.post(`/api/admin/use-cases`, body) as Promise<UseCaseWithRefs>;
+export const updateUseCase = (id: string, body: UseCaseUpsertRequest) =>
+  axiosInstance.put(`/api/admin/use-cases/${id}`, body) as Promise<UseCaseWithRefs>;
+export const deleteUseCase = (id: string) =>
+  axiosInstance.delete(`/api/admin/use-cases/${id}`);
+
+// Scope-event audit log
+export type ScopeEventListParams = {
+  use_case_id?: string;
+  kind?: "mcp_tool" | "llm" | "";
+  outcome?: "denied" | "flagged" | "";
+  target_name?: string;
+  since?: string;
+  limit?: number;
+  offset?: number;
+};
+export const listScopeEvents = (params?: ScopeEventListParams) => {
+  const qs = new URLSearchParams();
+  if (params?.use_case_id) qs.set("use_case_id", params.use_case_id);
+  if (params?.kind) qs.set("kind", params.kind);
+  if (params?.outcome) qs.set("outcome", params.outcome);
+  if (params?.target_name) qs.set("target_name", params.target_name);
+  if (params?.since) qs.set("since", params.since);
+  if (params?.limit != null) qs.set("limit", String(params.limit));
+  if (params?.offset != null) qs.set("offset", String(params.offset));
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return axiosInstance.get(`/api/admin/use-cases/events${suffix}`) as Promise<{
+    events: ScopeEvent[];
+    stats: ScopeEventStats;
+  }>;
+};
+
+// Webhooks
+export const listWebhooks = () =>
+  axiosInstance.get(`/api/admin/webhooks`) as Promise<{ webhooks: Webhook[] }>;
+export const getWebhook = (id: string) =>
+  axiosInstance.get(`/api/admin/webhooks/${id}`) as Promise<Webhook>;
+export const createWebhook = (body: WebhookUpsertRequest) =>
+  axiosInstance.post(`/api/admin/webhooks`, body) as Promise<Webhook>;
+export const updateWebhook = (id: string, body: WebhookUpsertRequest) =>
+  axiosInstance.put(`/api/admin/webhooks/${id}`, body) as Promise<Webhook>;
+export const deleteWebhook = (id: string) =>
+  axiosInstance.delete(`/api/admin/webhooks/${id}`);
+export const testWebhook = (id: string) =>
+  axiosInstance.post(`/api/admin/webhooks/${id}/test`, {});

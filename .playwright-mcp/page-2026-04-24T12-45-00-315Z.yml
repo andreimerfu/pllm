@@ -1,0 +1,236 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - list [ref=e15]:
+          - listitem [ref=e16]:
+            - link "Dashboard" [ref=e17] [cursor=pointer]:
+              - /url: /ui/dashboard
+              - generic [ref=e18]: Dashboard
+        - generic [ref=e19]:
+          - button "LLM Gateway" [expanded] [ref=e20] [cursor=pointer]:
+            - generic [ref=e21]: LLM Gateway
+          - list [ref=e23]:
+            - listitem [ref=e24]:
+              - link "Playground" [ref=e25] [cursor=pointer]:
+                - /url: /ui/chat
+                - generic [ref=e26]: Playground
+            - listitem [ref=e27]:
+              - link "Models" [ref=e28] [cursor=pointer]:
+                - /url: /ui/models
+                - generic [ref=e29]: Models
+            - listitem [ref=e30]:
+              - link "Routes" [ref=e31] [cursor=pointer]:
+                - /url: /ui/routes
+                - generic [ref=e32]: Routes
+            - listitem [ref=e33]:
+              - link "Providers" [ref=e34] [cursor=pointer]:
+                - /url: /ui/providers
+                - generic [ref=e35]: Providers
+            - listitem [ref=e36]:
+              - link "Guardrails" [ref=e37] [cursor=pointer]:
+                - /url: /ui/guardrails
+                - generic [ref=e38]: Guardrails
+        - generic [ref=e39]:
+          - button "Agents & MCP" [expanded] [ref=e40] [cursor=pointer]:
+            - generic [ref=e41]: Agents & MCP
+          - list [ref=e43]:
+            - listitem [ref=e44]:
+              - link "Registry" [ref=e45] [cursor=pointer]:
+                - /url: /ui/registry
+                - generic [ref=e46]: Registry
+            - listitem [ref=e47]:
+              - link "MCP Servers" [ref=e48] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - generic [ref=e49]: MCP Servers
+            - listitem [ref=e50]:
+              - link "Deployments" [ref=e51] [cursor=pointer]:
+                - /url: /ui/deployments
+                - generic [ref=e52]: Deployments
+        - generic [ref=e53]:
+          - button "Governance EE" [expanded] [ref=e54] [cursor=pointer]:
+            - generic [ref=e55]: Governance
+            - generic "pLLM Enterprise" [ref=e56]: EE
+          - list [ref=e58]:
+            - listitem [ref=e59]:
+              - link "Use Cases" [disabled]:
+                - /url: /ui/unauthorized?feature=mrm
+                - generic: Use Cases
+            - listitem [ref=e60]:
+              - link "Compliance" [disabled]:
+                - /url: /ui/unauthorized?feature=mrm
+                - generic: Compliance
+        - generic [ref=e61]:
+          - button "Access & Activity" [expanded] [ref=e62] [cursor=pointer]:
+            - generic [ref=e63]: Access & Activity
+          - list [ref=e65]:
+            - listitem [ref=e66]:
+              - link "API Keys" [ref=e67] [cursor=pointer]:
+                - /url: /ui/keys
+                - generic [ref=e68]: API Keys
+            - listitem [ref=e69]:
+              - link "Teams" [ref=e70] [cursor=pointer]:
+                - /url: /ui/teams
+                - generic [ref=e71]: Teams
+            - listitem [ref=e72]:
+              - link "Users" [ref=e73] [cursor=pointer]:
+                - /url: /ui/users
+                - generic [ref=e74]: Users
+            - listitem [ref=e75]:
+              - link "Budget" [ref=e76] [cursor=pointer]:
+                - /url: /ui/budget
+                - generic [ref=e77]: Budget
+            - listitem [ref=e78]:
+              - link "Audit Logs" [ref=e79] [cursor=pointer]:
+                - /url: /ui/audit-logs
+                - generic [ref=e80]: Audit Logs
+        - generic [ref=e81]:
+          - button "System" [expanded] [ref=e82] [cursor=pointer]:
+            - generic [ref=e83]: System
+          - list [ref=e85]:
+            - listitem [ref=e86]:
+              - link "Settings" [ref=e87] [cursor=pointer]:
+                - /url: /ui/settings
+                - generic [ref=e88]: Settings
+      - list [ref=e90]:
+        - listitem [ref=e91]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e92] [cursor=pointer]:
+            - generic [ref=e94]: A(
+            - generic [ref=e95]:
+              - generic [ref=e96]: Admin (Master Key)
+              - generic [ref=e97]: admin@pllm.local
+      - button "Toggle Sidebar" [ref=e98]
+    - main [ref=e99]:
+      - generic [ref=e100]:
+        - button "Toggle Sidebar" [ref=e101] [cursor=pointer]:
+          - generic [ref=e102]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e103]:
+          - list [ref=e104]:
+            - listitem [ref=e106]:
+              - generic [ref=e107]: LLM Gateway
+            - listitem [ref=e109]:
+              - link "Models" [disabled] [ref=e110]
+        - button "Add Model" [ref=e112] [cursor=pointer]: Add Model
+        - generic [ref=e113]:
+          - button "Search… ⌘K" [ref=e114] [cursor=pointer]:
+            - generic [ref=e115]: Search…
+            - generic [ref=e116]: ⌘K
+          - button [ref=e117] [cursor=pointer]
+          - generic [ref=e118]: v2.0.0
+      - main [ref=e119]:
+        - generic [ref=e121]:
+          - generic [ref=e122]:
+            - paragraph [ref=e123]: LLM Gateway
+            - heading "Model fleet" [level=1] [ref=e124]
+            - paragraph [ref=e125]: Onboarded LLMs across all providers. Load-balanced, health-checked, and billed through a single policy layer.
+          - generic [ref=e127]:
+            - generic [ref=e129]:
+              - textbox "Search models..." [ref=e131]
+              - generic [ref=e132]:
+                - button "Provider" [ref=e133] [cursor=pointer]: Provider
+                - button "Status" [ref=e134] [cursor=pointer]
+            - group [ref=e135]:
+              - radio "Card view" [checked] [ref=e136] [cursor=pointer]: Cards
+              - radio "Table view" [ref=e137] [cursor=pointer]: Table
+          - paragraph [ref=e139]: Showing 3 of 3 models
+          - generic [ref=e140]:
+            - generic [ref=e141] [cursor=pointer]:
+              - generic [ref=e144]:
+                - generic [ref=e147]:
+                  - generic [ref=e149]: "Qwen: Qwen3.6 Plus (free)"
+                  - generic [ref=e150]: Qwen
+                - generic [ref=e151]:
+                  - generic [ref=e152]:
+                    - generic [ref=e153]: User
+                    - generic [ref=e154]: model
+                  - generic [ref=e157]: 100%
+              - generic [ref=e158]:
+                - generic [ref=e159]:
+                  - generic [ref=e162]:
+                    - paragraph [ref=e163]: Total Requests
+                    - paragraph [ref=e164]: "0"
+                  - generic [ref=e170]:
+                    - paragraph [ref=e171]: Total Tokens
+                    - paragraph [ref=e172]: "0"
+                  - generic [ref=e178]:
+                    - paragraph [ref=e179]: Total Cost
+                    - paragraph [ref=e180]: $0.00
+                  - generic [ref=e186]:
+                    - paragraph [ref=e187]: Avg Latency
+                    - paragraph [ref=e188]: 0ms
+                - generic [ref=e192]:
+                  - generic [ref=e193]:
+                    - generic [ref=e194]: Ready to serve
+                    - generic [ref=e196]: N/A
+                  - generic [ref=e197]:
+                    - button "Edit" [ref=e198]: Edit
+                    - button "Delete" [ref=e199]: Delete
+            - generic [ref=e200] [cursor=pointer]:
+              - generic [ref=e203]:
+                - generic [ref=e206]:
+                  - generic [ref=e208]: "NVIDIA: Nemotron 3 Super (free)"
+                  - generic [ref=e209]: NVIDIA
+                - generic [ref=e210]:
+                  - generic [ref=e211]:
+                    - generic [ref=e212]: User
+                    - generic [ref=e213]: model
+                  - generic [ref=e216]: 100%
+              - generic [ref=e217]:
+                - generic [ref=e218]:
+                  - generic [ref=e221]:
+                    - paragraph [ref=e222]: Total Requests
+                    - paragraph [ref=e223]: "0"
+                  - generic [ref=e229]:
+                    - paragraph [ref=e230]: Total Tokens
+                    - paragraph [ref=e231]: "0"
+                  - generic [ref=e237]:
+                    - paragraph [ref=e238]: Total Cost
+                    - paragraph [ref=e239]: $0.00
+                  - generic [ref=e245]:
+                    - paragraph [ref=e246]: Avg Latency
+                    - paragraph [ref=e247]: 0ms
+                - generic [ref=e251]:
+                  - generic [ref=e252]:
+                    - generic [ref=e253]: Ready to serve
+                    - generic [ref=e255]: N/A
+                  - generic [ref=e256]:
+                    - button "Edit" [ref=e257]: Edit
+                    - button "Delete" [ref=e258]: Delete
+            - generic [ref=e259] [cursor=pointer]:
+              - generic [ref=e262]:
+                - generic [ref=e265]:
+                  - generic [ref=e267]: "Z.ai: GLM 4.5 Air (free)"
+                  - generic [ref=e268]: OpenRouter
+                - generic [ref=e269]:
+                  - generic [ref=e270]:
+                    - generic [ref=e271]: User
+                    - generic [ref=e272]: model
+                  - generic [ref=e275]: 100%
+              - generic [ref=e276]:
+                - generic [ref=e277]:
+                  - generic [ref=e280]:
+                    - paragraph [ref=e281]: Total Requests
+                    - paragraph [ref=e282]: "0"
+                  - generic [ref=e288]:
+                    - paragraph [ref=e289]: Total Tokens
+                    - paragraph [ref=e290]: "0"
+                  - generic [ref=e296]:
+                    - paragraph [ref=e297]: Total Cost
+                    - paragraph [ref=e298]: $0.00
+                  - generic [ref=e304]:
+                    - paragraph [ref=e305]: Avg Latency
+                    - paragraph [ref=e306]: 0ms
+                - generic [ref=e310]:
+                  - generic [ref=e311]:
+                    - generic [ref=e312]: Ready to serve
+                    - generic [ref=e314]: N/A
+                  - generic [ref=e315]:
+                    - button "Edit" [ref=e316]: Edit
+                    - button "Delete" [ref=e317]: Delete
+  - region "Notifications (F8)":
+    - list

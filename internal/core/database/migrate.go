@@ -37,6 +37,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.EnrichmentJob{},   // Enrichment: scheduled scans
 		&models.EnrichmentScore{}, // Enrichment: latest results per (resource, type)
 		&models.Deployment{},      // Deployment: running registry-backed workloads
+		&models.UseCase{},         // UseCase: top-level approval unit that consumes components
+		&models.ScopeEvent{},      // ScopeEvent: runtime denial/flag audit log
+		&models.Webhook{},         // Webhook: outbound event subscriptions
 	)
 
 	if err != nil {

@@ -1,0 +1,44 @@
+- generic:
+  - generic:
+    - generic:
+      - button:
+        - img
+      - generic:
+        - generic:
+          - generic:
+            - img
+          - generic: pLLM Gateway
+          - generic: Authenticate to access the admin panel
+        - generic:
+          - generic:
+            - button:
+              - img
+              - text: Continue with GitHub
+            - button:
+              - img
+              - text: Continue with Google
+            - button:
+              - img
+              - text: Continue with Microsoft
+          - generic:
+            - generic:
+              - generic: Admin Access
+          - button [expanded]:
+            - img
+            - text: Admin Login with Master Key
+    - list
+  - dialog "Admin Access" [ref=e26]:
+    - generic [ref=e27]:
+      - heading "Admin Access" [level=2] [ref=e28]
+      - paragraph [ref=e29]: Enter the master key to access admin functions directly.
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - text: Master Key
+        - textbox "Master Key" [active] [ref=e32]:
+          - /placeholder: Enter master key
+      - generic [ref=e33]:
+        - button "Cancel" [ref=e34] [cursor=pointer]
+        - button "Login" [ref=e35] [cursor=pointer]
+    - button "Close" [ref=e36] [cursor=pointer]:
+      - img [ref=e37]
+      - generic [ref=e41]: Close

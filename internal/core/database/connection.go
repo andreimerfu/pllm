@@ -163,6 +163,9 @@ func Migrate() error {
 		&models.EnrichmentJob{},
 		&models.EnrichmentScore{},
 		&models.Deployment{},
+		&models.UseCase{},
+		&models.ScopeEvent{},
+		&models.Webhook{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate models: %w", err)
 	}

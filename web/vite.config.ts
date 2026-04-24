@@ -26,10 +26,11 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/v1': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
+      '/v1': { target: 'http://localhost:8080', changeOrigin: true },
+      '/api': { target: 'http://localhost:8080', changeOrigin: true },
+      '/health': { target: 'http://localhost:8080', changeOrigin: true },
+      '/metrics': { target: 'http://localhost:8080', changeOrigin: true },
+      '/docs': { target: 'http://localhost:8080', changeOrigin: true },
     },
   },
 })

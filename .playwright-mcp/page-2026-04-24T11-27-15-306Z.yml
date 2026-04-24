@@ -1,0 +1,166 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - button "Core" [expanded] [ref=e15] [cursor=pointer]:
+            - text: Core
+            - img [ref=e16]
+          - list [ref=e19]:
+            - listitem [ref=e20]:
+              - link "Dashboard" [ref=e21] [cursor=pointer]:
+                - /url: /ui/dashboard
+                - img [ref=e22]
+                - generic [ref=e25]: Dashboard
+            - listitem [ref=e26]:
+              - link "Chat" [ref=e27] [cursor=pointer]:
+                - /url: /ui/chat
+                - img [ref=e28]
+                - generic [ref=e31]: Chat
+            - listitem [ref=e32]:
+              - link "Models" [ref=e33] [cursor=pointer]:
+                - /url: /ui/models
+                - img [ref=e34]
+                - generic [ref=e40]: Models
+            - listitem [ref=e41]:
+              - link "Routes" [ref=e42] [cursor=pointer]:
+                - /url: /ui/routes
+                - img [ref=e43]
+                - generic [ref=e48]: Routes
+            - listitem [ref=e49]:
+              - link "MCP Servers" [ref=e50] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - img [ref=e51]
+                - generic [ref=e56]: MCP Servers
+            - listitem [ref=e57]:
+              - link "Use Cases" [ref=e58] [cursor=pointer]:
+                - /url: /ui/use-cases
+                - img [ref=e59]
+                - generic [ref=e64]: Use Cases
+            - listitem [ref=e65]:
+              - link "Registry" [ref=e66] [cursor=pointer]:
+                - /url: /ui/registry
+                - img [ref=e67]
+                - generic [ref=e72]: Registry
+            - listitem [ref=e73]:
+              - link "Deployments" [ref=e74] [cursor=pointer]:
+                - /url: /ui/deployments
+                - img [ref=e75]
+                - generic [ref=e77]: Deployments
+            - listitem [ref=e78]:
+              - link "Compliance" [ref=e79] [cursor=pointer]:
+                - /url: /ui/compliance
+                - img [ref=e80]
+                - generic [ref=e84]: Compliance
+        - generic [ref=e85]:
+          - button "Management" [expanded] [ref=e86] [cursor=pointer]:
+            - text: Management
+            - img [ref=e87]
+          - list [ref=e90]:
+            - listitem [ref=e91]:
+              - link "API Keys" [ref=e92] [cursor=pointer]:
+                - /url: /ui/keys
+                - img [ref=e93]
+                - generic [ref=e95]: API Keys
+            - listitem [ref=e96]:
+              - link "Providers" [ref=e97] [cursor=pointer]:
+                - /url: /ui/providers
+                - img [ref=e98]
+                - generic [ref=e102]: Providers
+            - listitem [ref=e103]:
+              - link "Teams" [ref=e104] [cursor=pointer]:
+                - /url: /ui/teams
+                - img [ref=e105]
+                - generic [ref=e111]: Teams
+            - listitem [ref=e112]:
+              - link "Users" [ref=e113] [cursor=pointer]:
+                - /url: /ui/users
+                - img [ref=e114]
+                - generic [ref=e118]: Users
+        - generic [ref=e119]:
+          - button "Administration" [expanded] [ref=e120] [cursor=pointer]:
+            - text: Administration
+            - img [ref=e121]
+          - list [ref=e124]:
+            - listitem [ref=e125]:
+              - link "Budget" [ref=e126] [cursor=pointer]:
+                - /url: /ui/budget
+                - img [ref=e127]
+                - generic [ref=e132]: Budget
+            - listitem [ref=e133]:
+              - link "Audit Logs" [ref=e134] [cursor=pointer]:
+                - /url: /ui/audit-logs
+                - img [ref=e135]
+                - generic [ref=e139]: Audit Logs
+            - listitem [ref=e140]:
+              - link "Guardrails" [ref=e141] [cursor=pointer]:
+                - /url: /ui/guardrails
+                - img [ref=e142]
+                - generic [ref=e146]: Guardrails
+            - listitem [ref=e147]:
+              - link "Settings" [ref=e148] [cursor=pointer]:
+                - /url: /ui/settings
+                - img [ref=e149]
+                - generic [ref=e153]: Settings
+      - list [ref=e155]:
+        - listitem [ref=e156]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e157] [cursor=pointer]:
+            - generic [ref=e159]: A(
+            - generic [ref=e160]:
+              - generic [ref=e161]: Admin (Master Key)
+              - generic [ref=e162]: admin@pllm.local
+            - img [ref=e163]
+      - button "Toggle Sidebar" [ref=e165]
+    - main [ref=e166]:
+      - generic [ref=e167]:
+        - button "Toggle Sidebar" [ref=e168] [cursor=pointer]:
+          - img
+          - generic [ref=e169]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e170]:
+          - list [ref=e171]:
+            - listitem [ref=e173]:
+              - link "Providers" [disabled] [ref=e174]
+        - generic [ref=e175]:
+          - button "Search... ⌘K" [ref=e176] [cursor=pointer]:
+            - img [ref=e177]
+            - generic [ref=e181]: Search...
+            - generic [ref=e182]: ⌘K
+          - button [ref=e183] [cursor=pointer]:
+            - img [ref=e184]
+          - generic [ref=e188]: v2.0.0
+      - main [ref=e189]:
+        - generic [ref=e191]:
+          - generic [ref=e193]:
+            - generic [ref=e194]:
+              - heading "Providers" [level=1] [ref=e195]
+              - paragraph [ref=e196]: Manage saved LLM provider credentials
+            - button "Add Provider" [ref=e198] [cursor=pointer]: Add Provider
+          - table [ref=e201]:
+            - rowgroup [ref=e202]:
+              - row "Name Type Models Created Actions" [ref=e203]:
+                - columnheader "Name" [ref=e204]
+                - columnheader "Type" [ref=e205]
+                - columnheader "Models" [ref=e206]
+                - columnheader "Created" [ref=e207]
+                - columnheader "Actions" [ref=e208]
+            - rowgroup [ref=e209]:
+              - row "OpenRouter - Personal openrouter 2 2 weeks ago" [ref=e210]:
+                - cell "OpenRouter - Personal" [ref=e211]
+                - cell "openrouter" [ref=e212]:
+                  - generic [ref=e213]:
+                    - img [ref=e214]
+                    - generic [ref=e220]: openrouter
+                - cell "2" [ref=e221]:
+                  - generic [ref=e222]: "2"
+                - cell "2 weeks ago" [ref=e223]
+                - cell [ref=e224]:
+                  - generic [ref=e225]:
+                    - button [ref=e226] [cursor=pointer]
+                    - button [ref=e227] [cursor=pointer]
+  - region "Notifications (F8)":
+    - list

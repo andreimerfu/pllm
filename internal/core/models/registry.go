@@ -12,11 +12,41 @@ import (
 type RegistryKind string
 
 const (
-	RegistryKindServer RegistryKind = "server"
-	RegistryKindAgent  RegistryKind = "agent"
-	RegistryKindSkill  RegistryKind = "skill"
-	RegistryKindPrompt RegistryKind = "prompt"
+	RegistryKindServer  RegistryKind = "server"
+	RegistryKindAgent   RegistryKind = "agent"
+	RegistryKindSkill   RegistryKind = "skill"
+	RegistryKindPrompt  RegistryKind = "prompt"
+	// RegistryKindLLM refers to a model onboarded via the existing
+	// `user_models` / config `model_list` pipeline. Edges to this kind
+	// resolve by model name — no dedicated registry table.
+	RegistryKindLLM RegistryKind = "llm"
+	// RegistryKindUseCase is used as OwnerKind on edges that originate
+	// from a UseCase declaring its component dependencies.
+	RegistryKindUseCase RegistryKind = "use_case"
 )
+
+// IsValidTargetKind reports whether v can appear as a RegistryRef.TargetKind.
+// Used by services that accept user-supplied ref lists so invalid kinds
+// don't silently accumulate in the graph.
+func IsValidTargetKind(v RegistryKind) bool {
+	switch v {
+	case RegistryKindServer, RegistryKindAgent, RegistryKindSkill,
+		RegistryKindPrompt, RegistryKindLLM:
+		return true
+	}
+	return false
+}
+
+// IsValidOwnerKind reports whether v can appear as RegistryRef.OwnerKind.
+// A use case can own edges (it "consumes" components); so can an agent
+// (composition / delegation).
+func IsValidOwnerKind(v RegistryKind) bool {
+	switch v {
+	case RegistryKindAgent, RegistryKindUseCase:
+		return true
+	}
+	return false
+}
 
 // RegistryStatus marks the visibility / lifecycle of a version.
 type RegistryStatus string

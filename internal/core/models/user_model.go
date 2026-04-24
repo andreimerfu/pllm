@@ -45,6 +45,18 @@ type UserModel struct {
 	// Tags stored as JSONB
 	Tags StringArrayJSON `gorm:"type:jsonb" json:"tags"`
 
+	// DataClassifications — user-tagged sensitivity classes (pii, pci, ...).
+	// Used by the use-case reconciler: when a use case references this LLM
+	// (target_kind="llm"), these tags propagate into the use case's
+	// effective_classifications. Stored as jsonb like the Tags field.
+	DataClassifications StringArrayJSON `gorm:"type:jsonb" json:"data_classifications,omitempty"`
+
+	// IsFirstParty flags models running on infrastructure pllm's operator
+	// owns (e.g. local Ollama, self-hosted vLLM). Default false: external
+	// vendor-hosted models are treated as third-party by default. Used by
+	// the Third-Party Lens view.
+	IsFirstParty bool `gorm:"default:false" json:"is_first_party"`
+
 	// Status
 	Enabled bool `gorm:"default:true" json:"enabled"`
 

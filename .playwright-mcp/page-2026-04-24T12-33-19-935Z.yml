@@ -1,0 +1,196 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - list [ref=e15]:
+          - listitem [ref=e16]:
+            - link "Dashboard" [ref=e17] [cursor=pointer]:
+              - /url: /ui/dashboard
+              - img [ref=e18]
+              - generic [ref=e21]: Dashboard
+        - generic [ref=e22]:
+          - button "LLM Gateway" [expanded] [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: LLM Gateway
+            - img [ref=e25]
+          - list [ref=e28]:
+            - listitem [ref=e29]:
+              - link "Playground" [ref=e30] [cursor=pointer]:
+                - /url: /ui/chat
+                - img [ref=e31]
+                - generic [ref=e34]: Playground
+            - listitem [ref=e35]:
+              - link "Models" [ref=e36] [cursor=pointer]:
+                - /url: /ui/models
+                - img [ref=e37]
+                - generic [ref=e43]: Models
+            - listitem [ref=e44]:
+              - link "Routes" [ref=e45] [cursor=pointer]:
+                - /url: /ui/routes
+                - img [ref=e46]
+                - generic [ref=e51]: Routes
+            - listitem [ref=e52]:
+              - link "Providers" [ref=e53] [cursor=pointer]:
+                - /url: /ui/providers
+                - img [ref=e54]
+                - generic [ref=e58]: Providers
+            - listitem [ref=e59]:
+              - link "Guardrails" [ref=e60] [cursor=pointer]:
+                - /url: /ui/guardrails
+                - generic [ref=e61]: Guardrails
+        - generic [ref=e62]:
+          - button "Agents & MCP" [expanded] [ref=e63] [cursor=pointer]:
+            - generic [ref=e64]: Agents & MCP
+            - img [ref=e65]
+          - list [ref=e68]:
+            - listitem [ref=e69]:
+              - link "Registry" [ref=e70] [cursor=pointer]:
+                - /url: /ui/registry
+                - img [ref=e71]
+                - generic [ref=e76]: Registry
+            - listitem [ref=e77]:
+              - link "MCP Servers" [ref=e78] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - img [ref=e79]
+                - generic [ref=e84]: MCP Servers
+            - listitem [ref=e85]:
+              - link "Deployments" [ref=e86] [cursor=pointer]:
+                - /url: /ui/deployments
+                - img [ref=e87]
+                - generic [ref=e89]: Deployments
+        - generic [ref=e90]:
+          - button "Governance EE" [expanded] [ref=e91] [cursor=pointer]:
+            - generic [ref=e92]: Governance
+            - generic "pLLM Enterprise" [ref=e93]: EE
+            - img [ref=e94]
+          - list [ref=e97]:
+            - listitem [ref=e98]:
+              - link "Use Cases" [ref=e99] [cursor=pointer]:
+                - /url: /ui/use-cases
+                - img [ref=e100]
+                - generic [ref=e105]: Use Cases
+            - listitem [ref=e106]:
+              - link "Compliance" [ref=e107] [cursor=pointer]:
+                - /url: /ui/compliance
+                - img [ref=e108]
+                - generic [ref=e112]: Compliance
+        - generic [ref=e113]:
+          - button "Access & Activity" [expanded] [ref=e114] [cursor=pointer]:
+            - generic [ref=e115]: Access & Activity
+            - img [ref=e116]
+          - list [ref=e119]:
+            - listitem [ref=e120]:
+              - link "API Keys" [ref=e121] [cursor=pointer]:
+                - /url: /ui/keys
+                - img [ref=e122]
+                - generic [ref=e124]: API Keys
+            - listitem [ref=e125]:
+              - link "Teams" [ref=e126] [cursor=pointer]:
+                - /url: /ui/teams
+                - generic [ref=e127]: Teams
+            - listitem [ref=e128]:
+              - link "Users" [ref=e129] [cursor=pointer]:
+                - /url: /ui/users
+                - generic [ref=e130]: Users
+            - listitem [ref=e131]:
+              - link "Budget" [ref=e132] [cursor=pointer]:
+                - /url: /ui/budget
+                - generic [ref=e133]: Budget
+            - listitem [ref=e134]:
+              - link "Audit Logs" [ref=e135] [cursor=pointer]:
+                - /url: /ui/audit-logs
+                - generic [ref=e136]: Audit Logs
+        - generic [ref=e137]:
+          - button "System" [expanded] [ref=e138] [cursor=pointer]:
+            - generic [ref=e139]: System
+            - img [ref=e140]
+          - list [ref=e143]:
+            - listitem [ref=e144]:
+              - link "Settings" [ref=e145] [cursor=pointer]:
+                - /url: /ui/settings
+                - generic [ref=e146]: Settings
+      - list [ref=e148]:
+        - listitem [ref=e149]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e150] [cursor=pointer]:
+            - generic [ref=e152]: A(
+            - generic [ref=e153]:
+              - generic [ref=e154]: Admin (Master Key)
+              - generic [ref=e155]: admin@pllm.local
+            - img [ref=e156]
+      - button "Toggle Sidebar" [ref=e158]
+    - main [ref=e159]:
+      - generic [ref=e160]:
+        - button "Toggle Sidebar" [ref=e161] [cursor=pointer]:
+          - img
+          - generic [ref=e162]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e163]:
+          - list [ref=e164]:
+            - listitem [ref=e166]:
+              - generic [ref=e167]: Agents & MCP
+            - generic [ref=e168]:
+              - listitem [ref=e169]:
+                - img [ref=e170]
+              - listitem [ref=e172]:
+                - link "Deployments" [disabled] [ref=e173]
+        - generic [ref=e174]:
+          - button "Search… ⌘K" [ref=e175] [cursor=pointer]:
+            - img [ref=e176]
+            - generic [ref=e180]: Search…
+            - generic [ref=e181]: ⌘K
+          - button [ref=e182] [cursor=pointer]:
+            - img [ref=e183]
+          - generic [ref=e187]: v2.0.0
+      - main [ref=e188]:
+        - generic [ref=e190]:
+          - generic [ref=e191]:
+            - paragraph [ref=e192]: Kubernetes
+            - heading "MCP workloads" [level=1] [ref=e193]
+            - paragraph [ref=e194]: Registry servers running as dedicated Kubernetes workloads. Each deployment is auto-registered as an MCP Gateway backend.
+          - generic [ref=e195]:
+            - generic [ref=e196]:
+              - generic [ref=e198]: Total
+              - generic [ref=e199]: "2"
+            - generic [ref=e200]:
+              - generic [ref=e202]: Running
+              - generic [ref=e203]: "2"
+            - generic [ref=e204]:
+              - generic [ref=e206]: Deploying
+              - generic [ref=e207]: "0"
+            - generic [ref=e208]:
+              - generic [ref=e210]: Failed
+              - generic [ref=e211]: "0"
+          - generic [ref=e212]:
+            - generic [ref=e213]:
+              - generic [ref=e214]:
+                - generic [ref=e215]:
+                  - generic [ref=e216]: npm.import/@upstash/context7-mcp
+                  - code [ref=e217]: v2.1.8
+                - generic [ref=e218]:
+                  - generic [ref=e219]: running
+                  - button [ref=e220] [cursor=pointer]
+              - generic [ref=e221]:
+                - generic [ref=e222]:
+                  - generic [ref=e223]: kubernetes
+                  - code [ref=e224]: pllm-mcp/context7-mcp-2-1-8
+                - generic [ref=e225]: → http://context7-mcp-2-1-8.pllm-mcp.svc.cluster.local:8000/mcp
+                - paragraph [ref=e226]: MCP backend registered
+            - generic [ref=e227]:
+              - generic [ref=e228]:
+                - generic [ref=e229]:
+                  - generic [ref=e230]: io.modelcontextprotocol/server-everything
+                  - code [ref=e231]: v1.0.00.6.2
+                - generic [ref=e232]:
+                  - generic [ref=e233]: running
+                  - button [ref=e234] [cursor=pointer]
+              - generic [ref=e235]:
+                - generic [ref=e236]:
+                  - generic [ref=e237]: kubernetes
+                  - code [ref=e238]: pllm-mcp/server-everything-1-0-00-6-2
+                - generic [ref=e239]: → http://server-everything-1-0-00-6-2.pllm-mcp.svc.cluster.local:8000/mcp
+                - paragraph [ref=e240]: MCP backend registered
+  - region "Notifications (F8)":
+    - list

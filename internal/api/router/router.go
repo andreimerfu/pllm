@@ -13,12 +13,15 @@ import (
 	deploymenthandlers "github.com/amerfu/pllm/internal/api/handlers/deployment"
 	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
 	registryhandlers "github.com/amerfu/pllm/internal/api/handlers/registry"
+	usecasehandlers "github.com/amerfu/pllm/internal/api/handlers/use_cases"
+	webhookhandlers "github.com/amerfu/pllm/internal/api/handlers/webhooks"
 	"github.com/amerfu/pllm/internal/infrastructure/middleware"
 	"github.com/amerfu/pllm/internal/services/monitoring/metrics"
 	"github.com/amerfu/pllm/internal/services/data/budget"
 	"github.com/amerfu/pllm/internal/services/data/cache"
 	"github.com/amerfu/pllm/internal/services/integrations/guardrails"
 	"github.com/amerfu/pllm/internal/services/integrations/key"
+	coremodels "github.com/amerfu/pllm/internal/core/models"
 	"github.com/amerfu/pllm/internal/services/llm/models"
 	"github.com/amerfu/pllm/internal/services/llm/realtime"
 	deploymentsvc "github.com/amerfu/pllm/internal/services/deployment"
@@ -27,18 +30,124 @@ import (
 	"github.com/amerfu/pllm/internal/services/registry/enrichment"
 	"github.com/amerfu/pllm/internal/services/registry/importer"
 	registryservice "github.com/amerfu/pllm/internal/services/registry/service"
+	usecasesvc "github.com/amerfu/pllm/internal/services/use_cases"
+	"github.com/amerfu/pllm/internal/services/webhooks"
 	redisService "github.com/amerfu/pllm/internal/services/data/redis"
 	"github.com/amerfu/pllm/internal/services/integrations/team"
 	"github.com/amerfu/pllm/internal/api/ui"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
+
+// mcpScopeAdapter bridges the internal use_cases.ScopeResolver to the
+// narrow ScopeChecker interface the MCP handler expects — keeps the
+// handlers package independent of use_cases for easier testing.
+type mcpScopeAdapter struct {
+	inner *usecasesvc.ScopeResolver
+}
+
+func (a mcpScopeAdapter) AllowMCPTool(ctx context.Context, useCaseID *uuid.UUID, serverSlug string) mcphandlers.ScopeDecision {
+	d := a.inner.AllowMCPTool(ctx, useCaseID, serverSlug)
+	return mcphandlers.ScopeDecision{
+		Allowed:     d.Allowed,
+		EnforceMode: d.EnforceMode,
+		Reason:      d.Reason,
+	}
+}
+
+// llmScopeAdapter does the same bridge for the chat/LLM handler.
+type llmScopeAdapter struct {
+	inner *usecasesvc.ScopeResolver
+}
+
+func (a llmScopeAdapter) AllowLLM(ctx context.Context, useCaseID *uuid.UUID, modelName string) handlers.LLMScopeDecision {
+	d := a.inner.AllowLLM(ctx, useCaseID, modelName)
+	return handlers.LLMScopeDecision{
+		Allowed:     d.Allowed,
+		EnforceMode: d.EnforceMode,
+		Reason:      d.Reason,
+	}
+}
+
+// scopeEventAdapter bridges the EventRecorder to the narrow interfaces
+// expected by the MCP gateway + chat handler. Concentrates the enum
+// translation in one place.
+type scopeEventAdapter struct {
+	inner *usecasesvc.EventRecorder
+}
+
+// RecordMCPDenial implements mcphandlers.ScopeEventRecorder.
+func (a scopeEventAdapter) RecordMCPDenial(
+	ctx context.Context,
+	useCaseID uuid.UUID,
+	keyID *uuid.UUID, keyName, target, reason string, enforced bool,
+	remoteAddr, requestID string,
+) {
+	a.write(ctx, coremodels.ScopeEventKindMCPTool, useCaseID, keyID, keyName, target, reason, enforced, remoteAddr, requestID)
+}
+
+// RecordLLMDenial implements handlers.LLMScopeEventRecorder.
+func (a scopeEventAdapter) RecordLLMDenial(
+	ctx context.Context,
+	useCaseID uuid.UUID,
+	keyID *uuid.UUID, keyName, target, reason string, enforced bool,
+	remoteAddr, requestID string,
+) {
+	a.write(ctx, coremodels.ScopeEventKindLLM, useCaseID, keyID, keyName, target, reason, enforced, remoteAddr, requestID)
+}
+
+// write is the shared body of both Record* methods; takes the already-
+// translated ScopeEventKind and persists via the EventRecorder.
+func (a scopeEventAdapter) write(
+	ctx context.Context,
+	kind coremodels.ScopeEventKind,
+	useCaseID uuid.UUID,
+	keyID *uuid.UUID, keyName, target, reason string, enforced bool,
+	remoteAddr, requestID string,
+) {
+	if a.inner == nil {
+		return
+	}
+	outcome := coremodels.ScopeOutcomeFlagged
+	if enforced {
+		outcome = coremodels.ScopeOutcomeDenied
+	}
+	a.inner.Record(ctx, usecasesvc.RecordInput{
+		UseCaseID:  useCaseID,
+		KeyID:      keyID,
+		KeyName:    keyName,
+		Kind:       kind,
+		TargetName: target,
+		Outcome:    outcome,
+		Reason:     reason,
+		RemoteAddr: remoteAddr,
+		RequestID:  requestID,
+	})
+}
+
+// webhookEmitterAdapter translates the narrow use_cases.WebhookEmitter
+// interface into concrete webhooks.Dispatcher.Emit calls. The string
+// type gets mapped to models.WebhookEventType.
+type webhookEmitterAdapter struct {
+	inner *webhooks.Dispatcher
+}
+
+func (a webhookEmitterAdapter) Emit(evt usecasesvc.WebhookEventEnvelope) {
+	if a.inner == nil {
+		return
+	}
+	a.inner.Emit(webhooks.Event{
+		Type: coremodels.WebhookEventType(evt.Type),
+		Data: evt.Data,
+	})
+}
 
 func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.ModelManager, db *gorm.DB, pricingManager *config.ModelPricingManager) http.Handler {
 	r := chi.NewRouter()
@@ -158,6 +267,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		promptSvc := registryservice.NewPromptService(db, logger)
 		registryHandler = registryhandlers.NewHandler(
 			logger, serverSvc, agentSvc, skillSvc, promptSvc,
+			registryservice.NewRefService(db),
 		)
 		// Enrichment runner: OSV scanner only in phase 2. Started in a
 		// goroutine; shuts down when context is canceled (process exit).
@@ -191,6 +301,34 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		logger.Info("MCP Gateway initialized", zap.Bool("persistent", db != nil))
 	}
 
+	// Webhooks dispatcher — one per process. Runs a worker pool and
+	// consumes events pushed by the UseCase service + scope-event
+	// recorder. No-op when DB is missing.
+	var webhookDispatcher *webhooks.Dispatcher
+	var webhookHandler *webhookhandlers.Handler
+	if db != nil {
+		webhookDispatcher = webhooks.NewDispatcher(db, logger)
+		webhookDispatcher.Start(context.Background())
+		webhookSvc := webhooks.NewService(db, logger)
+		webhookHandler = webhookhandlers.NewHandler(logger, webhookSvc, webhookDispatcher)
+	}
+
+	// Use Case service — the top-level "business activity" layer. Requires
+	// DB only; no config toggle needed, always on when DB is present.
+	var useCaseHandler *usecasehandlers.Handler
+	var useCaseScope *usecasesvc.ScopeResolver
+	var useCaseEvents *usecasesvc.EventRecorder
+	if db != nil {
+		ucSvc := usecasesvc.NewService(db, logger)
+		if webhookDispatcher != nil {
+			ucSvc = ucSvc.WithWebhooks(webhookEmitterAdapter{inner: webhookDispatcher})
+		}
+		useCaseHandler = usecasehandlers.NewHandler(logger, ucSvc)
+		useCaseScope = ucSvc.Scope()
+		useCaseEvents = ucSvc.Events()
+		logger.Info("UseCase service initialized")
+	}
+
 	// Deployment service — opt-in via config.deployment.enabled. Falls
 	// back gracefully if credentials can't be loaded. Depends on mcpManager
 	// so it must be initialized after MCP setup.
@@ -207,6 +345,10 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			logger.Info("Deployment service initialized",
 				zap.String("namespace", cfg.Deployment.K8s.Namespace),
 				zap.Bool("in_cluster", cfg.Deployment.K8s.InCluster))
+			// Reapply orphaned deployments in the background so router
+			// startup isn't blocked by K8s round-trips. A skaffold dev
+			// restart that wipes the namespace will converge back here.
+			go deploySvc.ReconcileAll(context.Background())
 		}
 	}
 
@@ -314,6 +456,17 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		adminHandler = handlers.NewAdminHandler(logger, modelManager)
 	}
 	modelMgmtHandler = handlers.NewModelManagementHandler(pricingManager)
+
+	// Attach use-case scope enforcement to the chat handler. Other LLM
+	// surfaces (completions, messages, embeddings) share the same handler
+	// or inherit the same model resolution path, so we gate at the chat
+	// entrypoint for now — expand coverage as needed.
+	if useCaseScope != nil {
+		chatHandler = chatHandler.WithScope(llmScopeAdapter{inner: useCaseScope})
+	}
+	if useCaseEvents != nil {
+		chatHandler = chatHandler.WithRecorder(scopeEventAdapter{inner: useCaseEvents})
+	}
 
 	// Initialize realtime session manager and handler
 	sessionConfig := &realtime.SessionConfig{
@@ -444,6 +597,12 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			// MCP Gateway: streamable-HTTP endpoint for Claude Desktop / Cursor / VS Code.
 			if mcpManager != nil {
 				gatewayHandler := mcphandlers.NewGatewayHandler(logger, mcpManager)
+				if useCaseScope != nil {
+					gatewayHandler = gatewayHandler.WithScope(mcpScopeAdapter{inner: useCaseScope})
+				}
+				if useCaseEvents != nil {
+					gatewayHandler = gatewayHandler.WithRecorder(scopeEventAdapter{inner: useCaseEvents})
+				}
 				r.Handle("/mcp", gatewayHandler)
 			}
 
@@ -472,6 +631,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 					rr.Get("/prompts/{name}", registryHandler.GetPrompt)
 					rr.Get("/prompts/{name}/versions", registryHandler.ListPromptVersions)
 					rr.Get("/prompts/{name}/versions/{version}", registryHandler.GetPromptVersion)
+					rr.Get("/refs", registryHandler.ListDependents)
 				})
 			}
 		})
@@ -618,6 +778,8 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			RegistryHandler:       registryHandler,
 			RegistryImportHandler: registryImportHandler,
 			DeploymentHandler:     deployHandler,
+			UseCaseHandler:        useCaseHandler,
+			WebhookHandler:        webhookHandler,
 		}
 
 		// Mount admin routes at /api/admin

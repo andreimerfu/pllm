@@ -1,0 +1,152 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - list [ref=e15]:
+          - listitem [ref=e16]:
+            - link "Dashboard" [ref=e17] [cursor=pointer]:
+              - /url: /ui/dashboard
+              - generic [ref=e18]: Dashboard
+        - generic [ref=e19]:
+          - button "LLM Gateway" [expanded] [ref=e20] [cursor=pointer]:
+            - generic [ref=e21]: LLM Gateway
+          - list [ref=e23]:
+            - listitem [ref=e24]:
+              - link "Playground" [ref=e25] [cursor=pointer]:
+                - /url: /ui/chat
+                - generic [ref=e26]: Playground
+            - listitem [ref=e27]:
+              - link "Models" [ref=e28] [cursor=pointer]:
+                - /url: /ui/models
+                - generic [ref=e29]: Models
+            - listitem [ref=e30]:
+              - link "Routes" [ref=e31] [cursor=pointer]:
+                - /url: /ui/routes
+                - generic [ref=e32]: Routes
+            - listitem [ref=e33]:
+              - link "Providers" [ref=e34] [cursor=pointer]:
+                - /url: /ui/providers
+                - generic [ref=e35]: Providers
+        - generic [ref=e36]:
+          - button "Agents & MCP" [expanded] [ref=e37] [cursor=pointer]:
+            - generic [ref=e38]: Agents & MCP
+          - list [ref=e40]:
+            - listitem [ref=e41]:
+              - link "Registry" [ref=e42] [cursor=pointer]:
+                - /url: /ui/registry
+                - generic [ref=e43]: Registry
+            - listitem [ref=e44]:
+              - link "MCP Servers" [ref=e45] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - generic [ref=e46]: MCP Servers
+            - listitem [ref=e47]:
+              - link "Deployments" [ref=e48] [cursor=pointer]:
+                - /url: /ui/deployments
+                - generic [ref=e49]: Deployments
+        - generic [ref=e50]:
+          - button "Governance Enterprise feature" [expanded] [ref=e51] [cursor=pointer]:
+            - generic [ref=e52]: Governance
+            - generic "Enterprise feature" [ref=e53]
+          - list [ref=e55]:
+            - listitem [ref=e56]:
+              - link "Use Cases" [disabled]:
+                - /url: /ui/unauthorized?feature=mrm
+                - generic: Use Cases
+            - listitem [ref=e57]:
+              - link "Compliance" [disabled]:
+                - /url: /ui/unauthorized?feature=mrm
+                - generic: Compliance
+        - generic [ref=e58]:
+          - button "Access & Activity" [expanded] [ref=e59] [cursor=pointer]:
+            - generic [ref=e60]: Access & Activity
+          - list [ref=e62]:
+            - listitem [ref=e63]:
+              - link "API Keys" [ref=e64] [cursor=pointer]:
+                - /url: /ui/keys
+                - generic [ref=e65]: API Keys
+        - generic [ref=e66]:
+          - button "System" [expanded] [ref=e67] [cursor=pointer]:
+            - generic [ref=e68]: System
+          - generic:
+            - list
+      - list [ref=e70]:
+        - listitem [ref=e71]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e72] [cursor=pointer]:
+            - generic [ref=e74]: A(
+            - generic [ref=e75]:
+              - generic [ref=e76]: Admin (Master Key)
+              - generic [ref=e77]: admin@pllm.local
+      - button "Toggle Sidebar" [ref=e78]
+    - main [ref=e79]:
+      - generic [ref=e80]:
+        - button "Toggle Sidebar" [ref=e81] [cursor=pointer]:
+          - generic [ref=e82]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e83]:
+          - list [ref=e84]:
+            - listitem [ref=e86]:
+              - generic [ref=e87]: Agents & MCP
+            - listitem [ref=e89]:
+              - link "Registry" [disabled] [ref=e90]
+        - generic [ref=e91]:
+          - button "Search ⌘K" [ref=e92] [cursor=pointer]:
+            - generic [ref=e93]: Search
+            - generic [ref=e94]: ⌘K
+          - button "Toggle theme" [ref=e95] [cursor=pointer]
+      - main [ref=e96]:
+        - generic [ref=e98]:
+          - generic [ref=e99]:
+            - generic [ref=e100]:
+              - paragraph [ref=e101]: registry
+              - heading "Curated agent catalog" [level=1] [ref=e102]
+              - paragraph [ref=e103]: Published MCP servers, agents, skills and prompts. Reviewed, versioned, scored, and deployable as dedicated Kubernetes workloads.
+            - generic [ref=e104]:
+              - button "Import" [ref=e105] [cursor=pointer]: Import
+              - button "Publish server" [ref=e106] [cursor=pointer]: Publish server
+          - generic [ref=e107]:
+            - button "0 Servers" [ref=e108] [cursor=pointer]:
+              - generic [ref=e113]: "0"
+              - paragraph [ref=e114]: Servers
+            - button "0 Agents" [ref=e115] [cursor=pointer]:
+              - generic [ref=e119]: "0"
+              - paragraph [ref=e120]: Agents
+            - button "0 Skills" [ref=e121] [cursor=pointer]:
+              - generic [ref=e125]: "0"
+              - paragraph [ref=e126]: Skills
+            - button "0 Prompts" [ref=e127] [cursor=pointer]:
+              - generic [ref=e131]: "0"
+              - paragraph [ref=e132]: Prompts
+            - button "0 · 0 running Deployments" [disabled] [ref=e133]:
+              - generic [ref=e136]:
+                - generic [ref=e137]: "0"
+                - generic [ref=e138]: · 0 running
+              - paragraph [ref=e139]: Deployments
+          - generic [ref=e140]:
+            - textbox "Search servers…" [ref=e142]
+            - combobox [ref=e143] [cursor=pointer]:
+              - generic: Most recent
+            - generic [ref=e144]:
+              - switch "Latest only" [checked] [ref=e145] [cursor=pointer]
+              - generic [ref=e146] [cursor=pointer]: Latest only
+          - generic [ref=e147]:
+            - tablist [ref=e148]:
+              - tab "Servers 0" [selected] [ref=e149] [cursor=pointer]:
+                - generic [ref=e151]: Servers
+                - generic [ref=e152]: "0"
+              - tab "Agents 0" [ref=e153] [cursor=pointer]:
+                - generic [ref=e155]: Agents
+                - generic [ref=e156]: "0"
+              - tab "Skills 0" [ref=e157] [cursor=pointer]:
+                - generic [ref=e159]: Skills
+                - generic [ref=e160]: "0"
+              - tab "Prompts 0" [ref=e161] [cursor=pointer]:
+                - generic [ref=e163]: Prompts
+                - generic [ref=e164]: "0"
+            - tabpanel "Servers 0" [ref=e165]:
+              - paragraph [ref=e166]: Cataloged MCP servers — npm, PyPI, OCI, or remote endpoints.
+  - region "Notifications (F8)":
+    - list

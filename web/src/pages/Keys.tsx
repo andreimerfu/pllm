@@ -8,6 +8,7 @@ import { LoadingState } from '../components/common/LoadingState';
 import { Icon } from '@iconify/react';
 import { icons } from '@/lib/icons';
 import { useKeys, useUserTeams } from '../hooks/useKeys';
+import { PageShell } from '@/components/common/page-shell';
 
 const Keys: React.FC = () => {
   const { toast } = useToast();
@@ -139,24 +140,17 @@ const Keys: React.FC = () => {
   const revokedPercent = (revokedKeys / total) * 100;
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">
-            {isAdmin ? 'API Keys' : 'My API Keys'}
-          </h1>
-          <p className="text-[13px] text-muted-foreground">
-            Manage API access to your gateway
-          </p>
-        </div>
+    <PageShell
+      title={isAdmin ? "API Keys" : "My keys"}
+      description="Bearer credentials that route traffic through your policies, budgets, and use-case scopes."
+      actions={
         <CreateKeyDialog
           isAdmin={isAdmin}
           userTeams={userTeams}
           onCreateKey={handleGenerateKey}
         />
-      </div>
-
+      }
+    >
       {/* Quick Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Total Keys */}
@@ -223,7 +217,7 @@ const Keys: React.FC = () => {
         data={keys}
         teams={userTeams}
       />
-    </div>
+    </PageShell>
   );
 };
 

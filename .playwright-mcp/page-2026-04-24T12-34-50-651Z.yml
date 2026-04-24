@@ -1,0 +1,183 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - list [ref=e15]:
+          - listitem [ref=e16]:
+            - link "Dashboard" [ref=e17] [cursor=pointer]:
+              - /url: /ui/dashboard
+              - img [ref=e18]
+              - generic [ref=e21]: Dashboard
+        - generic [ref=e22]:
+          - button "LLM Gateway" [expanded] [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: LLM Gateway
+            - img [ref=e25]
+          - list [ref=e28]:
+            - listitem [ref=e29]:
+              - link "Playground" [ref=e30] [cursor=pointer]:
+                - /url: /ui/chat
+                - img [ref=e31]
+                - generic [ref=e34]: Playground
+            - listitem [ref=e35]:
+              - link "Models" [ref=e36] [cursor=pointer]:
+                - /url: /ui/models
+                - img [ref=e37]
+                - generic [ref=e43]: Models
+            - listitem [ref=e44]:
+              - link "Routes" [ref=e45] [cursor=pointer]:
+                - /url: /ui/routes
+                - img [ref=e46]
+                - generic [ref=e51]: Routes
+            - listitem [ref=e52]:
+              - link "Providers" [ref=e53] [cursor=pointer]:
+                - /url: /ui/providers
+                - img [ref=e54]
+                - generic [ref=e58]: Providers
+            - listitem [ref=e59]:
+              - link "Guardrails" [ref=e60] [cursor=pointer]:
+                - /url: /ui/guardrails
+                - img [ref=e61]
+                - generic [ref=e65]: Guardrails
+        - generic [ref=e66]:
+          - button "Agents & MCP" [expanded] [ref=e67] [cursor=pointer]:
+            - generic [ref=e68]: Agents & MCP
+            - img [ref=e69]
+          - list [ref=e72]:
+            - listitem [ref=e73]:
+              - link "Registry" [ref=e74] [cursor=pointer]:
+                - /url: /ui/registry
+                - img [ref=e75]
+                - generic [ref=e80]: Registry
+            - listitem [ref=e81]:
+              - link "MCP Servers" [ref=e82] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - img [ref=e83]
+                - generic [ref=e88]: MCP Servers
+            - listitem [ref=e89]:
+              - link "Deployments" [ref=e90] [cursor=pointer]:
+                - /url: /ui/deployments
+                - img [ref=e91]
+                - generic [ref=e93]: Deployments
+        - generic [ref=e94]:
+          - button "Governance EE" [expanded] [ref=e95] [cursor=pointer]:
+            - generic [ref=e96]: Governance
+            - generic "pLLM Enterprise" [ref=e97]: EE
+            - img [ref=e98]
+          - list [ref=e101]:
+            - listitem [ref=e102]:
+              - link "Use Cases" [ref=e103] [cursor=pointer]:
+                - /url: /ui/use-cases
+                - img [ref=e104]
+                - generic [ref=e109]: Use Cases
+            - listitem [ref=e110]:
+              - link "Compliance" [ref=e111] [cursor=pointer]:
+                - /url: /ui/compliance
+                - img [ref=e112]
+                - generic [ref=e116]: Compliance
+        - generic [ref=e117]:
+          - button "Access & Activity" [expanded] [ref=e118] [cursor=pointer]:
+            - generic [ref=e119]: Access & Activity
+            - img [ref=e120]
+          - list [ref=e123]:
+            - listitem [ref=e124]:
+              - link "API Keys" [ref=e125] [cursor=pointer]:
+                - /url: /ui/keys
+                - img [ref=e126]
+                - generic [ref=e128]: API Keys
+            - listitem [ref=e129]:
+              - link "Teams" [ref=e130] [cursor=pointer]:
+                - /url: /ui/teams
+                - img [ref=e131]
+                - generic [ref=e137]: Teams
+            - listitem [ref=e138]:
+              - link "Users" [ref=e139] [cursor=pointer]:
+                - /url: /ui/users
+                - img [ref=e140]
+                - generic [ref=e144]: Users
+            - listitem [ref=e145]:
+              - link "Budget" [ref=e146] [cursor=pointer]:
+                - /url: /ui/budget
+                - img [ref=e147]
+                - generic [ref=e152]: Budget
+            - listitem [ref=e153]:
+              - link "Audit Logs" [ref=e154] [cursor=pointer]:
+                - /url: /ui/audit-logs
+                - img [ref=e155]
+                - generic [ref=e159]: Audit Logs
+        - generic [ref=e160]:
+          - button "System" [expanded] [ref=e161] [cursor=pointer]:
+            - generic [ref=e162]: System
+            - img [ref=e163]
+          - list [ref=e166]:
+            - listitem [ref=e167]:
+              - link "Settings" [ref=e168] [cursor=pointer]:
+                - /url: /ui/settings
+                - img [ref=e169]
+                - generic [ref=e173]: Settings
+      - list [ref=e175]:
+        - listitem [ref=e176]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e177] [cursor=pointer]:
+            - generic [ref=e179]: A(
+            - generic [ref=e180]:
+              - generic [ref=e181]: Admin (Master Key)
+              - generic [ref=e182]: admin@pllm.local
+            - img [ref=e183]
+      - button "Toggle Sidebar" [ref=e185]
+    - main [ref=e186]:
+      - generic [ref=e187]:
+        - button "Toggle Sidebar" [ref=e188] [cursor=pointer]:
+          - img
+          - generic [ref=e189]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e190]:
+          - list [ref=e191]:
+            - listitem [ref=e193]:
+              - generic [ref=e194]: LLM Gateway
+            - generic [ref=e195]:
+              - listitem [ref=e196]:
+                - img [ref=e197]
+              - listitem [ref=e199]:
+                - link "Routes" [disabled] [ref=e200]
+        - button "Create Route" [ref=e202] [cursor=pointer]:
+          - img
+          - text: Create Route
+        - generic [ref=e203]:
+          - button "Search… ⌘K" [ref=e204] [cursor=pointer]:
+            - img [ref=e205]
+            - generic [ref=e209]: Search…
+            - generic [ref=e210]: ⌘K
+          - button [ref=e211] [cursor=pointer]:
+            - img [ref=e212]
+          - generic [ref=e216]: v2.0.0
+      - main [ref=e217]:
+        - generic [ref=e219]:
+          - generic [ref=e220]:
+            - paragraph [ref=e221]: LLM Gateway
+            - heading "Virtual routes" [level=1] [ref=e222]
+            - paragraph [ref=e223]: Virtual endpoints that distribute traffic across multiple models with priority, failover, and fractional routing.
+          - generic [ref=e225] [cursor=pointer]:
+            - generic [ref=e226]:
+              - generic [ref=e227]:
+                - generic [ref=e228]: free-route
+                - code [ref=e229]: "model: \"free-route\""
+              - generic [ref=e230]:
+                - generic [ref=e231]: Enabled
+                - button [ref=e232]:
+                  - img
+            - generic [ref=e233]:
+              - generic [ref=e234]:
+                - generic [ref=e235]: Priority
+                - generic [ref=e236]: ·
+                - generic [ref=e237]: user
+                - generic [ref=e238]: ·
+                - generic [ref=e239]: 3 models
+              - generic [ref=e240]:
+                - generic [ref=e241]: "Qwen: Qwen3.6 Plus (free)"
+                - generic [ref=e242]: "NVIDIA: Nemotron 3 Super (free)"
+                - generic [ref=e243]: "Z.ai: GLM 4.5 Air (free)"
+  - region "Notifications (F8)":
+    - list

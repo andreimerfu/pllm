@@ -14,6 +14,7 @@ import ModelsTable from "@/components/models/ModelsTable";
 import ModelsCards from "@/components/models/ModelsCards";
 import AddModelDialog from "@/components/models/AddModelDialog";
 import DeleteModelDialog from "@/components/models/DeleteModelDialog";
+import { PageShell } from "@/components/common/page-shell";
 
 type ViewMode = "cards" | "table";
 
@@ -183,19 +184,17 @@ export default function Models() {
   }
 
   return (
-    <div className="space-y-4 lg:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold">Models</h1>
-          <p className="text-sm lg:text-base text-muted-foreground">
-            Configure and manage LLM models
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <AddModelDialog />
-          {/* View Toggle */}
+    <PageShell
+      title="Models"
+      description="Onboarded LLMs across all providers. Load-balanced, health-checked, and billed through a single policy layer."
+      actions={<AddModelDialog />}
+      toolbar={
+        <div className="flex items-center justify-between w-full gap-3">
+          <ModelFilters
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            onClearAll={handleClearFilters}
+          />
           <ToggleGroup
             type="single"
             value={viewMode}
@@ -211,23 +210,14 @@ export default function Models() {
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
-      </div>
-
-      {/* Filters */}
-      <ModelFilters
-        filters={filters}
-        onFiltersChange={handleFiltersChange}
-        onClearAll={handleClearFilters}
-      />
-
-      {/* Results Summary */}
+      }
+    >
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           Showing {filteredModels.length} of {modelsWithUsage.length} models
         </p>
       </div>
 
-      {/* Content */}
       {filteredModels.length === 0 ? (
         <div className="flex items-center justify-center h-64 border border-dashed rounded-lg">
           <div className="text-center">
@@ -243,7 +233,6 @@ export default function Models() {
         <ModelsCards models={filteredModels} onEdit={handleEdit} onDelete={handleDelete} />
       )}
 
-      {/* Delete confirmation dialog */}
       {deleteTarget && (
         <DeleteModelDialog
           modelId={deleteTarget.id}
@@ -252,6 +241,6 @@ export default function Models() {
           onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
         />
       )}
-    </div>
+    </PageShell>
   );
 }

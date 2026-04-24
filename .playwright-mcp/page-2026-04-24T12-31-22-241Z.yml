@@ -1,0 +1,20 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - button [ref=e4] [cursor=pointer]:
+      - img [ref=e5]
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - img "pLLM" [ref=e12]
+        - generic [ref=e13]: pLLM Gateway
+        - generic [ref=e14]: Authenticate to access the admin panel
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - button "Continue with GitHub" [ref=e17] [cursor=pointer]: Continue with GitHub
+          - button "Continue with Google" [ref=e18] [cursor=pointer]: Continue with Google
+          - button "Continue with Microsoft" [ref=e19] [cursor=pointer]:
+            - img
+            - text: Continue with Microsoft
+        - generic [ref=e23]: Admin Access
+        - button "Admin Login with Master Key" [ref=e24] [cursor=pointer]: Admin Login with Master Key
+  - region "Notifications (F8)":
+    - list

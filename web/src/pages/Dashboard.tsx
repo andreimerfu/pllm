@@ -7,6 +7,7 @@ import { icons } from "@/lib/icons"
 import { getProviderLogo } from "@/lib/provider-logos"
 import { detectProvider } from "@/lib/providers"
 import { getDashboardMetrics, getUsageTrends, getAdminModels, getModelsHealth } from "@/lib/api"
+import { PageShell } from "@/components/common/page-shell"
 import type { AdminModelsResponse, ModelsHealthResponse } from "@/types/api"
 import { formatChartLabel, fillTimeGaps } from "@/lib/date-utils"
 
@@ -707,29 +708,17 @@ function ModelsActivityTable() {
 
 export default function Dashboard() {
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-[13px] text-muted-foreground mt-1">
-          Monitor your LLM gateway performance and usage
-        </p>
-      </div>
-
-      {/* System Health Strip */}
+    <PageShell
+      title="Dashboard"
+      description="Live health and traffic across the LLM, MCP, and governance surfaces of your console."
+    >
       <SystemHealthStrip />
-
-      {/* Hero Metrics Row */}
       <HeroMetrics />
-
-      {/* Two-Column: Chart + Provider Breakdown */}
       <div className="flex flex-col lg:flex-row gap-6">
         <RequestVolumeChart />
         <ProviderBreakdown />
       </div>
-
-      {/* Models Activity Table */}
       <ModelsActivityTable />
-    </div>
+    </PageShell>
   )
 }

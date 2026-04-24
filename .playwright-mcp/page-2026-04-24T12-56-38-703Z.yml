@@ -1,0 +1,677 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - list [ref=e15]:
+          - listitem [ref=e16]:
+            - link "Dashboard" [ref=e17] [cursor=pointer]:
+              - /url: /ui/dashboard
+              - img [ref=e18]
+              - generic [ref=e21]: Dashboard
+        - generic [ref=e22]:
+          - button "LLM Gateway" [expanded] [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: LLM Gateway
+            - img [ref=e25]
+          - list [ref=e28]:
+            - listitem [ref=e29]:
+              - link "Playground" [ref=e30] [cursor=pointer]:
+                - /url: /ui/chat
+                - img [ref=e31]
+                - generic [ref=e34]: Playground
+            - listitem [ref=e35]:
+              - link "Models" [ref=e36] [cursor=pointer]:
+                - /url: /ui/models
+                - img [ref=e37]
+                - generic [ref=e43]: Models
+            - listitem [ref=e44]:
+              - link "Routes" [ref=e45] [cursor=pointer]:
+                - /url: /ui/routes
+                - img [ref=e46]
+                - generic [ref=e51]: Routes
+            - listitem [ref=e52]:
+              - link "Providers" [ref=e53] [cursor=pointer]:
+                - /url: /ui/providers
+                - img [ref=e54]
+                - generic [ref=e58]: Providers
+            - listitem [ref=e59]:
+              - link "Guardrails" [ref=e60] [cursor=pointer]:
+                - /url: /ui/guardrails
+                - img [ref=e61]
+                - generic [ref=e65]: Guardrails
+        - generic [ref=e66]:
+          - button "Agents & MCP" [expanded] [ref=e67] [cursor=pointer]:
+            - generic [ref=e68]: Agents & MCP
+            - img [ref=e69]
+          - list [ref=e72]:
+            - listitem [ref=e73]:
+              - link "Registry" [ref=e74] [cursor=pointer]:
+                - /url: /ui/registry
+                - img [ref=e75]
+                - generic [ref=e80]: Registry
+            - listitem [ref=e81]:
+              - link "MCP Servers" [ref=e82] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - img [ref=e83]
+                - generic [ref=e88]: MCP Servers
+            - listitem [ref=e89]:
+              - link "Deployments" [ref=e90] [cursor=pointer]:
+                - /url: /ui/deployments
+                - img [ref=e91]
+                - generic [ref=e93]: Deployments
+        - generic [ref=e94]:
+          - button "Governance Enterprise feature" [expanded] [ref=e95] [cursor=pointer]:
+            - generic [ref=e96]: Governance
+            - generic "Enterprise feature" [ref=e97]
+            - img [ref=e98]
+          - list [ref=e101]:
+            - listitem [ref=e102]:
+              - link "Use Cases" [ref=e103] [cursor=pointer]:
+                - /url: /ui/use-cases
+                - img [ref=e104]
+                - generic [ref=e109]: Use Cases
+            - listitem [ref=e110]:
+              - link "Compliance" [ref=e111] [cursor=pointer]:
+                - /url: /ui/compliance
+                - img [ref=e112]
+                - generic [ref=e116]: Compliance
+        - generic [ref=e117]:
+          - button "Access & Activity" [expanded] [ref=e118] [cursor=pointer]:
+            - generic [ref=e119]: Access & Activity
+            - img [ref=e120]
+          - list [ref=e123]:
+            - listitem [ref=e124]:
+              - link "API Keys" [ref=e125] [cursor=pointer]:
+                - /url: /ui/keys
+                - img [ref=e126]
+                - generic [ref=e128]: API Keys
+            - listitem [ref=e129]:
+              - link "Teams" [ref=e130] [cursor=pointer]:
+                - /url: /ui/teams
+                - img [ref=e131]
+                - generic [ref=e137]: Teams
+            - listitem [ref=e138]:
+              - link "Users" [ref=e139] [cursor=pointer]:
+                - /url: /ui/users
+                - img [ref=e140]
+                - generic [ref=e144]: Users
+            - listitem [ref=e145]:
+              - link "Budget" [ref=e146] [cursor=pointer]:
+                - /url: /ui/budget
+                - img [ref=e147]
+                - generic [ref=e152]: Budget
+            - listitem [ref=e153]:
+              - link "Audit Logs" [ref=e154] [cursor=pointer]:
+                - /url: /ui/audit-logs
+                - img [ref=e155]
+                - generic [ref=e159]: Audit Logs
+        - generic [ref=e160]:
+          - button "System" [expanded] [ref=e161] [cursor=pointer]:
+            - generic [ref=e162]: System
+            - img [ref=e163]
+          - list [ref=e166]:
+            - listitem [ref=e167]:
+              - link "Settings" [ref=e168] [cursor=pointer]:
+                - /url: /ui/settings
+                - img [ref=e169]
+                - generic [ref=e173]: Settings
+      - list [ref=e175]:
+        - listitem [ref=e176]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e177] [cursor=pointer]:
+            - generic [ref=e179]: A(
+            - generic [ref=e180]:
+              - generic [ref=e181]: Admin (Master Key)
+              - generic [ref=e182]: admin@pllm.local
+            - img [ref=e183]
+      - button "Toggle Sidebar" [ref=e185]
+    - main [ref=e186]:
+      - generic [ref=e187]:
+        - button "Toggle Sidebar" [ref=e188] [cursor=pointer]:
+          - img
+          - generic [ref=e189]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e190]:
+          - list [ref=e191]:
+            - listitem [ref=e193]:
+              - generic [ref=e194]: Agents & MCP
+            - generic [ref=e195]:
+              - listitem [ref=e196]:
+                - img [ref=e197]
+              - listitem [ref=e199]:
+                - link "Registry" [disabled] [ref=e200]
+        - generic [ref=e201]:
+          - button "Search ⌘K" [ref=e202] [cursor=pointer]:
+            - img [ref=e203]
+            - generic [ref=e207]: Search
+            - generic [ref=e208]: ⌘K
+          - button "Toggle theme" [ref=e209] [cursor=pointer]:
+            - img [ref=e210]
+      - main [ref=e214]:
+        - generic [ref=e216]:
+          - generic [ref=e217]:
+            - generic [ref=e218]:
+              - heading "Registry" [level=1] [ref=e219]
+              - paragraph [ref=e220]: Published MCP servers, agents, skills and prompts. Reviewed, versioned, scored, and deployable as Kubernetes workloads.
+            - generic [ref=e221]:
+              - button "Import" [ref=e222] [cursor=pointer]:
+                - img
+                - text: Import
+              - button "Publish server" [ref=e223] [cursor=pointer]:
+                - img
+                - text: Publish server
+          - generic [ref=e224]:
+            - button "56 Servers" [ref=e225] [cursor=pointer]:
+              - img [ref=e228]
+              - generic [ref=e235]: "56"
+              - paragraph [ref=e236]: Servers
+            - button "1 Agents" [ref=e237] [cursor=pointer]:
+              - generic [ref=e241]: "1"
+              - paragraph [ref=e242]: Agents
+            - button "1 Skills" [ref=e243] [cursor=pointer]:
+              - img [ref=e246]
+              - generic [ref=e253]: "1"
+              - paragraph [ref=e254]: Skills
+            - button "1 Prompts" [ref=e255] [cursor=pointer]:
+              - img [ref=e258]
+              - generic [ref=e263]: "1"
+              - paragraph [ref=e264]: Prompts
+            - button "2 · 2 running Deployments" [disabled] [ref=e265]:
+              - img [ref=e268]
+              - generic [ref=e270]:
+                - generic [ref=e271]: "2"
+                - generic [ref=e272]: · 2 running
+              - paragraph [ref=e273]: Deployments
+          - generic [ref=e274]:
+            - generic [ref=e275]:
+              - img [ref=e276]
+              - textbox "Search servers…" [ref=e280]
+            - combobox [ref=e281] [cursor=pointer]:
+              - generic: Most recent
+              - img [ref=e282]
+            - generic [ref=e284]:
+              - switch "Latest only" [checked] [ref=e285] [cursor=pointer]
+              - generic [ref=e286] [cursor=pointer]: Latest only
+          - generic [ref=e287]:
+            - generic [ref=e288]: packages
+            - button "all" [ref=e289] [cursor=pointer]
+            - button "npm" [ref=e290] [cursor=pointer]
+          - generic [ref=e291]:
+            - tablist [ref=e292]:
+              - tab "Servers 56" [selected] [ref=e293] [cursor=pointer]:
+                - img [ref=e295]
+                - generic [ref=e300]: Servers
+                - generic [ref=e301]: "56"
+              - tab "Agents 1" [ref=e302] [cursor=pointer]:
+                - generic [ref=e304]: Agents
+                - generic [ref=e305]: "1"
+              - tab "Skills 1" [ref=e306] [cursor=pointer]:
+                - img [ref=e308]
+                - generic [ref=e314]: Skills
+                - generic [ref=e315]: "1"
+              - tab "Prompts 1" [ref=e316] [cursor=pointer]:
+                - img [ref=e318]
+                - generic [ref=e322]: Prompts
+                - generic [ref=e323]: "1"
+            - tabpanel "Servers 56" [ref=e324]:
+              - paragraph [ref=e325]:
+                - img [ref=e326]
+                - text: Cataloged MCP servers — npm, PyPI, OCI, or remote endpoints.
+              - generic [ref=e331]:
+                - button "@claude-flow/cli npm.import/@claude-flow/cli v3.5.80 latest Ruflo CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code npm about 4 hours ago" [ref=e332] [cursor=pointer]:
+                  - generic [ref=e333]:
+                    - img [ref=e335]
+                    - generic [ref=e337]:
+                      - heading "@claude-flow/cli" [level=3] [ref=e338]
+                      - code [ref=e339]: npm.import/@claude-flow/cli
+                    - generic [ref=e340]:
+                      - generic [ref=e341]: v3.5.80
+                      - generic [ref=e342]: latest
+                  - paragraph [ref=e343]: Ruflo CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code
+                  - generic [ref=e344]:
+                    - generic [ref=e346]: npm
+                    - generic [ref=e347]:
+                      - img [ref=e348]
+                      - text: about 4 hours ago
+                - button "@shopify/dev-mcp npm.import/@shopify/dev-mcp v1.12.0 latest A command line tool for setting up Shopify Dev MCP server npm about 5 hours ago" [ref=e352] [cursor=pointer]:
+                  - generic [ref=e353]:
+                    - img [ref=e355]
+                    - generic [ref=e359]:
+                      - heading "@shopify/dev-mcp" [level=3] [ref=e360]
+                      - code [ref=e361]: npm.import/@shopify/dev-mcp
+                    - generic [ref=e362]:
+                      - generic [ref=e363]: v1.12.0
+                      - generic [ref=e364]: latest
+                  - paragraph [ref=e365]: A command line tool for setting up Shopify Dev MCP server
+                  - generic [ref=e366]:
+                    - generic [ref=e368]: npm
+                    - generic [ref=e369]:
+                      - img [ref=e370]
+                      - text: about 5 hours ago
+                - button "@eslint/mcp npm.import/@eslint/mcp v0.3.4 latest MCP server for ESLint npm about 5 hours ago" [ref=e374] [cursor=pointer]:
+                  - generic [ref=e375]:
+                    - img [ref=e377]
+                    - generic [ref=e380]:
+                      - heading "@eslint/mcp" [level=3] [ref=e381]
+                      - code [ref=e382]: npm.import/@eslint/mcp
+                    - generic [ref=e383]:
+                      - generic [ref=e384]: v0.3.4
+                      - generic [ref=e385]: latest
+                  - paragraph [ref=e386]: MCP server for ESLint
+                  - generic [ref=e387]:
+                    - generic [ref=e389]: npm
+                    - generic [ref=e390]:
+                      - img [ref=e391]
+                      - text: about 5 hours ago
+                - button "@taazkareem/clickup-mcp-server npm.import/@taazkareem/clickup-mcp-server v0.14.3 latest ClickUp MCP Server - Powering AI Agents with full ClickUp task, document, and chat management capabilities. npm about 5 hours ago" [ref=e395] [cursor=pointer]:
+                  - generic [ref=e396]:
+                    - img [ref=e398]
+                    - generic [ref=e400]:
+                      - heading "@taazkareem/clickup-mcp-server" [level=3] [ref=e401]
+                      - code [ref=e402]: npm.import/@taazkareem/clickup-mcp-server
+                    - generic [ref=e403]:
+                      - generic [ref=e404]: v0.14.3
+                      - generic [ref=e405]: latest
+                  - paragraph [ref=e406]: ClickUp MCP Server - Powering AI Agents with full ClickUp task, document, and chat management capabilities.
+                  - generic [ref=e407]:
+                    - generic [ref=e409]: npm
+                    - generic [ref=e410]:
+                      - img [ref=e411]
+                      - text: about 5 hours ago
+                - button "@softeria/ms-365-mcp-server npm.import/@softeria/ms-365-mcp-server v0.85.1 latest A Model Context Protocol (MCP) server for interacting with Microsoft 365 and Office services through the Graph API npm about 5 hours ago" [ref=e415] [cursor=pointer]:
+                  - generic [ref=e416]:
+                    - img [ref=e418]
+                    - generic [ref=e423]:
+                      - heading "@softeria/ms-365-mcp-server" [level=3] [ref=e424]
+                      - code [ref=e425]: npm.import/@softeria/ms-365-mcp-server
+                    - generic [ref=e426]:
+                      - generic [ref=e427]: v0.85.1
+                      - generic [ref=e428]: latest
+                  - paragraph [ref=e429]: A Model Context Protocol (MCP) server for interacting with Microsoft 365 and Office services through the Graph API
+                  - generic [ref=e430]:
+                    - generic [ref=e432]: npm
+                    - generic [ref=e433]:
+                      - img [ref=e434]
+                      - text: about 5 hours ago
+                - button "@sap-ux/fiori-docs-embeddings npm.import/@sap-ux/fiori-docs-embeddings v0.4.16 latest SAP Fiori documentation indexing npm about 5 hours ago" [ref=e438] [cursor=pointer]:
+                  - generic [ref=e439]:
+                    - img [ref=e441]
+                    - generic [ref=e446]:
+                      - heading "@sap-ux/fiori-docs-embeddings" [level=3] [ref=e447]
+                      - code [ref=e448]: npm.import/@sap-ux/fiori-docs-embeddings
+                    - generic [ref=e449]:
+                      - generic [ref=e450]: v0.4.16
+                      - generic [ref=e451]: latest
+                  - paragraph [ref=e452]: SAP Fiori documentation indexing
+                  - generic [ref=e453]:
+                    - generic [ref=e455]: npm
+                    - generic [ref=e456]:
+                      - img [ref=e457]
+                      - text: about 5 hours ago
+                - button "@drawio/mcp npm.import/@drawio/mcp v1.2.6 latest Official draw.io MCP server for LLMs - Open diagrams in draw.io editor npm about 5 hours ago" [ref=e461] [cursor=pointer]:
+                  - generic [ref=e462]:
+                    - img [ref=e464]
+                    - generic [ref=e466]:
+                      - heading "@drawio/mcp" [level=3] [ref=e467]
+                      - code [ref=e468]: npm.import/@drawio/mcp
+                    - generic [ref=e469]:
+                      - generic [ref=e470]: v1.2.6
+                      - generic [ref=e471]: latest
+                  - paragraph [ref=e472]: Official draw.io MCP server for LLMs - Open diagrams in draw.io editor
+                  - generic [ref=e473]:
+                    - generic [ref=e475]: npm
+                    - generic [ref=e476]:
+                      - img [ref=e477]
+                      - text: about 5 hours ago
+                - button "@google/stitch-sdk npm.import/@google/stitch-sdk v0.1.0 latest Generate UI screens from text prompts and extract their HTML and screenshots programmatically. npm about 5 hours ago" [ref=e481] [cursor=pointer]:
+                  - generic [ref=e482]:
+                    - img [ref=e484]
+                    - generic [ref=e489]:
+                      - heading "@google/stitch-sdk" [level=3] [ref=e490]
+                      - code [ref=e491]: npm.import/@google/stitch-sdk
+                    - generic [ref=e492]:
+                      - generic [ref=e493]: v0.1.0
+                      - generic [ref=e494]: latest
+                  - paragraph [ref=e495]: Generate UI screens from text prompts and extract their HTML and screenshots programmatically.
+                  - generic [ref=e496]:
+                    - generic [ref=e498]: npm
+                    - generic [ref=e499]:
+                      - img [ref=e500]
+                      - text: about 5 hours ago
+                - button "@sentry/mcp-server npm.import/@sentry/mcp-server v0.32.0 latest Sentry MCP Server npm about 5 hours ago" [ref=e504] [cursor=pointer]:
+                  - generic [ref=e505]:
+                    - img [ref=e507]
+                    - generic [ref=e509]:
+                      - heading "@sentry/mcp-server" [level=3] [ref=e510]
+                      - code [ref=e511]: npm.import/@sentry/mcp-server
+                    - generic [ref=e512]:
+                      - generic [ref=e513]: v0.32.0
+                      - generic [ref=e514]: latest
+                  - paragraph [ref=e515]: Sentry MCP Server
+                  - generic [ref=e516]:
+                    - generic [ref=e518]: npm
+                    - generic [ref=e519]:
+                      - img [ref=e520]
+                      - text: about 5 hours ago
+                - button "@traceloop/instrumentation-mcp npm.import/@traceloop/instrumentation-mcp v0.26.0 latest MCP (Model Context Protocol) Instrumentation npm about 5 hours ago" [ref=e524] [cursor=pointer]:
+                  - generic [ref=e525]:
+                    - img [ref=e527]
+                    - generic [ref=e529]:
+                      - heading "@traceloop/instrumentation-mcp" [level=3] [ref=e530]
+                      - code [ref=e531]: npm.import/@traceloop/instrumentation-mcp
+                    - generic [ref=e532]:
+                      - generic [ref=e533]: v0.26.0
+                      - generic [ref=e534]: latest
+                  - paragraph [ref=e535]: MCP (Model Context Protocol) Instrumentation
+                  - generic [ref=e536]:
+                    - generic [ref=e538]: npm
+                    - generic [ref=e539]:
+                      - img [ref=e540]
+                      - text: about 5 hours ago
+                - button "@azure/mcp-win32-x64 npm.import/@azure/mcp-win32-x64 v3.0.0-beta.5 latest Azure MCP Server - Model Context Protocol implementation for Azure, for win32 on x64 npm about 5 hours ago" [ref=e544] [cursor=pointer]:
+                  - generic [ref=e545]:
+                    - img [ref=e547]
+                    - generic [ref=e552]:
+                      - heading "@azure/mcp-win32-x64" [level=3] [ref=e553]
+                      - code [ref=e554]: npm.import/@azure/mcp-win32-x64
+                    - generic [ref=e555]:
+                      - generic [ref=e556]: v3.0.0-beta.5
+                      - generic [ref=e557]: latest
+                  - paragraph [ref=e558]: Azure MCP Server - Model Context Protocol implementation for Azure, for win32 on x64
+                  - generic [ref=e559]:
+                    - generic [ref=e561]: npm
+                    - generic [ref=e562]:
+                      - img [ref=e563]
+                      - text: about 5 hours ago
+                - button "@stripe/mcp npm.import/@stripe/mcp v0.3.3 latest A command line tool for setting up Stripe MCP server npm about 5 hours ago" [ref=e567] [cursor=pointer]:
+                  - generic [ref=e568]:
+                    - img [ref=e570]
+                    - generic [ref=e572]:
+                      - heading "@stripe/mcp" [level=3] [ref=e573]
+                      - code [ref=e574]: npm.import/@stripe/mcp
+                    - generic [ref=e575]:
+                      - generic [ref=e576]: v0.3.3
+                      - generic [ref=e577]: latest
+                  - paragraph [ref=e578]: A command line tool for setting up Stripe MCP server
+                  - generic [ref=e579]:
+                    - generic [ref=e581]: npm
+                    - generic [ref=e582]:
+                      - img [ref=e583]
+                      - text: about 5 hours ago
+                - button "@azure/mcp-linux-x64 npm.import/@azure/mcp-linux-x64 v3.0.0-beta.5 latest Azure MCP Server - Model Context Protocol implementation for Azure, for linux on x64 npm about 5 hours ago" [ref=e587] [cursor=pointer]:
+                  - generic [ref=e588]:
+                    - img [ref=e590]
+                    - generic [ref=e595]:
+                      - heading "@azure/mcp-linux-x64" [level=3] [ref=e596]
+                      - code [ref=e597]: npm.import/@azure/mcp-linux-x64
+                    - generic [ref=e598]:
+                      - generic [ref=e599]: v3.0.0-beta.5
+                      - generic [ref=e600]: latest
+                  - paragraph [ref=e601]: Azure MCP Server - Model Context Protocol implementation for Azure, for linux on x64
+                  - generic [ref=e602]:
+                    - generic [ref=e604]: npm
+                    - generic [ref=e605]:
+                      - img [ref=e606]
+                      - text: about 5 hours ago
+                - button "agentic-flow npm.import/agentic-flow v2.0.7 latest Production-ready AI agent orchestration platform with 66 specialized agents, 213 MCP tools, ReasoningBank learning memory, and autonomous multi-agent swarms. Built by @ruvnet with Claude Agent SDK, neural networks, memory persistence, GitHub integration, npm about 5 hours ago" [ref=e610] [cursor=pointer]:
+                  - generic [ref=e611]:
+                    - img [ref=e613]
+                    - generic [ref=e618]:
+                      - heading "agentic-flow" [level=3] [ref=e619]
+                      - code [ref=e620]: npm.import/agentic-flow
+                    - generic [ref=e621]:
+                      - generic [ref=e622]: v2.0.7
+                      - generic [ref=e623]: latest
+                  - paragraph [ref=e624]: Production-ready AI agent orchestration platform with 66 specialized agents, 213 MCP tools, ReasoningBank learning memory, and autonomous multi-agent swarms. Built by @ruvnet with Claude Agent SDK, neural networks, memory persistence, GitHub integration,
+                  - generic [ref=e625]:
+                    - generic [ref=e627]: npm
+                    - generic [ref=e628]:
+                      - img [ref=e629]
+                      - text: about 5 hours ago
+                - button "@redocly/mcp-typescript-sdk npm.import/@redocly/mcp-typescript-sdk v1.18.1 latest Model Context Protocol implementation for TypeScript npm about 5 hours ago" [ref=e633] [cursor=pointer]:
+                  - generic [ref=e634]:
+                    - img [ref=e636]
+                    - generic [ref=e639]:
+                      - heading "@redocly/mcp-typescript-sdk" [level=3] [ref=e640]
+                      - code [ref=e641]: npm.import/@redocly/mcp-typescript-sdk
+                    - generic [ref=e642]:
+                      - generic [ref=e643]: v1.18.1
+                      - generic [ref=e644]: latest
+                  - paragraph [ref=e645]: Model Context Protocol implementation for TypeScript
+                  - generic [ref=e646]:
+                    - generic [ref=e648]: npm
+                    - generic [ref=e649]:
+                      - img [ref=e650]
+                      - text: about 5 hours ago
+                - button "@zereight/mcp-gitlab npm.import/@zereight/mcp-gitlab v2.1.2 latest GitLab MCP server for projects, merge requests, issues, pipelines, wiki, releases, and more npm about 5 hours ago" [ref=e654] [cursor=pointer]:
+                  - generic [ref=e655]:
+                    - img [ref=e657]
+                    - generic [ref=e663]:
+                      - heading "@zereight/mcp-gitlab" [level=3] [ref=e664]
+                      - code [ref=e665]: npm.import/@zereight/mcp-gitlab
+                    - generic [ref=e666]:
+                      - generic [ref=e667]: v2.1.2
+                      - generic [ref=e668]: latest
+                  - paragraph [ref=e669]: GitLab MCP server for projects, merge requests, issues, pipelines, wiki, releases, and more
+                  - generic [ref=e670]:
+                    - generic [ref=e672]: npm
+                    - generic [ref=e673]:
+                      - img [ref=e674]
+                      - text: about 5 hours ago
+                - button "@blaxel/core npm.import/@blaxel/core v0.2.80 latest Blaxel Core SDK for TypeScript npm about 5 hours ago" [ref=e678] [cursor=pointer]:
+                  - generic [ref=e679]:
+                    - img [ref=e681]
+                    - generic [ref=e686]:
+                      - heading "@blaxel/core" [level=3] [ref=e687]
+                      - code [ref=e688]: npm.import/@blaxel/core
+                    - generic [ref=e689]:
+                      - generic [ref=e690]: v0.2.80
+                      - generic [ref=e691]: latest
+                  - paragraph [ref=e692]: Blaxel Core SDK for TypeScript
+                  - generic [ref=e693]:
+                    - generic [ref=e695]: npm
+                    - generic [ref=e696]:
+                      - img [ref=e697]
+                      - text: about 5 hours ago
+                - button "add-mcp npm.import/add-mcp v1.8.0 latest Add MCP servers to your favorite coding agents with a single command. npm about 5 hours ago" [ref=e701] [cursor=pointer]:
+                  - generic [ref=e702]:
+                    - img [ref=e704]
+                    - generic [ref=e706]:
+                      - heading "add-mcp" [level=3] [ref=e707]
+                      - code [ref=e708]: npm.import/add-mcp
+                    - generic [ref=e709]:
+                      - generic [ref=e710]: v1.8.0
+                      - generic [ref=e711]: latest
+                  - paragraph [ref=e712]: Add MCP servers to your favorite coding agents with a single command.
+                  - generic [ref=e713]:
+                    - generic [ref=e715]: npm
+                    - generic [ref=e716]:
+                      - img [ref=e717]
+                      - text: about 5 hours ago
+                - button "@azure/mcp npm.import/@azure/mcp v3.0.0-beta.5 latest Azure MCP Server - Model Context Protocol implementation for Azure npm about 5 hours ago" [ref=e721] [cursor=pointer]:
+                  - generic [ref=e722]:
+                    - img [ref=e724]
+                    - generic [ref=e729]:
+                      - heading "@azure/mcp" [level=3] [ref=e730]
+                      - code [ref=e731]: npm.import/@azure/mcp
+                    - generic [ref=e732]:
+                      - generic [ref=e733]: v3.0.0-beta.5
+                      - generic [ref=e734]: latest
+                  - paragraph [ref=e735]: Azure MCP Server - Model Context Protocol implementation for Azure
+                  - generic [ref=e736]:
+                    - generic [ref=e738]: npm
+                    - generic [ref=e739]:
+                      - img [ref=e740]
+                      - text: about 5 hours ago
+                - button "@notionhq/notion-mcp-server npm.import/@notionhq/notion-mcp-server v2.2.1 latest Official MCP server for Notion API npm about 5 hours ago" [ref=e744] [cursor=pointer]:
+                  - generic [ref=e745]:
+                    - img [ref=e747]
+                    - generic [ref=e750]:
+                      - heading "@notionhq/notion-mcp-server" [level=3] [ref=e751]
+                      - code [ref=e752]: npm.import/@notionhq/notion-mcp-server
+                    - generic [ref=e753]:
+                      - generic [ref=e754]: v2.2.1
+                      - generic [ref=e755]: latest
+                  - paragraph [ref=e756]: Official MCP server for Notion API
+                  - generic [ref=e757]:
+                    - generic [ref=e759]: npm
+                    - generic [ref=e760]:
+                      - img [ref=e761]
+                      - text: about 5 hours ago
+                - button "@gongrzhe/server-gmail-autoauth-mcp npm.import/@gongrzhe/server-gmail-autoauth-mcp v1.1.11 latest Gmail MCP server with auto authentication support npm about 5 hours ago" [ref=e765] [cursor=pointer]:
+                  - generic [ref=e766]:
+                    - img [ref=e768]
+                    - generic [ref=e770]:
+                      - heading "@gongrzhe/server-gmail-autoauth-mcp" [level=3] [ref=e771]
+                      - code [ref=e772]: npm.import/@gongrzhe/server-gmail-autoauth-mcp
+                    - generic [ref=e773]:
+                      - generic [ref=e774]: v1.1.11
+                      - generic [ref=e775]: latest
+                  - paragraph [ref=e776]: Gmail MCP server with auto authentication support
+                  - generic [ref=e777]:
+                    - generic [ref=e779]: npm
+                    - generic [ref=e780]:
+                      - img [ref=e781]
+                      - text: about 5 hours ago
+                - button "@langchain/mcp-adapters npm.import/@langchain/mcp-adapters v1.1.3 latest LangChain.js adapters for Model Context Protocol (MCP) npm about 5 hours ago" [ref=e785] [cursor=pointer]:
+                  - generic [ref=e786]:
+                    - img [ref=e788]
+                    - generic [ref=e790]:
+                      - heading "@langchain/mcp-adapters" [level=3] [ref=e791]
+                      - code [ref=e792]: npm.import/@langchain/mcp-adapters
+                    - generic [ref=e793]:
+                      - generic [ref=e794]: v1.1.3
+                      - generic [ref=e795]: latest
+                  - paragraph [ref=e796]: LangChain.js adapters for Model Context Protocol (MCP)
+                  - generic [ref=e797]:
+                    - generic [ref=e799]: npm
+                    - generic [ref=e800]:
+                      - img [ref=e801]
+                      - text: about 5 hours ago
+                - button "@muscular/robotmem npm.import/@muscular/robotmem v0.1.2 latest Thin npm wrapper for the robotmem Python CLI and MCP server. npm about 5 hours ago" [ref=e805] [cursor=pointer]:
+                  - generic [ref=e806]:
+                    - img [ref=e808]
+                    - generic [ref=e813]:
+                      - heading "@muscular/robotmem" [level=3] [ref=e814]
+                      - code [ref=e815]: npm.import/@muscular/robotmem
+                    - generic [ref=e816]:
+                      - generic [ref=e817]: v0.1.2
+                      - generic [ref=e818]: latest
+                  - paragraph [ref=e819]: Thin npm wrapper for the robotmem Python CLI and MCP server.
+                  - generic [ref=e820]:
+                    - generic [ref=e822]: npm
+                    - generic [ref=e823]:
+                      - img [ref=e824]
+                      - text: about 5 hours ago
+                - button "@copilotkit/aimock npm.import/@copilotkit/aimock v1.15.1 latest Mock infrastructure for AI application testing — LLM APIs, image generation, text-to-speech, transcription, video generation, MCP tools, A2A agents, AG-UI event streams, vector databases, search, rerank, and moderation. One package, one port, zero depende npm about 5 hours ago" [ref=e828] [cursor=pointer]:
+                  - generic [ref=e829]:
+                    - img [ref=e831]
+                    - generic [ref=e836]:
+                      - heading "@copilotkit/aimock" [level=3] [ref=e837]
+                      - code [ref=e838]: npm.import/@copilotkit/aimock
+                    - generic [ref=e839]:
+                      - generic [ref=e840]: v1.15.1
+                      - generic [ref=e841]: latest
+                  - paragraph [ref=e842]: Mock infrastructure for AI application testing — LLM APIs, image generation, text-to-speech, transcription, video generation, MCP tools, A2A agents, AG-UI event streams, vector databases, search, rerank, and moderation. One package, one port, zero depende
+                  - generic [ref=e843]:
+                    - generic [ref=e845]: npm
+                    - generic [ref=e846]:
+                      - img [ref=e847]
+                      - text: about 5 hours ago
+                - button "@storybook/mcp npm.import/@storybook/mcp v0.7.0 latest MCP server that serves knowledge about your components based on your Storybook stories and documentation npm about 5 hours ago" [ref=e851] [cursor=pointer]:
+                  - generic [ref=e852]:
+                    - img [ref=e854]
+                    - generic [ref=e857]:
+                      - heading "@storybook/mcp" [level=3] [ref=e858]
+                      - code [ref=e859]: npm.import/@storybook/mcp
+                    - generic [ref=e860]:
+                      - generic [ref=e861]: v0.7.0
+                      - generic [ref=e862]: latest
+                  - paragraph [ref=e863]: MCP server that serves knowledge about your components based on your Storybook stories and documentation
+                  - generic [ref=e864]:
+                    - generic [ref=e866]: npm
+                    - generic [ref=e867]:
+                      - img [ref=e868]
+                      - text: about 5 hours ago
+                - button "@ai-sdk/mcp npm.import/@ai-sdk/mcp v1.0.36 latest npm about 5 hours ago" [ref=e872] [cursor=pointer]:
+                  - generic [ref=e873]:
+                    - img [ref=e875]
+                    - generic [ref=e877]:
+                      - heading "@ai-sdk/mcp" [level=3] [ref=e878]
+                      - code [ref=e879]: npm.import/@ai-sdk/mcp
+                    - generic [ref=e880]:
+                      - generic [ref=e881]: v1.0.36
+                      - generic [ref=e882]: latest
+                  - generic [ref=e883]:
+                    - generic [ref=e885]: npm
+                    - generic [ref=e886]:
+                      - img [ref=e887]
+                      - text: about 5 hours ago
+                - button "@upstash/context7-mcp npm.import/@upstash/context7-mcp v2.1.8 latest MCP server for Context7 npm running about 5 hours ago" [ref=e891] [cursor=pointer]:
+                  - generic [ref=e892]:
+                    - img [ref=e894]
+                    - generic [ref=e896]:
+                      - heading "@upstash/context7-mcp" [level=3] [ref=e897]
+                      - code [ref=e898]: npm.import/@upstash/context7-mcp
+                    - generic [ref=e899]:
+                      - generic [ref=e900]: v2.1.8
+                      - generic [ref=e901]: latest
+                  - paragraph [ref=e902]: MCP server for Context7
+                  - generic [ref=e903]:
+                    - generic [ref=e904]:
+                      - generic [ref=e905]: npm
+                      - generic [ref=e906]: running
+                    - generic [ref=e908]:
+                      - img [ref=e909]
+                      - text: about 5 hours ago
+                - button "@storybook/addon-mcp npm.import/@storybook/addon-mcp v0.6.0 latest Help agents automatically write and test stories for your UI components npm about 5 hours ago" [ref=e913] [cursor=pointer]:
+                  - generic [ref=e914]:
+                    - img [ref=e916]
+                    - generic [ref=e919]:
+                      - heading "@storybook/addon-mcp" [level=3] [ref=e920]
+                      - code [ref=e921]: npm.import/@storybook/addon-mcp
+                    - generic [ref=e922]:
+                      - generic [ref=e923]: v0.6.0
+                      - generic [ref=e924]: latest
+                  - paragraph [ref=e925]: Help agents automatically write and test stories for your UI components
+                  - generic [ref=e926]:
+                    - generic [ref=e928]: npm
+                    - generic [ref=e929]:
+                      - img [ref=e930]
+                      - text: about 5 hours ago
+                - button "@modelcontextprotocol/sdk npm.import/@modelcontextprotocol/sdk v1.29.0 latest Model Context Protocol implementation for TypeScript npm about 5 hours ago" [ref=e934] [cursor=pointer]:
+                  - generic [ref=e935]:
+                    - img [ref=e937]
+                    - generic [ref=e939]:
+                      - heading "@modelcontextprotocol/sdk" [level=3] [ref=e940]
+                      - code [ref=e941]: npm.import/@modelcontextprotocol/sdk
+                    - generic [ref=e942]:
+                      - generic [ref=e943]: v1.29.0
+                      - generic [ref=e944]: latest
+                  - paragraph [ref=e945]: Model Context Protocol implementation for TypeScript
+                  - generic [ref=e946]:
+                    - generic [ref=e948]: npm
+                    - generic [ref=e949]:
+                      - img [ref=e950]
+                      - text: about 5 hours ago
+                - button "MCP Everything (demo) io.modelcontextprotocol/server-everything v1.0.00.6.2 latest Reference MCP server exercising every protocol feature npm running about 17 hours ago" [ref=e954] [cursor=pointer]:
+                  - generic [ref=e955]:
+                    - img [ref=e957]
+                    - generic [ref=e959]:
+                      - heading "MCP Everything (demo)" [level=3] [ref=e960]
+                      - code [ref=e961]: io.modelcontextprotocol/server-everything
+                    - generic [ref=e962]:
+                      - generic [ref=e963]: v1.0.00.6.2
+                      - generic [ref=e964]: latest
+                  - paragraph [ref=e965]: Reference MCP server exercising every protocol feature
+                  - generic [ref=e966]:
+                    - generic [ref=e967]:
+                      - generic [ref=e968]: npm
+                      - generic [ref=e969]: running
+                    - generic [ref=e971]:
+                      - img [ref=e972]
+                      - text: about 17 hours ago
+  - region "Notifications (F8)":
+    - list

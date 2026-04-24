@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
-import { icons } from "@/lib/icons";
+import { formatDistanceToNow } from "date-fns";
 
+import { icons } from "@/lib/icons";
+import { cn } from "@/lib/utils";
 import {
   listDeployments,
   refreshDeploymentStatus,
@@ -11,8 +13,6 @@ import {
 import type { Deployment, DeploymentStatus } from "@/types/api";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,16 +30,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/common/EmptyState";
+import { PageShell } from "@/components/common/page-shell";
+import {
+  ClusterRing,
+  RecentApplied,
+  StatusMixBar,
+  StatusPill,
+} from "@/components/deployments/deployments-overview";
 import { useToast } from "@/hooks/use-toast";
-
-const statusColors: Record<DeploymentStatus, string> = {
-  running: "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30",
-  deploying: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
-  pending: "bg-muted text-muted-foreground",
-  failed: "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30",
-  terminating: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30",
-  stopped: "bg-muted text-muted-foreground",
-};
 
 export default function Deployments() {
   const { toast } = useToast();
@@ -51,7 +49,7 @@ export default function Deployments() {
     queryFn: listDeployments,
     refetchInterval: 5_000,
   });
-  const deployments = data?.deployments ?? [];
+  const deployments: Deployment[] = data?.deployments ?? [];
 
   const refreshMutation = useMutation({
     mutationFn: (id: string) => refreshDeploymentStatus(id),
@@ -93,14 +91,58 @@ export default function Deployments() {
     );
   }
 
+  const byStatus = deployments.reduce<Record<DeploymentStatus, number>>(
+    (acc, d) => {
+      acc[d.status] = (acc[d.status] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<DeploymentStatus, number>,
+  );
+  const withBackend = deployments.filter((d) => d.gateway_backend_id).length;
+
   return (
-    <div className="space-y-4 lg:space-y-6">
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-bold">Deployments</h1>
-        <p className="text-sm lg:text-base text-muted-foreground">
-          Registry servers running as dedicated Kubernetes workloads. Each deployment is
-          auto-registered as an MCP Gateway backend.
-        </p>
+    <PageShell
+      title="Deployments"
+      description="Registry servers running as dedicated Kubernetes workloads. Each deployment is auto-registered as an MCP Gateway backend."
+    >
+      {/* ────────────── Hero ────────────── */}
+      <div className="rounded-lg border border-border bg-card p-5">
+        <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-6 items-center">
+          <ClusterRing deployments={deployments} />
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <HeroStat
+              icon={icons.rocket}
+              label="Total"
+              value={deployments.length}
+              tone="muted"
+            />
+            <HeroStat
+              icon={icons.check}
+              label="Running"
+              value={byStatus.running ?? 0}
+              tone={(byStatus.running ?? 0) > 0 ? "emerald" : "muted"}
+            />
+            <HeroStat
+              icon={icons.error}
+              label="Failed"
+              value={byStatus.failed ?? 0}
+              tone={(byStatus.failed ?? 0) > 0 ? "rose" : "muted"}
+            />
+            <HeroStat
+              icon={icons.mcp}
+              label="MCP linked"
+              value={withBackend}
+              tone={withBackend > 0 ? "emerald" : "muted"}
+            />
+          </div>
+        </div>
+        <div className="mt-4">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1.5">
+            Status distribution
+          </div>
+          <StatusMixBar deployments={deployments} />
+        </div>
       </div>
 
       {deployments.length === 0 ? (
@@ -110,93 +152,222 @@ export default function Deployments() {
           description="Open the Registry, click a server, and hit Deploy to spin up a Kubernetes workload that the MCP Gateway will route to."
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {deployments.map((d) => (
-            <Card key={d.id}>
-              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 gap-3">
-                <div className="space-y-1 min-w-0">
-                  <CardTitle className="text-base font-semibold truncate">
-                    {d.resource_name}
-                  </CardTitle>
-                  <code className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded block truncate">
-                    v{d.resource_version}
-                  </code>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Badge className={statusColors[d.status]} variant="outline">
-                    {d.status}
-                  </Badge>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => refreshMutation.mutate(d.id)}>
-                        <Icon icon={icons.refresh} className="mr-2 h-4 w-4" />
-                        Refresh status
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => setConfirmDelete(d)}
-                      >
-                        <Icon icon={icons.delete} className="mr-2 h-4 w-4" />
-                        Undeploy
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <Badge variant="secondary" className="capitalize">{d.platform}</Badge>
-                  <code className="text-xs font-mono text-muted-foreground">
-                    {d.namespace}/{d.workload_name}
-                  </code>
-                </div>
-                {d.endpoint && (
-                  <div className="text-xs font-mono text-muted-foreground truncate">
-                    → {d.endpoint}
-                  </div>
-                )}
-                {d.status_reason && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {d.status_reason}
-                  </p>
-                )}
-                {d.gateway_backend_id && (
-                  <p className="text-[11px] text-muted-foreground">
-                    MCP backend registered
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+        <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {deployments.map((d) => (
+              <DeploymentCard
+                key={d.id}
+                deployment={d}
+                onRefresh={() => refreshMutation.mutate(d.id)}
+                onDelete={() => setConfirmDelete(d)}
+              />
+            ))}
+          </div>
+          <div className="rounded-lg border border-border bg-card p-4 h-fit sticky top-4">
+            <div className="mb-3">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Timeline
+              </div>
+              <div className="text-sm font-semibold tracking-tight mt-0.5">
+                Recently applied
+              </div>
+            </div>
+            <RecentApplied deployments={deployments} />
+          </div>
         </div>
       )}
 
-      <AlertDialog open={!!confirmDelete} onOpenChange={(open) => !open && setConfirmDelete(null)}>
+      <AlertDialog
+        open={!!confirmDelete}
+        onOpenChange={(open) => !open && setConfirmDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Undeploy workload?</AlertDialogTitle>
             <AlertDialogDescription>
               This will delete the Kubernetes Deployment/Service for{" "}
-              <span className="font-mono">{confirmDelete?.workload_name}</span> and remove its MCP
-              Gateway backend. Active sessions using it will fail.
+              <span className="font-mono">{confirmDelete?.workload_name}</span>{" "}
+              and remove its MCP Gateway backend. Active sessions using it will
+              fail.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => confirmDelete && deleteMutation.mutate(confirmDelete.id)}
+              onClick={() =>
+                confirmDelete && deleteMutation.mutate(confirmDelete.id)
+              }
             >
               Undeploy
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </PageShell>
+  );
+}
+
+function DeploymentCard({
+  deployment: d,
+  onRefresh,
+  onDelete,
+}: {
+  deployment: Deployment;
+  onRefresh: () => void;
+  onDelete: () => void;
+}) {
+  const isFailed = d.status === "failed";
+  return (
+    <div
+      className={cn(
+        "group relative rounded-lg border bg-card hover:shadow-sm transition-all",
+        isFailed ? "border-rose-500/30" : "border-border hover:border-primary/40",
+      )}
+    >
+      <div className="p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <div
+            className={cn(
+              "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
+              d.status === "running" &&
+                "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20",
+              d.status === "deploying" &&
+                "bg-sky-500/10 text-sky-600 dark:text-sky-400 ring-1 ring-sky-500/20",
+              d.status === "failed" &&
+                "bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-1 ring-rose-500/20",
+              (d.status === "pending" ||
+                d.status === "terminating" ||
+                d.status === "stopped") &&
+                "bg-muted text-muted-foreground ring-1 ring-border",
+            )}
+          >
+            <Icon icon={icons.rocket} className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-[15px] leading-tight truncate">
+              {d.resource_name}
+            </h3>
+            <code className="text-[11px] font-mono text-muted-foreground block truncate mt-0.5">
+              {d.namespace}/{d.workload_name}
+            </code>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 opacity-60 group-hover:opacity-100"
+              >
+                <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onRefresh}>
+                <Icon icon={icons.refresh} className="mr-2 h-4 w-4" />
+                Refresh status
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={onDelete}
+              >
+                <Icon icon={icons.delete} className="mr-2 h-4 w-4" />
+                Undeploy
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <StatusPill status={d.status} withPulse />
+          <span className="inline-flex items-center h-5 px-1.5 rounded bg-muted text-muted-foreground ring-1 ring-border text-[10px] font-mono uppercase tracking-wider capitalize">
+            {d.platform}
+          </span>
+          <span className="inline-flex items-center h-5 px-1.5 rounded bg-muted text-muted-foreground ring-1 ring-border text-[10px] font-mono tabular-nums">
+            v{d.resource_version}
+          </span>
+          {d.gateway_backend_id && (
+            <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded bg-primary/10 text-primary ring-1 ring-primary/20 text-[10px] font-mono uppercase tracking-wider">
+              <Icon icon={icons.mcp} className="h-2.5 w-2.5" />
+              mcp-linked
+            </span>
+          )}
+        </div>
+
+        {d.endpoint && (
+          <div className="text-[11px] font-mono text-muted-foreground truncate bg-muted/40 rounded-md px-2 py-1">
+            → {d.endpoint}
+          </div>
+        )}
+
+        {d.status_reason && (
+          <p
+            className={cn(
+              "text-[11px] line-clamp-2 leading-relaxed",
+              isFailed
+                ? "text-rose-600 dark:text-rose-400 bg-rose-500/5 rounded-md px-2 py-1 border border-rose-500/20"
+                : "text-muted-foreground",
+            )}
+          >
+            {d.status_reason}
+          </p>
+        )}
+
+        {d.last_applied_at && (
+          <div className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground pt-1 border-t border-border/50">
+            <Icon icon={icons.clock} className="h-3 w-3" />
+            applied{" "}
+            {formatDistanceToNow(new Date(d.last_applied_at), {
+              addSuffix: true,
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HeroStat({
+  icon,
+  label,
+  value,
+  tone = "muted",
+}: {
+  icon: string;
+  label: string;
+  value: number;
+  tone?: "emerald" | "amber" | "rose" | "muted";
+}) {
+  return (
+    <div className="rounded-md border border-border/70 bg-background/40 px-3 py-2.5 flex items-center gap-2.5">
+      <div
+        className={cn(
+          "h-8 w-8 rounded-md flex items-center justify-center shrink-0",
+          tone === "emerald" &&
+            "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+          tone === "amber" &&
+            "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+          tone === "rose" && "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+          tone === "muted" && "bg-muted text-muted-foreground",
+        )}
+      >
+        <Icon icon={icon} className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground leading-none">
+          {label}
+        </div>
+        <div
+          className={cn(
+            "text-lg font-bold tabular-nums leading-none mt-1",
+            tone === "emerald" && "text-emerald-600 dark:text-emerald-400",
+            tone === "amber" && "text-amber-600 dark:text-amber-400",
+            tone === "rose" && "text-rose-600 dark:text-rose-400",
+          )}
+        >
+          {value}
+        </div>
+      </div>
     </div>
   );
 }

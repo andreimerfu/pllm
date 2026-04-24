@@ -1,0 +1,159 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - button "Core" [expanded] [ref=e15] [cursor=pointer]: Core
+          - list [ref=e17]:
+            - listitem [ref=e18]:
+              - link "Dashboard" [ref=e19] [cursor=pointer]:
+                - /url: /ui/dashboard
+                - generic [ref=e20]: Dashboard
+            - listitem [ref=e21]:
+              - link "Chat" [ref=e22] [cursor=pointer]:
+                - /url: /ui/chat
+                - generic [ref=e23]: Chat
+            - listitem [ref=e24]:
+              - link "Models" [ref=e25] [cursor=pointer]:
+                - /url: /ui/models
+                - generic [ref=e26]: Models
+            - listitem [ref=e27]:
+              - link "Routes" [ref=e28] [cursor=pointer]:
+                - /url: /ui/routes
+                - generic [ref=e29]: Routes
+            - listitem [ref=e30]:
+              - link "MCP Servers" [ref=e31] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - generic [ref=e32]: MCP Servers
+            - listitem [ref=e33]:
+              - link "Use Cases" [ref=e34] [cursor=pointer]:
+                - /url: /ui/use-cases
+                - generic [ref=e35]: Use Cases
+            - listitem [ref=e36]:
+              - link "Registry" [ref=e37] [cursor=pointer]:
+                - /url: /ui/registry
+                - generic [ref=e38]: Registry
+            - listitem [ref=e39]:
+              - link "Deployments" [ref=e40] [cursor=pointer]:
+                - /url: /ui/deployments
+                - generic [ref=e41]: Deployments
+            - listitem [ref=e42]:
+              - link "Compliance" [ref=e43] [cursor=pointer]:
+                - /url: /ui/compliance
+                - generic [ref=e44]: Compliance
+        - generic [ref=e45]:
+          - button "Management" [expanded] [ref=e46] [cursor=pointer]: Management
+          - list [ref=e48]:
+            - listitem [ref=e49]:
+              - link "API Keys" [ref=e50] [cursor=pointer]:
+                - /url: /ui/keys
+                - generic [ref=e51]: API Keys
+            - listitem [ref=e52]:
+              - link "Providers" [ref=e53] [cursor=pointer]:
+                - /url: /ui/providers
+                - generic [ref=e54]: Providers
+        - generic [ref=e55]:
+          - button "Administration" [expanded] [ref=e56] [cursor=pointer]: Administration
+          - generic:
+            - list
+      - list [ref=e58]:
+        - listitem [ref=e59]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e60] [cursor=pointer]:
+            - generic [ref=e62]: A(
+            - generic [ref=e63]:
+              - generic [ref=e64]: Admin (Master Key)
+              - generic [ref=e65]: admin@pllm.local
+      - button "Toggle Sidebar" [ref=e66]
+    - main [ref=e67]:
+      - generic [ref=e68]:
+        - button "Toggle Sidebar" [ref=e69] [cursor=pointer]:
+          - generic [ref=e70]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e71]:
+          - list [ref=e72]:
+            - listitem [ref=e74]:
+              - link "Compliance" [disabled] [ref=e75]
+        - generic [ref=e76]:
+          - button "Search... ⌘K" [ref=e77] [cursor=pointer]:
+            - generic [ref=e78]: Search...
+            - generic [ref=e79]: ⌘K
+          - button [ref=e80] [cursor=pointer]
+          - generic [ref=e81]: v2.0.0
+      - main [ref=e82]:
+        - generic [ref=e84]:
+          - generic [ref=e85]:
+            - paragraph [ref=e86]: compliance
+            - heading "Cross-cutting queries" [level=1] [ref=e87]
+            - paragraph [ref=e88]: Answer auditor questions in one click. Every preset is a filter over the use-case inventory; results carry the risk tier, status, and whichever classifications propagated up from the component graph.
+          - generic [ref=e89]:
+            - paragraph [ref=e90]: Preset questions
+            - generic [ref=e91]:
+              - button "Touches PII Any use case whose graph includes personally-identifiable information." [ref=e92] [cursor=pointer]:
+                - paragraph [ref=e94]: Touches PII
+                - paragraph [ref=e95]: Any use case whose graph includes personally-identifiable information.
+              - button "Touches PCI Anywhere payment-card data can flow through the graph." [ref=e96] [cursor=pointer]:
+                - paragraph [ref=e98]: Touches PCI
+                - paragraph [ref=e99]: Anywhere payment-card data can flow through the graph.
+              - button "Touches PHI Health information in scope — HIPAA-adjacent." [ref=e100] [cursor=pointer]:
+                - paragraph [ref=e102]: Touches PHI
+                - paragraph [ref=e103]: Health information in scope — HIPAA-adjacent.
+              - button "Customer-financial Balances, loans, credit data." [ref=e104] [cursor=pointer]:
+                - paragraph [ref=e106]: Customer-financial
+                - paragraph [ref=e107]: Balances, loans, credit data.
+              - button "Compliance-flagged Upstream changes invalidated an approved posture." [ref=e108] [cursor=pointer]:
+                - paragraph [ref=e110]: Compliance-flagged
+                - paragraph [ref=e111]: Upstream changes invalidated an approved posture.
+              - button "Third-party LLM At least one LLM dep is external (vendor-hosted)." [ref=e112] [cursor=pointer]:
+                - paragraph [ref=e114]: Third-party LLM
+                - paragraph [ref=e115]: At least one LLM dep is external (vendor-hosted).
+              - button "Tier 1 approved Top-risk use cases already in production." [ref=e116] [cursor=pointer]:
+                - paragraph [ref=e118]: Tier 1 approved
+                - paragraph [ref=e119]: Top-risk use cases already in production.
+              - button "Tier 1 in review Top-risk work waiting for sign-off." [ref=e120] [cursor=pointer]:
+                - paragraph [ref=e122]: Tier 1 in review
+                - paragraph [ref=e123]: Top-risk work waiting for sign-off.
+          - generic [ref=e125]:
+            - generic [ref=e126]:
+              - paragraph [ref=e127]: Results
+              - heading "Touches PII…" [level=2] [ref=e128]
+            - button "Export CSV" [disabled]: Export CSV
+          - generic [ref=e131]:
+            - generic [ref=e133]:
+              - paragraph [ref=e134]: Runtime
+              - heading "Denial log· live · auto-refreshes every 5 s" [level=2] [ref=e135]
+            - generic [ref=e136]:
+              - generic [ref=e137]:
+                - button "All kinds" [ref=e138] [cursor=pointer]
+                - button "MCP tools" [ref=e139] [cursor=pointer]
+                - button "LLMs" [ref=e140] [cursor=pointer]
+              - generic [ref=e141]:
+                - button "All outcomes" [ref=e142] [cursor=pointer]
+                - button "Denied only" [ref=e143] [cursor=pointer]
+                - button "Flagged only" [ref=e144] [cursor=pointer]
+          - generic [ref=e147]:
+            - generic [ref=e148]:
+              - generic [ref=e149]:
+                - paragraph [ref=e150]: Outbound
+                - heading "Webhooks· Slack / PagerDuty / ServiceNow / anything that takes HMAC-signed POSTs" [level=2] [ref=e151]
+              - button "New webhook" [ref=e152] [cursor=pointer]: New webhook
+            - paragraph [ref=e155]:
+              - text: Every delivery carries
+              - code [ref=e156]: X-PLLM-Event
+              - text: ","
+              - code [ref=e157]: X-PLLM-Delivery-ID
+              - text: ", and a"
+              - code [ref=e158]: "X-PLLM-Signature: sha256=…"
+              - text: HMAC of the body. Subscribers verify by computing HMAC-SHA256 over the raw body using the webhook secret.
+          - generic [ref=e159]:
+            - paragraph [ref=e160]: API recipe
+            - paragraph [ref=e161]:
+              - text: Every preset maps 1:1 to query params on
+              - code [ref=e162]: GET /api/admin/use-cases
+              - text: . Use for auditor exports or scheduled reports.
+            - code [ref=e163]: "curl -H \"Authorization: Bearer $MASTER_KEY\" \\ 'http://localhost:8080/api/admin/use-cases?effective_classification=pii'"
+  - region "Notifications (F8)":
+    - list

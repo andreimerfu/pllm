@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import { icons } from "@/lib/icons";
 
 import { getRoutes, deleteRoute } from "@/lib/api";
+import { detectProvider } from "@/lib/providers";
 import type { RoutesResponse, Route } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { PageShell } from "@/components/common/page-shell";
 
 const strategyLabels: Record<string, string> = {
   priority: "Priority",
@@ -72,22 +74,16 @@ export default function Routes() {
   }
 
   return (
-    <div className="space-y-4 lg:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold">Routes</h1>
-          <p className="text-sm lg:text-base text-muted-foreground">
-            Virtual endpoints that distribute traffic across multiple models
-          </p>
-        </div>
+    <PageShell
+      title="Routes"
+      description="Virtual endpoints that distribute traffic across multiple models with priority, failover, and fractional routing."
+      actions={
         <Button onClick={() => navigate("/routes/new")} className="gap-2">
           <Icon icon={icons.plus} className="h-4 w-4" />
-          Create Route
+          Create route
         </Button>
-      </div>
-
-      {/* Content */}
+      }
+    >
       {routes.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 border border-dashed rounded-lg">
           <Icon icon={icons.routes} className="h-12 w-12 text-muted-foreground mb-4" />
@@ -161,11 +157,24 @@ export default function Routes() {
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {route.models.map((rm, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs font-mono">
-                      {rm.model_name}
-                    </Badge>
-                  ))}
+                  {route.models.map((rm, i) => {
+                    const info = detectProvider(rm.model_name, "");
+                    return (
+                      <Badge
+                        key={i}
+                        variant="secondary"
+                        className="text-xs font-mono gap-1.5 pl-1.5"
+                      >
+                        <Icon
+                          icon={info.icon}
+                          width="12"
+                          height="12"
+                          className={info.color}
+                        />
+                        {rm.model_name}
+                      </Badge>
+                    );
+                  })}
                 </div>
                 {route.models.length === 0 && (
                   <p className="text-xs text-muted-foreground">No models configured</p>
@@ -197,6 +206,6 @@ export default function Routes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageShell>
   );
 }

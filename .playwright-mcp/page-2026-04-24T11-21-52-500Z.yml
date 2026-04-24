@@ -1,0 +1,19 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - button [ref=e4] [cursor=pointer]:
+      - img [ref=e5]
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - img "pLLM" [ref=e12]
+        - generic [ref=e13]: pLLM Gateway
+        - generic [ref=e14]: Authenticate to access the admin panel
+      - generic [ref=e15]:
+        - button "Continue with Microsoft" [ref=e17] [cursor=pointer]:
+          - img
+          - text: Continue with Microsoft
+        - generic [ref=e21]: Admin Access
+        - button "Admin Login with Master Key" [ref=e22] [cursor=pointer]:
+          - img
+          - text: Admin Login with Master Key
+  - region "Notifications (F8)":
+    - list

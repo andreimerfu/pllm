@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Icon } from "@iconify/react"
 import { icons } from "@/lib/icons"
 import { Button } from "../ui/button"
@@ -26,6 +27,7 @@ import { Separator } from "../ui/separator"
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card"
 import { Badge } from "../ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
+import { listUseCases } from "@/lib/api"
 
 interface CreateKeyDialogProps {
   isAdmin: boolean
@@ -48,7 +50,16 @@ export function CreateKeyDialog({ isAdmin, userTeams, onCreateKey }: CreateKeyDi
     allowedMCPTools: "",
     blockedMCPTools: "",
     registryPermissions: "",
+    useCaseId: "",
   })
+
+  // Load the use cases for the binding dropdown. Cheap enough to pull the
+  // full list because the UI is for administrators and we paginate at 50.
+  const { data: useCasesData } = useQuery({
+    queryKey: ["use-cases"],
+    queryFn: () => listUseCases(),
+  })
+  const useCases = useCasesData?.use_cases ?? []
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,6 +84,7 @@ export function CreateKeyDialog({ isAdmin, userTeams, onCreateKey }: CreateKeyDi
     if (allowed.length) keyData.allowed_mcp_tools = allowed;
     if (blocked.length) keyData.blocked_mcp_tools = blocked;
     if (registryPerms.length) keyData.registry_permissions = registryPerms;
+    if (formData.useCaseId) keyData.use_case_id = formData.useCaseId;
 
     // Handle ownership for admin users
     if (isAdmin) {
@@ -109,6 +121,7 @@ export function CreateKeyDialog({ isAdmin, userTeams, onCreateKey }: CreateKeyDi
       allowedMCPTools: "",
       blockedMCPTools: "",
       registryPermissions: "",
+      useCaseId: "",
     })
   }
 
@@ -361,6 +374,49 @@ export function CreateKeyDialog({ isAdmin, userTeams, onCreateKey }: CreateKeyDi
                   <p className="text-xs text-muted-foreground mt-1">
                     <code>action:[kind/]name-glob</code>. Actions: publish, edit, delete (or <code>*</code>).
                     Empty = no registry writes.
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="useCaseId" className="flex items-center gap-2">
+                    Use-case scope
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      runtime enforcement
+                    </span>
+                  </Label>
+                  <Select
+                    value={formData.useCaseId || "none"}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, useCaseId: v === "none" ? "" : v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Unscoped — key can call any model / tool" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        <div className="flex items-center gap-2">
+                          <Icon icon={icons.unlock} className="h-3.5 w-3.5" />
+                          Unscoped (no enforcement)
+                        </div>
+                      </SelectItem>
+                      {useCases.map((uc) => (
+                        <SelectItem key={uc.id} value={uc.id}>
+                          <div className="flex flex-col">
+                            <span>{uc.name}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {uc.slug} · {uc.risk_tier} · {uc.status}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Bind to a use case and calls are checked against its
+                    declared components. The use case's
+                    <code> enforce_scope </code>
+                    flag decides whether off-graph calls are logged (flag mode)
+                    or blocked.
                   </p>
                 </div>
               </div>

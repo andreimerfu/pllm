@@ -15,3 +15,14 @@ export type { PageHeaderProps, BreadcrumbItemData } from './PageHeader';
 
 export { StatCard } from './StatCard';
 export type { StatCardProps } from './StatCard';
+
+export { FormDrawer } from './FormDrawer';
+
+export {
+  PageShell,
+  StatTile,
+  StatStrip,
+  StatStripItem,
+  PageToolbar,
+  KPIStat,
+} from './page-shell';

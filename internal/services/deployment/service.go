@@ -151,6 +151,82 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (*models.Deployment, er
 	return &row, nil
 }
 
+// ReconcileAll re-applies every deployment row whose K8s workload is
+// missing. Called on startup so that `skaffold dev`-style cluster
+// restarts (or any event that wipes a namespace) don't leave the DB
+// with orphaned "running" rows while K8s has nothing.
+//
+// Rules:
+//   - Running or Deploying in K8s → leave alone, just persist status
+//   - Stopped / Failed in K8s (or NotFound) → re-apply from the
+//     associated RegistryServer row
+//   - RegistryServer row deleted → mark Failed with a clear reason
+//
+// Errors on individual deployments are logged, not returned — one bad
+// row shouldn't block the rest.
+func (s *Service) ReconcileAll(ctx context.Context) {
+	var rows []models.Deployment
+	if err := s.db.WithContext(ctx).Find(&rows).Error; err != nil {
+		s.logger.Warn("deployment: reconcile list failed", zap.Error(err))
+		return
+	}
+	if len(rows) == 0 {
+		return
+	}
+	s.logger.Info("deployment: reconciling existing deployments", zap.Int("count", len(rows)))
+	reapplied := 0
+	for i := range rows {
+		row := &rows[i]
+		rep, err := s.adapter.Status(ctx, row)
+		if err != nil {
+			s.logger.Warn("deployment: reconcile status check",
+				zap.String("workload", row.WorkloadName),
+				zap.Error(err))
+			continue
+		}
+		if rep.Status == models.DeploymentStatusRunning ||
+			rep.Status == models.DeploymentStatusDeploying {
+			// Live. Sync DB status + ensure gateway backend points at the
+			// existing endpoint (new pllm process has no in-memory backends
+			// until Manager.Load runs; that uses MCPServer rows which
+			// already reflect the old endpoint, so we only need to touch
+			// this row's cached status).
+			row.Status = rep.Status
+			row.StatusReason = rep.Reason
+			if err := s.db.WithContext(ctx).Save(row).Error; err != nil {
+				s.logger.Warn("deployment: reconcile save",
+					zap.String("workload", row.WorkloadName), zap.Error(err))
+			}
+			continue
+		}
+		// Missing or stopped — re-apply from the registry row.
+		var server models.RegistryServer
+		if err := s.db.WithContext(ctx).
+			First(&server, "id = ?", row.RegistryServerID).Error; err != nil {
+			s.logger.Warn("deployment: reconcile orphan (no registry row)",
+				zap.String("workload", row.WorkloadName),
+				zap.String("registry_server_id", row.RegistryServerID.String()))
+			s.updateStatus(ctx, row.ID, models.DeploymentStatusFailed,
+				"registry server row deleted; cannot re-apply")
+			continue
+		}
+		if _, err := s.DeployFromServer(ctx, &server, row.Namespace); err != nil {
+			s.logger.Warn("deployment: reconcile re-apply failed",
+				zap.String("workload", row.WorkloadName), zap.Error(err))
+			continue
+		}
+		reapplied++
+		s.logger.Info("deployment: reconcile re-applied",
+			zap.String("workload", row.WorkloadName),
+			zap.String("resource", server.Name))
+	}
+	if reapplied > 0 {
+		s.logger.Info("deployment: reconcile finished",
+			zap.Int("reapplied", reapplied),
+			zap.Int("total", len(rows)))
+	}
+}
+
 // RefreshStatus polls the adapter for live status and persists it.
 func (s *Service) RefreshStatus(ctx context.Context, id uuid.UUID) (*models.Deployment, error) {
 	row, err := s.Get(ctx, id)

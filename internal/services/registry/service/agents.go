@@ -15,11 +15,15 @@ const tableRegistryAgents = "registry_agents"
 
 // AgentWithRefs bundles an agent row with its dependency edges.
 // Used by Get / Upsert so callers see the full picture in one round-trip.
+// Extended to surface agent-to-agent and agent-to-llm edges alongside the
+// original server/skill/prompt buckets.
 type AgentWithRefs struct {
-	Agent   models.RegistryAgent  `json:"agent"`
-	Servers []models.RegistryRef  `json:"servers,omitempty"`
-	Skills  []models.RegistryRef  `json:"skills,omitempty"`
-	Prompts []models.RegistryRef  `json:"prompts,omitempty"`
+	Agent    models.RegistryAgent `json:"agent"`
+	Servers  []models.RegistryRef `json:"servers,omitempty"`
+	Skills   []models.RegistryRef `json:"skills,omitempty"`
+	Prompts  []models.RegistryRef `json:"prompts,omitempty"`
+	Agents   []models.RegistryRef `json:"agents,omitempty"`
+	LLMs     []models.RegistryRef `json:"llms,omitempty"`
 }
 
 // List returns a page of agents.
@@ -71,6 +75,8 @@ func (s *AgentService) Get(ctx context.Context, name, version string) (*AgentWit
 		Servers: filterRefsByKind(refs, models.RegistryKindServer),
 		Skills:  filterRefsByKind(refs, models.RegistryKindSkill),
 		Prompts: filterRefsByKind(refs, models.RegistryKindPrompt),
+		Agents:  filterRefsByKind(refs, models.RegistryKindAgent),
+		LLMs:    filterRefsByKind(refs, models.RegistryKindLLM),
 	}, nil
 }
 
@@ -103,9 +109,7 @@ func (s *AgentService) Upsert(ctx context.Context, in *UpsertInput) (*AgentWithR
 		return nil, err
 	}
 	for i, r := range in.Refs {
-		switch r.TargetKind {
-		case models.RegistryKindServer, models.RegistryKindSkill, models.RegistryKindPrompt:
-		default:
+		if !models.IsValidTargetKind(r.TargetKind) {
 			return nil, fmt.Errorf("refs[%d]: invalid target kind %q", i, r.TargetKind)
 		}
 		if err := validName(r.TargetName); err != nil {
@@ -185,6 +189,8 @@ func (s *AgentService) Upsert(ctx context.Context, in *UpsertInput) (*AgentWithR
 	result.Servers = filterRefsByKind(refs, models.RegistryKindServer)
 	result.Skills = filterRefsByKind(refs, models.RegistryKindSkill)
 	result.Prompts = filterRefsByKind(refs, models.RegistryKindPrompt)
+	result.Agents = filterRefsByKind(refs, models.RegistryKindAgent)
+	result.LLMs = filterRefsByKind(refs, models.RegistryKindLLM)
 	return &result, nil
 }
 

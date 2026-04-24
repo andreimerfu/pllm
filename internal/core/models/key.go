@@ -71,6 +71,14 @@ type Key struct {
 	// Empty = no registry write access (unless master key).
 	RegistryPermissions pq.StringArray `gorm:"type:text[]" json:"registry_permissions,omitempty"`
 
+	// UseCaseID pins the key to a specific business activity. When set,
+	// MCP tool calls and LLM calls through this key are checked against
+	// the use case's declared component refs: tool's backend slug must be
+	// referenced by the use case, LLM model name must be too. Enforcement
+	// is flag-mode or block-mode per-use-case (see UseCase.EnforceScope).
+	// nil = unscoped (legacy behavior).
+	UseCaseID *uuid.UUID `gorm:"type:uuid;index" json:"use_case_id,omitempty"`
+
 	// Usage Tracking
 	UsageCount  int64   `json:"usage_count"`
 	TotalTokens int64   `json:"total_tokens"`

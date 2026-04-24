@@ -15,6 +15,7 @@ import (
 
 	"github.com/amerfu/pllm/internal/core/models"
 	"github.com/amerfu/pllm/internal/services/mcp/gateway"
+	"github.com/amerfu/pllm/internal/services/mcp/protocol"
 )
 
 // AdminHandler provides CRUD for MCP backend servers.
@@ -258,6 +259,60 @@ func (h *AdminHandler) Health(w http.ResponseWriter, r *http.Request) {
 		"last_seen":  b.LastSeen(),
 		"tool_count": len(b.Tools()),
 	})
+}
+
+// InvokeTool is POST /api/admin/mcp/tools/invoke — a thin JSON wrapper over
+// the MCP protocol's tools/call for the admin playground. Takes a server
+// slug + tool name + arguments, returns the tool result. This is intended
+// for UI test flows; actual agent traffic goes through /v1/mcp.
+func (h *AdminHandler) InvokeTool(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ServerSlug string          `json:"server_slug"`
+		ToolName   string          `json:"tool_name"`
+		Arguments  json.RawMessage `json:"arguments,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if body.ServerSlug == "" || body.ToolName == "" {
+		writeJSONError(w, http.StatusBadRequest, "server_slug and tool_name are required")
+		return
+	}
+	backend, ok := h.manager.GetBackend(body.ServerSlug)
+	if !ok {
+		writeJSONError(w, http.StatusNotFound, "server not found or not loaded")
+		return
+	}
+	params := protocol.ToolCallParams{Name: body.ToolName, Arguments: body.Arguments}
+	msg, err := backend.Call(r.Context(), "tools/call", params)
+	if err != nil {
+		writeJSONError(w, http.StatusBadGateway, fmt.Sprintf("tools/call failed: %v", err))
+		return
+	}
+	if msg == nil {
+		writeJSONError(w, http.StatusBadGateway, "empty response from backend")
+		return
+	}
+	if msg.Error != nil {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"error": map[string]any{
+				"code":    msg.Error.Code,
+				"message": msg.Error.Message,
+				"data":    msg.Error.Data,
+			},
+		})
+		return
+	}
+	// Forward the raw result — it already matches the MCP ToolCallResult shape.
+	var result protocol.ToolCallResult
+	if len(msg.Result) > 0 {
+		if err := json.Unmarshal(msg.Result, &result); err != nil {
+			writeJSONError(w, http.StatusBadGateway, fmt.Sprintf("decode result: %v", err))
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (h *AdminHandler) startBackend(ctx context.Context, row *models.MCPServer) {

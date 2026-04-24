@@ -32,7 +32,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PageHeader } from "@/components/common/PageHeader";
+import { PageShell } from "@/components/common/page-shell";
+import { PageActions } from "@/components/common/page-chrome";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useToast } from "@/hooks/use-toast";
@@ -254,17 +255,18 @@ export default function Providers() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Providers"
-        description="Manage saved LLM provider credentials"
-        actions={
-          <Button onClick={openCreateDialog} className="bg-teal-600 hover:bg-teal-700 text-white">
-            <Icon icon={icons.add} className="mr-2 h-4 w-4" />
-            Add Provider
-          </Button>
-        }
-      />
+    <PageShell
+      eyebrow="LLM Gateway"
+      title="Provider"
+      accent="credentials"
+      description="Saved provider connections reused across models. Keys never leave the gateway."
+    >
+      <PageActions>
+        <Button onClick={openCreateDialog}>
+          <Icon icon={icons.add} className="mr-2 h-4 w-4" />
+          Add Provider
+        </Button>
+      </PageActions>
 
       {providerList.length === 0 ? (
         <EmptyState
@@ -487,6 +489,6 @@ export default function Providers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageShell>
   );
 }

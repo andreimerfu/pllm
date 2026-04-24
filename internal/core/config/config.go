@@ -80,6 +80,9 @@ type ServerConfig struct {
 	WriteTimeout     time.Duration `mapstructure:"write_timeout"`
 	IdleTimeout      time.Duration `mapstructure:"idle_timeout"`
 	GracefulShutdown time.Duration `mapstructure:"graceful_shutdown"`
+	// Environment is a free-form label surfaced in the UI top-bar pill
+	// (e.g. "local", "staging", "prod"). Empty string hides the pill.
+	Environment string `mapstructure:"environment"`
 }
 
 type DatabaseConfig struct {

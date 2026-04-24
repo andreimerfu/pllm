@@ -906,6 +906,9 @@ type SystemHandler struct {
 	config      *config.Config
 	db          *gorm.DB
 	auditLogger *audit.Logger
+	// features is the EE/optional-capability map exposed via /api/config.
+	// Populated by the router after all optional handlers are wired.
+	features map[string]bool
 }
 
 func NewSystemHandler(logger *zap.Logger, db *gorm.DB) *SystemHandler {
@@ -914,7 +917,18 @@ func NewSystemHandler(logger *zap.Logger, db *gorm.DB) *SystemHandler {
 		config:      config.Get(),
 		db:          db,
 		auditLogger: audit.NewLogger(db),
+		features:    map[string]bool{},
 	}
+}
+
+// SetFeature flips a capability flag (e.g. "mrm", "webhooks"). Called by
+// the router once it knows which optional handlers are wired so the UI
+// can dim locked sections instead of 404-ing.
+func (h *SystemHandler) SetFeature(name string, enabled bool) {
+	if h.features == nil {
+		h.features = map[string]bool{}
+	}
+	h.features[name] = enabled
 }
 
 func (h *SystemHandler) GetSystemInfo(w http.ResponseWriter, r *http.Request) {
@@ -966,13 +980,22 @@ func (h *SystemHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 		"fallbacks":        cfg.Router.Fallbacks,
 	}
 
+	// Surface optional-capability flags so the UI can gate / dim sections
+	// behind an EE license without guessing at 404s.
+	features := map[string]bool{}
+	for k, v := range h.features {
+		features[k] = v
+	}
+
 	h.sendJSON(w, http.StatusOK, map[string]interface{}{
 		"config": map[string]interface{}{
 			"master_key_configured": cfg.Auth.MasterKey != "",
 			"dex_enabled":           cfg.Auth.Dex.Enabled,
 			"database_connected":    true,
+			"environment":           cfg.Server.Environment,
 		},
-		"router": routerConfig,
+		"features": features,
+		"router":   routerConfig,
 	})
 }
 

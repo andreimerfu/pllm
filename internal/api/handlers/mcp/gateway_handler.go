@@ -2,12 +2,14 @@
 package mcp
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 
 	"github.com/amerfu/pllm/internal/infrastructure/middleware"
@@ -16,15 +18,56 @@ import (
 	"github.com/amerfu/pllm/internal/services/mcp/protocol"
 )
 
+// ScopeChecker is the minimum surface the gateway needs from the
+// use-cases package. We depend on an interface to avoid pulling in the
+// full use_cases package here (and to keep the gateway testable with a
+// fake scope resolver).
+type ScopeChecker interface {
+	AllowMCPTool(ctx context.Context, useCaseID *uuid.UUID, serverSlug string) ScopeDecision
+}
+
+// ScopeDecision mirrors use_cases.Decision at the interface boundary so
+// the handler doesn't import the concrete package.
+type ScopeDecision struct {
+	Allowed     bool
+	EnforceMode bool
+	Reason      string
+}
+
+// ScopeEventRecorder accepts persisted audit rows for out-of-scope MCP
+// tool calls. The concrete implementation lives in the use_cases
+// package; we take the interface so the handler stays isolated.
+type ScopeEventRecorder interface {
+	RecordMCPDenial(ctx context.Context, useCaseID uuid.UUID, keyID *uuid.UUID, keyName, target, reason string, enforced bool, remoteAddr, requestID string)
+}
+
 // GatewayHandler terminates MCP-over-streamable-HTTP from clients (Claude
 // Desktop, Cursor, VS Code) and dispatches to the manager.
 type GatewayHandler struct {
-	logger  *zap.Logger
-	manager *gateway.Manager
+	logger   *zap.Logger
+	manager  *gateway.Manager
+	scope    ScopeChecker       // optional; nil disables use-case scope enforcement
+	recorder ScopeEventRecorder // optional; nil disables audit persistence
 }
 
 func NewGatewayHandler(logger *zap.Logger, manager *gateway.Manager) *GatewayHandler {
 	return &GatewayHandler{logger: logger, manager: manager}
+}
+
+// WithScope returns a GatewayHandler with use-case scope enforcement
+// enabled. Wiring is a builder rather than a constructor arg so the
+// dependency stays optional for setups without a DB.
+func (h *GatewayHandler) WithScope(scope ScopeChecker) *GatewayHandler {
+	h.scope = scope
+	return h
+}
+
+// WithRecorder attaches the audit-log recorder. When both scope and
+// recorder are set, every out-of-scope call (denied or flagged) gets
+// persisted to scope_events.
+func (h *GatewayHandler) WithRecorder(rec ScopeEventRecorder) *GatewayHandler {
+	h.recorder = rec
+	return h
 }
 
 // ServeHTTP handles POST /v1/mcp — each request carries a single JSON-RPC
@@ -104,6 +147,44 @@ func (h *GatewayHandler) dispatchWithACL(r *http.Request, msg *protocol.Message)
 				Code:    protocol.CodeInvalidRequest,
 				Message: "this key is not permitted to call tool: " + params.Name,
 			},
+		}
+	}
+
+	// Use-case scope check. Audit-first: out-of-scope calls are logged
+	// always; denial only happens when the bound use case has
+	// EnforceScope=true. Masterkey and unscoped keys bypass.
+	if h.scope != nil && !middleware.IsMasterKey(r.Context()) {
+		if key, ok := middleware.GetKey(r.Context()); ok && key != nil && key.UseCaseID != nil {
+			decision := h.scope.AllowMCPTool(r.Context(), key.UseCaseID, server)
+			if !decision.Allowed {
+				h.logger.Warn("mcp tool out-of-scope",
+					zap.String("tool", params.Name),
+					zap.String("use_case", key.UseCaseID.String()),
+					zap.Bool("enforced", decision.EnforceMode),
+					zap.String("reason", decision.Reason))
+				if h.recorder != nil {
+					h.recorder.RecordMCPDenial(
+						r.Context(),
+						*key.UseCaseID,
+						&key.ID, key.Name,
+						params.Name, decision.Reason,
+						decision.EnforceMode,
+						r.RemoteAddr, r.Header.Get("X-Request-Id"),
+					)
+				}
+				if decision.EnforceMode {
+					mcpmetrics.RecordToolCall(server, tool, mcpmetrics.OutcomeDenied, 0)
+					return &protocol.Message{
+						JSONRPC: protocol.JSONRPCVersion,
+						ID:      msg.ID,
+						Error: &protocol.Error{
+							Code:    protocol.CodeInvalidRequest,
+							Message: "out of scope for bound use case: " + decision.Reason,
+						},
+					}
+				}
+				// Flag mode — let it through but attribute the call.
+			}
 		}
 	}
 

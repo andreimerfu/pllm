@@ -42,16 +42,38 @@ type Handler struct {
 	Agents     *service.AgentService
 	Skills     *service.SkillService
 	Prompts    *service.PromptService
-	Enrichment *enrichment.Runner // optional; nil disables auto-enqueue
+	Refs       *service.RefService // cross-reference lookups
+	Enrichment *enrichment.Runner  // optional; nil disables auto-enqueue
 }
 
 // NewHandler builds a Handler. Pass nil logger to get a no-op.
 func NewHandler(logger *zap.Logger, s *service.ServerService, a *service.AgentService,
-	sk *service.SkillService, p *service.PromptService) *Handler {
+	sk *service.SkillService, p *service.PromptService, refs *service.RefService) *Handler {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &Handler{logger: logger, Servers: s, Agents: a, Skills: sk, Prompts: p}
+	return &Handler{logger: logger, Servers: s, Agents: a, Skills: sk, Prompts: p, Refs: refs}
+}
+
+// ListDependents is GET /v1/registry/refs?target_kind=skill&target_name=X.
+// Returns every latest-version registry resource that references the target.
+func (h *Handler) ListDependents(w http.ResponseWriter, r *http.Request) {
+	if h.Refs == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"dependents": []any{}})
+		return
+	}
+	kind := r.URL.Query().Get("target_kind")
+	name := r.URL.Query().Get("target_name")
+	if kind == "" || name == "" {
+		writeErr(w, http.StatusBadRequest, "target_kind and target_name are required")
+		return
+	}
+	rows, err := h.Refs.ListDependents(r.Context(), models.RegistryKind(kind), name)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"dependents": rows})
 }
 
 // enqueueServerEnrichment is called after a successful server upsert.

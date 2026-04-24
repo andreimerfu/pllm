@@ -1,0 +1,171 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - button "Core" [expanded] [ref=e15] [cursor=pointer]:
+            - text: Core
+            - img [ref=e16]
+          - list [ref=e19]:
+            - listitem [ref=e20]:
+              - link "Dashboard" [ref=e21] [cursor=pointer]:
+                - /url: /ui/dashboard
+                - img [ref=e22]
+                - generic [ref=e25]: Dashboard
+            - listitem [ref=e26]:
+              - link "Chat" [ref=e27] [cursor=pointer]:
+                - /url: /ui/chat
+                - img [ref=e28]
+                - generic [ref=e31]: Chat
+            - listitem [ref=e32]:
+              - link "Models" [ref=e33] [cursor=pointer]:
+                - /url: /ui/models
+                - img [ref=e34]
+                - generic [ref=e40]: Models
+            - listitem [ref=e41]:
+              - link "Routes" [ref=e42] [cursor=pointer]:
+                - /url: /ui/routes
+                - img [ref=e43]
+                - generic [ref=e48]: Routes
+            - listitem [ref=e49]:
+              - link "MCP Servers" [ref=e50] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - img [ref=e51]
+                - generic [ref=e56]: MCP Servers
+            - listitem [ref=e57]:
+              - link "Use Cases" [ref=e58] [cursor=pointer]:
+                - /url: /ui/use-cases
+                - img [ref=e59]
+                - generic [ref=e64]: Use Cases
+            - listitem [ref=e65]:
+              - link "Registry" [ref=e66] [cursor=pointer]:
+                - /url: /ui/registry
+                - img [ref=e67]
+                - generic [ref=e72]: Registry
+            - listitem [ref=e73]:
+              - link "Deployments" [ref=e74] [cursor=pointer]:
+                - /url: /ui/deployments
+                - img [ref=e75]
+                - generic [ref=e77]: Deployments
+            - listitem [ref=e78]:
+              - link "Compliance" [ref=e79] [cursor=pointer]:
+                - /url: /ui/compliance
+                - img [ref=e80]
+                - generic [ref=e84]: Compliance
+        - generic [ref=e85]:
+          - button "Management" [expanded] [ref=e86] [cursor=pointer]:
+            - text: Management
+            - img [ref=e87]
+          - list [ref=e90]:
+            - listitem [ref=e91]:
+              - link "API Keys" [ref=e92] [cursor=pointer]:
+                - /url: /ui/keys
+                - img [ref=e93]
+                - generic [ref=e95]: API Keys
+            - listitem [ref=e96]:
+              - link "Providers" [ref=e97] [cursor=pointer]:
+                - /url: /ui/providers
+                - img [ref=e98]
+                - generic [ref=e102]: Providers
+            - listitem [ref=e103]:
+              - link "Teams" [ref=e104] [cursor=pointer]:
+                - /url: /ui/teams
+                - img [ref=e105]
+                - generic [ref=e111]: Teams
+            - listitem [ref=e112]:
+              - link "Users" [ref=e113] [cursor=pointer]:
+                - /url: /ui/users
+                - img [ref=e114]
+                - generic [ref=e118]: Users
+        - generic [ref=e119]:
+          - button "Administration" [expanded] [ref=e120] [cursor=pointer]:
+            - text: Administration
+            - img [ref=e121]
+          - list [ref=e124]:
+            - listitem [ref=e125]:
+              - link "Budget" [ref=e126] [cursor=pointer]:
+                - /url: /ui/budget
+                - img [ref=e127]
+                - generic [ref=e132]: Budget
+            - listitem [ref=e133]:
+              - link "Audit Logs" [ref=e134] [cursor=pointer]:
+                - /url: /ui/audit-logs
+                - img [ref=e135]
+                - generic [ref=e139]: Audit Logs
+            - listitem [ref=e140]:
+              - link "Guardrails" [ref=e141] [cursor=pointer]:
+                - /url: /ui/guardrails
+                - img [ref=e142]
+                - generic [ref=e146]: Guardrails
+            - listitem [ref=e147]:
+              - link "Settings" [ref=e148] [cursor=pointer]:
+                - /url: /ui/settings
+                - img [ref=e149]
+                - generic [ref=e153]: Settings
+      - list [ref=e155]:
+        - listitem [ref=e156]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e157] [cursor=pointer]:
+            - generic [ref=e159]: A(
+            - generic [ref=e160]:
+              - generic [ref=e161]: Admin (Master Key)
+              - generic [ref=e162]: admin@pllm.local
+            - img [ref=e163]
+      - button "Toggle Sidebar" [ref=e165]
+    - main [ref=e166]:
+      - generic [ref=e167]:
+        - button "Toggle Sidebar" [ref=e168] [cursor=pointer]:
+          - img
+          - generic [ref=e169]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e170]:
+          - list [ref=e171]:
+            - listitem [ref=e173]:
+              - link "Deployments" [disabled] [ref=e174]
+        - generic [ref=e175]:
+          - button "Search... ⌘K" [ref=e176] [cursor=pointer]:
+            - img [ref=e177]
+            - generic [ref=e181]: Search...
+            - generic [ref=e182]: ⌘K
+          - button [ref=e183] [cursor=pointer]:
+            - img [ref=e184]
+          - generic [ref=e188]: v2.0.0
+      - main [ref=e189]:
+        - generic [ref=e191]:
+          - generic [ref=e192]:
+            - heading "Deployments" [level=1] [ref=e193]
+            - paragraph [ref=e194]: Registry servers running as dedicated Kubernetes workloads. Each deployment is auto-registered as an MCP Gateway backend.
+          - generic [ref=e195]:
+            - generic [ref=e196]:
+              - generic [ref=e197]:
+                - generic [ref=e198]:
+                  - generic [ref=e199]: npm.import/@upstash/context7-mcp
+                  - code [ref=e200]: v2.1.8
+                - generic [ref=e201]:
+                  - generic [ref=e202]: running
+                  - button [ref=e203] [cursor=pointer]
+              - generic [ref=e204]:
+                - generic [ref=e205]:
+                  - generic [ref=e206]: kubernetes
+                  - code [ref=e207]: pllm-mcp/context7-mcp-2-1-8
+                - generic [ref=e208]: → http://context7-mcp-2-1-8.pllm-mcp.svc.cluster.local:8000/mcp
+                - paragraph [ref=e209]: MCP backend registered
+            - generic [ref=e210]:
+              - generic [ref=e211]:
+                - generic [ref=e212]:
+                  - generic [ref=e213]: io.modelcontextprotocol/server-everything
+                  - code [ref=e214]: v1.0.00.6.2
+                - generic [ref=e215]:
+                  - generic [ref=e216]: running
+                  - button [ref=e217] [cursor=pointer]
+              - generic [ref=e218]:
+                - generic [ref=e219]:
+                  - generic [ref=e220]: kubernetes
+                  - code [ref=e221]: pllm-mcp/server-everything-1-0-00-6-2
+                - generic [ref=e222]: → http://server-everything-1-0-00-6-2.pllm-mcp.svc.cluster.local:8000/mcp
+                - paragraph [ref=e223]: MCP backend registered
+  - region "Notifications (F8)":
+    - list

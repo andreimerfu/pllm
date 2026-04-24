@@ -37,6 +37,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { PageShell } from "@/components/common/page-shell";
+import { PageActions } from "@/components/common/page-chrome";
 
 // GuardrailInfo interface now imported from hooks/useGuardrails
 
@@ -440,34 +442,30 @@ export default function Guardrails() {
   };
 
   return (
-    <div className="space-y-4 lg:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold">Guardrails</h1>
-          <p className="text-sm lg:text-base text-muted-foreground">
-            Monitor and manage content safety guardrails
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={systemEnabled ? "default" : "secondary"}>
-            {systemEnabled ? "Enabled" : "Disabled"}
-          </Badge>
-          <Button
-            variant="outline"
-            onClick={() => navigate("/guardrails/marketplace")}
-          >
-            <Icon icon={icons.shield} className="h-4 w-4 mr-2" />
-            Browse Marketplace
-          </Button>
-          <Button
-            onClick={() => navigate("/guardrails/config/new")}
-          >
-            <Icon icon={icons.plus} className="h-4 w-4 mr-2" />
-            Add Guardrail
-          </Button>
-        </div>
-      </div>
+    <PageShell
+      eyebrow="LLM Gateway"
+      title="Content"
+      accent="guardrails"
+      description="Safety policies — PII redaction, moderation, prompt-injection screens — applied on every request and response."
+    >
+      <PageActions>
+        <Badge variant={systemEnabled ? "default" : "secondary"}>
+          {systemEnabled ? "Enabled" : "Disabled"}
+        </Badge>
+        <Button
+          variant="outline"
+          onClick={() => navigate("/guardrails/marketplace")}
+        >
+          <Icon icon={icons.shield} className="h-4 w-4 mr-2" />
+          Browse Marketplace
+        </Button>
+        <Button
+          onClick={() => navigate("/guardrails/config/new")}
+        >
+          <Icon icon={icons.plus} className="h-4 w-4 mr-2" />
+          Add Guardrail
+        </Button>
+      </PageActions>
 
       {/* System Status Alert */}
       {!systemEnabled && (
@@ -835,6 +833,6 @@ export default function Guardrails() {
           )}
         </SheetContent>
       </Sheet>
-    </div>
+    </PageShell>
   );
 }

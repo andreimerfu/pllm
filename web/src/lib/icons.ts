@@ -89,11 +89,14 @@ export const icons = {
   minimize: 'solar:minimize-linear',
   mcp: 'solar:plug-circle-linear',
   registry: 'solar:book-bookmark-linear',
-  agent: 'solar:bot-linear',
+  agent: 'mdi:robot-outline',
   skill: 'solar:diploma-linear',
   prompt: 'solar:document-text-linear',
   deployment: 'solar:cloud-linear',
   rocket: 'solar:rocket-linear',
+  useCase: 'solar:target-linear',
+  llm: 'solar:atom-linear',
+  shieldAlert: 'solar:shield-warning-linear',
 } as const;
 
 export type IconName = keyof typeof icons;

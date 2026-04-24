@@ -1,0 +1,565 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - list [ref=e15]:
+          - listitem [ref=e16]:
+            - link "Dashboard" [ref=e17] [cursor=pointer]:
+              - /url: /ui/dashboard
+              - generic [ref=e18]: Dashboard
+        - generic [ref=e19]:
+          - button "LLM Gateway" [expanded] [ref=e20] [cursor=pointer]:
+            - generic [ref=e21]: LLM Gateway
+          - list [ref=e23]:
+            - listitem [ref=e24]:
+              - link "Playground" [ref=e25] [cursor=pointer]:
+                - /url: /ui/chat
+                - generic [ref=e26]: Playground
+            - listitem [ref=e27]:
+              - link "Models" [ref=e28] [cursor=pointer]:
+                - /url: /ui/models
+                - generic [ref=e29]: Models
+            - listitem [ref=e30]:
+              - link "Routes" [ref=e31] [cursor=pointer]:
+                - /url: /ui/routes
+                - generic [ref=e32]: Routes
+            - listitem [ref=e33]:
+              - link "Providers" [ref=e34] [cursor=pointer]:
+                - /url: /ui/providers
+                - generic [ref=e35]: Providers
+            - listitem [ref=e36]:
+              - link "Guardrails" [ref=e37] [cursor=pointer]:
+                - /url: /ui/guardrails
+                - generic [ref=e38]: Guardrails
+        - generic [ref=e39]:
+          - button "Agents & MCP" [expanded] [ref=e40] [cursor=pointer]:
+            - generic [ref=e41]: Agents & MCP
+          - list [ref=e43]:
+            - listitem [ref=e44]:
+              - link "Registry" [ref=e45] [cursor=pointer]:
+                - /url: /ui/registry
+                - generic [ref=e46]: Registry
+            - listitem [ref=e47]:
+              - link "MCP Servers" [ref=e48] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - generic [ref=e49]: MCP Servers
+            - listitem [ref=e50]:
+              - link "Deployments" [ref=e51] [cursor=pointer]:
+                - /url: /ui/deployments
+                - generic [ref=e52]: Deployments
+        - generic [ref=e53]:
+          - button "Governance EE" [expanded] [ref=e54] [cursor=pointer]:
+            - generic [ref=e55]: Governance
+            - generic "pLLM Enterprise" [ref=e56]: EE
+          - list [ref=e58]:
+            - listitem [ref=e59]:
+              - link "Use Cases" [ref=e60] [cursor=pointer]:
+                - /url: /ui/use-cases
+                - generic [ref=e61]: Use Cases
+            - listitem [ref=e62]:
+              - link "Compliance" [ref=e63] [cursor=pointer]:
+                - /url: /ui/compliance
+                - generic [ref=e64]: Compliance
+        - generic [ref=e65]:
+          - button "Access & Activity" [expanded] [ref=e66] [cursor=pointer]:
+            - generic [ref=e67]: Access & Activity
+          - list [ref=e69]:
+            - listitem [ref=e70]:
+              - link "API Keys" [ref=e71] [cursor=pointer]:
+                - /url: /ui/keys
+                - generic [ref=e72]: API Keys
+            - listitem [ref=e73]:
+              - link "Teams" [ref=e74] [cursor=pointer]:
+                - /url: /ui/teams
+                - generic [ref=e75]: Teams
+            - listitem [ref=e76]:
+              - link "Users" [ref=e77] [cursor=pointer]:
+                - /url: /ui/users
+                - generic [ref=e78]: Users
+            - listitem [ref=e79]:
+              - link "Budget" [ref=e80] [cursor=pointer]:
+                - /url: /ui/budget
+                - generic [ref=e81]: Budget
+            - listitem [ref=e82]:
+              - link "Audit Logs" [ref=e83] [cursor=pointer]:
+                - /url: /ui/audit-logs
+                - generic [ref=e84]: Audit Logs
+        - generic [ref=e85]:
+          - button "System" [expanded] [ref=e86] [cursor=pointer]:
+            - generic [ref=e87]: System
+          - list [ref=e89]:
+            - listitem [ref=e90]:
+              - link "Settings" [ref=e91] [cursor=pointer]:
+                - /url: /ui/settings
+                - generic [ref=e92]: Settings
+      - list [ref=e94]:
+        - listitem [ref=e95]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e96] [cursor=pointer]:
+            - generic [ref=e98]: A(
+            - generic [ref=e99]:
+              - generic [ref=e100]: Admin (Master Key)
+              - generic [ref=e101]: admin@pllm.local
+      - button "Toggle Sidebar" [ref=e102]
+    - main [ref=e103]:
+      - generic [ref=e104]:
+        - button "Toggle Sidebar" [ref=e105] [cursor=pointer]:
+          - generic [ref=e106]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e107]:
+          - list [ref=e108]:
+            - listitem [ref=e110]:
+              - generic [ref=e111]: Access & Activity
+            - listitem [ref=e113]:
+              - link "Audit Logs" [disabled] [ref=e114]
+        - generic [ref=e115]:
+          - button "Export" [ref=e116] [cursor=pointer]: Export
+          - button "Refresh" [ref=e117] [cursor=pointer]:
+            - img
+            - text: Refresh
+        - generic [ref=e118]:
+          - button "Search… ⌘K" [ref=e119] [cursor=pointer]:
+            - generic [ref=e120]: Search…
+            - generic [ref=e121]: ⌘K
+          - button [ref=e122] [cursor=pointer]
+          - generic [ref=e123]: v2.0.0
+      - main [ref=e124]:
+        - generic [ref=e126]:
+          - generic [ref=e127]:
+            - paragraph [ref=e128]: Activity
+            - heading "Audit trail" [level=1] [ref=e129]
+            - paragraph [ref=e130]: System events, security activity, and administrative changes across the gateway.
+          - generic [ref=e131]:
+            - generic [ref=e132]: total events
+            - generic [ref=e133]: "165"
+          - generic [ref=e135]:
+            - textbox "Search actions, events..." [ref=e137]
+            - button "Mar 25 - Apr 24" [ref=e139] [cursor=pointer]: Mar 25 - Apr 24
+            - combobox [ref=e140] [cursor=pointer]:
+              - generic: All resources
+            - generic [ref=e142]:
+              - button "All" [ref=e143] [cursor=pointer]: All
+              - button "Success" [ref=e145] [cursor=pointer]: Success
+              - button "Failure" [ref=e147] [cursor=pointer]: Failure
+              - button "Error" [ref=e149] [cursor=pointer]: Error
+              - button "Warning" [ref=e151] [cursor=pointer]: Warning
+            - textbox "User ID..." [ref=e153]
+          - generic [ref=e154]:
+            - generic [ref=e155]:
+              - generic [ref=e156]: Time
+              - generic [ref=e157]: Event
+              - generic [ref=e158]: User
+              - generic [ref=e159]: Resource
+              - generic [ref=e160]: IP
+            - generic [ref=e162]:
+              - generic [ref=e164] [cursor=pointer]:
+                - generic "2026-04-24 15:31:51" [ref=e165]: 2 minutes
+                - generic [ref=e168]:
+                  - generic [ref=e169]: master_key_auth
+                  - generic [ref=e170]: auth
+                - generic [ref=e172]: System
+                - generic [ref=e173]: "--"
+                - generic [ref=e174]: "--"
+              - generic [ref=e176] [cursor=pointer]:
+                - generic "2026-04-24 14:25:20" [ref=e177]: ~1 hour
+                - generic [ref=e180]:
+                  - generic [ref=e181]: master_key_auth
+                  - generic [ref=e182]: auth
+                - generic [ref=e184]: System
+                - generic [ref=e185]: "--"
+                - generic [ref=e186]: "--"
+              - generic [ref=e188] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e189]: ~2 hours
+                - generic [ref=e192]:
+                  - generic [ref=e193]: master_key_auth
+                  - generic [ref=e194]: auth
+                - generic [ref=e196]: System
+                - generic [ref=e197]: "--"
+                - generic [ref=e198]: "--"
+              - generic [ref=e200] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e201]: ~2 hours
+                - generic [ref=e204]:
+                  - generic [ref=e205]: master_key_auth
+                  - generic [ref=e206]: auth
+                - generic [ref=e208]: System
+                - generic [ref=e209]: "--"
+                - generic [ref=e210]: "--"
+              - generic [ref=e212] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e213]: ~2 hours
+                - generic [ref=e216]:
+                  - generic [ref=e217]: master_key_auth
+                  - generic [ref=e218]: auth
+                - generic [ref=e220]: System
+                - generic [ref=e221]: "--"
+                - generic [ref=e222]: "--"
+              - generic [ref=e224] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e225]: ~2 hours
+                - generic [ref=e228]:
+                  - generic [ref=e229]: master_key_auth
+                  - generic [ref=e230]: auth
+                - generic [ref=e232]: System
+                - generic [ref=e233]: "--"
+                - generic [ref=e234]: "--"
+              - generic [ref=e236] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e237]: ~2 hours
+                - generic [ref=e240]:
+                  - generic [ref=e241]: master_key_auth
+                  - generic [ref=e242]: auth
+                - generic [ref=e244]: System
+                - generic [ref=e245]: "--"
+                - generic [ref=e246]: "--"
+              - generic [ref=e248] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e249]: ~2 hours
+                - generic [ref=e252]:
+                  - generic [ref=e253]: master_key_auth
+                  - generic [ref=e254]: auth
+                - generic [ref=e256]: System
+                - generic [ref=e257]: "--"
+                - generic [ref=e258]: "--"
+              - generic [ref=e260] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e261]: ~2 hours
+                - generic [ref=e264]:
+                  - generic [ref=e265]: master_key_auth
+                  - generic [ref=e266]: auth
+                - generic [ref=e268]: System
+                - generic [ref=e269]: "--"
+                - generic [ref=e270]: "--"
+              - generic [ref=e272] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e273]: ~2 hours
+                - generic [ref=e276]:
+                  - generic [ref=e277]: master_key_auth
+                  - generic [ref=e278]: auth
+                - generic [ref=e280]: System
+                - generic [ref=e281]: "--"
+                - generic [ref=e282]: "--"
+              - generic [ref=e284] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e285]: ~2 hours
+                - generic [ref=e288]:
+                  - generic [ref=e289]: master_key_auth
+                  - generic [ref=e290]: auth
+                - generic [ref=e292]: System
+                - generic [ref=e293]: "--"
+                - generic [ref=e294]: "--"
+              - generic [ref=e296] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e297]: ~2 hours
+                - generic [ref=e300]:
+                  - generic [ref=e301]: master_key_auth
+                  - generic [ref=e302]: auth
+                - generic [ref=e304]: System
+                - generic [ref=e305]: "--"
+                - generic [ref=e306]: "--"
+              - generic [ref=e308] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e309]: ~2 hours
+                - generic [ref=e312]:
+                  - generic [ref=e313]: master_key_auth
+                  - generic [ref=e314]: auth
+                - generic [ref=e316]: System
+                - generic [ref=e317]: "--"
+                - generic [ref=e318]: "--"
+              - generic [ref=e320] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e321]: ~2 hours
+                - generic [ref=e324]:
+                  - generic [ref=e325]: master_key_auth
+                  - generic [ref=e326]: auth
+                - generic [ref=e328]: System
+                - generic [ref=e329]: "--"
+                - generic [ref=e330]: "--"
+              - generic [ref=e332] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e333]: ~2 hours
+                - generic [ref=e336]:
+                  - generic [ref=e337]: master_key_auth
+                  - generic [ref=e338]: auth
+                - generic [ref=e340]: System
+                - generic [ref=e341]: "--"
+                - generic [ref=e342]: "--"
+              - generic [ref=e344] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e345]: ~2 hours
+                - generic [ref=e348]:
+                  - generic [ref=e349]: master_key_auth
+                  - generic [ref=e350]: auth
+                - generic [ref=e352]: System
+                - generic [ref=e353]: "--"
+                - generic [ref=e354]: "--"
+              - generic [ref=e356] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e357]: ~2 hours
+                - generic [ref=e360]:
+                  - generic [ref=e361]: master_key_auth
+                  - generic [ref=e362]: auth
+                - generic [ref=e364]: System
+                - generic [ref=e365]: "--"
+                - generic [ref=e366]: "--"
+              - generic [ref=e368] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e369]: ~2 hours
+                - generic [ref=e372]:
+                  - generic [ref=e373]: master_key_auth
+                  - generic [ref=e374]: auth
+                - generic [ref=e376]: System
+                - generic [ref=e377]: "--"
+                - generic [ref=e378]: "--"
+              - generic [ref=e380] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e381]: ~2 hours
+                - generic [ref=e384]:
+                  - generic [ref=e385]: master_key_auth
+                  - generic [ref=e386]: auth
+                - generic [ref=e388]: System
+                - generic [ref=e389]: "--"
+                - generic [ref=e390]: "--"
+              - generic [ref=e392] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e393]: ~2 hours
+                - generic [ref=e396]:
+                  - generic [ref=e397]: master_key_auth
+                  - generic [ref=e398]: auth
+                - generic [ref=e400]: System
+                - generic [ref=e401]: "--"
+                - generic [ref=e402]: "--"
+              - generic [ref=e404] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e405]: ~2 hours
+                - generic [ref=e408]:
+                  - generic [ref=e409]: master_key_auth
+                  - generic [ref=e410]: auth
+                - generic [ref=e412]: System
+                - generic [ref=e413]: "--"
+                - generic [ref=e414]: "--"
+              - generic [ref=e416] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e417]: ~2 hours
+                - generic [ref=e420]:
+                  - generic [ref=e421]: master_key_auth
+                  - generic [ref=e422]: auth
+                - generic [ref=e424]: System
+                - generic [ref=e425]: "--"
+                - generic [ref=e426]: "--"
+              - generic [ref=e428] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e429]: ~2 hours
+                - generic [ref=e432]:
+                  - generic [ref=e433]: master_key_auth
+                  - generic [ref=e434]: auth
+                - generic [ref=e436]: System
+                - generic [ref=e437]: "--"
+                - generic [ref=e438]: "--"
+              - generic [ref=e440] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e441]: ~2 hours
+                - generic [ref=e444]:
+                  - generic [ref=e445]: master_key_auth
+                  - generic [ref=e446]: auth
+                - generic [ref=e448]: System
+                - generic [ref=e449]: "--"
+                - generic [ref=e450]: "--"
+              - generic [ref=e452] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e453]: ~2 hours
+                - generic [ref=e456]:
+                  - generic [ref=e457]: master_key_auth
+                  - generic [ref=e458]: auth
+                - generic [ref=e460]: System
+                - generic [ref=e461]: "--"
+                - generic [ref=e462]: "--"
+              - generic [ref=e464] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e465]: ~2 hours
+                - generic [ref=e468]:
+                  - generic [ref=e469]: master_key_auth
+                  - generic [ref=e470]: auth
+                - generic [ref=e472]: System
+                - generic [ref=e473]: "--"
+                - generic [ref=e474]: "--"
+              - generic [ref=e476] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e477]: ~2 hours
+                - generic [ref=e480]:
+                  - generic [ref=e481]: master_key_auth
+                  - generic [ref=e482]: auth
+                - generic [ref=e484]: System
+                - generic [ref=e485]: "--"
+                - generic [ref=e486]: "--"
+              - generic [ref=e488] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e489]: ~2 hours
+                - generic [ref=e492]:
+                  - generic [ref=e493]: master_key_auth
+                  - generic [ref=e494]: auth
+                - generic [ref=e496]: System
+                - generic [ref=e497]: "--"
+                - generic [ref=e498]: "--"
+              - generic [ref=e500] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e501]: ~2 hours
+                - generic [ref=e504]:
+                  - generic [ref=e505]: master_key_auth
+                  - generic [ref=e506]: auth
+                - generic [ref=e508]: System
+                - generic [ref=e509]: "--"
+                - generic [ref=e510]: "--"
+              - generic [ref=e512] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e513]: ~2 hours
+                - generic [ref=e516]:
+                  - generic [ref=e517]: master_key_auth
+                  - generic [ref=e518]: auth
+                - generic [ref=e520]: System
+                - generic [ref=e521]: "--"
+                - generic [ref=e522]: "--"
+              - generic [ref=e524] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e525]: ~2 hours
+                - generic [ref=e528]:
+                  - generic [ref=e529]: master_key_auth
+                  - generic [ref=e530]: auth
+                - generic [ref=e532]: System
+                - generic [ref=e533]: "--"
+                - generic [ref=e534]: "--"
+              - generic [ref=e536] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e537]: ~2 hours
+                - generic [ref=e540]:
+                  - generic [ref=e541]: master_key_auth
+                  - generic [ref=e542]: auth
+                - generic [ref=e544]: System
+                - generic [ref=e545]: "--"
+                - generic [ref=e546]: "--"
+              - generic [ref=e548] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e549]: ~2 hours
+                - generic [ref=e552]:
+                  - generic [ref=e553]: master_key_auth
+                  - generic [ref=e554]: auth
+                - generic [ref=e556]: System
+                - generic [ref=e557]: "--"
+                - generic [ref=e558]: "--"
+              - generic [ref=e560] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e561]: ~2 hours
+                - generic [ref=e564]:
+                  - generic [ref=e565]: master_key_auth
+                  - generic [ref=e566]: auth
+                - generic [ref=e568]: System
+                - generic [ref=e569]: "--"
+                - generic [ref=e570]: "--"
+              - generic [ref=e572] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e573]: ~2 hours
+                - generic [ref=e576]:
+                  - generic [ref=e577]: master_key_auth
+                  - generic [ref=e578]: auth
+                - generic [ref=e580]: System
+                - generic [ref=e581]: "--"
+                - generic [ref=e582]: "--"
+              - generic [ref=e584] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e585]: ~2 hours
+                - generic [ref=e588]:
+                  - generic [ref=e589]: master_key_auth
+                  - generic [ref=e590]: auth
+                - generic [ref=e592]: System
+                - generic [ref=e593]: "--"
+                - generic [ref=e594]: "--"
+              - generic [ref=e596] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e597]: ~2 hours
+                - generic [ref=e600]:
+                  - generic [ref=e601]: master_key_auth
+                  - generic [ref=e602]: auth
+                - generic [ref=e604]: System
+                - generic [ref=e605]: "--"
+                - generic [ref=e606]: "--"
+              - generic [ref=e608] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e609]: ~2 hours
+                - generic [ref=e612]:
+                  - generic [ref=e613]: master_key_auth
+                  - generic [ref=e614]: auth
+                - generic [ref=e616]: System
+                - generic [ref=e617]: "--"
+                - generic [ref=e618]: "--"
+              - generic [ref=e620] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e621]: ~2 hours
+                - generic [ref=e624]:
+                  - generic [ref=e625]: master_key_auth
+                  - generic [ref=e626]: auth
+                - generic [ref=e628]: System
+                - generic [ref=e629]: "--"
+                - generic [ref=e630]: "--"
+              - generic [ref=e632] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e633]: ~2 hours
+                - generic [ref=e636]:
+                  - generic [ref=e637]: master_key_auth
+                  - generic [ref=e638]: auth
+                - generic [ref=e640]: System
+                - generic [ref=e641]: "--"
+                - generic [ref=e642]: "--"
+              - generic [ref=e644] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e645]: ~2 hours
+                - generic [ref=e648]:
+                  - generic [ref=e649]: master_key_auth
+                  - generic [ref=e650]: auth
+                - generic [ref=e652]: System
+                - generic [ref=e653]: "--"
+                - generic [ref=e654]: "--"
+              - generic [ref=e656] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e657]: ~2 hours
+                - generic [ref=e660]:
+                  - generic [ref=e661]: master_key_auth
+                  - generic [ref=e662]: auth
+                - generic [ref=e664]: System
+                - generic [ref=e665]: "--"
+                - generic [ref=e666]: "--"
+              - generic [ref=e668] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e669]: ~2 hours
+                - generic [ref=e672]:
+                  - generic [ref=e673]: master_key_auth
+                  - generic [ref=e674]: auth
+                - generic [ref=e676]: System
+                - generic [ref=e677]: "--"
+                - generic [ref=e678]: "--"
+              - generic [ref=e680] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e681]: ~2 hours
+                - generic [ref=e684]:
+                  - generic [ref=e685]: master_key_auth
+                  - generic [ref=e686]: auth
+                - generic [ref=e688]: System
+                - generic [ref=e689]: "--"
+                - generic [ref=e690]: "--"
+              - generic [ref=e692] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e693]: ~2 hours
+                - generic [ref=e696]:
+                  - generic [ref=e697]: master_key_auth
+                  - generic [ref=e698]: auth
+                - generic [ref=e700]: System
+                - generic [ref=e701]: "--"
+                - generic [ref=e702]: "--"
+              - generic [ref=e704] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e705]: ~2 hours
+                - generic [ref=e708]:
+                  - generic [ref=e709]: master_key_auth
+                  - generic [ref=e710]: auth
+                - generic [ref=e712]: System
+                - generic [ref=e713]: "--"
+                - generic [ref=e714]: "--"
+              - generic [ref=e716] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e717]: ~2 hours
+                - generic [ref=e720]:
+                  - generic [ref=e721]: master_key_auth
+                  - generic [ref=e722]: auth
+                - generic [ref=e724]: System
+                - generic [ref=e725]: "--"
+                - generic [ref=e726]: "--"
+              - generic [ref=e728] [cursor=pointer]:
+                - generic "2026-04-24 13:27:33" [ref=e729]: ~2 hours
+                - generic [ref=e732]:
+                  - generic [ref=e733]: master_key_auth
+                  - generic [ref=e734]: auth
+                - generic [ref=e736]: System
+                - generic [ref=e737]: "--"
+                - generic [ref=e738]: "--"
+              - generic [ref=e740] [cursor=pointer]:
+                - generic "2026-04-24 13:27:22" [ref=e741]: ~2 hours
+                - generic [ref=e744]:
+                  - generic [ref=e745]: master_key_auth
+                  - generic [ref=e746]: auth
+                - generic [ref=e748]: System
+                - generic [ref=e749]: "--"
+                - generic [ref=e750]: "--"
+              - generic [ref=e752] [cursor=pointer]:
+                - generic "2026-04-24 13:27:22" [ref=e753]: ~2 hours
+                - generic [ref=e756]:
+                  - generic [ref=e757]: master_key_auth
+                  - generic [ref=e758]: auth
+                - generic [ref=e760]: System
+                - generic [ref=e761]: "--"
+                - generic [ref=e762]: "--"
+          - generic [ref=e763]:
+            - generic [ref=e764]: 1-50 of 165
+            - generic [ref=e765]:
+              - button "Prev" [disabled]: Prev
+              - generic [ref=e766]: 1 / 4
+              - button "Next" [ref=e767] [cursor=pointer]: Next
+  - region "Notifications (F8)":
+    - list

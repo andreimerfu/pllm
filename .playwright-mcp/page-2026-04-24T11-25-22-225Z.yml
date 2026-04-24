@@ -1,0 +1,246 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e47]:
+      - generic [ref=e50]:
+        - generic [ref=e52]:
+          - img "pLLM" [ref=e53]
+          - generic [ref=e54]:
+            - generic [ref=e55]: pLLM
+            - generic [ref=e56]: Gateway Console
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - button "Core" [expanded] [ref=e59] [cursor=pointer]:
+              - text: Core
+              - img [ref=e60]
+            - list [ref=e63]:
+              - listitem [ref=e64]:
+                - link "Dashboard" [ref=e65] [cursor=pointer]:
+                  - /url: /ui/dashboard
+                  - img [ref=e66]
+                  - generic [ref=e69]: Dashboard
+              - listitem [ref=e70]:
+                - link "Chat" [ref=e71] [cursor=pointer]:
+                  - /url: /ui/chat
+                  - img [ref=e72]
+                  - generic [ref=e75]: Chat
+              - listitem [ref=e76]:
+                - link "Models" [ref=e77] [cursor=pointer]:
+                  - /url: /ui/models
+                  - img [ref=e78]
+                  - generic [ref=e84]: Models
+              - listitem [ref=e85]:
+                - link "Routes" [ref=e86] [cursor=pointer]:
+                  - /url: /ui/routes
+                  - img [ref=e87]
+                  - generic [ref=e92]: Routes
+              - listitem [ref=e93]:
+                - link "MCP Servers" [ref=e94] [cursor=pointer]:
+                  - /url: /ui/mcp-servers
+                  - img [ref=e95]
+                  - generic [ref=e100]: MCP Servers
+              - listitem [ref=e101]:
+                - link "Use Cases" [ref=e102] [cursor=pointer]:
+                  - /url: /ui/use-cases
+                  - img [ref=e103]
+                  - generic [ref=e108]: Use Cases
+              - listitem [ref=e109]:
+                - link "Registry" [ref=e110] [cursor=pointer]:
+                  - /url: /ui/registry
+                  - img [ref=e111]
+                  - generic [ref=e116]: Registry
+              - listitem [ref=e117]:
+                - link "Deployments" [ref=e118] [cursor=pointer]:
+                  - /url: /ui/deployments
+                  - img [ref=e119]
+                  - generic [ref=e121]: Deployments
+              - listitem [ref=e122]:
+                - link "Compliance" [ref=e123] [cursor=pointer]:
+                  - /url: /ui/compliance
+                  - img [ref=e124]
+                  - generic [ref=e128]: Compliance
+          - generic [ref=e129]:
+            - button "Management" [expanded] [ref=e130] [cursor=pointer]:
+              - text: Management
+              - img [ref=e131]
+            - list [ref=e134]:
+              - listitem [ref=e135]:
+                - link "API Keys" [ref=e136] [cursor=pointer]:
+                  - /url: /ui/keys
+                  - img [ref=e137]
+                  - generic [ref=e139]: API Keys
+              - listitem [ref=e140]:
+                - link "Providers" [ref=e141] [cursor=pointer]:
+                  - /url: /ui/providers
+                  - img [ref=e142]
+                  - generic [ref=e146]: Providers
+              - listitem [ref=e147]:
+                - link "Teams" [ref=e148] [cursor=pointer]:
+                  - /url: /ui/teams
+                  - img [ref=e149]
+                  - generic [ref=e155]: Teams
+              - listitem [ref=e156]:
+                - link "Users" [ref=e157] [cursor=pointer]:
+                  - /url: /ui/users
+                  - img [ref=e158]
+                  - generic [ref=e162]: Users
+          - generic [ref=e163]:
+            - button "Administration" [expanded] [ref=e164] [cursor=pointer]:
+              - text: Administration
+              - img [ref=e165]
+            - list [ref=e168]:
+              - listitem [ref=e169]:
+                - link "Budget" [ref=e170] [cursor=pointer]:
+                  - /url: /ui/budget
+                  - img [ref=e171]
+                  - generic [ref=e176]: Budget
+              - listitem [ref=e177]:
+                - link "Audit Logs" [ref=e178] [cursor=pointer]:
+                  - /url: /ui/audit-logs
+                  - img [ref=e179]
+                  - generic [ref=e183]: Audit Logs
+              - listitem [ref=e184]:
+                - link "Guardrails" [ref=e185] [cursor=pointer]:
+                  - /url: /ui/guardrails
+                  - img [ref=e186]
+                  - generic [ref=e190]: Guardrails
+              - listitem [ref=e191]:
+                - link "Settings" [ref=e192] [cursor=pointer]:
+                  - /url: /ui/settings
+                  - img [ref=e193]
+                  - generic [ref=e197]: Settings
+        - list [ref=e199]:
+          - listitem [ref=e200]:
+            - button "A( Admin (Master Key) admin@pllm.local" [ref=e201] [cursor=pointer]:
+              - generic [ref=e203]: A(
+              - generic [ref=e204]:
+                - generic [ref=e205]: Admin (Master Key)
+                - generic [ref=e206]: admin@pllm.local
+              - img [ref=e207]
+        - button "Toggle Sidebar" [ref=e209]
+      - main [ref=e210]:
+        - generic [ref=e211]:
+          - button "Toggle Sidebar" [ref=e212] [cursor=pointer]:
+            - img
+            - generic [ref=e213]: Toggle Sidebar
+          - navigation "breadcrumb" [ref=e214]:
+            - list [ref=e215]:
+              - listitem [ref=e217]:
+                - link "Dashboard" [disabled] [ref=e218]
+          - generic [ref=e219]:
+            - button "Search... ⌘K" [ref=e220] [cursor=pointer]:
+              - img [ref=e221]
+              - generic [ref=e225]: Search...
+              - generic [ref=e226]: ⌘K
+            - button [ref=e227] [cursor=pointer]:
+              - img [ref=e228]
+            - generic [ref=e232]: v2.0.0
+        - main [ref=e233]:
+          - generic [ref=e235]:
+            - generic [ref=e236]:
+              - heading "Dashboard" [level=2] [ref=e237]
+              - paragraph [ref=e238]: Monitor your LLM gateway performance and usage
+            - generic [ref=e239]:
+              - generic [ref=e240]: System Health
+              - generic [ref=e242]:
+                - generic [ref=e244]: "4"
+                - generic [ref=e245]: healthy
+            - generic [ref=e246]:
+              - generic [ref=e247]:
+                - img [ref=e250]
+                - paragraph [ref=e254]: Total Requests (24h)
+                - paragraph [ref=e255]: "0"
+              - generic [ref=e256]:
+                - img [ref=e259]
+                - paragraph [ref=e261]: Tokens Used
+                - paragraph [ref=e262]: "0"
+              - generic [ref=e263] [cursor=pointer]:
+                - img [ref=e266]
+                - paragraph [ref=e272]: Active Models
+                - paragraph [ref=e273]: "3"
+              - generic [ref=e274]:
+                - img [ref=e277]
+                - paragraph [ref=e281]: Error Rate
+                - paragraph [ref=e282]: 0.00%
+            - generic [ref=e283]:
+              - generic [ref=e284]:
+                - generic [ref=e285]:
+                  - generic [ref=e286]: Request Volume
+                  - generic [ref=e287]:
+                    - button "24h" [ref=e288] [cursor=pointer]
+                    - button "7d" [ref=e289] [cursor=pointer]
+                    - button "30d" [ref=e290] [cursor=pointer]
+                - img [ref=e295]
+              - generic [ref=e298]:
+                - generic [ref=e300]: Provider Breakdown
+                - generic [ref=e303]:
+                  - img [ref=e305]
+                  - generic [ref=e312]:
+                    - generic [ref=e313]: openrouter
+                    - generic [ref=e314]: "0"
+            - generic [ref=e317]:
+              - generic [ref=e318]:
+                - generic [ref=e319]: Models Activity
+                - button "View All Models" [ref=e320] [cursor=pointer]:
+                  - text: View All Models
+                  - img
+              - table [ref=e323]:
+                - rowgroup [ref=e324]:
+                  - row "Model Status Latency Requests Cost" [ref=e325]:
+                    - columnheader "Model" [ref=e326]
+                    - columnheader "Status" [ref=e327]
+                    - columnheader "Latency" [ref=e328]
+                    - columnheader "Requests" [ref=e329]
+                    - columnheader "Cost" [ref=e330]
+                    - columnheader [ref=e331]
+                - rowgroup [ref=e332]:
+                  - 'row "Z.ai: GLM 4.5 Air (free) openrouter Active -- 0 $0.00 Open menu" [ref=e333]':
+                    - 'cell "Z.ai: GLM 4.5 Air (free) openrouter" [ref=e334]':
+                      - generic [ref=e335]:
+                        - img [ref=e336]
+                        - generic [ref=e340]:
+                          - generic [ref=e341]: "Z.ai: GLM 4.5 Air (free)"
+                          - generic [ref=e342]: openrouter
+                    - cell "Active" [ref=e343]:
+                      - generic [ref=e346]: Active
+                    - cell "--" [ref=e347]
+                    - cell "0" [ref=e348]
+                    - cell "$0.00" [ref=e349]
+                    - cell "Open menu" [ref=e350]:
+                      - button "Open menu" [ref=e351] [cursor=pointer]:
+                        - img
+                        - generic [ref=e352]: Open menu
+                  - 'row "Qwen: Qwen3.6 Plus (free) openrouter Active -- 0 $0.00 Open menu" [ref=e353]':
+                    - 'cell "Qwen: Qwen3.6 Plus (free) openrouter" [ref=e354]':
+                      - generic [ref=e355]:
+                        - img [ref=e356]
+                        - generic [ref=e359]:
+                          - generic [ref=e360]: "Qwen: Qwen3.6 Plus (free)"
+                          - generic [ref=e361]: openrouter
+                    - cell "Active" [ref=e362]:
+                      - generic [ref=e365]: Active
+                    - cell "--" [ref=e366]
+                    - cell "0" [ref=e367]
+                    - cell "$0.00" [ref=e368]
+                    - cell "Open menu" [ref=e369]:
+                      - button "Open menu" [ref=e370] [cursor=pointer]:
+                        - img
+                        - generic [ref=e371]: Open menu
+                  - 'row "NVIDIA: Nemotron 3 Super (free) openrouter Active -- 0 $0.00 Open menu" [ref=e372]':
+                    - 'cell "NVIDIA: Nemotron 3 Super (free) openrouter" [ref=e373]':
+                      - generic [ref=e374]:
+                        - img [ref=e375]
+                        - generic [ref=e377]:
+                          - generic [ref=e378]: "NVIDIA: Nemotron 3 Super (free)"
+                          - generic [ref=e379]: openrouter
+                    - cell "Active" [ref=e380]:
+                      - generic [ref=e383]: Active
+                    - cell "--" [ref=e384]
+                    - cell "0" [ref=e385]
+                    - cell "$0.00" [ref=e386]
+                    - cell "Open menu" [ref=e387]:
+                      - button "Open menu" [ref=e388] [cursor=pointer]:
+                        - img
+                        - generic [ref=e389]: Open menu
+    - region "Notifications (F8)":
+      - list
+  - generic [ref=e390]: "0"

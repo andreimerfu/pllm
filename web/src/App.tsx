@@ -19,7 +19,9 @@ import RouteDetail from '@/pages/RouteDetail'
 import MCPServers from '@/pages/MCPServers'
 import Registry from '@/pages/Registry'
 import Deployments from '@/pages/Deployments'
-import Chat from '@/pages/Chat'
+import UseCases from '@/pages/UseCases'
+import Compliance from '@/pages/Compliance'
+import Playground from '@/pages/Playground'
 import Login from '@/pages/Login'
 import Callback from '@/pages/Callback'
 import SilentRenew from '@/pages/SilentRenew'
@@ -52,7 +54,8 @@ function App() {
                     <Routes>
                       <Route path="/" element={<Navigate to="/dashboard" replace />} />
                       <Route path="/dashboard" element={<Dashboard />} />
-                      <Route path="/chat" element={<Chat />} />
+                      <Route path="/playground" element={<Playground />} />
+                      <Route path="/chat" element={<Navigate to="/playground" replace />} />
                       <Route path="/models" element={<Models />} />
                       <Route path="/models/new" element={<AddModel />} />
                       <Route path="/models/edit/:modelId" element={<EditModel />} />
@@ -63,6 +66,8 @@ function App() {
                       <Route path="/mcp-servers" element={<MCPServers />} />
                       <Route path="/registry" element={<Registry />} />
                       <Route path="/deployments" element={<Deployments />} />
+                      <Route path="/use-cases" element={<UseCases />} />
+                      <Route path="/compliance" element={<Compliance />} />
                       <Route path="/users" element={<Users />} />
                       <Route path="/teams" element={<Teams />} />
                       <Route path="/keys" element={<Keys />} />

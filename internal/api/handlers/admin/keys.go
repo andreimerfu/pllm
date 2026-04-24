@@ -46,9 +46,10 @@ type CreateKeyRequest struct {
 	ExpiresAt        *time.Time           `json:"expires_at,omitempty"`
 	MaxBudget        *float64             `json:"max_budget,omitempty"`
 	BudgetDuration   *models.BudgetPeriod `json:"budget_duration,omitempty"`
-	AllowedMCPTools     []string `json:"allowed_mcp_tools,omitempty"`
-	BlockedMCPTools     []string `json:"blocked_mcp_tools,omitempty"`
-	RegistryPermissions []string `json:"registry_permissions,omitempty"`
+	AllowedMCPTools     []string   `json:"allowed_mcp_tools,omitempty"`
+	BlockedMCPTools     []string   `json:"blocked_mcp_tools,omitempty"`
+	RegistryPermissions []string   `json:"registry_permissions,omitempty"`
+	UseCaseID           *uuid.UUID `json:"use_case_id,omitempty"`
 }
 
 type KeyResponse struct {
@@ -119,6 +120,7 @@ func (h *KeyHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 		AllowedMCPTools:     req.AllowedMCPTools,
 		BlockedMCPTools:     req.BlockedMCPTools,
 		RegistryPermissions: req.RegistryPermissions,
+		UseCaseID:           req.UseCaseID,
 		CreatedBy:           nil, // Will be set below based on auth type
 	}
 	
@@ -287,6 +289,9 @@ type UpdateKeyRequest struct {
 	AllowedMCPTools     *[]string  `json:"allowed_mcp_tools,omitempty"`
 	BlockedMCPTools     *[]string  `json:"blocked_mcp_tools,omitempty"`
 	RegistryPermissions *[]string  `json:"registry_permissions,omitempty"`
+	// UseCaseID is a double-pointer so the API can distinguish
+	// "not-provided" (no change) from "explicitly null" (unbind).
+	UseCaseID **uuid.UUID `json:"use_case_id,omitempty"`
 }
 
 // UpdateKey updates a key
@@ -349,6 +354,12 @@ func (h *KeyHandler) UpdateKey(w http.ResponseWriter, r *http.Request) {
 	if req.RegistryPermissions != nil {
 		changes["registry_permissions"] = map[string]any{"from": []string(k.RegistryPermissions), "to": *req.RegistryPermissions}
 		k.RegistryPermissions = *req.RegistryPermissions
+	}
+	if req.UseCaseID != nil {
+		// Note the extra deref: req.UseCaseID is **uuid.UUID so JSON null
+		// clears the field, while an actual UUID rebinds it.
+		changes["use_case_id"] = map[string]any{"from": k.UseCaseID, "to": *req.UseCaseID}
+		k.UseCaseID = *req.UseCaseID
 	}
 
 	if err := h.db.Save(&k).Error; err != nil {

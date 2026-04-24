@@ -1,0 +1,174 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - list [ref=e15]:
+          - listitem [ref=e16]:
+            - link "Dashboard" [ref=e17] [cursor=pointer]:
+              - /url: /ui/dashboard
+              - generic [ref=e18]: Dashboard
+        - generic [ref=e19]:
+          - button "LLM Gateway" [expanded] [ref=e20] [cursor=pointer]:
+            - generic [ref=e21]: LLM Gateway
+          - list [ref=e23]:
+            - listitem [ref=e24]:
+              - link "Playground" [ref=e25] [cursor=pointer]:
+                - /url: /ui/chat
+                - generic [ref=e26]: Playground
+            - listitem [ref=e27]:
+              - link "Models" [ref=e28] [cursor=pointer]:
+                - /url: /ui/models
+                - generic [ref=e29]: Models
+            - listitem [ref=e30]:
+              - link "Routes" [ref=e31] [cursor=pointer]:
+                - /url: /ui/routes
+                - generic [ref=e32]: Routes
+            - listitem [ref=e33]:
+              - link "Providers" [ref=e34] [cursor=pointer]:
+                - /url: /ui/providers
+                - generic [ref=e35]: Providers
+            - listitem [ref=e36]:
+              - link "Guardrails" [ref=e37] [cursor=pointer]:
+                - /url: /ui/guardrails
+                - img [ref=e38]
+                - generic [ref=e42]: Guardrails
+        - generic [ref=e43]:
+          - button "Agents & MCP" [expanded] [ref=e44] [cursor=pointer]:
+            - generic [ref=e45]: Agents & MCP
+          - list [ref=e47]:
+            - listitem [ref=e48]:
+              - link "Registry" [ref=e49] [cursor=pointer]:
+                - /url: /ui/registry
+                - generic [ref=e50]: Registry
+            - listitem [ref=e51]:
+              - link "MCP Servers" [ref=e52] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - generic [ref=e53]: MCP Servers
+            - listitem [ref=e54]:
+              - link "Deployments" [ref=e55] [cursor=pointer]:
+                - /url: /ui/deployments
+                - generic [ref=e56]: Deployments
+        - generic [ref=e57]:
+          - button "Governance EE" [expanded] [ref=e58] [cursor=pointer]:
+            - generic [ref=e59]: Governance
+            - generic "pLLM Enterprise" [ref=e60]: EE
+          - list [ref=e62]:
+            - listitem [ref=e63]:
+              - link "Use Cases" [ref=e64] [cursor=pointer]:
+                - /url: /ui/use-cases
+                - generic [ref=e65]: Use Cases
+            - listitem [ref=e66]:
+              - link "Compliance" [ref=e67] [cursor=pointer]:
+                - /url: /ui/compliance
+                - generic [ref=e68]: Compliance
+        - generic [ref=e69]:
+          - button "Access & Activity" [expanded] [ref=e70] [cursor=pointer]:
+            - generic [ref=e71]: Access & Activity
+          - list [ref=e73]:
+            - listitem [ref=e74]:
+              - link "API Keys" [ref=e75] [cursor=pointer]:
+                - /url: /ui/keys
+                - generic [ref=e76]: API Keys
+            - listitem [ref=e77]:
+              - link "Teams" [ref=e78] [cursor=pointer]:
+                - /url: /ui/teams
+                - img [ref=e79]
+                - generic [ref=e85]: Teams
+            - listitem [ref=e86]:
+              - link "Users" [ref=e87] [cursor=pointer]:
+                - /url: /ui/users
+                - img [ref=e88]
+                - generic [ref=e92]: Users
+            - listitem [ref=e93]:
+              - link "Budget" [ref=e94] [cursor=pointer]:
+                - /url: /ui/budget
+                - img [ref=e95]
+                - generic [ref=e100]: Budget
+            - listitem [ref=e101]:
+              - link "Audit Logs" [ref=e102] [cursor=pointer]:
+                - /url: /ui/audit-logs
+                - img [ref=e103]
+                - generic [ref=e107]: Audit Logs
+        - generic [ref=e108]:
+          - button "System" [expanded] [ref=e109] [cursor=pointer]:
+            - generic [ref=e110]: System
+          - list [ref=e112]:
+            - listitem [ref=e113]:
+              - link "Settings" [ref=e114] [cursor=pointer]:
+                - /url: /ui/settings
+                - img [ref=e115]
+                - generic [ref=e119]: Settings
+      - list [ref=e121]:
+        - listitem [ref=e122]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e123] [cursor=pointer]:
+            - generic [ref=e125]: A(
+            - generic [ref=e126]:
+              - generic [ref=e127]: Admin (Master Key)
+              - generic [ref=e128]: admin@pllm.local
+      - button "Toggle Sidebar" [ref=e129]
+    - main [ref=e130]:
+      - generic [ref=e131]:
+        - button "Toggle Sidebar" [ref=e132] [cursor=pointer]:
+          - generic [ref=e133]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e134]:
+          - list [ref=e135]:
+            - listitem [ref=e137]:
+              - generic [ref=e138]: Governance
+            - listitem [ref=e140]:
+              - link "Use Cases" [disabled] [ref=e141]
+        - generic [ref=e142]:
+          - button "Search… ⌘K" [ref=e143] [cursor=pointer]:
+            - generic [ref=e144]: Search…
+            - generic [ref=e145]: ⌘K
+          - button [ref=e146] [cursor=pointer]
+          - generic [ref=e147]: v2.0.0
+      - main [ref=e148]:
+        - generic [ref=e150]:
+          - generic [ref=e151]:
+            - generic [ref=e152]:
+              - paragraph [ref=e153]: inventory
+              - heading "Use cases" [level=1] [ref=e154]
+              - paragraph [ref=e155]: The business-activity layer. Each use case declares the MCP servers, agents, skills, prompts, and LLMs it depends on — and carries the risk tier, owner, and data classifications you approve against.
+            - button "New use case" [ref=e156] [cursor=pointer]: New use case
+          - generic [ref=e157]:
+            - generic [ref=e158]:
+              - paragraph [ref=e160]: Total
+              - paragraph [ref=e161]: "1"
+            - generic [ref=e162]:
+              - paragraph [ref=e164]: Approved
+              - paragraph [ref=e165]: "1"
+            - generic [ref=e166]:
+              - paragraph [ref=e168]: Under review
+              - paragraph [ref=e169]: "0"
+            - generic [ref=e170]:
+              - paragraph [ref=e172]: Draft
+              - paragraph [ref=e173]: "0"
+            - generic [ref=e174]:
+              - paragraph [ref=e176]: Compliance flags
+              - paragraph [ref=e177]: "0"
+          - generic [ref=e178]:
+            - textbox "Search use cases…" [ref=e180]
+            - combobox [ref=e181] [cursor=pointer]:
+              - generic: All statuses
+            - combobox [ref=e182] [cursor=pointer]:
+              - generic: All tiers
+          - 'button "Smoke: Everything Only smoke-everything-only Only allowed to use the server-everything MCP server. t1 approved enforced confidential created about 2 hours ago" [ref=e184] [cursor=pointer]':
+            - generic [ref=e187]:
+              - 'heading "Smoke: Everything Only" [level=3] [ref=e188]'
+              - code [ref=e189]: smoke-everything-only
+            - paragraph [ref=e190]: Only allowed to use the server-everything MCP server.
+            - generic [ref=e191]:
+              - generic [ref=e192]: t1
+              - generic [ref=e193]: approved
+              - generic "Out-of-scope calls are blocked, not just logged" [ref=e194]: enforced
+              - generic [ref=e195]: confidential
+            - paragraph [ref=e196]:
+              - img [ref=e197]
+              - text: created about 2 hours ago
+  - region "Notifications (F8)":
+    - list

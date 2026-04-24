@@ -1,0 +1,123 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - list [ref=e15]:
+          - listitem [ref=e16]:
+            - link "Dashboard" [ref=e17] [cursor=pointer]:
+              - /url: /ui/dashboard
+              - img [ref=e18]
+              - generic [ref=e21]: Dashboard
+        - generic [ref=e22]:
+          - button "LLM Gateway" [expanded] [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: LLM Gateway
+            - img [ref=e25]
+          - list [ref=e28]:
+            - listitem [ref=e29]:
+              - link "Playground" [ref=e30] [cursor=pointer]:
+                - /url: /ui/chat
+                - img [ref=e31]
+                - generic [ref=e34]: Playground
+            - listitem [ref=e35]:
+              - link "Models" [ref=e36] [cursor=pointer]:
+                - /url: /ui/models
+                - img [ref=e37]
+                - generic [ref=e43]: Models
+            - listitem [ref=e44]:
+              - link "Routes" [ref=e45] [cursor=pointer]:
+                - /url: /ui/routes
+                - img [ref=e46]
+                - generic [ref=e51]: Routes
+            - listitem [ref=e52]:
+              - link "Providers" [ref=e53] [cursor=pointer]:
+                - /url: /ui/providers
+                - img [ref=e54]
+                - generic [ref=e58]: Providers
+        - generic [ref=e59]:
+          - button "Agents & MCP" [expanded] [ref=e60] [cursor=pointer]:
+            - generic [ref=e61]: Agents & MCP
+            - img [ref=e62]
+          - list [ref=e65]:
+            - listitem [ref=e66]:
+              - link "Registry" [ref=e67] [cursor=pointer]:
+                - /url: /ui/registry
+                - img [ref=e68]
+                - generic [ref=e73]: Registry
+            - listitem [ref=e74]:
+              - link "MCP Servers" [ref=e75] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - img [ref=e76]
+                - generic [ref=e81]: MCP Servers
+            - listitem [ref=e82]:
+              - link "Deployments" [ref=e83] [cursor=pointer]:
+                - /url: /ui/deployments
+                - img [ref=e84]
+                - generic [ref=e86]: Deployments
+        - generic [ref=e87]:
+          - button "Governance EE" [expanded] [ref=e88] [cursor=pointer]:
+            - generic [ref=e89]: Governance
+            - generic "pLLM Enterprise" [ref=e90]: EE
+            - img [ref=e91]
+          - list [ref=e94]:
+            - listitem [ref=e95]:
+              - link "Use Cases" [disabled]:
+                - /url: /ui/unauthorized?feature=mrm
+                - img
+                - generic: Use Cases
+                - img
+            - listitem [ref=e96]:
+              - link "Compliance" [disabled]:
+                - /url: /ui/unauthorized?feature=mrm
+                - img
+                - generic: Compliance
+                - img
+        - generic [ref=e97]:
+          - button "Access & Activity" [expanded] [ref=e98] [cursor=pointer]:
+            - generic [ref=e99]: Access & Activity
+            - img [ref=e100]
+          - list [ref=e103]:
+            - listitem [ref=e104]:
+              - link "API Keys" [ref=e105] [cursor=pointer]:
+                - /url: /ui/keys
+                - img [ref=e106]
+                - generic [ref=e108]: API Keys
+        - generic [ref=e109]:
+          - button "System" [expanded] [ref=e110] [cursor=pointer]:
+            - generic [ref=e111]: System
+            - img [ref=e112]
+          - generic:
+            - list
+      - list [ref=e115]:
+        - listitem [ref=e116]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e117] [cursor=pointer]:
+            - generic [ref=e119]: A(
+            - generic [ref=e120]:
+              - generic [ref=e121]: Admin (Master Key)
+              - generic [ref=e122]: admin@pllm.local
+            - img [ref=e123]
+      - button "Toggle Sidebar" [ref=e125]
+    - main [ref=e126]:
+      - generic [ref=e127]:
+        - button "Toggle Sidebar" [ref=e128] [cursor=pointer]:
+          - img
+          - generic [ref=e129]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e130]:
+          - list [ref=e131]:
+            - listitem [ref=e133]:
+              - link "pLLM" [disabled] [ref=e134]
+        - generic [ref=e135]:
+          - button "Search… ⌘K" [ref=e136] [cursor=pointer]:
+            - img [ref=e137]
+            - generic [ref=e141]: Search…
+            - generic [ref=e142]: ⌘K
+          - button [ref=e143] [cursor=pointer]:
+            - img [ref=e144]
+          - generic [ref=e148]: v2.0.0
+      - main [ref=e149]
+  - region "Notifications (F8)":
+    - list

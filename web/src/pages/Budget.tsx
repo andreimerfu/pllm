@@ -39,6 +39,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import { PageShell } from "@/components/common/page-shell"
+import { PageActions } from "@/components/common/page-chrome"
 
 const chartConfig = {
   budget: {
@@ -641,33 +643,27 @@ export default function Budget() {
   const { summary, team_budgets = [], key_budgets = [], charts } = (budgetData as any).data || (budgetData as any)
 
   return (
-    <div className="space-y-6">
-      {/* ── Page Header ─────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Budget Management</h1>
-          <p className="text-muted-foreground">
-            Monitor spending, track budgets, and manage allocations
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <PeriodSelector period={period} onChange={setPeriod} />
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <a href="/ui/keys">
-                <Icon icon={icons.plus} className="h-4 w-4" />
-                Add Key
-              </a>
-            </Button>
-            <Button size="sm" asChild>
-              <a href="/ui/teams">
-                <Icon icon={icons.plus} className="h-4 w-4" />
-                Add Team
-              </a>
-            </Button>
-          </div>
-        </div>
-      </div>
+    <PageShell
+      eyebrow="Access"
+      title="Spend &"
+      accent="budgets"
+      description="Monitor spending, track budgets, and manage allocations across teams, keys, and models."
+      toolbar={<PeriodSelector period={period} onChange={setPeriod} />}
+    >
+      <PageActions>
+        <Button variant="outline" size="sm" asChild>
+          <a href="/ui/keys">
+            <Icon icon={icons.plus} className="h-4 w-4" />
+            Add Key
+          </a>
+        </Button>
+        <Button size="sm" asChild>
+          <a href="/ui/teams">
+            <Icon icon={icons.plus} className="h-4 w-4" />
+            Add Team
+          </a>
+        </Button>
+      </PageActions>
 
       {/* ── Budget Overview Bar ─────────────────────────────────────────── */}
       <BudgetOverviewBar summary={summary} />
@@ -683,6 +679,6 @@ export default function Budget() {
 
       {/* ── Budget Breakdown (tabbed) ───────────────────────────────────── */}
       <BudgetBreakdown teamBudgets={team_budgets} keyBudgets={key_budgets} />
-    </div>
+    </PageShell>
   )
 }

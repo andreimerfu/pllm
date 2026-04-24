@@ -1,0 +1,223 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - list [ref=e15]:
+          - listitem [ref=e16]:
+            - link "Dashboard" [ref=e17] [cursor=pointer]:
+              - /url: /ui/dashboard
+              - img [ref=e18]
+              - generic [ref=e21]: Dashboard
+        - generic [ref=e22]:
+          - button "LLM Gateway" [expanded] [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: LLM Gateway
+            - img [ref=e25]
+          - list [ref=e28]:
+            - listitem [ref=e29]:
+              - link "Playground" [ref=e30] [cursor=pointer]:
+                - /url: /ui/chat
+                - img [ref=e31]
+                - generic [ref=e34]: Playground
+            - listitem [ref=e35]:
+              - link "Models" [ref=e36] [cursor=pointer]:
+                - /url: /ui/models
+                - img [ref=e37]
+                - generic [ref=e43]: Models
+            - listitem [ref=e44]:
+              - link "Routes" [ref=e45] [cursor=pointer]:
+                - /url: /ui/routes
+                - img [ref=e46]
+                - generic [ref=e51]: Routes
+            - listitem [ref=e52]:
+              - link "Providers" [ref=e53] [cursor=pointer]:
+                - /url: /ui/providers
+                - img [ref=e54]
+                - generic [ref=e58]: Providers
+            - listitem [ref=e59]:
+              - link "Guardrails" [ref=e60] [cursor=pointer]:
+                - /url: /ui/guardrails
+                - generic [ref=e61]: Guardrails
+        - generic [ref=e62]:
+          - button "Agents & MCP" [expanded] [ref=e63] [cursor=pointer]:
+            - generic [ref=e64]: Agents & MCP
+            - img [ref=e65]
+          - list [ref=e68]:
+            - listitem [ref=e69]:
+              - link "Registry" [ref=e70] [cursor=pointer]:
+                - /url: /ui/registry
+                - img [ref=e71]
+                - generic [ref=e76]: Registry
+            - listitem [ref=e77]:
+              - link "MCP Servers" [ref=e78] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - img [ref=e79]
+                - generic [ref=e84]: MCP Servers
+            - listitem [ref=e85]:
+              - link "Deployments" [ref=e86] [cursor=pointer]:
+                - /url: /ui/deployments
+                - img [ref=e87]
+                - generic [ref=e89]: Deployments
+        - generic [ref=e90]:
+          - button "Governance EE" [expanded] [ref=e91] [cursor=pointer]:
+            - generic [ref=e92]: Governance
+            - generic "pLLM Enterprise" [ref=e93]: EE
+            - img [ref=e94]
+          - list [ref=e97]:
+            - listitem [ref=e98]:
+              - link "Use Cases" [ref=e99] [cursor=pointer]:
+                - /url: /ui/use-cases
+                - img [ref=e100]
+                - generic [ref=e105]: Use Cases
+            - listitem [ref=e106]:
+              - link "Compliance" [ref=e107] [cursor=pointer]:
+                - /url: /ui/compliance
+                - img [ref=e108]
+                - generic [ref=e112]: Compliance
+        - generic [ref=e113]:
+          - button "Access & Activity" [expanded] [ref=e114] [cursor=pointer]:
+            - generic [ref=e115]: Access & Activity
+            - img [ref=e116]
+          - list [ref=e119]:
+            - listitem [ref=e120]:
+              - link "API Keys" [ref=e121] [cursor=pointer]:
+                - /url: /ui/keys
+                - img [ref=e122]
+                - generic [ref=e124]: API Keys
+            - listitem [ref=e125]:
+              - link "Teams" [ref=e126] [cursor=pointer]:
+                - /url: /ui/teams
+                - generic [ref=e127]: Teams
+            - listitem [ref=e128]:
+              - link "Users" [ref=e129] [cursor=pointer]:
+                - /url: /ui/users
+                - generic [ref=e130]: Users
+            - listitem [ref=e131]:
+              - link "Budget" [ref=e132] [cursor=pointer]:
+                - /url: /ui/budget
+                - generic [ref=e133]: Budget
+            - listitem [ref=e134]:
+              - link "Audit Logs" [ref=e135] [cursor=pointer]:
+                - /url: /ui/audit-logs
+                - generic [ref=e136]: Audit Logs
+        - generic [ref=e137]:
+          - button "System" [expanded] [ref=e138] [cursor=pointer]:
+            - generic [ref=e139]: System
+            - img [ref=e140]
+          - list [ref=e143]:
+            - listitem [ref=e144]:
+              - link "Settings" [ref=e145] [cursor=pointer]:
+                - /url: /ui/settings
+                - generic [ref=e146]: Settings
+      - list [ref=e148]:
+        - listitem [ref=e149]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e150] [cursor=pointer]:
+            - generic [ref=e152]: A(
+            - generic [ref=e153]:
+              - generic [ref=e154]: Admin (Master Key)
+              - generic [ref=e155]: admin@pllm.local
+            - img [ref=e156]
+      - button "Toggle Sidebar" [ref=e158]
+    - main [ref=e159]:
+      - generic [ref=e160]:
+        - button "Toggle Sidebar" [ref=e161] [cursor=pointer]:
+          - img
+          - generic [ref=e162]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e163]:
+          - list [ref=e164]:
+            - listitem [ref=e166]:
+              - generic [ref=e167]: Access & Activity
+            - generic [ref=e168]:
+              - listitem [ref=e169]:
+                - img [ref=e170]
+              - listitem [ref=e172]:
+                - link "API Keys" [disabled] [ref=e173]
+        - generic [ref=e174]:
+          - button "Search… ⌘K" [ref=e175] [cursor=pointer]:
+            - img [ref=e176]
+            - generic [ref=e180]: Search…
+            - generic [ref=e181]: ⌘K
+          - button [ref=e182] [cursor=pointer]:
+            - img [ref=e183]
+          - generic [ref=e187]: v2.0.0
+      - main [ref=e188]:
+        - generic [ref=e190]:
+          - generic [ref=e191]:
+            - paragraph [ref=e192]: Access
+            - heading "Gateway keys" [level=1] [ref=e193]
+            - paragraph [ref=e194]: Bearer credentials that route traffic through your policies, budgets, and use-case scopes.
+          - generic [ref=e195]:
+            - generic [ref=e196]:
+              - generic [ref=e198]: Total Keys
+              - generic [ref=e199]: "1"
+              - generic [ref=e203]:
+                - generic [ref=e204]: 1 active
+                - generic [ref=e205]: 0 inactive
+            - generic [ref=e206]:
+              - generic [ref=e208]: Active Keys
+              - generic [ref=e210]: "1"
+              - paragraph [ref=e211]: 100% of total
+            - generic [ref=e212]:
+              - generic [ref=e214]: Total Requests
+              - generic [ref=e215]: "1"
+              - paragraph [ref=e216]: across all keys
+            - generic [ref=e217]:
+              - generic [ref=e219]: Total Spend
+              - generic [ref=e220]: $0.00
+              - paragraph [ref=e221]: cumulative
+          - generic [ref=e222]:
+            - generic [ref=e223]:
+              - textbox "Search keys..." [ref=e225]
+              - generic [ref=e227]:
+                - button "All" [ref=e228] [cursor=pointer]
+                - button "Active" [ref=e229] [cursor=pointer]: Active
+                - button "Inactive" [ref=e231] [cursor=pointer]: Inactive
+                - button "Revoked" [ref=e233] [cursor=pointer]: Revoked
+            - table [ref=e237]:
+              - rowgroup [ref=e238]:
+                - row "Key Status Team Requests Spend Last Used" [ref=e239]:
+                  - columnheader "Key" [ref=e240]:
+                    - button "Key" [ref=e241] [cursor=pointer]: Key
+                  - columnheader "Status" [ref=e242]
+                  - columnheader "Team" [ref=e243]
+                  - columnheader "Requests" [ref=e244]:
+                    - button "Requests" [ref=e245] [cursor=pointer]: Requests
+                  - columnheader "Spend" [ref=e246]:
+                    - button "Spend" [ref=e247] [cursor=pointer]: Spend
+                  - columnheader "Last Used" [ref=e248]
+                  - columnheader [ref=e249]
+              - rowgroup [ref=e250]:
+                - row "smoke-enforced sk-...a356bf9e Active Personal 1 $0.00 2h ago Open menu" [ref=e251] [cursor=pointer]:
+                  - cell "smoke-enforced sk-...a356bf9e" [ref=e252]:
+                    - generic [ref=e253]:
+                      - generic [ref=e254]: smoke-enforced
+                      - generic [ref=e255]:
+                        - code [ref=e256]: sk-...a356bf9e
+                        - button [disabled]
+                  - cell "Active" [ref=e257]:
+                    - generic [ref=e260]: Active
+                  - cell "Personal" [ref=e261]
+                  - cell "1" [ref=e262]
+                  - cell "$0.00" [ref=e263]:
+                    - generic [ref=e264]: $0.00
+                  - cell "2h ago" [ref=e265]
+                  - cell "Open menu" [ref=e266]:
+                    - button "Open menu" [ref=e267]:
+                      - generic [ref=e268]: Open menu
+            - generic [ref=e269]:
+              - generic [ref=e270]: Showing 1 of 1 key(s)
+              - generic [ref=e271]:
+                - generic [ref=e272]:
+                  - paragraph [ref=e273]: Per page
+                  - combobox [ref=e274] [cursor=pointer]:
+                    - generic: "10"
+                - generic [ref=e275]:
+                  - button [disabled]
+                  - generic [ref=e276]: 1 / 1
+                  - button [disabled]
+  - region "Notifications (F8)":
+    - list

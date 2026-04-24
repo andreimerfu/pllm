@@ -1,0 +1,14 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - button [ref=e4] [cursor=pointer]:
+      - img [ref=e5]
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - img "pLLM" [ref=e12]
+        - generic [ref=e13]: pLLM Gateway
+        - generic [ref=e14]: Authenticate to access the admin panel
+      - generic [ref=e16]:
+        - img [ref=e17]
+        - generic [ref=e19]: Loading authentication options...
+  - region "Notifications (F8)":
+    - list

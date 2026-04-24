@@ -11,6 +11,8 @@ import (
 	deploymenthandlers "github.com/amerfu/pllm/internal/api/handlers/deployment"
 	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
 	registryhandlers "github.com/amerfu/pllm/internal/api/handlers/registry"
+	usecasehandlers "github.com/amerfu/pllm/internal/api/handlers/use_cases"
+	webhookhandlers "github.com/amerfu/pllm/internal/api/handlers/webhooks"
 	"github.com/amerfu/pllm/internal/infrastructure/middleware"
 	"github.com/amerfu/pllm/internal/services/data/budget"
 	"github.com/amerfu/pllm/internal/services/integrations/guardrails"
@@ -37,6 +39,8 @@ type AdminRouterConfig struct {
 	RegistryHandler       *registryhandlers.Handler
 	RegistryImportHandler *registryhandlers.ImportHandler
 	DeploymentHandler     *deploymenthandlers.Handler
+	UseCaseHandler        *usecasehandlers.Handler
+	WebhookHandler        *webhookhandlers.Handler
 }
 
 // NewAdminSubRouter creates admin routes to be mounted on the main router
@@ -61,6 +65,11 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB, cfg.BudgetService)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger, cfg.DB)
+	// Surface which optional capabilities this deployment has wired so the
+	// UI can lock / dim the relevant sections. MRM (use-cases + compliance)
+	// is EE-gated; webhooks ride along.
+	systemHandler.SetFeature("mrm", cfg.UseCaseHandler != nil)
+	systemHandler.SetFeature("webhooks", cfg.WebhookHandler != nil)
 	dashboardHandler := handlers.NewDashboardHandler(cfg.DB, cfg.Logger)
 	guardrailsHandler := admin.NewGuardrailsHandler(cfg.Logger, cfg.Config, cfg.GuardrailsExecutor)
 	modelCRUDHandler := admin.NewModelCRUDHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
@@ -225,6 +234,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 		// MCP Gateway: backend server CRUD + health probes.
 		if cfg.MCPManager != nil {
 			mcpAdmin := mcphandlers.NewAdminHandler(cfg.Logger, cfg.DB, cfg.MCPManager)
+			r.Post("/mcp/tools/invoke", mcpAdmin.InvokeTool)
 			r.Route("/mcp/servers", func(r chi.Router) {
 				r.Get("/", mcpAdmin.List)
 				r.Post("/", mcpAdmin.Create)
@@ -250,6 +260,37 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 				if cfg.RegistryImportHandler != nil {
 					rr.Post("/import", cfg.RegistryImportHandler.Trigger)
 				}
+			})
+		}
+
+		// Use Case routes — the top-level business-activity entity.
+		if cfg.UseCaseHandler != nil {
+			uh := cfg.UseCaseHandler
+			r.Route("/use-cases", func(rr chi.Router) {
+				rr.Get("/", uh.List)
+				rr.Post("/", uh.Create)
+				// `events` is an audit surface — registered before {id}
+				// so chi doesn't try to parse "events" as a UUID.
+				rr.Get("/events", uh.ListScopeEvents)
+				rr.Get("/{id}", uh.Get)
+				rr.Put("/{id}", uh.Update)
+				rr.Delete("/{id}", uh.Delete)
+				rr.Post("/{id}/recompute", uh.RecomputeClassifications)
+			})
+		}
+
+		// Webhook routes — outbound event subscriptions for scope denials,
+		// use-case lifecycle, etc. Admin-only (same block as everything
+		// else under /api/admin).
+		if cfg.WebhookHandler != nil {
+			wh := cfg.WebhookHandler
+			r.Route("/webhooks", func(rr chi.Router) {
+				rr.Get("/", wh.List)
+				rr.Post("/", wh.Create)
+				rr.Get("/{id}", wh.Get)
+				rr.Put("/{id}", wh.Update)
+				rr.Delete("/{id}", wh.Delete)
+				rr.Post("/{id}/test", wh.Test)
 			})
 		}
 
@@ -343,6 +384,8 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 	keyHandler := admin.NewKeyHandler(cfg.Logger, cfg.DB, cfg.BudgetService)
 	analyticsHandler := admin.NewAnalyticsHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
 	systemHandler := admin.NewSystemHandler(cfg.Logger, cfg.DB)
+	systemHandler.SetFeature("mrm", cfg.UseCaseHandler != nil)
+	systemHandler.SetFeature("webhooks", cfg.WebhookHandler != nil)
 	guardrailsHandler := admin.NewGuardrailsHandler(cfg.Logger, cfg.Config, cfg.GuardrailsExecutor)
 
 	// Initialize auth middleware

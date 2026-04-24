@@ -1,0 +1,129 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e8]:
+        - img "pLLM" [ref=e9]
+        - generic [ref=e10]:
+          - generic [ref=e11]: pLLM
+          - generic [ref=e12]: Gateway Console
+      - generic [ref=e13]:
+        - list [ref=e15]:
+          - listitem [ref=e16]:
+            - link "Dashboard" [ref=e17] [cursor=pointer]:
+              - /url: /ui/dashboard
+              - generic [ref=e18]: Dashboard
+          - listitem [ref=e19]:
+            - link "Playground" [ref=e20] [cursor=pointer]:
+              - /url: /ui/playground
+              - generic [ref=e21]: Playground
+        - generic [ref=e22]:
+          - button "LLM Gateway" [expanded] [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]: LLM Gateway
+          - list [ref=e26]:
+            - listitem [ref=e27]:
+              - link "Models" [ref=e28] [cursor=pointer]:
+                - /url: /ui/models
+                - generic [ref=e29]: Models
+            - listitem [ref=e30]:
+              - link "Routes" [ref=e31] [cursor=pointer]:
+                - /url: /ui/routes
+                - generic [ref=e32]: Routes
+            - listitem [ref=e33]:
+              - link "Providers" [ref=e34] [cursor=pointer]:
+                - /url: /ui/providers
+                - generic [ref=e35]: Providers
+        - generic [ref=e36]:
+          - button "Agents & MCP" [expanded] [ref=e37] [cursor=pointer]:
+            - generic [ref=e38]: Agents & MCP
+          - list [ref=e40]:
+            - listitem [ref=e41]:
+              - link "Registry" [ref=e42] [cursor=pointer]:
+                - /url: /ui/registry
+                - generic [ref=e43]: Registry
+            - listitem [ref=e44]:
+              - link "MCP Servers" [ref=e45] [cursor=pointer]:
+                - /url: /ui/mcp-servers
+                - generic [ref=e46]: MCP Servers
+            - listitem [ref=e47]:
+              - link "Deployments" [ref=e48] [cursor=pointer]:
+                - /url: /ui/deployments
+                - generic [ref=e49]: Deployments
+        - generic [ref=e50]:
+          - button "Governance Enterprise feature" [expanded] [ref=e51] [cursor=pointer]:
+            - generic [ref=e52]: Governance
+            - generic "Enterprise feature" [ref=e53]
+          - list [ref=e55]:
+            - listitem [ref=e56]:
+              - link "Use Cases" [disabled]:
+                - /url: /ui/unauthorized?feature=mrm
+                - generic: Use Cases
+            - listitem [ref=e57]:
+              - link "Compliance" [disabled]:
+                - /url: /ui/unauthorized?feature=mrm
+                - generic: Compliance
+        - generic [ref=e58]:
+          - button "Access & Activity" [expanded] [ref=e59] [cursor=pointer]:
+            - generic [ref=e60]: Access & Activity
+          - list [ref=e62]:
+            - listitem [ref=e63]:
+              - link "API Keys" [ref=e64] [cursor=pointer]:
+                - /url: /ui/keys
+                - generic [ref=e65]: API Keys
+        - generic [ref=e66]:
+          - button "System" [expanded] [ref=e67] [cursor=pointer]:
+            - generic [ref=e68]: System
+          - generic:
+            - list
+      - list [ref=e70]:
+        - listitem [ref=e71]:
+          - button "A( Admin (Master Key) admin@pllm.local" [ref=e72] [cursor=pointer]:
+            - generic [ref=e74]: A(
+            - generic [ref=e75]:
+              - generic [ref=e76]: Admin (Master Key)
+              - generic [ref=e77]: admin@pllm.local
+      - button "Toggle Sidebar" [ref=e78]
+    - main [ref=e79]:
+      - generic [ref=e80]:
+        - button "Toggle Sidebar" [ref=e81] [cursor=pointer]:
+          - generic [ref=e82]: Toggle Sidebar
+        - navigation "breadcrumb" [ref=e83]:
+          - list [ref=e84]:
+            - listitem [ref=e86]:
+              - link "pLLM" [disabled] [ref=e87]
+        - generic [ref=e88]:
+          - button "Search ⌘K" [ref=e89] [cursor=pointer]:
+            - generic [ref=e90]: Search
+            - generic [ref=e91]: ⌘K
+          - button "Toggle theme" [ref=e92] [cursor=pointer]
+      - main [ref=e93]:
+        - generic [ref=e95]:
+          - generic [ref=e97]:
+            - generic [ref=e99]:
+              - heading "Playground" [level=1] [ref=e100]
+              - paragraph [ref=e101]: Try any primitive before wiring it up.
+            - navigation [ref=e102]:
+              - button "Prompt" [ref=e103] [cursor=pointer]: Prompt
+              - button "Agent" [ref=e104] [cursor=pointer]: Agent
+              - button "MCP" [ref=e105] [cursor=pointer]: MCP
+              - button "Use case" [ref=e106] [cursor=pointer]: Use case
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - generic [ref=e110]:
+                - button [ref=e111] [cursor=pointer]
+                - generic [ref=e112]: Chat
+              - combobox [ref=e114] [cursor=pointer]:
+                - generic [ref=e116]: GPT-4o
+              - generic [ref=e117]:
+                - button [ref=e118] [cursor=pointer]
+                - button [disabled]
+                - button [ref=e119] [cursor=pointer]
+            - generic [ref=e120]:
+              - generic [ref=e122]:
+                - heading "Test a model" [level=2] [ref=e124]
+                - paragraph [ref=e125]: Select a model above and send a prompt to test your gateway configuration.
+              - generic [ref=e129]:
+                - button [ref=e130] [cursor=pointer]
+                - textbox "Test a prompt..." [ref=e131]
+                - button [disabled]
+  - region "Notifications (F8)":
+    - list
