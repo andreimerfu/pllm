@@ -4,7 +4,7 @@
 # Pre-reqs:
 #   - pllm running at $PLLM_URL (default http://localhost:8080)
 #   - a Kubernetes cluster the configured deployment.kubernetes can reach
-#   - the master key set in $PLLM_MASTER_KEY (default: "sk-master-test")
+#   - the master key set in $PLLM_MASTER_KEY (default matches deploy/k8s/secret.yaml)
 #
 # The published agent's OCI image is expected to expose POST /invoke on
 # port 8000 with the Phase 2 contract:
@@ -17,7 +17,7 @@
 
 set -euo pipefail
 PLLM_URL="${PLLM_URL:-http://localhost:8080}"
-PLLM_MASTER_KEY="${PLLM_MASTER_KEY:-sk-master-test}"
+PLLM_MASTER_KEY="${PLLM_MASTER_KEY:-sk-master-dev-key-change-in-production}"
 AUTH=(-H "Authorization: Bearer ${PLLM_MASTER_KEY}")
 
 step() { printf "\n== %s ==\n" "$1"; }

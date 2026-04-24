@@ -17,7 +17,8 @@
 #   - pllm running at $PLLM_URL
 #   - agent-echo and agent-research images available in the cluster
 #     (via `make agent-echo-image-minikube` + `make agent-research-image-minikube`)
-#   - $PLLM_MASTER_KEY exported (default: sk-master-test)
+#   - $PLLM_MASTER_KEY exported (default matches deploy/k8s/secret.yaml:
+#     sk-master-dev-key-change-in-production)
 #
 # Usage:
 #   scripts/demo-seed.sh              # seed only
@@ -28,7 +29,7 @@
 set -euo pipefail
 
 PLLM_URL="${PLLM_URL:-http://localhost:8080}"
-PLLM_MASTER_KEY="${PLLM_MASTER_KEY:-sk-master-test}"
+PLLM_MASTER_KEY="${PLLM_MASTER_KEY:-sk-master-dev-key-change-in-production}"
 AUTH=(-H "Authorization: Bearer ${PLLM_MASTER_KEY}")
 CONTENT=(-H "Content-Type: application/json")
 
