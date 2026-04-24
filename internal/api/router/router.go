@@ -28,6 +28,7 @@ import (
 	"github.com/amerfu/pllm/internal/services/llm/realtime"
 	a2asvc "github.com/amerfu/pllm/internal/services/a2a"
 	deploymentsvc "github.com/amerfu/pllm/internal/services/deployment"
+	deploymentmetrics "github.com/amerfu/pllm/internal/services/deployment/metrics"
 	mcpgateway "github.com/amerfu/pllm/internal/services/mcp/gateway"
 	mcpregistryserver "github.com/amerfu/pllm/internal/services/mcp/registryserver"
 	"github.com/amerfu/pllm/internal/services/registry/enrichment"
@@ -175,6 +176,23 @@ type webhookEmitterAdapter struct {
 }
 
 func (a webhookEmitterAdapter) Emit(evt usecasesvc.WebhookEventEnvelope) {
+	if a.inner == nil {
+		return
+	}
+	a.inner.Emit(webhooks.Event{
+		Type: coremodels.WebhookEventType(evt.Type),
+		Data: evt.Data,
+	})
+}
+
+// deploymentWebhookEmitter bridges the deployment package's
+// WebhookEmitter interface into the same webhooks.Dispatcher. Structurally
+// identical to webhookEmitterAdapter; distinct type keeps imports clean.
+type deploymentWebhookEmitter struct {
+	inner *webhooks.Dispatcher
+}
+
+func (a deploymentWebhookEmitter) Emit(evt deploymentsvc.WebhookEventEnvelope) {
 	if a.inner == nil {
 		return
 	}
@@ -378,9 +396,17 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			agentAdapter := deploymentsvc.NewAgentK8sAdapter(adapter.Client(), cfg.Deployment.K8s, logger)
 			agentSecrets := deploymentsvc.NewAgentSecretHelper(db, adapter.Client(), logger)
 
+			// In-cluster URL agent pods use to reach pllm itself. Defaults
+			// to the canonical skaffold layout (pllm Service in the pllm
+			// namespace); operators override via cfg.Agents.InternalURL
+			// when pllm runs elsewhere.
+			internalURL := cfg.Agents.InternalURL
+			if internalURL == "" {
+				internalURL = fmt.Sprintf("http://pllm.pllm.svc.cluster.local:%d", cfg.Server.Port)
+			}
 			agentEnv := map[string]string{
-				"PLLM_BASE_URL": fmt.Sprintf("http://pllm.%s.svc.cluster.local:%d", cfg.Deployment.K8s.Namespace, cfg.Server.Port),
-				"PLLM_MCP_URL":  fmt.Sprintf("http://pllm.%s.svc.cluster.local:%d/v1/mcp", cfg.Deployment.K8s.Namespace, cfg.Server.Port),
+				"PLLM_BASE_URL": internalURL,
+				"PLLM_MCP_URL":  internalURL + "/v1/mcp",
 			}
 
 			deploySvc := deploymentsvc.NewService(db, logger,
@@ -391,6 +417,20 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 				cfg.Deployment.K8s.Namespace,
 				cfg.Deployment.K8s.AgentNamespace,
 				agentEnv,
+			).WithMemoryBaselines(deploymentsvc.K8sMemoryBaselines{
+				ServerMemoryLimit: cfg.Deployment.K8s.DefaultMemLimit,
+				AgentMemoryLimit:  cfg.Deployment.K8s.DefaultMemLimit,
+			}).WithOOMAutoscale(
+				deploymentsvc.OOMAutoscaleConfig{
+					Enabled:           cfg.Deployment.OOMAutoscale.Enabled,
+					Multiplier:        cfg.Deployment.OOMAutoscale.Multiplier,
+					MaxAttempts:       cfg.Deployment.OOMAutoscale.MaxAttempts,
+					MaxMemory:         cfg.Deployment.OOMAutoscale.MaxMemory,
+					ResetAfterHealthy: cfg.Deployment.OOMAutoscale.ResetAfterHealthy,
+					PollInterval:      cfg.Deployment.OOMAutoscale.PollInterval,
+				},
+				deploymentWebhookEmitter{inner: webhookDispatcher},
+				deploymentmetrics.NewSink(),
 			)
 			serverSvc := registryservice.NewServerService(db, logger)
 			deployHandler = deploymenthandlers.NewHandler(logger, deploySvc, serverSvc)
@@ -400,6 +440,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 				zap.String("agent_namespace", cfg.Deployment.K8s.AgentNamespace),
 				zap.Bool("in_cluster", cfg.Deployment.K8s.InCluster))
 			go deploySvc.ReconcileAll(context.Background())
+			deploySvc.StartOOMReconciler(context.Background())
 		}
 	}
 

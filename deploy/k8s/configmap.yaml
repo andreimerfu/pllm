@@ -178,5 +178,9 @@ data:
       # Empty means agent cards advertise a relative URL. In prod set this
       # to the external ingress host, e.g. "https://pllm.example.com".
       public_url: ""
+      # In-cluster URL deployed agent pods use to reach pllm itself.
+      # Empty falls back to http://pllm.pllm.svc.cluster.local:8080
+      # (the canonical skaffold layout — pllm Service in the pllm namespace).
+      internal_url: ""
 
     model_list: []

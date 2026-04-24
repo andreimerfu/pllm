@@ -43,6 +43,12 @@ type Config struct {
 type AgentInvocationConfig struct {
 	InvokeTimeout time.Duration `mapstructure:"invoke_timeout"`
 	PublicURL     string        `mapstructure:"public_url"`
+	// InternalURL is what deployed agent pods use to reach pllm from inside
+	// the cluster. Empty defaults to "http://pllm.pllm.svc.cluster.local:8080"
+	// (the canonical skaffold layout). Override if pllm runs in a different
+	// namespace, listens on a non-default port, or must be reached through
+	// a specific Service name.
+	InternalURL string `mapstructure:"internal_url"`
 }
 
 type MCPConfig struct {
@@ -55,8 +61,31 @@ type MCPConfig struct {
 // to an underlying platform (Kubernetes in Phase 4). "Enabled: false" means
 // the registry can still store entries but the Deploy UI/API are disabled.
 type DeploymentConfig struct {
-	Enabled bool                     `mapstructure:"enabled"`
-	K8s     DeploymentK8sConfig      `mapstructure:"kubernetes"`
+	Enabled      bool                      `mapstructure:"enabled"`
+	K8s          DeploymentK8sConfig       `mapstructure:"kubernetes"`
+	OOMAutoscale DeploymentOOMAutoscaleConfig `mapstructure:"oom_autoscale"`
+}
+
+// DeploymentOOMAutoscaleConfig tunes the automatic memory-bump-on-OOM
+// behavior the service layer runs against every deployed workload.
+//
+// Enabled:            global on/off. Per-deployment override via
+//                     Deployment.OOMAutoscaleEnabled (nullable tri-state).
+// Multiplier:         how much to scale memory per OOM event (2.0 = 2×).
+// MaxAttempts:        once the counter hits this, further OOMs mark the
+//                     workload Failed instead of bumping.
+// MaxMemory:          hard per-deployment ceiling, checked alongside
+//                     MaxAttempts. Use a K8s-style quantity ("4Gi").
+// ResetAfterHealthy:  how long a workload must stay Running before the
+//                     attempts counter + memory override are cleared.
+// PollInterval:       how often the reconcile ticker scans for OOMs.
+type DeploymentOOMAutoscaleConfig struct {
+	Enabled            bool          `mapstructure:"enabled"`
+	Multiplier         float64       `mapstructure:"multiplier"`
+	MaxAttempts        int           `mapstructure:"max_attempts"`
+	MaxMemory          string        `mapstructure:"max_memory"`
+	ResetAfterHealthy  time.Duration `mapstructure:"reset_after_healthy"`
+	PollInterval       time.Duration `mapstructure:"poll_interval"`
 }
 
 // DeploymentK8sConfig configures the Kubernetes adapter.
@@ -399,6 +428,16 @@ func setDefaults() {
 	viper.SetDefault("deployment.kubernetes.cpu_limit", "500m")
 	viper.SetDefault("deployment.kubernetes.memory_limit", "256Mi")
 	viper.SetDefault("deployment.kubernetes.restrict_egress", false)
+
+	// OOM auto-scale defaults. Enabled by default when deployment itself
+	// is enabled — operators expect "don't die to OOM" as the sensible
+	// baseline. Per-deployment override still wins.
+	viper.SetDefault("deployment.oom_autoscale.enabled", true)
+	viper.SetDefault("deployment.oom_autoscale.multiplier", 2.0)
+	viper.SetDefault("deployment.oom_autoscale.max_attempts", 4)
+	viper.SetDefault("deployment.oom_autoscale.max_memory", "4Gi")
+	viper.SetDefault("deployment.oom_autoscale.reset_after_healthy", "1h")
+	viper.SetDefault("deployment.oom_autoscale.poll_interval", "30s")
 }
 
 func bindEnvVars() {
