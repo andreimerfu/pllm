@@ -58,6 +58,17 @@ func NewTestDB(t *testing.T) (*gorm.DB, func()) {
 		&models.ModelMetrics{},
 		&models.UserMetrics{},
 		&models.TeamMetrics{},
+		&models.MCPServer{},
+		&models.MCPServerTool{},
+		&models.MCPRoute{},
+		&models.RegistryServer{},
+		&models.RegistryAgent{},
+		&models.RegistrySkill{},
+		&models.RegistryPrompt{},
+		&models.RegistryRef{},
+		&models.EnrichmentJob{},
+		&models.EnrichmentScore{},
+		&models.Deployment{},
 	)
 	require.NoError(t, err, "Failed to migrate test database")
 

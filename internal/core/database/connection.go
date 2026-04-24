@@ -150,6 +150,19 @@ func Migrate() error {
 		// Route configurations
 		&models.Route{},
 		&models.RouteModel{},
+		// MCP Gateway
+		&models.MCPServer{},
+		&models.MCPServerTool{},
+		&models.MCPRoute{},
+		// Registry catalog
+		&models.RegistryServer{},
+		&models.RegistryAgent{},
+		&models.RegistrySkill{},
+		&models.RegistryPrompt{},
+		&models.RegistryRef{},
+		&models.EnrichmentJob{},
+		&models.EnrichmentScore{},
+		&models.Deployment{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate models: %w", err)
 	}

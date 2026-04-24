@@ -46,6 +46,9 @@ type CreateKeyRequest struct {
 	ExpiresAt        *time.Time           `json:"expires_at,omitempty"`
 	MaxBudget        *float64             `json:"max_budget,omitempty"`
 	BudgetDuration   *models.BudgetPeriod `json:"budget_duration,omitempty"`
+	AllowedMCPTools     []string `json:"allowed_mcp_tools,omitempty"`
+	BlockedMCPTools     []string `json:"blocked_mcp_tools,omitempty"`
+	RegistryPermissions []string `json:"registry_permissions,omitempty"`
 }
 
 type KeyResponse struct {
@@ -102,18 +105,21 @@ func (h *KeyHandler) CreateKey(w http.ResponseWriter, r *http.Request) {
 	
 	// Create key record
 	k := models.Key{
-		BaseModel:      models.BaseModel{ID: uuid.New()},
-		Key:            plaintextKey, // Store plaintext for unique constraint
-		Name:           req.Name,
-		KeyHash:        hashedKey,
-		Type:           models.KeyType(req.KeyType),
-		ExpiresAt:      req.ExpiresAt,
-		IsActive:       true,
-		UserID:         req.UserID,    // Key owner (can be nil for system keys)
-		TeamID:         req.TeamID,
-		MaxBudget:      req.MaxBudget,
-		BudgetDuration: req.BudgetDuration,
-		CreatedBy:      nil, // Will be set below based on auth type
+		BaseModel:       models.BaseModel{ID: uuid.New()},
+		Key:             plaintextKey, // Store plaintext for unique constraint
+		Name:            req.Name,
+		KeyHash:         hashedKey,
+		Type:            models.KeyType(req.KeyType),
+		ExpiresAt:       req.ExpiresAt,
+		IsActive:        true,
+		UserID:          req.UserID, // Key owner (can be nil for system keys)
+		TeamID:          req.TeamID,
+		MaxBudget:       req.MaxBudget,
+		BudgetDuration:  req.BudgetDuration,
+		AllowedMCPTools:     req.AllowedMCPTools,
+		BlockedMCPTools:     req.BlockedMCPTools,
+		RegistryPermissions: req.RegistryPermissions,
+		CreatedBy:           nil, // Will be set below based on auth type
 	}
 	
 	// Set CreatedBy based on authentication type
@@ -275,9 +281,12 @@ func (h *KeyHandler) GetKey(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateKeyRequest struct {
-	Name      *string    `json:"name,omitempty"`
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
-	IsActive  *bool      `json:"is_active,omitempty"`
+	Name                *string    `json:"name,omitempty"`
+	ExpiresAt           *time.Time `json:"expires_at,omitempty"`
+	IsActive            *bool      `json:"is_active,omitempty"`
+	AllowedMCPTools     *[]string  `json:"allowed_mcp_tools,omitempty"`
+	BlockedMCPTools     *[]string  `json:"blocked_mcp_tools,omitempty"`
+	RegistryPermissions *[]string  `json:"registry_permissions,omitempty"`
 }
 
 // UpdateKey updates a key
@@ -327,6 +336,19 @@ func (h *KeyHandler) UpdateKey(w http.ResponseWriter, r *http.Request) {
 	if req.IsActive != nil && *req.IsActive != k.IsActive {
 		changes["is_active"] = map[string]bool{"from": k.IsActive, "to": *req.IsActive}
 		k.IsActive = *req.IsActive
+	}
+
+	if req.AllowedMCPTools != nil {
+		changes["allowed_mcp_tools"] = map[string]any{"from": []string(k.AllowedMCPTools), "to": *req.AllowedMCPTools}
+		k.AllowedMCPTools = *req.AllowedMCPTools
+	}
+	if req.BlockedMCPTools != nil {
+		changes["blocked_mcp_tools"] = map[string]any{"from": []string(k.BlockedMCPTools), "to": *req.BlockedMCPTools}
+		k.BlockedMCPTools = *req.BlockedMCPTools
+	}
+	if req.RegistryPermissions != nil {
+		changes["registry_permissions"] = map[string]any{"from": []string(k.RegistryPermissions), "to": *req.RegistryPermissions}
+		k.RegistryPermissions = *req.RegistryPermissions
 	}
 
 	if err := h.db.Save(&k).Error; err != nil {

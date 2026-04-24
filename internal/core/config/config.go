@@ -33,6 +33,43 @@ type Config struct {
 	CORS       CORSConfig       `mapstructure:"cors"`
 	Realtime   RealtimeConfig   `mapstructure:"realtime"`
 	Guardrails GuardrailsConfig `mapstructure:"guardrails"`
+	MCP        MCPConfig        `mapstructure:"mcp"`
+	Deployment DeploymentConfig `mapstructure:"deployment"`
+}
+
+type MCPConfig struct {
+	Enabled             bool          `mapstructure:"enabled"`
+	HealthCheckInterval time.Duration `mapstructure:"health_check_interval"`
+	StartTimeout        time.Duration `mapstructure:"start_timeout"`
+}
+
+// DeploymentConfig controls how MCP servers in the registry are deployed
+// to an underlying platform (Kubernetes in Phase 4). "Enabled: false" means
+// the registry can still store entries but the Deploy UI/API are disabled.
+type DeploymentConfig struct {
+	Enabled bool                     `mapstructure:"enabled"`
+	K8s     DeploymentK8sConfig      `mapstructure:"kubernetes"`
+}
+
+// DeploymentK8sConfig configures the Kubernetes adapter.
+//
+//	in_cluster=true   → use the service-account mounted into the pod
+//	kubeconfig_path   → explicit path (dev/local)
+//	namespace          → where MCP server Deployments land
+//	image_pull_policy  → default for generated Deployments
+//	wrapper_image     → image used to wrap stdio-only packages (npx/uvx)
+type DeploymentK8sConfig struct {
+	InCluster         bool   `mapstructure:"in_cluster"`
+	KubeconfigPath    string `mapstructure:"kubeconfig_path"`
+	Namespace         string `mapstructure:"namespace"`
+	ImagePullPolicy   string `mapstructure:"image_pull_policy"`
+	WrapperImage      string `mapstructure:"wrapper_image"`
+	DefaultCPURequest string `mapstructure:"cpu_request"`
+	DefaultMemRequest string `mapstructure:"memory_request"`
+	DefaultCPULimit   string `mapstructure:"cpu_limit"`
+	DefaultMemLimit   string `mapstructure:"memory_limit"`
+	// If true, generate a NetworkPolicy restricting egress to a default allowlist.
+	RestrictEgress bool `mapstructure:"restrict_egress"`
 }
 
 type ServerConfig struct {
@@ -326,6 +363,26 @@ func setDefaults() {
 	viper.SetDefault("guardrails.providers.openai.base_url", "https://api.openai.com/v1")
 	viper.SetDefault("guardrails.providers.openai.timeout", "30s")
 	viper.SetDefault("guardrails.providers.aporia.timeout", "10s")
+
+	// MCP Gateway defaults
+	viper.SetDefault("mcp.enabled", true)
+	viper.SetDefault("mcp.health_check_interval", "30s")
+	viper.SetDefault("mcp.start_timeout", "30s")
+
+	// Deployment defaults — disabled by default so pllm doesn't touch the
+	// cluster unless explicitly enabled.
+	viper.SetDefault("deployment.enabled", false)
+	viper.SetDefault("deployment.kubernetes.in_cluster", false)
+	viper.SetDefault("deployment.kubernetes.namespace", "pllm-mcp")
+	viper.SetDefault("deployment.kubernetes.image_pull_policy", "IfNotPresent")
+	// Wrapper image is a small container with node+python that can run
+	// `npx`, `uvx`, and wrap stdio into HTTP. Users can override.
+	viper.SetDefault("deployment.kubernetes.wrapper_image", "ghcr.io/pllm/mcp-wrapper:0.1")
+	viper.SetDefault("deployment.kubernetes.cpu_request", "50m")
+	viper.SetDefault("deployment.kubernetes.memory_request", "64Mi")
+	viper.SetDefault("deployment.kubernetes.cpu_limit", "500m")
+	viper.SetDefault("deployment.kubernetes.memory_limit", "256Mi")
+	viper.SetDefault("deployment.kubernetes.restrict_egress", false)
 }
 
 func bindEnvVars() {

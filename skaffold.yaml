@@ -19,6 +19,7 @@ build:
 manifests:
   rawYaml:
     - deploy/k8s/namespace.yaml
+    - deploy/k8s/rbac.yaml
     - deploy/k8s/configmap.yaml
     - deploy/k8s/mkcert-ca-configmap.yaml
     - deploy/k8s/secret.yaml

@@ -57,6 +57,20 @@ type Key struct {
 	AllowedModels pq.StringArray `gorm:"type:text[]" json:"allowed_models,omitempty"`
 	BlockedModels pq.StringArray `gorm:"type:text[]" json:"blocked_models,omitempty"`
 
+	// MCP Tool Access Control — glob patterns matched against "<slug>__<tool>".
+	// Examples: "fs/*" (all tools from backend fs), "github/create_issue" (single tool), "*" (all).
+	// Empty AllowedMCPTools means "all allowed except blocked".
+	AllowedMCPTools pq.StringArray `gorm:"type:text[]" json:"allowed_mcp_tools,omitempty"`
+	BlockedMCPTools pq.StringArray `gorm:"type:text[]" json:"blocked_mcp_tools,omitempty"`
+
+	// Registry permissions — entries of the form "<action>:<name-glob>" or
+	// "<action>:<kind>/<name-glob>". Actions: publish, edit, delete.
+	// "*" grants all actions on all names. Scoped example:
+	//   "publish:io.github.me/*"  — only publish things under own namespace
+	//   "delete:server/io.github.me/*" — only delete servers under that ns
+	// Empty = no registry write access (unless master key).
+	RegistryPermissions pq.StringArray `gorm:"type:text[]" json:"registry_permissions,omitempty"`
+
 	// Usage Tracking
 	UsageCount  int64   `json:"usage_count"`
 	TotalTokens int64   `json:"total_tokens"`
@@ -99,6 +113,8 @@ type KeyRequest struct {
 	MaxParallelCalls *int          `json:"max_parallel_calls,omitempty"`
 	AllowedModels    []string      `json:"allowed_models,omitempty"`
 	BlockedModels    []string      `json:"blocked_models,omitempty"`
+	AllowedMCPTools  []string      `json:"allowed_mcp_tools,omitempty"`
+	BlockedMCPTools  []string      `json:"blocked_mcp_tools,omitempty"`
 	Scopes           []string      `json:"scopes,omitempty"`
 	Metadata         interface{}   `json:"metadata,omitempty"`
 	Tags             []string      `json:"tags,omitempty"`
@@ -259,6 +275,133 @@ func (k *Key) IsModelAllowed(model string) bool {
 		}
 	}
 
+	return false
+}
+
+// IsMCPToolAllowed reports whether this key may invoke an MCP tool.
+//
+// Patterns may use either "/" or the wire-level "__" separator between
+// backend slug and tool name. Glob support: "*" inside a single segment
+// matches any characters in that segment (no cross-segment matching),
+// and a bare "*" matches anything.
+//
+// Empty AllowedMCPTools = all allowed (still subject to blocks).
+func (k *Key) IsMCPToolAllowed(qualified string) bool {
+	qualified = strings.ReplaceAll(qualified, "__", "/")
+	for _, blocked := range k.BlockedMCPTools {
+		if matchToolPattern(strings.ReplaceAll(blocked, "__", "/"), qualified) {
+			return false
+		}
+	}
+	if len(k.AllowedMCPTools) == 0 {
+		return true
+	}
+	for _, allowed := range k.AllowedMCPTools {
+		if matchToolPattern(strings.ReplaceAll(allowed, "__", "/"), qualified) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchToolPattern matches a "slug/tool" qualifier against a pattern that
+// may use "*" as a wildcard within each segment. No recursive matching —
+// keeps surprises out.
+func matchToolPattern(pattern, qualified string) bool {
+	if pattern == "*" || pattern == "**" {
+		return true
+	}
+	pSlug, pTool, pHas := strings.Cut(pattern, "/")
+	qSlug, qTool, qHas := strings.Cut(qualified, "/")
+	if !pHas {
+		// Pattern without a slash matches only the tool name portion, any slug.
+		return segmentMatch(pattern, qTool) || segmentMatch(pattern, qualified)
+	}
+	if !qHas {
+		return false
+	}
+	return segmentMatch(pSlug, qSlug) && segmentMatch(pTool, qTool)
+}
+
+func segmentMatch(pattern, s string) bool {
+	if pattern == "*" {
+		return true
+	}
+	// No "*" at all: exact match.
+	if !strings.Contains(pattern, "*") {
+		return pattern == s
+	}
+	// Split on "*" and require literal parts to appear in order, anchored.
+	parts := strings.Split(pattern, "*")
+	if !strings.HasPrefix(s, parts[0]) {
+		return false
+	}
+	s = s[len(parts[0]):]
+	for i := 1; i < len(parts)-1; i++ {
+		idx := strings.Index(s, parts[i])
+		if idx < 0 {
+			return false
+		}
+		s = s[idx+len(parts[i]):]
+	}
+	last := parts[len(parts)-1]
+	return strings.HasSuffix(s, last)
+}
+
+// RegistryAction enumerates the write actions on registry resources.
+type RegistryAction string
+
+const (
+	RegistryActionPublish RegistryAction = "publish"
+	RegistryActionEdit    RegistryAction = "edit"
+	RegistryActionDelete  RegistryAction = "delete"
+)
+
+// HasRegistryPermission reports whether this key is permitted to perform
+// `action` on `(kind, name)`. Each entry in RegistryPermissions is parsed
+// as "action:pattern" or "action:kind/pattern". A bare "*" grants
+// everything.
+//
+// Pattern matches use the same segment-globbing rules as IsMCPToolAllowed:
+// "*" is a wildcard within a single segment, and "kind/pattern" scopes the
+// pattern to a specific registry kind.
+func (k *Key) HasRegistryPermission(kind, name string, action RegistryAction) bool {
+	for _, p := range k.RegistryPermissions {
+		if p == "*" {
+			return true
+		}
+		colon := strings.Index(p, ":")
+		if colon <= 0 {
+			continue
+		}
+		pAction := strings.ToLower(p[:colon])
+		pRest := p[colon+1:]
+		if pAction != string(action) && pAction != "*" {
+			continue
+		}
+		// Optional "kind/" prefix.
+		if slash := strings.Index(pRest, "/"); slash > 0 {
+			pKind := pRest[:slash]
+			// If the part before the first "/" looks like a known kind, scope it.
+			if isRegistryKind(pKind) {
+				if pKind != kind && pKind != "*" {
+					continue
+				}
+				pRest = pRest[slash+1:]
+			}
+		}
+		if segmentMatch(pRest, name) || matchToolPattern(pRest, name) {
+			return true
+		}
+	}
+	return false
+}
+
+func isRegistryKind(s string) bool {
+	switch s {
+	case "server", "agent", "skill", "prompt", "*":
+		return true
+	}
 	return false
 }
 

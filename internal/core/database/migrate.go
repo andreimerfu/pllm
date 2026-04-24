@@ -26,6 +26,17 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.ProviderProfile{}, // Reusable provider credential profiles
 		&models.Route{},           // Route configurations
 		&models.RouteModel{},      // Route model entries
+		&models.MCPServer{},       // MCP Gateway: backend servers
+		&models.MCPServerTool{},   // MCP Gateway: cached tool manifest
+		&models.MCPRoute{},        // MCP Gateway: routing groups
+		&models.RegistryServer{},  // Registry: MCP server catalog
+		&models.RegistryAgent{},   // Registry: agent catalog
+		&models.RegistrySkill{},   // Registry: skill catalog
+		&models.RegistryPrompt{},  // Registry: prompt catalog
+		&models.RegistryRef{},     // Registry: cross-kind dependency edges
+		&models.EnrichmentJob{},   // Enrichment: scheduled scans
+		&models.EnrichmentScore{}, // Enrichment: latest results per (resource, type)
+		&models.Deployment{},      // Deployment: running registry-backed workloads
 	)
 
 	if err != nil {

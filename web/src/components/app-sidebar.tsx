@@ -76,6 +76,24 @@ const navigation: NavGroup[] = [
         icon: icons.routes,
         permission: null,
       },
+      {
+        title: "MCP Servers",
+        href: "/mcp-servers",
+        icon: icons.mcp,
+        permission: null,
+      },
+      {
+        title: "Registry",
+        href: "/registry",
+        icon: icons.registry,
+        permission: null,
+      },
+      {
+        title: "Deployments",
+        href: "/deployments",
+        icon: icons.deployment,
+        permission: null,
+      },
     ],
   },
   {

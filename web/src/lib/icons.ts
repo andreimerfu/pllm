@@ -87,6 +87,13 @@ export const icons = {
   layers: 'solar:layers-linear',
   maximize: 'solar:maximize-linear',
   minimize: 'solar:minimize-linear',
+  mcp: 'solar:plug-circle-linear',
+  registry: 'solar:book-bookmark-linear',
+  agent: 'solar:bot-linear',
+  skill: 'solar:diploma-linear',
+  prompt: 'solar:document-text-linear',
+  deployment: 'solar:cloud-linear',
+  rocket: 'solar:rocket-linear',
 } as const;
 
 export type IconName = keyof typeof icons;

@@ -8,11 +8,15 @@ import (
 	"github.com/amerfu/pllm/internal/core/config"
 	"github.com/amerfu/pllm/internal/api/handlers"
 	"github.com/amerfu/pllm/internal/api/handlers/admin"
+	deploymenthandlers "github.com/amerfu/pllm/internal/api/handlers/deployment"
+	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
+	registryhandlers "github.com/amerfu/pllm/internal/api/handlers/registry"
 	"github.com/amerfu/pllm/internal/infrastructure/middleware"
 	"github.com/amerfu/pllm/internal/services/data/budget"
 	"github.com/amerfu/pllm/internal/services/integrations/guardrails"
 	"github.com/amerfu/pllm/internal/services/integrations/team"
 	"github.com/amerfu/pllm/internal/services/llm/models"
+	mcpgateway "github.com/amerfu/pllm/internal/services/mcp/gateway"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -29,6 +33,10 @@ type AdminRouterConfig struct {
 	BudgetService       budget.Service
 	GuardrailsExecutor  *guardrails.Executor
 	ModelManager        *models.ModelManager
+	MCPManager            *mcpgateway.Manager
+	RegistryHandler       *registryhandlers.Handler
+	RegistryImportHandler *registryhandlers.ImportHandler
+	DeploymentHandler     *deploymenthandlers.Handler
 }
 
 // NewAdminSubRouter creates admin routes to be mounted on the main router
@@ -213,6 +221,49 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Delete("/{routeID}", routeHandler.DeleteRoute)
 			r.Get("/{routeID}/stats", routeHandler.GetRouteStats)
 		})
+
+		// MCP Gateway: backend server CRUD + health probes.
+		if cfg.MCPManager != nil {
+			mcpAdmin := mcphandlers.NewAdminHandler(cfg.Logger, cfg.DB, cfg.MCPManager)
+			r.Route("/mcp/servers", func(r chi.Router) {
+				r.Get("/", mcpAdmin.List)
+				r.Post("/", mcpAdmin.Create)
+				r.Get("/{id}", mcpAdmin.Get)
+				r.Put("/{id}", mcpAdmin.Update)
+				r.Delete("/{id}", mcpAdmin.Delete)
+				r.Post("/{id}/health", mcpAdmin.Health)
+			})
+		}
+
+		// Registry catalog: writes require admin.
+		if cfg.RegistryHandler != nil {
+			rh := cfg.RegistryHandler
+			r.Route("/registry", func(rr chi.Router) {
+				rr.Post("/servers", rh.UpsertServer)
+				rr.Delete("/servers/{name}/versions/{version}", rh.DeleteServerVersion)
+				rr.Post("/agents", rh.UpsertAgent)
+				rr.Delete("/agents/{name}/versions/{version}", rh.DeleteAgentVersion)
+				rr.Post("/skills", rh.UpsertSkill)
+				rr.Delete("/skills/{name}/versions/{version}", rh.DeleteSkillVersion)
+				rr.Post("/prompts", rh.UpsertPrompt)
+				rr.Delete("/prompts/{name}/versions/{version}", rh.DeletePromptVersion)
+				if cfg.RegistryImportHandler != nil {
+					rr.Post("/import", cfg.RegistryImportHandler.Trigger)
+				}
+			})
+		}
+
+		// Deployment routes — admin only.
+		if cfg.DeploymentHandler != nil {
+			dh := cfg.DeploymentHandler
+			r.Route("/deployments", func(rr chi.Router) {
+				rr.Get("/", dh.List)
+				rr.Post("/", dh.Deploy)
+				rr.Get("/{id}", dh.Get)
+				rr.Delete("/{id}", dh.Delete)
+				rr.Post("/{id}/status", dh.RefreshStatus)
+			})
+		}
 	})
 
 	// User self-service routes (authenticated users, not necessarily admin)

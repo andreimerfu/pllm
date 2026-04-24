@@ -366,3 +366,171 @@ export interface RouteStatsResponse {
   total_cost: number;
   models: RouteModelStats[];
 }
+
+export type MCPTransport = 'stdio' | 'sse' | 'http';
+export type MCPHealth = 'unknown' | 'healthy' | 'unhealthy';
+
+export interface MCPServerTool {
+  id?: string;
+  name: string;
+  description?: string;
+  input_schema?: unknown;
+}
+
+export interface MCPServer {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  enabled: boolean;
+  transport: MCPTransport;
+  endpoint?: string;
+  headers?: Record<string, string>;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  working_dir?: string;
+  health_status: MCPHealth;
+  last_error?: string;
+  last_seen_at?: string;
+  tools?: MCPServerTool[];
+  live_health?: MCPHealth;
+  tool_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MCPUpsertRequest {
+  name: string;
+  slug: string;
+  description?: string;
+  enabled?: boolean;
+  transport: MCPTransport;
+  endpoint?: string;
+  headers?: Record<string, string>;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  working_dir?: string;
+}
+
+export interface MCPHealthProbeResponse {
+  health: MCPHealth;
+  error?: string;
+  last_seen?: string;
+  tool_count?: number;
+  reason?: string;
+}
+
+export type RegistryStatus = 'active' | 'deprecated' | 'deleted';
+export type RegistryKind = 'server' | 'agent' | 'skill' | 'prompt';
+
+export interface RegistryBase {
+  id: string;
+  name: string;
+  version: string;
+  title?: string;
+  description?: string;
+  status: RegistryStatus;
+  is_latest: boolean;
+  published_at: string;
+  published_by_user_id?: string;
+  website_url?: string;
+  repository?: unknown;
+  metadata?: unknown;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface EnrichmentScore {
+  id: string;
+  resource_kind: RegistryKind;
+  resource_id: string;
+  type: 'osv' | 'scorecard' | 'container' | 'dependencies';
+  score: number;
+  summary?: string;
+  findings?: unknown;
+  scanned_at: string;
+}
+
+export interface RegistryServer extends RegistryBase {
+  packages?: unknown;
+  remotes?: unknown;
+}
+
+export interface RegistryServerDetail {
+  server: RegistryServer;
+  scores?: EnrichmentScore[];
+}
+
+export interface RegistryRef {
+  id?: string;
+  owner_kind?: RegistryKind;
+  owner_id?: string;
+  target_kind: RegistryKind;
+  target_name: string;
+  target_version?: string;
+  local_name?: string;
+}
+
+export interface RegistryAgent extends RegistryBase {
+  language?: string;
+  framework?: string;
+  model_provider?: string;
+  model_name?: string;
+  packages?: unknown;
+  remotes?: unknown;
+}
+
+export interface RegistryAgentWithRefs {
+  agent: RegistryAgent;
+  servers?: RegistryRef[];
+  skills?: RegistryRef[];
+  prompts?: RegistryRef[];
+}
+
+export interface RegistrySkill extends RegistryBase {
+  image?: string;
+  manifest?: unknown;
+}
+
+export interface RegistryPrompt extends RegistryBase {
+  template: string;
+  arguments?: unknown;
+}
+
+export interface RegistryListResponse<T> {
+  total: number;
+  next: number;
+  servers?: T[];
+  agents?: T[];
+  skills?: T[];
+  prompts?: T[];
+}
+
+export type DeploymentPlatform = 'kubernetes' | 'local';
+export type DeploymentStatus =
+  | 'pending'
+  | 'deploying'
+  | 'running'
+  | 'failed'
+  | 'terminating'
+  | 'stopped';
+
+export interface Deployment {
+  id: string;
+  registry_server_id: string;
+  resource_name: string;
+  resource_version: string;
+  platform: DeploymentPlatform;
+  namespace: string;
+  workload_name: string;
+  status: DeploymentStatus;
+  status_reason?: string;
+  endpoint?: string;
+  gateway_backend_id?: string;
+  last_applied_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+

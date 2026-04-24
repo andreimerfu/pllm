@@ -10,6 +10,9 @@ import (
 	"github.com/amerfu/pllm/internal/api/docs"
 	"github.com/amerfu/pllm/internal/api/handlers"
 	"github.com/amerfu/pllm/internal/api/handlers/admin"
+	deploymenthandlers "github.com/amerfu/pllm/internal/api/handlers/deployment"
+	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
+	registryhandlers "github.com/amerfu/pllm/internal/api/handlers/registry"
 	"github.com/amerfu/pllm/internal/infrastructure/middleware"
 	"github.com/amerfu/pllm/internal/services/monitoring/metrics"
 	"github.com/amerfu/pllm/internal/services/data/budget"
@@ -18,6 +21,12 @@ import (
 	"github.com/amerfu/pllm/internal/services/integrations/key"
 	"github.com/amerfu/pllm/internal/services/llm/models"
 	"github.com/amerfu/pllm/internal/services/llm/realtime"
+	deploymentsvc "github.com/amerfu/pllm/internal/services/deployment"
+	mcpgateway "github.com/amerfu/pllm/internal/services/mcp/gateway"
+	mcpregistryserver "github.com/amerfu/pllm/internal/services/mcp/registryserver"
+	"github.com/amerfu/pllm/internal/services/registry/enrichment"
+	"github.com/amerfu/pllm/internal/services/registry/importer"
+	registryservice "github.com/amerfu/pllm/internal/services/registry/service"
 	redisService "github.com/amerfu/pllm/internal/services/data/redis"
 	"github.com/amerfu/pllm/internal/services/integrations/team"
 	"github.com/amerfu/pllm/internal/api/ui"
@@ -136,6 +145,69 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		logger.Info("Historical metrics collector started")
 	} else {
 		logger.Warn("Cannot start historical metrics collector - missing prerequisites")
+	}
+
+	// Initialize Registry services (require DB — skipped in lite mode)
+	var registryHandler *registryhandlers.Handler
+	var registryImportHandler *registryhandlers.ImportHandler
+	var registryMCPHandler *mcphandlers.RegistryMCPHandler
+	if db != nil {
+		serverSvc := registryservice.NewServerService(db, logger)
+		agentSvc := registryservice.NewAgentService(db, logger)
+		skillSvc := registryservice.NewSkillService(db, logger)
+		promptSvc := registryservice.NewPromptService(db, logger)
+		registryHandler = registryhandlers.NewHandler(
+			logger, serverSvc, agentSvc, skillSvc, promptSvc,
+		)
+		// Enrichment runner: OSV scanner only in phase 2. Started in a
+		// goroutine; shuts down when context is canceled (process exit).
+		runner := enrichment.NewRunner(db, logger)
+		registryHandler.Enrichment = runner
+		go runner.Start(context.Background())
+
+		// Importer (npm + PyPI). Safe to init without network — sources are
+		// only hit when /api/admin/registry/import is called.
+		registryImportHandler = registryhandlers.NewImportHandler(
+			logger, importer.NewService(serverSvc, logger))
+
+		// Expose the registry over MCP so agents can discover artifacts
+		// via tool calls — same surface, different protocol.
+		registryMCPHandler = mcphandlers.NewRegistryMCPHandler(
+			logger, mcpregistryserver.New(serverSvc, agentSvc, skillSvc, promptSvc))
+
+		logger.Info("Registry services + enrichment + importer + MCP surface initialized")
+	}
+
+	// Initialize MCP Gateway manager (safe even without DB — runs with empty backend set)
+	var mcpManager *mcpgateway.Manager
+	if cfg.MCP.Enabled {
+		mcpManager = mcpgateway.NewManager(logger, db)
+		if db != nil {
+			if err := mcpManager.Load(context.Background()); err != nil {
+				logger.Warn("Failed to load MCP servers from DB", zap.Error(err))
+			}
+		}
+		mcpManager.Start(context.Background())
+		logger.Info("MCP Gateway initialized", zap.Bool("persistent", db != nil))
+	}
+
+	// Deployment service — opt-in via config.deployment.enabled. Falls
+	// back gracefully if credentials can't be loaded. Depends on mcpManager
+	// so it must be initialized after MCP setup.
+	var deployHandler *deploymenthandlers.Handler
+	if db != nil && cfg.Deployment.Enabled {
+		adapter, err := deploymentsvc.NewK8sAdapter(cfg.Deployment.K8s, logger)
+		if err != nil {
+			logger.Warn("Deployment disabled: K8s client unavailable", zap.Error(err))
+		} else {
+			bridge := deploymentsvc.NewMCPBridge(db, mcpManager, logger)
+			deploySvc := deploymentsvc.NewService(db, logger, adapter, bridge, cfg.Deployment.K8s.Namespace)
+			serverSvc := registryservice.NewServerService(db, logger)
+			deployHandler = deploymenthandlers.NewHandler(logger, deploySvc, serverSvc)
+			logger.Info("Deployment service initialized",
+				zap.String("namespace", cfg.Deployment.K8s.Namespace),
+				zap.Bool("in_cluster", cfg.Deployment.K8s.InCluster))
+		}
 	}
 
 	// Initialize guardrails
@@ -368,6 +440,40 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 				r.Get("/", realtimeHandler.ListSessions)
 				r.Get("/{id}", realtimeHandler.GetSession)
 			})
+
+			// MCP Gateway: streamable-HTTP endpoint for Claude Desktop / Cursor / VS Code.
+			if mcpManager != nil {
+				gatewayHandler := mcphandlers.NewGatewayHandler(logger, mcpManager)
+				r.Handle("/mcp", gatewayHandler)
+			}
+
+			// Registry exposed as an MCP server — agents can call list_servers,
+			// get_agent, etc. as tool calls instead of the REST API.
+			if registryMCPHandler != nil {
+				r.Handle("/mcp/registry", registryMCPHandler)
+			}
+
+			// Registry: read-only catalog endpoints.
+			if registryHandler != nil {
+				r.Route("/registry", func(rr chi.Router) {
+					rr.Get("/servers", registryHandler.ListServers)
+					rr.Get("/servers/{name}", registryHandler.GetServer)
+					rr.Get("/servers/{name}/versions", registryHandler.ListServerVersions)
+					rr.Get("/servers/{name}/versions/{version}", registryHandler.GetServerVersion)
+					rr.Get("/agents", registryHandler.ListAgents)
+					rr.Get("/agents/{name}", registryHandler.GetAgent)
+					rr.Get("/agents/{name}/versions", registryHandler.ListAgentVersions)
+					rr.Get("/agents/{name}/versions/{version}", registryHandler.GetAgentVersion)
+					rr.Get("/skills", registryHandler.ListSkills)
+					rr.Get("/skills/{name}", registryHandler.GetSkill)
+					rr.Get("/skills/{name}/versions", registryHandler.ListSkillVersions)
+					rr.Get("/skills/{name}/versions/{version}", registryHandler.GetSkillVersion)
+					rr.Get("/prompts", registryHandler.ListPrompts)
+					rr.Get("/prompts/{name}", registryHandler.GetPrompt)
+					rr.Get("/prompts/{name}/versions", registryHandler.ListPromptVersions)
+					rr.Get("/prompts/{name}/versions/{version}", registryHandler.GetPromptVersion)
+				})
+			}
 		})
 
 		// User management
@@ -507,7 +613,11 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			MasterKeyService:    masterKeyService,
 			ModelManager:        modelManager,
 			BudgetService:       budgetService,
-			GuardrailsExecutor:  guardrailsExecutor,
+			GuardrailsExecutor:    guardrailsExecutor,
+			MCPManager:            mcpManager,
+			RegistryHandler:       registryHandler,
+			RegistryImportHandler: registryImportHandler,
+			DeploymentHandler:     deployHandler,
 		}
 
 		// Mount admin routes at /api/admin

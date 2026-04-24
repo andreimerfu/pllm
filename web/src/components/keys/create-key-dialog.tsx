@@ -45,11 +45,20 @@ export function CreateKeyDialog({ isAdmin, userTeams, onCreateKey }: CreateKeyDi
     tpm: "",
     rpm: "",
     enableAdvanced: false,
+    allowedMCPTools: "",
+    blockedMCPTools: "",
+    registryPermissions: "",
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
+    const splitPatterns = (src: string) =>
+      src
+        .split(/[\s,\n]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
     let keyData: any = {
       name: formData.name || 'New API Key',
       max_budget: formData.maxBudget ? parseFloat(formData.maxBudget) : undefined,
@@ -57,6 +66,13 @@ export function CreateKeyDialog({ isAdmin, userTeams, onCreateKey }: CreateKeyDi
       tpm: formData.tpm ? parseInt(formData.tpm) : undefined,
       rpm: formData.rpm ? parseInt(formData.rpm) : undefined,
     }
+
+    const allowed = splitPatterns(formData.allowedMCPTools);
+    const blocked = splitPatterns(formData.blockedMCPTools);
+    const registryPerms = splitPatterns(formData.registryPermissions);
+    if (allowed.length) keyData.allowed_mcp_tools = allowed;
+    if (blocked.length) keyData.blocked_mcp_tools = blocked;
+    if (registryPerms.length) keyData.registry_permissions = registryPerms;
 
     // Handle ownership for admin users
     if (isAdmin) {
@@ -90,6 +106,9 @@ export function CreateKeyDialog({ isAdmin, userTeams, onCreateKey }: CreateKeyDi
       tpm: "",
       rpm: "",
       enableAdvanced: false,
+      allowedMCPTools: "",
+      blockedMCPTools: "",
+      registryPermissions: "",
     })
   }
 
@@ -294,6 +313,55 @@ export function CreateKeyDialog({ isAdmin, userTeams, onCreateKey }: CreateKeyDi
                     placeholder="60"
                   />
                   <p className="text-xs text-muted-foreground mt-1">Requests per minute</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="allowedMCPTools">Allowed MCP tools</Label>
+                  <textarea
+                    id="allowedMCPTools"
+                    value={formData.allowedMCPTools}
+                    onChange={(e) => setFormData({ ...formData, allowedMCPTools: e.target.value })}
+                    placeholder={"fs/read_*\ngithub/*\n*"}
+                    rows={2}
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Glob patterns matched against <code>&lt;slug&gt;/&lt;tool&gt;</code>. Empty = allow
+                    all.
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="blockedMCPTools">Blocked MCP tools</Label>
+                  <textarea
+                    id="blockedMCPTools"
+                    value={formData.blockedMCPTools}
+                    onChange={(e) => setFormData({ ...formData, blockedMCPTools: e.target.value })}
+                    placeholder={"fs/delete_*"}
+                    rows={2}
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Blocks always win over allows.
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="registryPermissions">Registry permissions</Label>
+                  <textarea
+                    id="registryPermissions"
+                    value={formData.registryPermissions}
+                    onChange={(e) => setFormData({ ...formData, registryPermissions: e.target.value })}
+                    placeholder={"publish:io.github.me/*\ndelete:server/io.github.me/*"}
+                    rows={3}
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <code>action:[kind/]name-glob</code>. Actions: publish, edit, delete (or <code>*</code>).
+                    Empty = no registry writes.
+                  </p>
                 </div>
               </div>
             </TabsContent>

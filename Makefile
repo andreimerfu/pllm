@@ -87,6 +87,15 @@ docker-logs: ## Show Docker logs
 docker-build: ## Build Docker image for pllm
 	docker buildx build --platform linux/amd64 -t amerfu/pllm:latest .
 
+.PHONY: wrapper-image
+wrapper-image: ## Build the MCP wrapper image (used by Deployment feature for npm/pypi-backed registry servers)
+	docker build -t pllm/mcp-wrapper:dev deploy/mcp-wrapper
+
+.PHONY: wrapper-image-minikube
+wrapper-image-minikube: wrapper-image ## Build the wrapper image and load it into the running minikube
+	@which minikube > /dev/null || (echo "minikube not found" && exit 1)
+	minikube image load pllm/mcp-wrapper:dev
+
 ##@ Kubernetes & Helm
 
 .PHONY: helm-deps

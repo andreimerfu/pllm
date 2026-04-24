@@ -16,6 +16,9 @@ import GuardrailConfig from '@/pages/GuardrailConfig'
 import GuardrailMarketplace from '@/pages/GuardrailMarketplace'
 import RoutesPage from '@/pages/Routes'
 import RouteDetail from '@/pages/RouteDetail'
+import MCPServers from '@/pages/MCPServers'
+import Registry from '@/pages/Registry'
+import Deployments from '@/pages/Deployments'
 import Chat from '@/pages/Chat'
 import Login from '@/pages/Login'
 import Callback from '@/pages/Callback'
@@ -57,6 +60,9 @@ function App() {
                       <Route path="/routes" element={<RoutesPage />} />
                       <Route path="/routes/new" element={<RouteDetail />} />
                       <Route path="/routes/:routeId" element={<RouteDetail />} />
+                      <Route path="/mcp-servers" element={<MCPServers />} />
+                      <Route path="/registry" element={<Registry />} />
+                      <Route path="/deployments" element={<Deployments />} />
                       <Route path="/users" element={<Users />} />
                       <Route path="/teams" element={<Teams />} />
                       <Route path="/keys" element={<Keys />} />

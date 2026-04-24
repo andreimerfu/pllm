@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse, RoutesResponse, Route, RouteStatsResponse } from "@/types/api";
+import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse, RoutesResponse, Route, RouteStatsResponse, MCPServer, MCPUpsertRequest, MCPHealthProbeResponse, RegistryServer, RegistryServerDetail, RegistryAgent, RegistryAgentWithRefs, RegistrySkill, RegistryPrompt, RegistryListResponse, Deployment } from "@/types/api";
 
 const API_BASE = import.meta.env.DEV ? "http://localhost:8080" : "";
 
@@ -356,3 +356,91 @@ export const checkGuardrailHealth = () =>
   axiosInstance.get("/api/admin/guardrails/health");
 export const testGuardrail = (name: string, data: { text: string; messages?: any[] }) =>
   axiosInstance.post(`/api/admin/guardrails/${name}/test`, data);
+
+// MCP Gateway
+export const getMCPServers = () =>
+  axiosInstance.get("/api/admin/mcp/servers") as Promise<MCPServer[]>;
+export const getMCPServer = (id: string) =>
+  axiosInstance.get(`/api/admin/mcp/servers/${id}`) as Promise<MCPServer>;
+export const createMCPServer = (data: MCPUpsertRequest) =>
+  axiosInstance.post("/api/admin/mcp/servers", data) as Promise<MCPServer>;
+export const updateMCPServer = (id: string, data: MCPUpsertRequest) =>
+  axiosInstance.put(`/api/admin/mcp/servers/${id}`, data) as Promise<MCPServer>;
+export const deleteMCPServer = (id: string) =>
+  axiosInstance.delete(`/api/admin/mcp/servers/${id}`);
+export const probeMCPServer = (id: string) =>
+  axiosInstance.post(`/api/admin/mcp/servers/${id}/health`, {}) as Promise<MCPHealthProbeResponse>;
+
+// Registry (read-only catalog). Writes happen under /api/admin/registry and
+// require admin.
+type RegistryQuery = { search?: string; latest?: boolean; limit?: number; offset?: number };
+
+const qs = (q?: RegistryQuery) => {
+  if (!q) return "";
+  const parts: string[] = [];
+  if (q.search) parts.push(`search=${encodeURIComponent(q.search)}`);
+  if (q.latest) parts.push("latest=true");
+  if (q.limit != null) parts.push(`limit=${q.limit}`);
+  if (q.offset != null) parts.push(`offset=${q.offset}`);
+  return parts.length ? `?${parts.join("&")}` : "";
+};
+
+export const listRegistryServers = (q?: RegistryQuery) =>
+  axiosInstance.get(`/v1/registry/servers${qs(q)}`) as Promise<RegistryListResponse<RegistryServer>>;
+export const getRegistryServer = (name: string, version?: string) =>
+  axiosInstance.get(`/v1/registry/servers/${encodeURIComponent(name)}${version ? `?version=${encodeURIComponent(version)}` : ""}`) as Promise<RegistryServer | RegistryServerDetail>;
+export const listRegistryServerVersions = (name: string) =>
+  axiosInstance.get(`/v1/registry/servers/${encodeURIComponent(name)}/versions`) as Promise<{ versions: RegistryServer[] }>;
+export const upsertRegistryServer = (body: Partial<RegistryServer>) =>
+  axiosInstance.post(`/api/admin/registry/servers`, body) as Promise<RegistryServer>;
+export const deleteRegistryServerVersion = (name: string, version: string) =>
+  axiosInstance.delete(`/api/admin/registry/servers/${encodeURIComponent(name)}/versions/${encodeURIComponent(version)}`);
+
+export const listRegistryAgents = (q?: RegistryQuery) =>
+  axiosInstance.get(`/v1/registry/agents${qs(q)}`) as Promise<RegistryListResponse<RegistryAgent>>;
+export const getRegistryAgent = (name: string, version?: string) =>
+  axiosInstance.get(`/v1/registry/agents/${encodeURIComponent(name)}${version ? `?version=${encodeURIComponent(version)}` : ""}`) as Promise<RegistryAgentWithRefs>;
+export const upsertRegistryAgent = (body: Partial<RegistryAgent> & { refs?: unknown[] }) =>
+  axiosInstance.post(`/api/admin/registry/agents`, body) as Promise<RegistryAgentWithRefs>;
+export const deleteRegistryAgentVersion = (name: string, version: string) =>
+  axiosInstance.delete(`/api/admin/registry/agents/${encodeURIComponent(name)}/versions/${encodeURIComponent(version)}`);
+
+export const listRegistrySkills = (q?: RegistryQuery) =>
+  axiosInstance.get(`/v1/registry/skills${qs(q)}`) as Promise<RegistryListResponse<RegistrySkill>>;
+export const getRegistrySkill = (name: string, version?: string) =>
+  axiosInstance.get(`/v1/registry/skills/${encodeURIComponent(name)}${version ? `?version=${encodeURIComponent(version)}` : ""}`) as Promise<RegistrySkill>;
+export const upsertRegistrySkill = (body: Partial<RegistrySkill>) =>
+  axiosInstance.post(`/api/admin/registry/skills`, body) as Promise<RegistrySkill>;
+export const deleteRegistrySkillVersion = (name: string, version: string) =>
+  axiosInstance.delete(`/api/admin/registry/skills/${encodeURIComponent(name)}/versions/${encodeURIComponent(version)}`);
+
+export const listRegistryPrompts = (q?: RegistryQuery) =>
+  axiosInstance.get(`/v1/registry/prompts${qs(q)}`) as Promise<RegistryListResponse<RegistryPrompt>>;
+export const getRegistryPrompt = (name: string, version?: string) =>
+  axiosInstance.get(`/v1/registry/prompts/${encodeURIComponent(name)}${version ? `?version=${encodeURIComponent(version)}` : ""}`) as Promise<RegistryPrompt>;
+export const upsertRegistryPrompt = (body: Partial<RegistryPrompt>) =>
+  axiosInstance.post(`/api/admin/registry/prompts`, body) as Promise<RegistryPrompt>;
+export const deleteRegistryPromptVersion = (name: string, version: string) =>
+  axiosInstance.delete(`/api/admin/registry/prompts/${encodeURIComponent(name)}/versions/${encodeURIComponent(version)}`);
+
+export interface ImportReport {
+  source: string;
+  found: number;
+  imported: number;
+  skipped: number;
+  errors?: string[];
+}
+export const triggerRegistryImport = (query?: string, limit?: number) =>
+  axiosInstance.post(`/api/admin/registry/import`, { query, limit }) as Promise<{ reports: ImportReport[] }>;
+
+// Deployments
+export const listDeployments = () =>
+  axiosInstance.get("/api/admin/deployments") as Promise<{ deployments: Deployment[] }>;
+export const getDeployment = (id: string) =>
+  axiosInstance.get(`/api/admin/deployments/${id}`) as Promise<Deployment>;
+export const deployRegistryServer = (body: { server_name: string; server_version?: string; namespace?: string }) =>
+  axiosInstance.post(`/api/admin/deployments`, body) as Promise<Deployment>;
+export const refreshDeploymentStatus = (id: string) =>
+  axiosInstance.post(`/api/admin/deployments/${id}/status`, {}) as Promise<Deployment>;
+export const deleteDeployment = (id: string) =>
+  axiosInstance.delete(`/api/admin/deployments/${id}`);
