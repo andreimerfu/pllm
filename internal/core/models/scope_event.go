@@ -14,6 +14,7 @@ type ScopeEventKind string
 const (
 	ScopeEventKindMCPTool ScopeEventKind = "mcp_tool"
 	ScopeEventKindLLM     ScopeEventKind = "llm"
+	ScopeEventKindAgent   ScopeEventKind = "agent"
 )
 
 // ScopeEventOutcome reflects what the runtime decided:

@@ -162,6 +162,47 @@ func TestScopeInvalidateOnUpdate(t *testing.T) {
 	require.False(t, d.Allowed)
 }
 
+func TestAllowAgentMatchesDeclaredRef(t *testing.T) {
+	if testing.Short() {
+		t.Skip("needs testcontainer postgres")
+	}
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	ucID := uuid.New()
+	require.NoError(t, db.Create(&models.UseCase{
+		BaseModel:    models.BaseModel{ID: ucID},
+		Name:         "uc", Slug: "uc",
+		EnforceScope: true,
+	}).Error)
+	require.NoError(t, db.Create(&models.RegistryRef{
+		BaseModel:  models.BaseModel{ID: uuid.New()},
+		OwnerKind:  models.RegistryKindUseCase,
+		OwnerID:    ucID,
+		TargetKind: models.RegistryKindAgent,
+		TargetName: "pllm.io/sales-research",
+	}).Error)
+
+	r := use_cases.NewScopeResolver(db)
+
+	d := r.AllowAgent(context.Background(), &ucID, "pllm.io/sales-research")
+	require.True(t, d.Allowed)
+	require.True(t, d.EnforceMode)
+
+	d = r.AllowAgent(context.Background(), &ucID, "sales-research")
+	require.True(t, d.Allowed)
+
+	d = r.AllowAgent(context.Background(), &ucID, "some-other-agent")
+	require.False(t, d.Allowed)
+	require.Contains(t, d.Reason, "is not declared")
+}
+
+func TestAllowAgentUnscopedKeyAllows(t *testing.T) {
+	r := use_cases.NewScopeResolver(nil)
+	d := r.AllowAgent(context.Background(), nil, "anything")
+	require.True(t, d.Allowed)
+}
+
 // sanity: random UUID lookups don't blow up.
 func TestScopeNonExistentUseCase(t *testing.T) {
 	db, cleanup := testutil.NewTestDB(t)

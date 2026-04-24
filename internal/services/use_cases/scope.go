@@ -29,6 +29,7 @@ type ScopeResolver struct {
 type cachedScope struct {
 	llms       map[string]struct{}
 	serverSlug map[string]struct{}
+	agents     map[string]struct{}
 	enforce    bool
 	expiresAt  time.Time
 }
@@ -90,6 +91,28 @@ func (r *ScopeResolver) AllowMCPTool(ctx context.Context, useCaseID *uuid.UUID, 
 	}
 }
 
+// AllowAgent checks whether the key's use case declares `agentName` as an
+// agent ref. Accepts the full registry name, the last path segment, or any
+// declared local_name alias (mirrors AllowMCPTool's matching).
+// Unscoped keys (no UseCaseID) or missing use case rows always allow.
+func (r *ScopeResolver) AllowAgent(ctx context.Context, useCaseID *uuid.UUID, agentName string) Decision {
+	if useCaseID == nil {
+		return Decision{Allowed: true}
+	}
+	s, err := r.load(ctx, *useCaseID)
+	if err != nil {
+		return Decision{Allowed: true, Reason: "use case lookup failed: " + err.Error()}
+	}
+	if _, ok := s.agents[agentName]; ok {
+		return Decision{Allowed: true, EnforceMode: s.enforce}
+	}
+	return Decision{
+		Allowed:     false,
+		EnforceMode: s.enforce,
+		Reason:      "agent " + agentName + " is not declared by the bound use case",
+	}
+}
+
 // Invalidate drops the cached scope for a use case. Called by the service
 // layer after any write that could change membership (refs, status, etc.).
 func (r *ScopeResolver) Invalidate(id uuid.UUID) {
@@ -133,6 +156,7 @@ func (r *ScopeResolver) fetch(ctx context.Context, id uuid.UUID) (cachedScope, e
 	out := cachedScope{
 		llms:       map[string]struct{}{},
 		serverSlug: map[string]struct{}{},
+		agents:     map[string]struct{}{},
 		enforce:    uc.EnforceScope,
 		expiresAt:  time.Now().Add(r.ttl),
 	}
@@ -154,6 +178,16 @@ func (r *ScopeResolver) fetch(ctx context.Context, id uuid.UUID) (cachedScope, e
 			// named "reg-<workload>".
 			if ref.LocalName != "" {
 				out.serverSlug[ref.LocalName] = struct{}{}
+			}
+		case models.RegistryKindAgent:
+			// Same matching rules as servers: accept full registry name,
+			// last path segment, and any declared local_name alias.
+			out.agents[ref.TargetName] = struct{}{}
+			if i := strings.LastIndex(ref.TargetName, "/"); i >= 0 {
+				out.agents[ref.TargetName[i+1:]] = struct{}{}
+			}
+			if ref.LocalName != "" {
+				out.agents[ref.LocalName] = struct{}{}
 			}
 		}
 	}
