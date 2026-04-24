@@ -339,7 +339,14 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			logger.Warn("Deployment disabled: K8s client unavailable", zap.Error(err))
 		} else {
 			bridge := deploymentsvc.NewMCPBridge(db, mcpManager, logger)
-			deploySvc := deploymentsvc.NewService(db, logger, adapter, bridge, cfg.Deployment.K8s.Namespace)
+			deploySvc := deploymentsvc.NewService(db, logger, adapter,
+				nil, // agentAdapter — wired in Task 7
+				nil, // agentSecrets — wired in Task 7
+				bridge,
+				cfg.Deployment.K8s.Namespace,
+				cfg.Deployment.K8s.AgentNamespace,
+				nil, // agentEnvDefaults — wired in Task 7
+			)
 			serverSvc := registryservice.NewServerService(db, logger)
 			deployHandler = deploymenthandlers.NewHandler(logger, deploySvc, serverSvc)
 			logger.Info("Deployment service initialized",

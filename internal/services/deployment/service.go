@@ -28,21 +28,52 @@ type BackendRegistrar interface {
 	Unregister(ctx context.Context, id uuid.UUID) error
 }
 
+// ErrAgentNotConfigured is returned from DeployAgent/UndeployAgent/RefreshAgentStatus
+// when the service was constructed without agent support (agentAdapter / agentSecrets nil).
+var ErrAgentNotConfigured = errors.New("agent deployment not configured")
+
 // Service manages deployment lifecycles in the DB + delegates to adapters.
 type Service struct {
-	db       *gorm.DB
-	logger   *zap.Logger
-	adapter  Adapter
-	registry BackendRegistrar // optional; nil means "don't auto-wire MCP gateway"
-	ns       string           // default namespace if request omits one
+	db               *gorm.DB
+	logger           *zap.Logger
+	adapter          Adapter
+	agentAdapter     AgentAdapter       // optional — agents disabled if nil
+	agentSecrets     *AgentSecretHelper // optional — pairs with agentAdapter
+	registry         BackendRegistrar   // optional; nil means "don't auto-wire MCP gateway"
+	ns               string             // default namespace if request omits one
+	agentNS          string
+	agentEnvDefaults map[string]string // PLLM_BASE_URL, PLLM_MCP_URL; set at construction
 }
 
-// NewService constructs the deployment service.
-func NewService(db *gorm.DB, logger *zap.Logger, adapter Adapter, registry BackendRegistrar, defaultNS string) *Service {
+// NewService constructs the deployment service. Agent support kicks in
+// when agentAdapter + agentSecrets + agentEnvDefaults are all provided.
+func NewService(
+	db *gorm.DB,
+	logger *zap.Logger,
+	adapter Adapter,
+	agentAdapter AgentAdapter,
+	agentSecrets *AgentSecretHelper,
+	registry BackendRegistrar,
+	defaultNS, agentNS string,
+	agentEnvDefaults map[string]string,
+) *Service {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &Service{db: db, logger: logger, adapter: adapter, registry: registry, ns: defaultNS}
+	if agentNS == "" {
+		agentNS = "pllm-agents"
+	}
+	return &Service{
+		db:               db,
+		logger:           logger,
+		adapter:          adapter,
+		agentAdapter:     agentAdapter,
+		agentSecrets:     agentSecrets,
+		registry:         registry,
+		ns:               defaultNS,
+		agentNS:          agentNS,
+		agentEnvDefaults: agentEnvDefaults,
+	}
 }
 
 // DeployFromServer takes a RegistryServer row and materializes a running
@@ -369,4 +400,267 @@ func displayTitle(server *models.RegistryServer) string {
 // Mirrors workloadNameFor so the two stay aligned and readable.
 func gatewaySlug(workloadName string) string {
 	return "reg-" + workloadName
+}
+
+// --- Agent lifecycle ---------------------------------------------------------
+
+// DeployAgentRequest is the normalized input from the admin HTTP handler.
+type DeployAgentRequest struct {
+	AgentID   uuid.UUID
+	UseCaseID uuid.UUID
+	Namespace string // optional — defaults to service agentNS
+	Replicas  int32
+	// Override image if you want to run a specific tag; otherwise picks the
+	// first OCI package on the RegistryAgent row.
+	ImageOverride string
+	// Extra env vars merged on top of the service defaults.
+	ExtraEnv map[string]string
+}
+
+// DeployAgent resolves the registry agent, provisions a scoped key +
+// Secret, and hands off to the agent adapter.
+func (s *Service) DeployAgent(ctx context.Context, req DeployAgentRequest) (*models.AgentDeployment, error) {
+	if s.agentAdapter == nil || s.agentSecrets == nil {
+		return nil, ErrAgentNotConfigured
+	}
+	if req.AgentID == uuid.Nil {
+		return nil, errors.New("agent_id required")
+	}
+	if req.UseCaseID == uuid.Nil {
+		return nil, errors.New("use_case_id required")
+	}
+	var agent models.RegistryAgent
+	if err := s.db.WithContext(ctx).First(&agent, "id = ?", req.AgentID).Error; err != nil {
+		return nil, fmt.Errorf("resolve agent: %w", err)
+	}
+	image := req.ImageOverride
+	if image == "" {
+		pkg, err := firstOCIPackage(agent.Packages)
+		if err != nil {
+			return nil, fmt.Errorf("no deployable OCI package on agent %q: %w", agent.Name, err)
+		}
+		image = pkg
+	}
+
+	ns := req.Namespace
+	if ns == "" {
+		ns = s.agentNS
+	}
+	workload := agentWorkloadName(&agent)
+	secretName := workload + "-key"
+
+	row, err := s.findOrCreateAgentRow(ctx, &agent, req.UseCaseID, ns, workload, secretName, req.Replicas)
+	if err != nil {
+		return nil, err
+	}
+	s.updateAgentStatus(ctx, row.ID, models.DeploymentStatusDeploying, "")
+
+	keyRes, err := s.agentSecrets.ProvisionScopedKey(ctx, ScopedKeyRequest{
+		Name:       workload + " (auto)",
+		Namespace:  ns,
+		SecretName: secretName,
+		UseCaseID:  req.UseCaseID,
+	})
+	if err != nil {
+		s.updateAgentStatus(ctx, row.ID, models.DeploymentStatusFailed, err.Error())
+		return nil, err
+	}
+	row.ProvisionedKeyID = &keyRes.Key.ID
+	row.SecretName = secretName
+	if err := s.db.WithContext(ctx).Save(row).Error; err != nil {
+		return nil, err
+	}
+
+	env := map[string]string{}
+	for k, v := range s.agentEnvDefaults {
+		env[k] = v
+	}
+	var uc models.UseCase
+	if err := s.db.WithContext(ctx).First(&uc, "id = ?", req.UseCaseID).Error; err == nil {
+		env["PLLM_USE_CASE"] = uc.Name
+	}
+	env["PLLM_AGENT_NAME"] = agent.Name
+	for k, v := range req.ExtraEnv {
+		env[k] = v
+	}
+
+	res, err := s.agentAdapter.Deploy(ctx, &AgentRequest{
+		Namespace:       ns,
+		WorkloadName:    workload,
+		DisplayName:     nonEmpty(agent.Title, agent.Name),
+		ResourceName:    agent.Name,
+		ResourceVersion: agent.Version,
+		Image:           image,
+		UseCaseID:       req.UseCaseID.String(),
+		SecretName:      secretName,
+		Env:             env,
+		Replicas:        row.Replicas,
+	})
+	if err != nil {
+		s.updateAgentStatus(ctx, row.ID, models.DeploymentStatusFailed, err.Error())
+		_ = s.agentSecrets.RevokeScopedKey(ctx, &keyRes.Key.ID, ns, secretName)
+		return nil, err
+	}
+
+	now := time.Now()
+	updates := map[string]any{
+		"endpoint":        res.Endpoint,
+		"adapter_state":   datatypes.JSON(res.AdapterState),
+		"last_applied_at": now,
+		"status":          models.DeploymentStatusRunning,
+		"status_reason":   "",
+	}
+	if err := s.db.WithContext(ctx).Model(&models.AgentDeployment{}).
+		Where("id = ?", row.ID).Updates(updates).Error; err != nil {
+		return nil, fmt.Errorf("persist agent deployment: %w", err)
+	}
+	return s.GetAgent(ctx, row.ID)
+}
+
+// UndeployAgent tears down the pod, the Service, the Secret, revokes the
+// scoped key, and deletes the row.
+func (s *Service) UndeployAgent(ctx context.Context, id uuid.UUID) error {
+	if s.agentAdapter == nil || s.agentSecrets == nil {
+		return ErrAgentNotConfigured
+	}
+	var row models.AgentDeployment
+	if err := s.db.WithContext(ctx).First(&row, "id = ?", id).Error; err != nil {
+		return err
+	}
+	s.updateAgentStatus(ctx, id, models.DeploymentStatusTerminating, "")
+	if err := s.agentAdapter.Undeploy(ctx, &row); err != nil {
+		s.updateAgentStatus(ctx, id, models.DeploymentStatusFailed, err.Error())
+		return err
+	}
+	if err := s.agentSecrets.RevokeScopedKey(ctx, row.ProvisionedKeyID, row.Namespace, row.SecretName); err != nil {
+		s.logger.Warn("agent undeploy: revoke key", zap.Error(err))
+	}
+	return s.db.WithContext(ctx).Delete(&row).Error
+}
+
+// ListAgents returns all agent deployments (newest first).
+func (s *Service) ListAgents(ctx context.Context) ([]models.AgentDeployment, error) {
+	var out []models.AgentDeployment
+	err := s.db.WithContext(ctx).Order("created_at desc").Find(&out).Error
+	return out, err
+}
+
+// GetAgent returns a single agent deployment by ID.
+func (s *Service) GetAgent(ctx context.Context, id uuid.UUID) (*models.AgentDeployment, error) {
+	var row models.AgentDeployment
+	if err := s.db.WithContext(ctx).First(&row, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
+// RefreshAgentStatus polls the adapter for live agent status and persists it.
+func (s *Service) RefreshAgentStatus(ctx context.Context, id uuid.UUID) (*models.AgentDeployment, error) {
+	if s.agentAdapter == nil {
+		return nil, ErrAgentNotConfigured
+	}
+	row, err := s.GetAgent(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	rep, err := s.agentAdapter.Status(ctx, row)
+	if err != nil {
+		return nil, err
+	}
+	row.Status = rep.Status
+	row.StatusReason = rep.Reason
+	if err := s.db.WithContext(ctx).Save(row).Error; err != nil {
+		return nil, err
+	}
+	return row, nil
+}
+
+// --- agent internals ---------------------------------------------------------
+
+func (s *Service) updateAgentStatus(ctx context.Context, id uuid.UUID, status models.DeploymentStatus, reason string) {
+	if err := s.db.WithContext(ctx).Model(&models.AgentDeployment{}).
+		Where("id = ?", id).
+		Updates(map[string]any{"status": status, "status_reason": reason}).Error; err != nil {
+		s.logger.Warn("agent deploy: status update", zap.Error(err))
+	}
+}
+
+func (s *Service) findOrCreateAgentRow(
+	ctx context.Context,
+	agent *models.RegistryAgent,
+	useCaseID uuid.UUID,
+	ns, workload, secretName string,
+	replicas int32,
+) (*models.AgentDeployment, error) {
+	if replicas <= 0 {
+		replicas = 1
+	}
+	var existing models.AgentDeployment
+	err := s.db.WithContext(ctx).
+		Where("registry_agent_id = ? AND namespace = ?", agent.ID, ns).
+		First(&existing).Error
+	if err == nil {
+		existing.ResourceName = agent.Name
+		existing.ResourceVersion = agent.Version
+		existing.UseCaseID = useCaseID
+		existing.WorkloadName = workload
+		existing.SecretName = secretName
+		existing.Replicas = replicas
+		existing.Status = models.DeploymentStatusPending
+		existing.StatusReason = ""
+		if err := s.db.WithContext(ctx).Save(&existing).Error; err != nil {
+			return nil, err
+		}
+		return &existing, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	row := &models.AgentDeployment{
+		BaseModel:       models.BaseModel{ID: uuid.New()},
+		RegistryAgentID: agent.ID,
+		ResourceName:    agent.Name,
+		ResourceVersion: agent.Version,
+		UseCaseID:       useCaseID,
+		Platform:        s.agentAdapter.Platform(),
+		Namespace:       ns,
+		WorkloadName:    workload,
+		SecretName:      secretName,
+		Replicas:        replicas,
+		Status:          models.DeploymentStatusPending,
+	}
+	if err := s.db.WithContext(ctx).Create(row).Error; err != nil {
+		return nil, err
+	}
+	return row, nil
+}
+
+// agentWorkloadName derives a DNS-1123 workload name from the registry
+// agent. Same algorithm as workloadNameFor for servers.
+func agentWorkloadName(agent *models.RegistryAgent) string {
+	base := agent.Name
+	if i := strings.LastIndex(base, "/"); i >= 0 {
+		base = base[i+1:]
+	}
+	s := strings.ToLower(base + "-" + agent.Version)
+	s = nonAlnum.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-")
+	if len(s) > 63 {
+		s = s[:63]
+	}
+	return s
+}
+
+func firstOCIPackage(raw []byte) (string, error) {
+	pkgs, err := decodePackages(raw)
+	if err != nil {
+		return "", err
+	}
+	for _, p := range pkgs {
+		t := strings.ToLower(p.RegistryType)
+		if t == "oci" || t == "docker" {
+			return fmt.Sprintf("%s:%s", p.Identifier, p.Version), nil
+		}
+	}
+	return "", errors.New("need oci package")
 }
