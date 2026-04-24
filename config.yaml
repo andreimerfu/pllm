@@ -371,6 +371,18 @@ model_aliases:
 #   global_rpm: 60  # Lower limits for lite mode
 
 # ===========================
+# Deployment Configuration
+# ===========================
+deployment:
+  enabled: false
+  kubernetes:
+    in_cluster: false
+    namespace: pllm-mcp
+    agent_namespace: pllm-agents
+    image_pull_policy: IfNotPresent
+    wrapper_image: ghcr.io/pllm/mcp-wrapper:0.1
+
+# ===========================
 # Environment Variables
 # ===========================
 # The following environment variables are referenced in this config:

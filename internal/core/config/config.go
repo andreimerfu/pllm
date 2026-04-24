@@ -56,12 +56,17 @@ type DeploymentConfig struct {
 //	in_cluster=true   → use the service-account mounted into the pod
 //	kubeconfig_path   → explicit path (dev/local)
 //	namespace          → where MCP server Deployments land
+//	agent_namespace    → where agent Deployments land
 //	image_pull_policy  → default for generated Deployments
 //	wrapper_image     → image used to wrap stdio-only packages (npx/uvx)
 type DeploymentK8sConfig struct {
 	InCluster         bool   `mapstructure:"in_cluster"`
 	KubeconfigPath    string `mapstructure:"kubeconfig_path"`
 	Namespace         string `mapstructure:"namespace"`
+	// AgentNamespace — where agent Deployments land. Defaults to "pllm-agents"
+	// if empty. Kept separate from Namespace so operators can apply different
+	// RBAC / NetworkPolicy defaults to each.
+	AgentNamespace    string `mapstructure:"agent_namespace"`
 	ImagePullPolicy   string `mapstructure:"image_pull_policy"`
 	WrapperImage      string `mapstructure:"wrapper_image"`
 	DefaultCPURequest string `mapstructure:"cpu_request"`

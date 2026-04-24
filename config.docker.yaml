@@ -321,3 +321,15 @@ model_list:
     priority: 70
     enabled: true
     tags: ["openrouter", "anthropic", "claude", "budget", "multimodal"]
+
+# ===========================
+# Deployment Configuration
+# ===========================
+deployment:
+  enabled: false
+  kubernetes:
+    in_cluster: false
+    namespace: pllm-mcp
+    agent_namespace: pllm-agents
+    image_pull_policy: IfNotPresent
+    wrapper_image: ghcr.io/pllm/mcp-wrapper:0.1
