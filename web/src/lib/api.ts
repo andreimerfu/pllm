@@ -464,6 +464,8 @@ export const refreshAgentStatus = (id: string) =>
   axiosInstance.post(`/api/admin/agents/${id}/status`, {}) as Promise<AgentDeployment>;
 export const deleteAgent = (id: string) =>
   axiosInstance.delete(`/api/admin/agents/${id}`);
+export const invokeAgent = (slug: string, input: unknown) =>
+  axiosInstance.post(`/v1/agents/${slug}/invoke`, { input }) as Promise<{ output: unknown; error?: string; task_id?: string }>;
 
 // Use Cases
 export type UseCaseListParams = {

@@ -6,6 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import { icons } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { listAgents, deleteAgent, refreshAgentStatus } from "@/lib/api";
+import { InvokeDialog } from "@/components/agents/invoke-dialog";
 import type { AgentDeployment } from "@/types/api";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ export default function Agents() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [confirmDelete, setConfirmDelete] = useState<AgentDeployment | null>(null);
+  const [invokeFor, setInvokeFor] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["agent-deployments"],
@@ -99,10 +101,13 @@ export default function Agents() {
               agent={a}
               onRefresh={() => refreshMutation.mutate(a.id)}
               onDelete={() => setConfirmDelete(a)}
+              onInvoke={() => setInvokeFor(a.workload_name)}
             />
           ))}
         </div>
       )}
+
+      <InvokeDialog slug={invokeFor} onClose={() => setInvokeFor(null)} />
 
       <AlertDialog
         open={!!confirmDelete}
@@ -138,10 +143,12 @@ function AgentCard({
   agent: a,
   onRefresh,
   onDelete,
+  onInvoke,
 }: {
   agent: AgentDeployment;
   onRefresh: () => void;
   onDelete: () => void;
+  onInvoke: () => void;
 }) {
   const isFailed = a.status === "failed";
   return (
@@ -194,6 +201,10 @@ function AgentCard({
               <DropdownMenuItem onClick={onRefresh}>
                 <Icon icon={icons.refresh} className="mr-2 h-4 w-4" />
                 Refresh status
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onInvoke}>
+                <Icon icon={icons.play} className="mr-2 h-4 w-4" />
+                Invoke
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive"
