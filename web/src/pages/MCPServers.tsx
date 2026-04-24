@@ -43,6 +43,7 @@ import {
   toFormState,
   type FormState,
 } from "@/components/mcp/mcp-server-drawer";
+import { KindIcon } from "@/components/registry/kind-icon";
 import { formatDistanceToNow } from "date-fns";
 
 export default function MCPServers() {
@@ -208,19 +209,7 @@ export default function MCPServers() {
               >
                 <div className="p-4 space-y-3">
                   <div className="flex items-start gap-3">
-                    <div
-                      className={cn(
-                        "h-10 w-10 rounded-lg flex items-center justify-center shrink-0",
-                        health === "healthy" &&
-                          "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20",
-                        health === "unhealthy" &&
-                          "bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-1 ring-rose-500/20",
-                        health === "unknown" &&
-                          "bg-muted text-muted-foreground ring-1 ring-border",
-                      )}
-                    >
-                      <Icon icon={icons.mcp} className="h-5 w-5" />
-                    </div>
+                    <KindIcon kind="server" name={s.name} size="md" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <HealthDot health={health} withPulse />

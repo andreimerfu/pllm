@@ -1,6 +1,8 @@
-# Deployment Guide
+# Deploying pllm
 
-PLLM supports multiple deployment methods for different environments.
+How to run **pllm itself** in production. For deploying MCP servers and agents
+*using* pllm (K8sAdapter, wrapper image, etc.), see
+[Deployments](/deployments/overview).
 
 ## Docker Deployment
 

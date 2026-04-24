@@ -179,7 +179,24 @@ curl http://localhost:8080/metrics
 
 ## Next Steps
 
-- [Configure Multiple Providers](/providers)
-- [Set Up Authentication](/auth)
-- [Understand the Architecture](/guide/architecture)
-- [Deploy to Production](/deployment)
+Depending on what you want from pllm:
+
+**LLM gateway only**
+- [Configure multiple providers](/providers)
+- [Routing strategies](/guide/routing)
+- [API keys & budgets](/security/keys)
+
+**Add MCP tools**
+- [MCP Gateway overview](/mcp/overview)
+- [Register a backend](/mcp/backends)
+
+**Full agentic control plane**
+- [Concepts](/guide/concepts) — read first
+- [Agent onboarding walkthrough](/agents/onboarding)
+- [Governance & use cases](/governance/overview)
+
+**Operations**
+- [Authentication](/auth)
+- [Deploying pllm itself](/deployment)
+- [Architecture](/guide/architecture)
+- [Data model](/guide/data-model)

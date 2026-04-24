@@ -58,8 +58,8 @@
   --muted-foreground: 215 20% 65%;  /* #94A3B8 - slate-400 */
   --accent: 215 25% 27%;            /* slate-700 */
   --accent-foreground: 210 40% 98%;
-  --destructive: 0 63% 31%;
-  --destructive-foreground: 0 91% 71%;
+  --destructive: 0 84% 66%;         /* #F36666 - between red-400 and red-500, pops on slate-900 */
+  --destructive-foreground: 0 0% 100%;
   --border: 215 25% 27%;            /* slate-700 */
   --input: 215 25% 27%;
   --ring: 160 84% 39%;              /* emerald-500 */
