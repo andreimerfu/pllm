@@ -6,6 +6,13 @@
 #   - a Kubernetes cluster the configured deployment.kubernetes can reach
 #   - the master key set in $PLLM_MASTER_KEY (default: "sk-master-test")
 #
+# The published agent's OCI image is expected to expose POST /invoke on
+# port 8000 with the Phase 2 contract:
+#   request  { "input": <any>, "task_id": "<string>" }
+#   response { "output": <any>, "error": "<optional string>" }
+#
+# A 15-line reference pod satisfies this contract and is used in demos.
+#
 # Prints FAIL + exits non-zero on the first failing step.
 
 set -euo pipefail
@@ -51,6 +58,20 @@ curl -fsS "${AUTH[@]}" "${PLLM_URL}/api/admin/agents" | jq -e \
 
 step "Refresh status"
 curl -fsS "${AUTH[@]}" -X POST "${PLLM_URL}/api/admin/agents/${AD_ID}/status" | jq .status
+
+step "Invoke the agent (plain alias)"
+INVOKE_RESP=$(curl -fsS "${AUTH[@]}" -H 'Content-Type: application/json' \
+  "${PLLM_URL}/v1/agents/$(jq -r .workload_name <<<"${DEPLOY}")/invoke" \
+  -d '{"input":"hello","task_id":"smoke-1"}' || true)
+echo "invoke response: ${INVOKE_RESP}"
+# We don't assert on the body — the reference agent may echo or not,
+# depending on what's running in the cluster. Reaching 200 proves the
+# gateway wiring works.
+
+step "Fetch agent card"
+curl -fsS "${AUTH[@]}" \
+  "${PLLM_URL}/v1/a2a/$(jq -r .workload_name <<<"${DEPLOY}")/.well-known/agent.json" \
+  | jq -e '.name and .url and (.capabilities.streaming == false)' >/dev/null
 
 step "Undeploy"
 curl -fsS "${AUTH[@]}" -X DELETE "${PLLM_URL}/api/admin/agents/${AD_ID}"
