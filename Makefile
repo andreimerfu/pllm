@@ -96,6 +96,15 @@ wrapper-image-minikube: wrapper-image ## Build the wrapper image and load it int
 	@which minikube > /dev/null || (echo "minikube not found" && exit 1)
 	minikube image load pllm/mcp-wrapper:dev
 
+.PHONY: agent-echo-image
+agent-echo-image: ## Build the echo reference agent image (pllm/agent-echo:dev)
+	docker build -t pllm/agent-echo:dev deploy/agent-reference/echo
+
+.PHONY: agent-echo-image-minikube
+agent-echo-image-minikube: agent-echo-image ## Build the echo agent image and load it into minikube
+	@which minikube > /dev/null || (echo "minikube not found" && exit 1)
+	minikube image load pllm/agent-echo:dev
+
 ##@ Kubernetes & Helm
 
 .PHONY: helm-deps
