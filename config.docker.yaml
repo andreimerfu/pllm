@@ -333,6 +333,13 @@ deployment:
     agent_namespace: pllm-agents
     image_pull_policy: IfNotPresent
     wrapper_image: ghcr.io/pllm/mcp-wrapper:0.1
+  oom_autoscale:
+    enabled: true
+    multiplier: 2.0
+    max_attempts: 4
+    max_memory: 4Gi
+    reset_after_healthy: 1h
+    poll_interval: 30s
 
 # ===========================
 # Agent Invocation

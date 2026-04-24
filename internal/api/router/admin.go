@@ -301,9 +301,15 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Route("/deployments", func(rr chi.Router) {
 				rr.Get("/", dh.List)
 				rr.Post("/", dh.Deploy)
+				// Events feed sits on the collection so filters are easier.
+				rr.Get("/events", dh.ListEvents)
 				rr.Get("/{id}", dh.Get)
 				rr.Delete("/{id}", dh.Delete)
 				rr.Post("/{id}/status", dh.RefreshStatus)
+				// OOM auto-scale controls.
+				rr.Post("/{id}/oom/bump", dh.BumpOOM)
+				rr.Post("/{id}/oom/reset", dh.ResetOOM)
+				rr.Put("/{id}/oom/autoscale", dh.SetOOMAutoscale)
 			})
 		}
 
@@ -316,6 +322,9 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 				rr.Get("/{id}", ah.Get)
 				rr.Delete("/{id}", ah.Delete)
 				rr.Post("/{id}/status", ah.RefreshStatus)
+				rr.Post("/{id}/oom/bump", ah.BumpOOM)
+				rr.Post("/{id}/oom/reset", ah.ResetOOM)
+				rr.Put("/{id}/oom/autoscale", ah.SetOOMAutoscale)
 			})
 		}
 	})

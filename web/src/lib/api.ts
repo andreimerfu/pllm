@@ -452,6 +452,23 @@ export const refreshDeploymentStatus = (id: string) =>
   axiosInstance.post(`/api/admin/deployments/${id}/status`, {}) as Promise<Deployment>;
 export const deleteDeployment = (id: string) =>
   axiosInstance.delete(`/api/admin/deployments/${id}`);
+export const bumpDeploymentOOM = (id: string) =>
+  axiosInstance.post(`/api/admin/deployments/${id}/oom/bump`, {}) as Promise<Deployment>;
+export const resetDeploymentOOM = (id: string) =>
+  axiosInstance.post(`/api/admin/deployments/${id}/oom/reset`, {}) as Promise<Deployment>;
+export const setDeploymentOOMAutoscale = (id: string, enabled: boolean | null) =>
+  axiosInstance.put(`/api/admin/deployments/${id}/oom/autoscale`, { enabled });
+export const listDeploymentEvents = (params?: {
+  deployment_id?: string;
+  target_kind?: "server" | "agent";
+  kind?: string;
+  since?: string;
+  limit?: number;
+  offset?: number;
+}) =>
+  axiosInstance.get(`/api/admin/deployments/events`, { params }) as Promise<{
+    events: import("@/types/api").DeploymentEvent[];
+  }>;
 
 // Agents
 export const listAgents = () =>
@@ -464,6 +481,12 @@ export const refreshAgentStatus = (id: string) =>
   axiosInstance.post(`/api/admin/agents/${id}/status`, {}) as Promise<AgentDeployment>;
 export const deleteAgent = (id: string) =>
   axiosInstance.delete(`/api/admin/agents/${id}`);
+export const bumpAgentOOM = (id: string) =>
+  axiosInstance.post(`/api/admin/agents/${id}/oom/bump`, {}) as Promise<AgentDeployment>;
+export const resetAgentOOM = (id: string) =>
+  axiosInstance.post(`/api/admin/agents/${id}/oom/reset`, {}) as Promise<AgentDeployment>;
+export const setAgentOOMAutoscale = (id: string, enabled: boolean | null) =>
+  axiosInstance.put(`/api/admin/agents/${id}/oom/autoscale`, { enabled });
 export const invokeAgent = (slug: string, input: unknown) =>
   axiosInstance.post(`/v1/agents/${slug}/invoke`, { input }) as Promise<{ output: unknown; error?: string; task_id?: string }>;
 

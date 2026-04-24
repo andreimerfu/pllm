@@ -520,7 +520,17 @@ export type DeploymentStatus =
   | 'terminating'
   | 'stopped';
 
-export interface Deployment {
+// OOM auto-scale fields are shared between Deployment and AgentDeployment;
+// when null/absent the deployment inherits the global config.
+export interface DeploymentOOMFields {
+  oom_autoscale_enabled?: boolean | null;
+  oom_memory_override?: string;
+  oom_attempts?: number;
+  oom_last_event_at?: string;
+  last_healthy_at?: string;
+}
+
+export interface Deployment extends DeploymentOOMFields {
   id: string;
   registry_server_id: string;
   resource_name: string;
@@ -537,7 +547,7 @@ export interface Deployment {
   updated_at?: string;
 }
 
-export interface AgentDeployment {
+export interface AgentDeployment extends DeploymentOOMFields {
   id: string;
   registry_agent_id: string;
   resource_name: string;
@@ -555,6 +565,26 @@ export interface AgentDeployment {
   created_at: string;
   updated_at: string;
   last_applied_at?: string;
+}
+
+export type DeploymentEventKind =
+  | 'oom.bumped'
+  | 'oom.cap_reached'
+  | 'oom.reset'
+  | 'oom.manual_bump';
+
+export type DeploymentTargetKind = 'server' | 'agent';
+
+export interface DeploymentEvent {
+  id: string;
+  deployment_id: string;
+  target_kind: DeploymentTargetKind;
+  workload_name?: string;
+  namespace?: string;
+  kind: DeploymentEventKind;
+  reason?: string;
+  data?: Record<string, unknown>;
+  created_at: string;
 }
 
 export interface DeployAgentRequest {

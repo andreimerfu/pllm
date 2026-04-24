@@ -49,6 +49,9 @@ type AgentRequest struct {
 	Env map[string]string
 
 	Replicas int32
+
+	// MemoryOverride — see Request.MemoryOverride. Same semantics.
+	MemoryOverride string
 }
 
 // AgentAdapter is the platform-agnostic interface for agent deploys.
@@ -171,19 +174,32 @@ func (a *AgentK8sAdapter) Status(ctx context.Context, d *models.AgentDeployment)
 		}
 		return nil, fmt.Errorf("k8s: get: %w", err)
 	}
+	oom, oomErr := oomProbe(ctx, a.client, d.Namespace, d.WorkloadName)
+	if oomErr != nil {
+		a.logger.Warn("k8s: oom probe failed", zap.Error(oomErr))
+	}
 	ready := dep.Status.ReadyReplicas == *dep.Spec.Replicas
+	rep := &StatusReport{
+		OOMKilled:             oom.OK,
+		TerminatedMemoryLimit: oom.MemoryLimit,
+		PodName:               oom.PodName,
+		ExitCode:              oom.ExitCode,
+	}
 	for _, c := range dep.Status.Conditions {
 		if c.Type == appsv1.DeploymentProgressing && c.Status == corev1.ConditionFalse {
-			return &StatusReport{
-				Status: models.DeploymentStatusFailed,
-				Reason: c.Message,
-			}, nil
+			rep.Status = models.DeploymentStatusFailed
+			rep.Reason = c.Message
+			return rep, nil
 		}
 	}
 	if ready {
-		return &StatusReport{Status: models.DeploymentStatusRunning, Healthy: true}, nil
+		rep.Status = models.DeploymentStatusRunning
+		rep.Healthy = true
+		return rep, nil
 	}
-	return &StatusReport{Status: models.DeploymentStatusDeploying, Reason: "waiting for replicas"}, nil
+	rep.Status = models.DeploymentStatusDeploying
+	rep.Reason = "waiting for replicas"
+	return rep, nil
 }
 
 // --- internal ------------------------------------------------------------
@@ -260,6 +276,10 @@ func (a *AgentK8sAdapter) buildAgentDeployment(req *AgentRequest, ns string) *ap
 	memReq := orDefault(a.cfg.DefaultMemRequest, "128Mi")
 	cpuLim := orDefault(a.cfg.DefaultCPULimit, "1000m")
 	memLim := orDefault(a.cfg.DefaultMemLimit, "512Mi")
+	if req.MemoryOverride != "" {
+		memLim = req.MemoryOverride
+		memReq = req.MemoryOverride
+	}
 
 	container := corev1.Container{
 		Name:            "agent",

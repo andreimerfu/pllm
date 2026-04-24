@@ -48,4 +48,12 @@ type AgentDeployment struct {
 	AdapterState datatypes.JSON `json:"adapter_state,omitempty"`
 
 	LastAppliedAt *time.Time `json:"last_applied_at,omitempty"`
+
+	// --- OOM auto-scaling ----------------------------------------------
+	// See Deployment.OOMAutoscaleEnabled — identical semantics.
+	OOMAutoscaleEnabled *bool      `json:"oom_autoscale_enabled,omitempty"`
+	OOMMemoryOverride   string     `json:"oom_memory_override,omitempty"`
+	OOMAttempts         int        `json:"oom_attempts"`
+	OOMLastEventAt      *time.Time `json:"oom_last_event_at,omitempty"`
+	LastHealthyAt       *time.Time `json:"last_healthy_at,omitempty"`
 }

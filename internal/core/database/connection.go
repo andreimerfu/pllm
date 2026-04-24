@@ -164,6 +164,7 @@ func Migrate() error {
 		&models.EnrichmentScore{},
 		&models.Deployment{},
 		&models.AgentDeployment{},
+		&models.DeploymentEvent{},
 		&models.UseCase{},
 		&models.ScopeEvent{},
 		&models.Webhook{},

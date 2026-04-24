@@ -26,6 +26,12 @@ const (
 	// Registry lifecycle — for "vendor pushed a new version, re-review"
 	// flows. Not emitted today but reserved so subscribers can future-proof.
 	WebhookEventRegistryServerSaved WebhookEventType = "registry.server.saved"
+
+	// Deployment OOM auto-scale — noteworthy operational events that
+	// typically matter to SIEM/on-call ("workload X has escalated memory
+	// 4 times and is now down — manual intervention needed").
+	WebhookEventDeploymentOOMBumped     WebhookEventType = "deployment.oom.bumped"
+	WebhookEventDeploymentOOMCapReached WebhookEventType = "deployment.oom.cap_reached"
 )
 
 // Webhook is an external HTTP endpoint that receives pllm events.

@@ -65,4 +65,22 @@ type Deployment struct {
 	AdapterState datatypes.JSON `json:"adapter_state,omitempty"`
 
 	LastAppliedAt *time.Time `json:"last_applied_at,omitempty"`
+
+	// --- OOM auto-scaling ----------------------------------------------
+	// Nullable tri-state override on the global `deployment.oom_autoscale.enabled`
+	// switch. nil = inherit, true = on, false = off.
+	OOMAutoscaleEnabled *bool `json:"oom_autoscale_enabled,omitempty"`
+	// Current escalated memory limit (e.g. "512Mi"). Empty = baseline.
+	// Applied on next deploy/reconcile. Set by the bump logic; cleared by
+	// "reset to baseline" or by the healthy-reset timer in the reconciler.
+	OOMMemoryOverride string `json:"oom_memory_override,omitempty"`
+	// Count of bumps since the last healthy reset. Decides whether the
+	// reconciler bumps again or marks the workload Failed.
+	OOMAttempts int `json:"oom_attempts"`
+	// Timestamp of the last detected OOM. Used alongside LastHealthyAt
+	// for the reset window.
+	OOMLastEventAt *time.Time `json:"oom_last_event_at,omitempty"`
+	// Timestamp when the workload last transitioned to Running. Drives
+	// the "healthy long enough — reset attempts" logic.
+	LastHealthyAt *time.Time `json:"last_healthy_at,omitempty"`
 }

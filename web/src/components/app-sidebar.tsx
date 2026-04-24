@@ -123,8 +123,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     userEmail.split("@")[0];
   const userInitials =
     userName
-      .split(" ")
-      .map((n: string) => n[0])
+      .split(/\s+/)
+      .map((n: string) => n.match(/[A-Za-z]/)?.[0] ?? "")
       .join("")
       .toUpperCase()
       .slice(0, 2) || "U";

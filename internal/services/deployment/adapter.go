@@ -57,6 +57,12 @@ type Request struct {
 	// Optional per-deploy knobs.
 	Env          map[string]string
 	RestrictEgress bool
+
+	// MemoryOverride replaces the adapter default memory limit for this
+	// deployment. Set by the service layer's OOM auto-scaler; a K8s-style
+	// quantity like "512Mi". Empty = use adapter default. Requests scale
+	// to match so scheduling still works.
+	MemoryOverride string
 }
 
 // ImageSpec deploys an OCI image directly (ideal — no runtime download).
@@ -101,4 +107,16 @@ type StatusReport struct {
 	Status  models.DeploymentStatus
 	Reason  string
 	Healthy bool
+
+	// OOMKilled is true when the adapter detected an OOMKilled container
+	// in the most recent (or current) pod generation. The service layer
+	// uses this signal to trigger memory auto-scale. When true,
+	// TerminatedMemoryLimit carries the memory limit that was active on
+	// the pod at the time of death, so the reconciler can scale from the
+	// right baseline instead of trusting a stale config default.
+	OOMKilled             bool
+	TerminatedMemoryLimit string
+	// PodName + ExitCode are captured best-effort for the audit event.
+	PodName  string
+	ExitCode int32
 }

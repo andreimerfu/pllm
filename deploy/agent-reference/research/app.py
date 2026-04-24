@@ -57,10 +57,10 @@ def probe_llm(model: str, user_input: str) -> ProbeResult:
     """Call pllm's chat-completions with the given model and report what happened.
 
     pllm's scope layer sits in front of the LLM routing layer; if the
-    bound use case doesn't declare this model, we get a 403 whose body
-    contains "scope" somewhere. Any other status (including an LLM
-    routing error like 404 / 502) means scope passed and the call reached
-    the routing layer.
+    bound use case doesn't declare this model, it returns 403 with a
+    well-known phrase in the error message. Any other status (including
+    an LLM routing error like 503 / 404 / 502) means scope passed and
+    the call reached the routing layer.
     """
     url = f"{PLLM_BASE_URL.rstrip('/')}/v1/chat/completions"
     payload = {
@@ -79,7 +79,16 @@ def probe_llm(model: str, user_input: str) -> ProbeResult:
         )
 
     body_snippet = r.text[:200]
-    is_scope_denial = r.status_code == 403 and "scope" in body_snippet.lower()
+    body_lower = body_snippet.lower()
+    # pllm's canonical scope-denial phrases. "not declared by the bound
+    # use case" is emitted for LLM scope (chat/completions); "out of
+    # scope" covers MCP tool scope denials for completeness. The plain
+    # word "scope" is intentionally NOT a trigger — it appears in
+    # unrelated contexts and would false-positive.
+    is_scope_denial = r.status_code == 403 and (
+        "not declared by the bound use case" in body_lower
+        or "out of scope for bound use case" in body_lower
+    )
     if is_scope_denial:
         return ProbeResult(
             model=model,

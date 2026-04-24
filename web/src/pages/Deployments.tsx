@@ -9,6 +9,8 @@ import {
   listDeployments,
   refreshDeploymentStatus,
   deleteDeployment,
+  bumpDeploymentOOM,
+  resetDeploymentOOM,
 } from "@/lib/api";
 import type { Deployment, DeploymentStatus } from "@/types/api";
 
@@ -77,6 +79,39 @@ export default function Deployments() {
     onError: (e: any) => {
       toast({
         title: "Delete failed",
+        description: e?.response?.data?.error ?? e.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bumpOOMMutation = useMutation({
+    mutationFn: (id: string) => bumpDeploymentOOM(id),
+    onSuccess: (d) => {
+      qc.invalidateQueries({ queryKey: ["deployments"] });
+      toast({
+        title: "Memory bumped",
+        description: `New limit: ${d.oom_memory_override ?? "baseline"}`,
+      });
+    },
+    onError: (e: any) => {
+      toast({
+        title: "Bump failed",
+        description: e?.response?.data?.error ?? e.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetOOMMutation = useMutation({
+    mutationFn: (id: string) => resetDeploymentOOM(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["deployments"] });
+      toast({ title: "Memory override cleared" });
+    },
+    onError: (e: any) => {
+      toast({
+        title: "Reset failed",
         description: e?.response?.data?.error ?? e.message,
         variant: "destructive",
       });
@@ -160,6 +195,8 @@ export default function Deployments() {
                 deployment={d}
                 onRefresh={() => refreshMutation.mutate(d.id)}
                 onDelete={() => setConfirmDelete(d)}
+                onBumpOOM={() => bumpOOMMutation.mutate(d.id)}
+                onResetOOM={() => resetOOMMutation.mutate(d.id)}
               />
             ))}
           </div>
@@ -212,12 +249,18 @@ function DeploymentCard({
   deployment: d,
   onRefresh,
   onDelete,
+  onBumpOOM,
+  onResetOOM,
 }: {
   deployment: Deployment;
   onRefresh: () => void;
   onDelete: () => void;
+  onBumpOOM: () => void;
+  onResetOOM: () => void;
 }) {
   const isFailed = d.status === "failed";
+  const hasOverride = !!d.oom_memory_override;
+  const attempts = d.oom_attempts ?? 0;
   return (
     <div
       className={cn(
@@ -267,6 +310,16 @@ function DeploymentCard({
                 <Icon icon={icons.refresh} className="mr-2 h-4 w-4" />
                 Refresh status
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={onBumpOOM}>
+                <Icon icon={icons.rocket} className="mr-2 h-4 w-4" />
+                Bump memory
+              </DropdownMenuItem>
+              {hasOverride && (
+                <DropdownMenuItem onClick={onResetOOM}>
+                  <Icon icon={icons.refresh} className="mr-2 h-4 w-4" />
+                  Reset memory to baseline
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 className="text-destructive"
                 onClick={onDelete}
@@ -290,6 +343,16 @@ function DeploymentCard({
             <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded bg-primary/10 text-primary ring-1 ring-primary/20 text-[10px] font-mono uppercase tracking-wider">
               <Icon icon={icons.mcp} className="h-2.5 w-2.5" />
               mcp-linked
+            </span>
+          )}
+          {hasOverride && (
+            <span
+              className="inline-flex items-center gap-1 h-5 px-1.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/20 text-[10px] font-mono uppercase tracking-wider"
+              title={`OOM auto-scaled — ${attempts} bump${attempts === 1 ? "" : "s"} so far`}
+            >
+              <Icon icon={icons.warning} className="h-2.5 w-2.5" />
+              mem↑ {d.oom_memory_override}
+              {attempts > 0 && ` (${attempts})`}
             </span>
           )}
         </div>

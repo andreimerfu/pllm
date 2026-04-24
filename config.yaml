@@ -381,6 +381,15 @@ deployment:
     agent_namespace: pllm-agents
     image_pull_policy: IfNotPresent
     wrapper_image: ghcr.io/pllm/mcp-wrapper:0.1
+  # Auto-bump memory when a deployed workload gets OOMKilled.
+  # Per-deployment override exists on each Deployment/AgentDeployment row.
+  oom_autoscale:
+    enabled: true
+    multiplier: 2.0           # factor applied to memory limit per OOM
+    max_attempts: 4           # after this many bumps, workload is marked Failed
+    max_memory: 4Gi           # hard per-deployment ceiling
+    reset_after_healthy: 1h   # how long Running clears the attempt counter
+    poll_interval: 30s        # reconciler scan cadence
 
 # ===========================
 # Agent Invocation

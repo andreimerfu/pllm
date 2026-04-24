@@ -188,20 +188,36 @@ func (a *K8sAdapter) Status(ctx context.Context, d *models.Deployment) (*StatusR
 		}
 		return nil, fmt.Errorf("k8s: get: %w", err)
 	}
-	// Ready replicas == desired replicas AND no progressing/ stalled condition.
+	// OOM probe — runs regardless of reported Deployment status, because
+	// K8s will happily re-mark the Deployment Running as long as the pod
+	// restarts in time. We want the signal independent of aggregate health.
+	oom, oomErr := oomProbe(ctx, a.client, d.Namespace, d.WorkloadName)
+	if oomErr != nil {
+		a.logger.Warn("k8s: oom probe failed", zap.Error(oomErr))
+	}
+
 	ready := dep.Status.ReadyReplicas == *dep.Spec.Replicas
+	rep := &StatusReport{
+		OOMKilled:             oom.OK,
+		TerminatedMemoryLimit: oom.MemoryLimit,
+		PodName:               oom.PodName,
+		ExitCode:              oom.ExitCode,
+	}
 	for _, c := range dep.Status.Conditions {
 		if c.Type == appsv1.DeploymentProgressing && c.Status == corev1.ConditionFalse {
-			return &StatusReport{
-				Status: models.DeploymentStatusFailed,
-				Reason: c.Message,
-			}, nil
+			rep.Status = models.DeploymentStatusFailed
+			rep.Reason = c.Message
+			return rep, nil
 		}
 	}
 	if ready {
-		return &StatusReport{Status: models.DeploymentStatusRunning, Healthy: true}, nil
+		rep.Status = models.DeploymentStatusRunning
+		rep.Healthy = true
+		return rep, nil
 	}
-	return &StatusReport{Status: models.DeploymentStatusDeploying, Reason: "waiting for replicas"}, nil
+	rep.Status = models.DeploymentStatusDeploying
+	rep.Reason = "waiting for replicas"
+	return rep, nil
 }
 
 // --- internal ------------------------------------------------------------
@@ -291,6 +307,13 @@ func (a *K8sAdapter) buildContainer(req *Request) corev1.Container {
 	memReq := orDefault(a.cfg.DefaultMemRequest, "64Mi")
 	cpuLim := orDefault(a.cfg.DefaultCPULimit, "500m")
 	memLim := orDefault(a.cfg.DefaultMemLimit, "256Mi")
+	// OOM auto-scale override from the service layer wins over config
+	// defaults. We match the request to the limit so scheduling picks a
+	// node that can actually hold the bumped workload.
+	if req.MemoryOverride != "" {
+		memLim = req.MemoryOverride
+		memReq = req.MemoryOverride
+	}
 
 	base := corev1.Container{
 		Name:            "mcp",

@@ -32,6 +32,15 @@ type BackendRegistrar interface {
 // when the service was constructed without agent support (agentAdapter / agentSecrets nil).
 var ErrAgentNotConfigured = errors.New("agent deployment not configured")
 
+// K8sMemoryBaselines captures the baseline memory limits the two
+// K8sAdapter instances were constructed with. The service needs these
+// so it can compute the correct starting point for OOM escalation
+// without poking at the adapters' internal config.
+type K8sMemoryBaselines struct {
+	ServerMemoryLimit string // e.g. "256Mi"
+	AgentMemoryLimit  string // e.g. "512Mi"
+}
+
 // Service manages deployment lifecycles in the DB + delegates to adapters.
 type Service struct {
 	db               *gorm.DB
@@ -43,6 +52,14 @@ type Service struct {
 	ns               string             // default namespace if request omits one
 	agentNS          string
 	agentEnvDefaults map[string]string // PLLM_BASE_URL, PLLM_MCP_URL; set at construction
+
+	// OOM auto-scale knobs — populated via WithOOMAutoscale. Zero-value
+	// means "feature disabled globally".
+	oomCfg            OOMAutoscaleConfig
+	oomHooks          WebhookEmitter
+	oomMetrics        MetricsSink
+	serverK8sDefaults K8sMemoryBaselines // only ServerMemoryLimit consumed
+	agentK8sDefaults  K8sMemoryBaselines // only AgentMemoryLimit consumed
 }
 
 // NewService constructs the deployment service. Agent support kicks in
@@ -76,6 +93,16 @@ func NewService(
 	}
 }
 
+// WithMemoryBaselines records the baseline memory limits the two adapters
+// were constructed with. Used by the OOM auto-scaler to compute the
+// starting point for escalation. Call after NewService, before starting
+// the reconciler.
+func (s *Service) WithMemoryBaselines(b K8sMemoryBaselines) *Service {
+	s.serverK8sDefaults = K8sMemoryBaselines{ServerMemoryLimit: b.ServerMemoryLimit}
+	s.agentK8sDefaults = K8sMemoryBaselines{AgentMemoryLimit: b.AgentMemoryLimit}
+	return s
+}
+
 // DeployFromServer takes a RegistryServer row and materializes a running
 // workload. Caller has already performed permission checks.
 //
@@ -104,6 +131,11 @@ func (s *Service) DeployFromServer(ctx context.Context, server *models.RegistryS
 	row, err := s.findOrCreateRow(ctx, server, req)
 	if err != nil {
 		return nil, err
+	}
+	// Carry any persisted OOM-autoscaler memory override into the adapter
+	// request so the re-apply matches the row's current state.
+	if row.OOMMemoryOverride != "" {
+		req.MemoryOverride = row.OOMMemoryOverride
 	}
 	s.updateStatus(ctx, row.ID, models.DeploymentStatusDeploying, "")
 
@@ -495,6 +527,7 @@ func (s *Service) DeployAgent(ctx context.Context, req DeployAgentRequest) (*mod
 		SecretName:      secretName,
 		Env:             env,
 		Replicas:        row.Replicas,
+		MemoryOverride:  row.OOMMemoryOverride,
 	})
 	if err != nil {
 		s.updateAgentStatus(ctx, row.ID, models.DeploymentStatusFailed, err.Error())
