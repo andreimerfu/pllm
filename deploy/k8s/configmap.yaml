@@ -1,0 +1,182 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pllm-config
+  namespace: pllm
+  labels:
+    app.kubernetes.io/name: pllm
+data:
+  config.yaml: |
+    # pLLM Minikube Configuration
+    # Connects to existing infrastructure:
+    #   PostgreSQL (CNPG): postgresql namespace
+    #   Redis:             redis namespace
+    #   Dex:               dex namespace
+
+    server:
+      port: 8080
+      admin_port: 8081
+      metrics_port: 9090
+      read_timeout: 60s
+      write_timeout: 60s
+      idle_timeout: 120s
+      graceful_shutdown: 30s
+
+    cors:
+      allowed_origins:
+        - "http://localhost:8080"
+        - "http://localhost:3000"
+        - "http://localhost:5173"
+        - "https://dashboard.pllm.minikube.local"
+        - "*"
+      allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+      allowed_headers: ["Content-Type", "Authorization", "X-API-Key"]
+      exposed_headers: ["X-Request-ID"]
+      allow_credentials: true
+      max_age: 3600
+
+    # PostgreSQL via CloudNativePG (postgresql namespace)
+    # Service: postgresql-cluster-rw.postgresql.svc.cluster.local:5432
+    # Database: app, User: app (from CNPG bootstrap)
+    database:
+      url: ${DATABASE_URL}
+      max_open_conns: 10
+      max_idle_conns: 5
+      conn_max_lifetime: 300s
+      auto_migrate: true
+
+    # Redis (redis namespace)
+    # Service: redis.redis.svc.cluster.local:6379
+    redis:
+      url: ${REDIS_URL}
+      pool_size: 10
+      min_idle_conns: 5
+      dial_timeout: 5s
+      read_timeout: 3s
+      write_timeout: 3s
+
+    cache:
+      enabled: true
+      ttl: 300s
+      max_size: 1000
+      strategy: lru
+
+    rate_limit:
+      enabled: true
+      global_rpm: 1000
+      chat_completions_rpm: 500
+      completions_rpm: 500
+      embeddings_rpm: 1000
+      burst: 50
+      cleanup_interval: 5m
+
+    jwt:
+      secret_key: ${JWT_SECRET}
+      expiry: 24h
+      refresh_expiry: 168h
+
+    admin:
+      username: admin
+      password: changeme123!
+      email: admin@pllm.io
+
+    # Dex (dex namespace)
+    # Service: dex.dex.svc.cluster.local:5556
+    # Issuer (as configured in Dex): https://auth.dex.minikube.local
+    # Static passwords: admin@minikube.local / admin123, developer@minikube.local / dev123
+    auth:
+      master_key: ${PLLM_MASTER_KEY}
+      require_auth: true
+      api_key_header: "Authorization"
+      dex:
+        enabled: true
+        # Internal service URL for pod-to-pod OIDC discovery
+        issuer: "http://dex.dex.svc.cluster.local:5556"
+        # Public URL browsers use for OAuth flows (must match Dex's configured issuer)
+        public_issuer: "https://auth.dex.minikube.local"
+        client_id: "pllm-web"
+        client_secret: "pllm-web-secret"
+        redirect_url: "https://dashboard.pllm.minikube.local/auth/callback"
+        scopes: ["openid", "profile", "email", "groups"]
+        enabled_providers: ["microsoft"]
+
+    logging:
+      level: info
+      format: json
+      output: stdout
+
+    monitoring:
+      metrics:
+        enabled: true
+        path: "/metrics"
+      health:
+        enabled: true
+        path: "/health"
+      tracing:
+        enabled: false
+
+    realtime:
+      enabled: true
+      max_sessions: 1000
+      session_timeout: 1800s
+      cleanup_interval: 300s
+      max_connections_per_ip: 10
+      max_message_size: 1048576
+      read_buffer_size: 4096
+      write_buffer_size: 4096
+      session_store_type: "redis"
+      redis_prefix: "pllm:realtime"
+
+    router:
+      routing_strategy: "latency-based"
+      fallback_enabled: true
+      circuit_breaker_enabled: true
+      circuit_breaker_threshold: 5
+      circuit_breaker_cooldown: 30s
+      retry_attempts: 2
+      timeout: 30s
+      health_check_interval: 30s
+
+    # MCP Gateway: aggregates backend MCP servers and exposes a single
+    # MCP streamable-HTTP endpoint at /v1/mcp.
+    mcp:
+      enabled: true
+      health_check_interval: 30s
+      start_timeout: 30s
+
+    # Deployment: lets the Registry "Deploy" button spin up MCP servers as
+    # dedicated K8s workloads in the pllm-mcp namespace. Requires RBAC (see
+    # deploy/k8s/rbac.yaml).
+    deployment:
+      enabled: true
+      kubernetes:
+        in_cluster: true
+        namespace: pllm-mcp
+        # Separate namespace for deployed agents (Phase 1). RBAC in
+        # deploy/k8s/rbac.yaml grants the pllm SA full CRUD here + secret
+        # management so scoped-key Secrets can be provisioned per deploy.
+        agent_namespace: pllm-agents
+        # IfNotPresent lets minikube-loaded local images work without a
+        # registry round-trip; keeps the fast-dev flow tight.
+        image_pull_policy: IfNotPresent
+        # Built locally via `make wrapper-image` and loaded into minikube.
+        # Override with a public tag (e.g. ghcr.io/your-org/...) once you
+        # push the image to a registry your cluster can pull from.
+        wrapper_image: pllm/mcp-wrapper:dev
+        cpu_request: 50m
+        memory_request: 64Mi
+        cpu_limit: 500m
+        memory_limit: 256Mi
+        # Flip to true once you've verified connectivity; adds a default
+        # DNS-only egress NetworkPolicy to each deployed MCP pod.
+        restrict_egress: false
+
+    # Agent invocation (Phase 2). Tunes the A2A gateway's outbound calls
+    # to agent pods and the public URL embedded in agent cards.
+    agents:
+      invoke_timeout: 5m
+      # Empty means agent cards advertise a relative URL. In prod set this
+      # to the external ingress host, e.g. "https://pllm.example.com".
+      public_url: ""
+
+    model_list: []

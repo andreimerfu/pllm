@@ -1,0 +1,147 @@
+# RBAC required for the pllm Deployment feature.
+#
+# pllm's deployment service spawns MCP servers as dedicated K8s Deployments
+# in the pllm-mcp namespace. The default ServiceAccount has no permissions
+# to do that, so we create a dedicated one with narrowly-scoped rights:
+#   - cluster-wide:    create/get the pllm-mcp namespace
+#   - namespace-scoped: full CRUD on Deployments / Services / Pods /
+#                       NetworkPolicies within pllm-mcp (only)
+#
+# Keep the scope tight. pllm does NOT need permission to read secrets,
+# manipulate other namespaces, or touch cluster-scoped resources beyond
+# namespace create/get.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pllm-mcp
+  labels:
+    app.kubernetes.io/managed-by: pllm
+    app.kubernetes.io/part-of: pllm
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pllm
+  namespace: pllm
+  labels:
+    app.kubernetes.io/name: pllm
+---
+# Namespace management (create-if-missing inside pllm-mcp). Scoped to
+# namespace resource only; no other cluster-wide permissions.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pllm-namespace-manager
+  labels:
+    app.kubernetes.io/name: pllm
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pllm-namespace-manager
+  labels:
+    app.kubernetes.io/name: pllm
+subjects:
+  - kind: ServiceAccount
+    name: pllm
+    namespace: pllm
+roleRef:
+  kind: ClusterRole
+  name: pllm-namespace-manager
+  apiGroup: rbac.authorization.k8s.io
+---
+# Workload management inside pllm-mcp.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pllm-deployer
+  namespace: pllm-mcp
+  labels:
+    app.kubernetes.io/name: pllm
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]   # for status debugging; no mutation
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pllm-deployer
+  namespace: pllm-mcp
+  labels:
+    app.kubernetes.io/name: pllm
+subjects:
+  - kind: ServiceAccount
+    name: pllm
+    namespace: pllm
+roleRef:
+  kind: Role
+  name: pllm-deployer
+  apiGroup: rbac.authorization.k8s.io
+---
+# --- Agent deployments (Phase 1) -----------------------------------------
+# Same pattern as pllm-mcp: dedicated namespace + narrowly-scoped Role
+# binding so pllm can CRUD agent Deployments/Services/Secrets in it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pllm-agents
+  labels:
+    app.kubernetes.io/managed-by: pllm
+    app.kubernetes.io/part-of: pllm
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pllm-agent-deployer
+  namespace: pllm-agents
+  labels:
+    app.kubernetes.io/name: pllm
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    # Secrets: agent pods need PLLM_API_KEY mounted via envFrom.
+    # pllm itself provisions these at deploy time and removes them on undeploy.
+    resources: ["secrets"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pllm-agent-deployer
+  namespace: pllm-agents
+  labels:
+    app.kubernetes.io/name: pllm
+subjects:
+  - kind: ServiceAccount
+    name: pllm
+    namespace: pllm
+roleRef:
+  kind: Role
+  name: pllm-agent-deployer
+  apiGroup: rbac.authorization.k8s.io
