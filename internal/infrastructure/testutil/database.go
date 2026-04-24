@@ -70,6 +70,7 @@ func NewTestDB(t *testing.T) (*gorm.DB, func()) {
 		&models.EnrichmentJob{},
 		&models.EnrichmentScore{},
 		&models.Deployment{},
+		&models.AgentDeployment{},
 		&models.UseCase{},
 		&models.ScopeEvent{},
 		&models.Webhook{},
