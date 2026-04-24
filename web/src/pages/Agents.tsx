@@ -7,6 +7,7 @@ import { icons } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { listAgents, deleteAgent, refreshAgentStatus } from "@/lib/api";
 import { InvokeDialog } from "@/components/agents/invoke-dialog";
+import { DeployDialog } from "@/components/agents/deploy-dialog";
 import type { AgentDeployment } from "@/types/api";
 
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export default function Agents() {
   const qc = useQueryClient();
   const [confirmDelete, setConfirmDelete] = useState<AgentDeployment | null>(null);
   const [invokeFor, setInvokeFor] = useState<string | null>(null);
+  const [deployOpen, setDeployOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["agent-deployments"],
@@ -86,6 +88,12 @@ export default function Agents() {
     <PageShell
       title="Agents"
       description="Deployed agent workloads, scoped to approved use cases. Deploy via the admin API; status refreshes every 5 s."
+      actions={
+        <Button onClick={() => setDeployOpen(true)}>
+          <Icon icon={icons.upload} className="mr-2 size-4" />
+          Deploy agent
+        </Button>
+      }
     >
       {agents.length === 0 ? (
         <EmptyState
@@ -108,6 +116,7 @@ export default function Agents() {
       )}
 
       <InvokeDialog slug={invokeFor} onClose={() => setInvokeFor(null)} />
+      <DeployDialog open={deployOpen} onClose={() => setDeployOpen(false)} />
 
       <AlertDialog
         open={!!confirmDelete}
