@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -333,28 +334,37 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	// back gracefully if credentials can't be loaded. Depends on mcpManager
 	// so it must be initialized after MCP setup.
 	var deployHandler *deploymenthandlers.Handler
+	var agentDeployHandler *deploymenthandlers.AgentHandler
 	if db != nil && cfg.Deployment.Enabled {
 		adapter, err := deploymentsvc.NewK8sAdapter(cfg.Deployment.K8s, logger)
 		if err != nil {
 			logger.Warn("Deployment disabled: K8s client unavailable", zap.Error(err))
 		} else {
 			bridge := deploymentsvc.NewMCPBridge(db, mcpManager, logger)
-			deploySvc := deploymentsvc.NewService(db, logger, adapter,
-				nil, // agentAdapter — wired in Task 7
-				nil, // agentSecrets — wired in Task 7
+			agentAdapter := deploymentsvc.NewAgentK8sAdapter(adapter.Client(), cfg.Deployment.K8s, logger)
+			agentSecrets := deploymentsvc.NewAgentSecretHelper(db, adapter.Client(), logger)
+
+			agentEnv := map[string]string{
+				"PLLM_BASE_URL": fmt.Sprintf("http://pllm.%s.svc.cluster.local:%d", cfg.Deployment.K8s.Namespace, cfg.Server.Port),
+				"PLLM_MCP_URL":  fmt.Sprintf("http://pllm.%s.svc.cluster.local:%d/v1/mcp", cfg.Deployment.K8s.Namespace, cfg.Server.Port),
+			}
+
+			deploySvc := deploymentsvc.NewService(db, logger,
+				adapter,
+				agentAdapter,
+				agentSecrets,
 				bridge,
 				cfg.Deployment.K8s.Namespace,
 				cfg.Deployment.K8s.AgentNamespace,
-				nil, // agentEnvDefaults — wired in Task 7
+				agentEnv,
 			)
 			serverSvc := registryservice.NewServerService(db, logger)
 			deployHandler = deploymenthandlers.NewHandler(logger, deploySvc, serverSvc)
+			agentDeployHandler = deploymenthandlers.NewAgentHandler(logger, deploySvc)
 			logger.Info("Deployment service initialized",
 				zap.String("namespace", cfg.Deployment.K8s.Namespace),
+				zap.String("agent_namespace", cfg.Deployment.K8s.AgentNamespace),
 				zap.Bool("in_cluster", cfg.Deployment.K8s.InCluster))
-			// Reapply orphaned deployments in the background so router
-			// startup isn't blocked by K8s round-trips. A skaffold dev
-			// restart that wipes the namespace will converge back here.
 			go deploySvc.ReconcileAll(context.Background())
 		}
 	}
@@ -785,6 +795,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			RegistryHandler:       registryHandler,
 			RegistryImportHandler: registryImportHandler,
 			DeploymentHandler:     deployHandler,
+			AgentDeployHandler:    agentDeployHandler,
 			UseCaseHandler:        useCaseHandler,
 			WebhookHandler:        webhookHandler,
 		}

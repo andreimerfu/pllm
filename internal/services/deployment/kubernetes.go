@@ -65,6 +65,10 @@ func NewK8sAdapterWithClient(client kubernetes.Interface, cfg config.DeploymentK
 	return &K8sAdapter{client: client, cfg: cfg, logger: logger}
 }
 
+// Client returns the underlying Kubernetes client. Used by sibling
+// adapters (AgentK8sAdapter) so they don't each re-parse kubeconfig.
+func (a *K8sAdapter) Client() kubernetes.Interface { return a.client }
+
 func loadRESTConfig(cfg config.DeploymentK8sConfig) (*rest.Config, error) {
 	if cfg.InCluster {
 		c, err := rest.InClusterConfig()
