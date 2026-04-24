@@ -35,6 +35,14 @@ type Config struct {
 	Guardrails GuardrailsConfig `mapstructure:"guardrails"`
 	MCP        MCPConfig        `mapstructure:"mcp"`
 	Deployment DeploymentConfig `mapstructure:"deployment"`
+	Agents     AgentInvocationConfig `mapstructure:"agents"`
+}
+
+// AgentInvocationConfig tunes the outbound /invoke calls pllm makes to
+// agent pods and the public URL embedded in agent cards.
+type AgentInvocationConfig struct {
+	InvokeTimeout time.Duration `mapstructure:"invoke_timeout"`
+	PublicURL     string        `mapstructure:"public_url"`
 }
 
 type MCPConfig struct {

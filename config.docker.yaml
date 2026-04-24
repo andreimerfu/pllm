@@ -333,3 +333,10 @@ deployment:
     agent_namespace: pllm-agents
     image_pull_policy: IfNotPresent
     wrapper_image: ghcr.io/pllm/mcp-wrapper:0.1
+
+# ===========================
+# Agent Invocation
+# ===========================
+agents:
+  invoke_timeout: 5m
+  public_url: ""  # optional: base URL for A2A agent cards (e.g. "https://pllm.example.com"); empty = no url in card

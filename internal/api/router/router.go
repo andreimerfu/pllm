@@ -11,6 +11,7 @@ import (
 	"github.com/amerfu/pllm/internal/api/docs"
 	"github.com/amerfu/pllm/internal/api/handlers"
 	"github.com/amerfu/pllm/internal/api/handlers/admin"
+	a2ahandlers "github.com/amerfu/pllm/internal/api/handlers/a2a"
 	deploymenthandlers "github.com/amerfu/pllm/internal/api/handlers/deployment"
 	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
 	registryhandlers "github.com/amerfu/pllm/internal/api/handlers/registry"
@@ -25,6 +26,7 @@ import (
 	coremodels "github.com/amerfu/pllm/internal/core/models"
 	"github.com/amerfu/pllm/internal/services/llm/models"
 	"github.com/amerfu/pllm/internal/services/llm/realtime"
+	a2asvc "github.com/amerfu/pllm/internal/services/a2a"
 	deploymentsvc "github.com/amerfu/pllm/internal/services/deployment"
 	mcpgateway "github.com/amerfu/pllm/internal/services/mcp/gateway"
 	mcpregistryserver "github.com/amerfu/pllm/internal/services/mcp/registryserver"
@@ -77,6 +79,28 @@ func (a llmScopeAdapter) AllowLLM(ctx context.Context, useCaseID *uuid.UUID, mod
 	}
 }
 
+// a2aScopeAdapter bridges to the narrow ScopeChecker the a2a handler expects.
+type a2aScopeAdapter struct {
+	inner *usecasesvc.ScopeResolver
+}
+
+func (a a2aScopeAdapter) AllowAgent(ctx context.Context, useCaseID *uuid.UUID, agentName string) a2ahandlers.ScopeDecision {
+	d := a.inner.AllowAgent(ctx, useCaseID, agentName)
+	return a2ahandlers.ScopeDecision{
+		Allowed:     d.Allowed,
+		EnforceMode: d.EnforceMode,
+		Reason:      d.Reason,
+	}
+}
+
+// allowAllScope is used when the UseCase layer is disabled: A2A handler
+// still needs a ScopeChecker, but every call is accepted.
+type allowAllScope struct{}
+
+func (allowAllScope) AllowAgent(_ context.Context, _ *uuid.UUID, _ string) a2ahandlers.ScopeDecision {
+	return a2ahandlers.ScopeDecision{Allowed: true}
+}
+
 // scopeEventAdapter bridges the EventRecorder to the narrow interfaces
 // expected by the MCP gateway + chat handler. Concentrates the enum
 // translation in one place.
@@ -102,6 +126,16 @@ func (a scopeEventAdapter) RecordLLMDenial(
 	remoteAddr, requestID string,
 ) {
 	a.write(ctx, coremodels.ScopeEventKindLLM, useCaseID, keyID, keyName, target, reason, enforced, remoteAddr, requestID)
+}
+
+// RecordAgentDenial implements a2ahandlers.ScopeEventRecorder.
+func (a scopeEventAdapter) RecordAgentDenial(
+	ctx context.Context,
+	useCaseID uuid.UUID,
+	keyID *uuid.UUID, keyName, target, reason string, enforced bool,
+	remoteAddr, requestID string,
+) {
+	a.write(ctx, coremodels.ScopeEventKindAgent, useCaseID, keyID, keyName, target, reason, enforced, remoteAddr, requestID)
 }
 
 // write is the shared body of both Record* methods; takes the already-
@@ -627,6 +661,28 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			// get_agent, etc. as tool calls instead of the REST API.
 			if registryMCPHandler != nil {
 				r.Handle("/mcp/registry", registryMCPHandler)
+			}
+
+			// A2A: external invocation of deployed agents.
+			if db != nil {
+				a2aManager := a2asvc.NewManager(db)
+				a2aProxy := a2asvc.NewProxy(cfg.Agents.InvokeTimeout)
+				var scopeChk a2ahandlers.ScopeChecker
+				var evRec a2ahandlers.ScopeEventRecorder
+				if useCaseScope != nil {
+					scopeChk = a2aScopeAdapter{inner: useCaseScope}
+				} else {
+					scopeChk = allowAllScope{}
+				}
+				if useCaseEvents != nil {
+					evRec = scopeEventAdapter{inner: useCaseEvents}
+				}
+				gw := a2ahandlers.NewGatewayHandler(logger, a2aManager, a2aProxy, scopeChk, evRec)
+				card := a2ahandlers.NewCardHandler(logger, a2aManager, db, cfg.Agents.PublicURL)
+
+				r.Post("/agents/{slug}/invoke", gw.InvokePlain)
+				r.Post("/a2a/{slug}", gw.JSONRPC)
+				r.Get("/a2a/{slug}/.well-known/agent.json", card.Card)
 			}
 
 			// Registry: read-only catalog endpoints.
