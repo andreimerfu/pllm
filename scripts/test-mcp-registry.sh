@@ -376,6 +376,37 @@ if [ "$be_count" -gt 0 ]; then
   printf %s "$BES" | jq -r '.[] | "    - \(.slug) [\(.transport)] \(.live_health // .health_status)"'
 fi
 
+# --- 8. lifecycle hygiene -------------------------------------------------
+
+section "8. Lifecycle hygiene"
+
+# Status before any forced run — should be 200 with at least an empty
+# summary (or whatever the daemon's first-tick produced).
+LC_STATUS=$(api GET /api/admin/lifecycle/status)
+if [ -n "$LC_STATUS" ] && printf %s "$LC_STATUS" | jq -e . >/dev/null 2>&1; then
+  pass "GET /api/admin/lifecycle/status returns valid JSON"
+else
+  fail "GET /api/admin/lifecycle/status" "$(printf %s "$LC_STATUS" | head -c 200)"
+fi
+
+# Force a run. Must return 200 and a JSON summary listing all three rules.
+LC_RUN=$(api POST /api/admin/lifecycle/run)
+if [ -n "$LC_RUN" ] && printf %s "$LC_RUN" | jq -e . >/dev/null 2>&1; then
+  pass "POST /api/admin/lifecycle/run returns valid JSON"
+else
+  fail "POST /api/admin/lifecycle/run" "$(printf %s "$LC_RUN" | head -c 200)"
+fi
+
+# Each rule must appear in the rules array.
+for rule in inactive_keys ownerless_keys risky_servers; do
+  if printf %s "$LC_RUN" | jq -e --arg r "$rule" \
+       '.rules | map(.rule) | index($r) != null' >/dev/null 2>&1; then
+    pass "lifecycle run executed rule: $rule"
+  else
+    fail "lifecycle run missing rule: $rule" "$(printf %s "$LC_RUN" | head -c 200)"
+  fi
+done
+
 # --- summary --------------------------------------------------------------
 
 printf '\n'
