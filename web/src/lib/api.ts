@@ -219,6 +219,13 @@ export const generateKey = (data: any) =>
   axiosInstance.post("/api/admin/keys", data);
 export const getKey = (id: string) =>
   axiosInstance.get(`/api/admin/keys/${id}`);
+// revealKey returns the plaintext token for a key. Admin-only on the
+// backend; the playground uses it lazily so the operator can run
+// scoped chat from the UI without keeping every plaintext in notes.
+// The response interceptor on axiosInstance unwraps to .data already,
+// so callers get { plaintext_key } directly (no extra .data hop).
+export const revealKey = (id: string): Promise<{ plaintext_key: string }> =>
+  axiosInstance.get(`/api/admin/keys/${id}/secret`) as unknown as Promise<{ plaintext_key: string }>;
 export const updateKey = (id: string, data: any) =>
   axiosInstance.put(`/api/admin/keys/${id}`, data);
 export const deleteKey = (id: string) =>

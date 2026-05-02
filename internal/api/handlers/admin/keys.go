@@ -445,6 +445,32 @@ func (h *KeyHandler) RevokeKey(w http.ResponseWriter, r *http.Request) {
 	h.DeleteKey(w, r)
 }
 
+// RevealKey returns the plaintext token for a key. Admin-only via the
+// upstream RequireAdmin middleware (master key OR JWT-with-admin-role).
+// The list/get endpoints intentionally never expose the token (it's
+// json:"-" on the model), but operators in the playground need to be
+// able to retrieve it for testing scoped chat calls without keeping
+// every plaintext in their notes. The chat handler still does its own
+// scope check; this endpoint only reveals what the admin could
+// always read out of Postgres.
+func (h *KeyHandler) RevealKey(w http.ResponseWriter, r *http.Request) {
+	keyID, err := uuid.Parse(chi.URLParam(r, "keyID"))
+	if err != nil {
+		h.sendError(w, http.StatusBadRequest, "Invalid key ID")
+		return
+	}
+	var k models.Key
+	if err := h.db.Select("id", "key").First(&k, keyID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			h.sendError(w, http.StatusNotFound, "Key not found")
+			return
+		}
+		h.sendError(w, http.StatusInternalServerError, "Failed to fetch key")
+		return
+	}
+	h.sendJSON(w, http.StatusOK, map[string]string{"plaintext_key": k.Key})
+}
+
 // GetKeyUsage returns detailed key usage statistics
 func (h *KeyHandler) GetKeyUsage(w http.ResponseWriter, r *http.Request) {
 	keyID, err := uuid.Parse(chi.URLParam(r, "keyID"))

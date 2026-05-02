@@ -7,8 +7,10 @@ import { cn } from "@/lib/utils";
 import { icons } from "@/lib/icons";
 import {
   getKeys,
+  getUseCase,
   listScopeEvents,
   listUseCases,
+  revealKey,
 } from "@/lib/api";
 import type { ScopeEvent, UseCase } from "@/types/api";
 import type { ApiKey } from "@/components/keys/columns";
@@ -68,10 +70,21 @@ export function UseCaseMode({
     () => useCases.find((u) => u.id === ucId) ?? null,
     [useCases, ucId],
   );
-  const boundKeys = useMemo(
-    () => keys.filter((k) => k.use_case_id === ucId && k.is_active && !k.revoked_at),
-    [keys, ucId],
-  );
+  const boundKeys = useMemo(() => {
+    // Sort so user-issued keys come before agent auto-provisioned ones.
+    // Agent auto keys have plaintext stored only as a K8s Secret on the
+    // agent pod and are never retrievable from the gateway, so they
+    // can't drive a chat from the operator's browser. Operator-issued
+    // keys (e.g. the seeded demo-* set) are the right default.
+    const matching = keys.filter(
+      (k) => k.use_case_id === ucId && k.is_active && !k.revoked_at,
+    );
+    return matching.sort((a, b) => {
+      const aAuto = a.name?.endsWith(" (auto)") ? 1 : 0;
+      const bAuto = b.name?.endsWith(" (auto)") ? 1 : 0;
+      return aAuto - bAuto;
+    });
+  }, [keys, ucId]);
   const selectedKey: ApiKey | null = useMemo(
     () => boundKeys.find((k) => k.id === keyId) ?? null,
     [boundKeys, keyId],
@@ -90,9 +103,30 @@ export function UseCaseMode({
     }
   }, [ucId, boundKeys, keyId]);
 
+  // Pull the full use-case detail so we know which LLMs are actually
+  // in scope. The list endpoint omits refs.
+  const { data: ucDetail } = useQuery({
+    queryKey: ["use-case-detail", ucId],
+    queryFn: () => (ucId ? getUseCase(ucId) : null),
+    enabled: !!ucId,
+  });
+  const declaredLLMs = useMemo<string[]>(() => {
+    const refs = (ucDetail as any)?.llms ?? [];
+    return refs.map((r: { target_name: string }) => r.target_name);
+  }, [ucDetail]);
+
+  // When the use case changes, default the target to a declared LLM
+  // (route preferred over model). Falls back to the first target
+  // overall only if the use case has nothing declared yet.
   useEffect(() => {
-    if (!model && targetList.length > 0) setModel(targetList[0].id);
-  }, [targetList, model]);
+    if (targetList.length === 0) return;
+    const inScope = targetList.find((t) => declaredLLMs.includes(t.id));
+    if (inScope) {
+      setModel(inScope.id);
+      return;
+    }
+    if (!model) setModel(targetList[0].id);
+  }, [targetList, declaredLLMs, ucId]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_320px] h-full min-h-0">
@@ -264,6 +298,18 @@ function ScopedChat({
 
   const canSend = !pending && input.trim().length > 0 && !!selectedKey && !!model;
 
+  // Plaintext is intentionally NOT in the keys list response (json:"-").
+  // We fetch it lazily the first time the operator sends with a given
+  // key, then memoize per key id for the lifetime of this component.
+  const tokenCache = useRef<Record<string, string>>({});
+  const fetchToken = async (id: string): Promise<string> => {
+    if (tokenCache.current[id]) return tokenCache.current[id];
+    const r = await revealKey(id);
+    const t = r?.plaintext_key ?? "";
+    tokenCache.current[id] = t;
+    return t;
+  };
+
   const send = async () => {
     if (pending) return;
     if (!selectedKey) {
@@ -277,13 +323,19 @@ function ScopedChat({
     setInput("");
     setPending(true);
     try {
+      const token = selectedKey.key || (await fetchToken(selectedKey.id));
+      if (!token) {
+        throw new Error(
+          "This key's plaintext is unavailable (likely an agent-provisioned secret). Pick a different key from the dropdown.",
+        );
+      }
       const res = await fetch(
         `${import.meta.env.DEV ? "http://localhost:8080" : ""}/v1/chat/completions`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${selectedKey.key ?? ""}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             model,

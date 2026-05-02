@@ -148,6 +148,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Put("/{keyID}", keyHandler.UpdateKey)
 			r.Delete("/{keyID}", keyHandler.DeleteKey)
 			r.Post("/{keyID}/revoke", keyHandler.RevokeKey)
+			r.Get("/{keyID}/secret", keyHandler.RevealKey)
 			r.Get("/{keyID}/stats", keyHandler.GetKeyStats)
 			r.Get("/{keyID}/usage", keyHandler.GetKeyUsage)
 		})
