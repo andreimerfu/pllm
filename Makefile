@@ -57,6 +57,22 @@ dev-worker: ## Run worker with hot reload (requires air)
 	@which air > /dev/null || go install github.com/cosmtrek/air@latest
 	air -c .air-worker.toml
 
+.PHONY: demo-seed
+demo-seed: ## Seed the bank-MRM demo scenario into the local gateway
+	@if command -v pllm >/dev/null 2>&1; then \
+		pllm seed bank; \
+	else \
+		go build -o ./bin/pllm ./cmd/cli && ./bin/pllm seed bank; \
+	fi
+
+.PHONY: demo-seed-clean
+demo-seed-clean: ## Remove all bank-MRM demo fixtures
+	@if command -v pllm >/dev/null 2>&1; then \
+		pllm seed bank --cleanup; \
+	else \
+		go build -o ./bin/pllm ./cmd/cli && ./bin/pllm seed bank --cleanup; \
+	fi
+
 ##@ Docker
 
 .PHONY: docker-up

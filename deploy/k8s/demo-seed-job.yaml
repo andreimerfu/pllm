@@ -1,0 +1,61 @@
+# One-shot Job that seeds the bank-MRM demo into a pllm install.
+#
+# Usage:
+#   1. Ensure the existing `pllm` secret in the `pllm` namespace has
+#      PLLM_MASTER_KEY set (it does by default in deploy/k8s/secret.yaml).
+#   2. Apply: kubectl apply -f deploy/k8s/demo-seed-job.yaml
+#   3. Watch:  kubectl logs -n pllm -l job-name=pllm-demo-seed -f
+#   4. Result: the Job exits 0 on success and is auto-cleaned by the
+#      ttlSecondsAfterFinished after 1h.
+#
+# To re-run the seed (idempotent — safe):
+#   kubectl delete job -n pllm pllm-demo-seed
+#   kubectl apply -f deploy/k8s/demo-seed-job.yaml
+#
+# To remove all seeded fixtures, copy this file and change `args` to
+# ["seed", "bank", "--cleanup"], or run the equivalent one-liner:
+#   kubectl run pllm-demo-seed-cleanup -n pllm --rm -i --restart=Never \
+#     --image=ghcr.io/amerfu/pllm:latest --env-from-secret=pllm \
+#     -- pllm seed bank --cleanup
+#
+# Tweak PLLM_DEMO_ROUTE if your gateway uses a different LLM route name.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pllm-demo-seed
+  namespace: pllm
+  labels:
+    app.kubernetes.io/name: pllm
+    app.kubernetes.io/component: demo-seed
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pllm
+        app.kubernetes.io/component: demo-seed
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed
+          image: ghcr.io/amerfu/pllm:latest
+          imagePullPolicy: IfNotPresent
+          command: ["pllm"]
+          args: ["seed", "bank"]
+          env:
+            - name: PLLM_BASE_URL
+              value: "http://pllm.pllm.svc.cluster.local:8080"
+            - name: PLLM_DEMO_ROUTE
+              value: "free-route"
+          envFrom:
+            - secretRef:
+                name: pllm
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
