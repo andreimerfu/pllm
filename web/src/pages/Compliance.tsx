@@ -55,6 +55,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { GovernanceHelp } from "@/components/governance/help-popover";
+import { InfoTip } from "@/components/governance/info-tip";
 
 // ---------------------------------------------------------------------------
 // Posture scoring — materialized from use-case enforcement + 24h denial
@@ -148,8 +150,13 @@ export default function Compliance() {
   return (
     <PageShell
       title="Compliance"
-      description="Posture, runtime scope events, and outbound subscriptions. Auto-refreshes every 10 s."
-      actions={<ExportCSV events={events} />}
+      description="What the runtime saw. Live scope events from keys bound to use cases, posture rolled up across the portfolio, outbound webhooks, and the lifecycle sweepers. Auto-refreshes every 10 s."
+      actions={
+        <>
+          <GovernanceHelp accent="audit" />
+          <ExportCSV events={events} />
+        </>
+      }
     >
       {/* ────────────── Posture hero ────────────── */}
       <div className="rounded-lg border border-border bg-card p-5">
@@ -166,11 +173,13 @@ export default function Compliance() {
                   label: "Enforcement coverage",
                   value: posture.enforcementCoverage,
                   hint: `${posture.enforcing} of ${posture.approved} approved`,
+                  tip: "Share of approved use cases running in blocking mode (vs flag mode). Drafts are excluded — only signed-off use cases count.",
                 },
                 {
                   label: "Runtime denial score",
                   value: posture.denialScore,
                   hint: `${posture.denials} denied in last 24h`,
+                  tip: "100 with zero denials, dropping 2 points per denial in the last 24 hours, floored at 0. High denial volume usually signals key/use-case mis-binding rather than attack.",
                 },
                 {
                   label: "Webhook delivery",
@@ -179,6 +188,7 @@ export default function Compliance() {
                     posture.enabled === 0
                       ? "no subscriptions"
                       : `${posture.healthy} of ${posture.enabled} healthy`,
+                  tip: "Share of enabled webhook subscriptions whose last delivery returned a 2xx. 100 when no webhooks are configured.",
                 },
               ]}
             />
@@ -189,18 +199,21 @@ export default function Compliance() {
               icon={icons.useCase}
               label="Use cases"
               value={useCases.length}
+              hint="Total across all statuses (drafts, under review, approved, retired)."
             />
             <HeroStat
               icon={icons.shield}
-              label="In block mode"
+              label="Blocking"
               value={posture.enforcing}
               tone={posture.enforcing > 0 ? "emerald" : "muted"}
+              hint="Approved use cases with blocking mode on — out-of-scope calls get a 403 / JSON-RPC error."
             />
             <HeroStat
               icon={icons.shieldAlert}
               label="Flagged"
               value={flaggedUCs}
               tone={flaggedUCs > 0 ? "rose" : "muted"}
+              hint="Use cases the reconciler raised a compliance flag on — typically a dependency leaked a data class the use case doesn't declare."
             />
           </div>
         </div>
@@ -212,6 +225,7 @@ export default function Compliance() {
           className="lg:col-span-2"
           eyebrow="Runtime"
           title="Scope events"
+          tip="Each call from a key bound to a use case is checked. If the target isn't declared, the call is denied (blocking) or flagged (logged but allowed)."
           right={
             <RangeToggle value={range} onChange={setRange} />
           }
@@ -232,13 +246,21 @@ export default function Compliance() {
           )}
         </Panel>
 
-        <Panel eyebrow="Top" title="Violating use cases">
+        <Panel
+          eyebrow="Top"
+          title="Use cases with most denials"
+          tip="Use cases whose bound API keys triggered the most scope denials in the selected window. Often a sign of mis-binding rather than misuse."
+        >
           <UseCaseBars items={topUCs} />
         </Panel>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Panel eyebrow="Top" title="Denied targets">
+        <Panel
+          eyebrow="Top"
+          title="Most-denied targets"
+          tip="Models and tools that were most often refused — i.e. requested by a key whose use case didn't declare them."
+        >
           <TargetBars items={topTg} />
         </Panel>
         <div className="lg:col-span-2">
@@ -277,13 +299,15 @@ function HeroStat({
   label,
   value,
   tone = "default",
+  hint,
 }: {
   icon: string;
   label: string;
   value: number;
   tone?: "default" | "emerald" | "rose" | "muted";
+  hint?: string;
 }) {
-  return (
+  const inner = (
     <div className="rounded-md border border-border/70 bg-background/40 px-3 py-2.5 flex items-center gap-2.5">
       <div
         className={cn(
@@ -312,6 +336,7 @@ function HeroStat({
       </div>
     </div>
   );
+  return hint ? <InfoTip label={hint}>{inner}</InfoTip> : inner;
 }
 
 function LegendDot({
@@ -361,16 +386,28 @@ function RangeToggle({
 function Panel({
   eyebrow,
   title,
+  tip,
   right,
   children,
   className,
 }: {
   eyebrow: string;
   title: string;
+  tip?: string;
   right?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }) {
+  const titleEl = (
+    <div
+      className={cn(
+        "text-sm font-semibold tracking-tight mt-0.5",
+        tip && "decoration-dotted decoration-muted-foreground/50 underline underline-offset-4 cursor-help",
+      )}
+    >
+      {title}
+    </div>
+  );
   return (
     <div className={cn("rounded-lg border border-border bg-card p-4", className)}>
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -378,9 +415,7 @@ function Panel({
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
             {eyebrow}
           </div>
-          <div className="text-sm font-semibold tracking-tight mt-0.5">
-            {title}
-          </div>
+          {tip ? <InfoTip label={tip}>{titleEl}</InfoTip> : titleEl}
         </div>
         {right}
       </div>

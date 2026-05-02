@@ -306,17 +306,21 @@ export function ClassificationMix({
 }
 
 // ---------------------------------------------------------------------------
-// Hero ring — "approval coverage" of approved UCs in block mode.
+// Hero ring — "blocking coverage" = of approved use cases, how many are
+// in blocking mode. `blocking` MUST already be filtered to approved-only;
+// historically callers passed the unfiltered enforce count, which let
+// drafts push the ring past 100%.
 // ---------------------------------------------------------------------------
 
 export function CoverageRing({
-  enforcing,
+  blocking,
   approved,
 }: {
-  enforcing: number;
+  blocking: number;
   approved: number;
 }) {
-  const pct = approved === 0 ? 0 : Math.round((enforcing / approved) * 100);
+  const safeBlocking = Math.min(blocking, approved);
+  const pct = approved === 0 ? 0 : Math.round((safeBlocking / approved) * 100);
   const tone = pct >= 80 ? "emerald" : pct >= 50 ? "amber" : "rose";
   const color =
     tone === "emerald"
@@ -330,7 +334,10 @@ export function CoverageRing({
   const offset = c - (pct / 100) * c;
 
   return (
-    <div className="relative w-24 h-24 shrink-0">
+    <div
+      className="relative w-24 h-24 shrink-0"
+      title={`${safeBlocking} of ${approved} approved use cases are in blocking mode`}
+    >
       <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
         <circle
           cx="50"
@@ -360,7 +367,7 @@ export function CoverageRing({
           <span className="text-base">%</span>
         </span>
         <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mt-0.5">
-          enforced
+          blocking
         </span>
       </div>
     </div>

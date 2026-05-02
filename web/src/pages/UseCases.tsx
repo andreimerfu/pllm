@@ -59,6 +59,8 @@ import {
 } from "@/components/use_cases/use-case-stats";
 import { UseCaseDrawer } from "@/components/use_cases/use-case-drawer";
 import { PageShell } from "@/components/common/page-shell";
+import { GovernanceHelp } from "@/components/governance/help-popover";
+import { InfoTip } from "@/components/governance/info-tip";
 import { useToast } from "@/hooks/use-toast";
 
 // ---------------------------------------------------------------------------
@@ -128,17 +130,22 @@ export default function UseCases() {
 
   const portfolio = useMemo(() => {
     const byStatus = { draft: 0, under_review: 0, approved: 0, retired: 0 };
-    let enforcing = 0;
+    let blockingTotal = 0;
+    let blockingApproved = 0;
     let flagged = 0;
     for (const uc of all) {
       byStatus[uc.status]++;
-      if (uc.enforce_scope) enforcing++;
+      if (uc.enforce_scope) {
+        blockingTotal++;
+        if (uc.status === "approved") blockingApproved++;
+      }
       if (uc.compliance_flag) flagged++;
     }
     return {
       total: all.length,
       byStatus,
-      enforcing,
+      blockingTotal,
+      blockingApproved,
       flagged,
     };
   }, [all]);
@@ -146,12 +153,15 @@ export default function UseCases() {
   return (
     <PageShell
       title="Use cases"
-      description="The business-activity layer. Each use case declares the MCP servers, agents, skills, prompts, and LLMs it depends on — and carries the risk tier, owner, and data classifications you approve against."
+      description="A use case declares what a business activity is allowed to use — MCP servers, agents, LLMs, skills, prompts — plus its risk tier and data classifications. Keys bound to it are scope-checked at runtime."
       actions={
-        <Button onClick={() => setCreateOpen(true)} className="gap-2">
-          <Icon icon={icons.plus} className="h-4 w-4" />
-          New use case
-        </Button>
+        <>
+          <GovernanceHelp accent="declare" />
+          <Button onClick={() => setCreateOpen(true)} className="gap-2">
+            <Icon icon={icons.plus} className="h-4 w-4" />
+            New use case
+          </Button>
+        </>
       }
     >
       {/* ────────────── Hero ────────────── */}
@@ -159,7 +169,7 @@ export default function UseCases() {
         <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-5 items-center">
           <div className="flex items-center gap-5">
             <CoverageRing
-              enforcing={portfolio.enforcing}
+              blocking={portfolio.blockingApproved}
               approved={portfolio.byStatus.approved}
             />
             <div>
@@ -173,8 +183,9 @@ export default function UseCases() {
                 </span>
               </div>
               <div className="text-[11px] text-muted-foreground mt-1.5">
-                {portfolio.enforcing} of {portfolio.byStatus.approved || "—"}{" "}
-                approved in block mode
+                {portfolio.byStatus.approved === 0
+                  ? "no approved use cases yet"
+                  : `${portfolio.blockingApproved} of ${portfolio.byStatus.approved} approved are blocking`}
               </div>
             </div>
           </div>
@@ -185,24 +196,28 @@ export default function UseCases() {
               label="Draft"
               value={portfolio.byStatus.draft}
               tone="muted"
+              hint="Not yet submitted for review. Keys can still bind to drafts; runtime enforcement reflects whatever flag/blocking mode is set."
             />
             <HeroStat
               icon={icons.clock}
               label="Under review"
               value={portfolio.byStatus.under_review}
               tone={portfolio.byStatus.under_review > 0 ? "amber" : "muted"}
+              hint="Submitted to risk / governance for sign-off. The component graph is frozen during review."
             />
             <HeroStat
               icon={icons.check}
               label="Approved"
               value={portfolio.byStatus.approved}
               tone={portfolio.byStatus.approved > 0 ? "emerald" : "muted"}
+              hint="Signed off. The blocking-coverage ring tracks how many of these are running in blocking (vs flag) mode."
             />
             <HeroStat
               icon={icons.shieldAlert}
               label="Flagged"
               value={portfolio.flagged}
               tone={portfolio.flagged > 0 ? "rose" : "muted"}
+              hint="Reconciler raised a compliance flag — usually because a dependency now exposes a data class the use case doesn't declare."
             />
           </div>
         </div>
@@ -318,13 +333,15 @@ function HeroStat({
   label,
   value,
   tone = "muted",
+  hint,
 }: {
   icon: string;
   label: string;
   value: number;
   tone?: "emerald" | "amber" | "rose" | "muted";
+  hint?: string;
 }) {
-  return (
+  const inner = (
     <div className="rounded-md border border-border/70 bg-background/40 px-3 py-2.5 flex items-center gap-2.5">
       <div
         className={cn(
@@ -356,6 +373,7 @@ function HeroStat({
       </div>
     </div>
   );
+  return hint ? <InfoTip label={hint}>{inner}</InfoTip> : inner;
 }
 
 // ---------------------------------------------------------------------------
@@ -387,15 +405,14 @@ function UseCaseCard({ row, onClick }: { row: UseCase; onClick: () => void }) {
           </code>
         </div>
         {row.compliance_flag && (
-          <span
-            className="shrink-0"
-            title={row.compliance_flag_reason || "Compliance issue"}
-          >
-            <Icon
-              icon={icons.shieldAlert}
-              className="h-4 w-4 text-rose-500"
-            />
-          </span>
+          <InfoTip label={row.compliance_flag_reason || "Compliance flag — see Compliance page for the trigger."}>
+            <span className="shrink-0 inline-flex">
+              <Icon
+                icon={icons.shieldAlert}
+                className="h-4 w-4 text-rose-500"
+              />
+            </span>
+          </InfoTip>
         )}
       </div>
 
@@ -408,14 +425,9 @@ function UseCaseCard({ row, onClick }: { row: UseCase; onClick: () => void }) {
       <div className="flex items-center flex-wrap gap-1.5 pt-1">
         <RiskBadge tier={row.risk_tier} />
         <StatusBadge status={row.status} />
-        {row.enforce_scope && <EnforceBadge />}
+        {row.enforce_scope && <BlockingBadge />}
         {row.data_classifications?.slice(0, 3).map((c) => (
-          <span
-            key={c}
-            className="inline-flex items-center h-[18px] px-1.5 rounded bg-muted text-muted-foreground text-[10px] font-mono uppercase tracking-wider ring-1 ring-border"
-          >
-            {c}
-          </span>
+          <ClassChip key={c} value={c} />
         ))}
         {(row.data_classifications?.length ?? 0) > 3 && (
           <span className="text-[10px] text-muted-foreground font-mono">
@@ -434,43 +446,102 @@ function UseCaseCard({ row, onClick }: { row: UseCase; onClick: () => void }) {
   );
 }
 
+const TIER_HINT: Record<UseCaseRiskTier, string> = {
+  tier1: "Tier 1 · Highest impact — customer-facing decisions, material financial exposure.",
+  tier2: "Tier 2 · High — internal decisions, significant operational reliance.",
+  tier3: "Tier 3 · Medium — productivity, summarization, drafting.",
+  tier4: "Tier 4 · Low — sandbox, exploratory, experimentation.",
+};
+
+const STATUS_HINT: Record<UseCaseStatus, string> = {
+  draft: "Draft · still being authored. Not yet submitted for sign-off.",
+  under_review: "Under review · awaiting governance sign-off; component edges are frozen.",
+  approved: "Approved · cleared for production use within its declared scope.",
+  retired: "Retired · superseded; bound keys should be migrated.",
+};
+
 function RiskBadge({ tier }: { tier: UseCaseRiskTier }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center h-[18px] px-1.5 rounded ring-1 text-[10px] font-mono uppercase tracking-wider",
-        TIER_TONES[tier],
-      )}
-    >
-      {tier.replace("tier", "t")}
-    </span>
+    <InfoTip label={TIER_HINT[tier]}>
+      <span
+        className={cn(
+          "inline-flex items-center h-[18px] px-1.5 rounded ring-1 text-[10px] font-mono uppercase tracking-wider",
+          TIER_TONES[tier],
+        )}
+      >
+        {tier.replace("tier", "t")}
+      </span>
+    </InfoTip>
   );
 }
 
 function StatusBadge({ status }: { status: UseCaseStatus }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center h-[18px] px-1.5 rounded ring-1 text-[10px] font-mono uppercase tracking-wider",
-        STATUS_TONES[status],
-      )}
-    >
-      {status.replace("_", " ")}
-    </span>
+    <InfoTip label={STATUS_HINT[status]}>
+      <span
+        className={cn(
+          "inline-flex items-center h-[18px] px-1.5 rounded ring-1 text-[10px] font-mono uppercase tracking-wider",
+          STATUS_TONES[status],
+        )}
+      >
+        {status.replace("_", " ")}
+      </span>
+    </InfoTip>
   );
 }
 
-// EnforceBadge communicates the teeth-mode in a compact form. Only shown
-// when enforce_scope is true; absence = flag mode is assumed.
-function EnforceBadge() {
+// Classification chips reuse the same hint table on cards and in the
+// drawer; keep this canonical so a relabel happens in one place.
+const CLASS_HINT: Record<string, string> = {
+  pii: "PII · Personally Identifiable Information.",
+  pci: "PCI · payment-card data covered by PCI-DSS.",
+  phi: "PHI · Protected Health Information (HIPAA).",
+  "customer-financial": "Customer financial data — account balances, transactions.",
+  confidential: "Confidential · internal data with restricted access.",
+  internal: "Internal · default tier for non-public material.",
+  public: "Public · approved for unrestricted distribution.",
+};
+
+function classHint(c: string): string {
+  return CLASS_HINT[c.toLowerCase()] ?? `Custom data class · ${c}`;
+}
+
+function ClassChip({
+  value,
+  inherited = false,
+}: {
+  value: string;
+  inherited?: boolean;
+}) {
+  const label = inherited
+    ? `${classHint(value)} Inherited from a component dependency — propagated by the reconciler.`
+    : classHint(value);
   return (
-    <span
-      className="inline-flex items-center gap-1 h-[18px] px-1.5 rounded ring-1 text-[10px] font-mono uppercase tracking-wider bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-rose-500/40"
-      title="Out-of-scope calls are blocked, not just logged"
-    >
-      <Icon icon={icons.shield} className="h-2.5 w-2.5" />
-      enforced
-    </span>
+    <InfoTip label={label}>
+      <span
+        className={cn(
+          "inline-flex items-center h-[18px] px-1.5 rounded text-[10px] font-mono uppercase tracking-wider ring-1",
+          inherited
+            ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-500/30"
+            : "bg-muted text-muted-foreground ring-border",
+        )}
+      >
+        {inherited ? `↓ ${value}` : value}
+      </span>
+    </InfoTip>
+  );
+}
+
+// BlockingBadge — only shown when enforce_scope is true; absence implies
+// flag mode (we don't render a chip for flag-mode to keep the row quiet).
+function BlockingBadge() {
+  return (
+    <InfoTip label="Blocking: out-of-scope calls are refused with a 403 / JSON-RPC error. Flip to flag mode in the use case to log instead.">
+      <span className="inline-flex items-center gap-1 h-[18px] px-1.5 rounded ring-1 text-[10px] font-mono uppercase tracking-wider bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-rose-500/40">
+        <Icon icon={icons.shield} className="h-2.5 w-2.5" />
+        blocking
+      </span>
+    </InfoTip>
   );
 }
 
@@ -561,7 +632,7 @@ function DetailDrawer({ id, onClose }: { id: string; onClose: () => void }) {
               <div className="flex flex-wrap items-center gap-2">
                 {data && <RiskBadge tier={data.use_case.risk_tier} />}
                 {data && <StatusBadge status={data.use_case.status} />}
-                {data?.use_case.enforce_scope && <EnforceBadge />}
+                {data?.use_case.enforce_scope && <BlockingBadge />}
                 {data?.use_case.compliance_flag && (
                   <span className="inline-flex items-center gap-1 text-[11px] text-rose-600 dark:text-rose-400 font-mono">
                     <Icon icon={icons.shieldAlert} className="h-3.5 w-3.5" />
@@ -705,21 +776,10 @@ function DataClassifications({
       </p>
       <div className="flex flex-wrap gap-1.5">
         {declared.map((c) => (
-          <span
-            key={c}
-            className="inline-flex items-center h-6 px-2 rounded bg-foreground/5 ring-1 ring-border text-[11px] font-mono uppercase tracking-wider"
-          >
-            {c}
-          </span>
+          <ClassChip key={c} value={c} />
         ))}
         {extra.map((c) => (
-          <span
-            key={c}
-            className="inline-flex items-center h-6 px-2 rounded bg-amber-500/10 ring-1 ring-amber-500/30 text-[11px] font-mono uppercase tracking-wider text-amber-700 dark:text-amber-300"
-            title="Inherited from a component dependency"
-          >
-            ↓ {c}
-          </span>
+          <ClassChip key={c} value={c} inherited />
         ))}
       </div>
       {extra.length > 0 && (
