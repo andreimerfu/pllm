@@ -27,6 +27,13 @@ const (
 	// flows. Not emitted today but reserved so subscribers can future-proof.
 	WebhookEventRegistryServerSaved WebhookEventType = "registry.server.saved"
 
+	// Lifecycle hygiene — automatic key/server cleanup actions taken by
+	// the lifecycle daemon. Subscribers typically forward these to SIEM
+	// or to a "weekly cleanup digest" channel.
+	WebhookEventKeyRevokedInactive         WebhookEventType = "key.revoked.inactive"
+	WebhookEventKeyRevokedOwnerless        WebhookEventType = "key.revoked.ownerless"
+	WebhookEventRegistryServerBlockedRisky WebhookEventType = "registry.server.blocked.risky"
+
 	// Deployment OOM auto-scale — noteworthy operational events that
 	// typically matter to SIEM/on-call ("workload X has escalated memory
 	// 4 times and is now down — manual intervention needed").

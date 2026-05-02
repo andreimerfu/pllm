@@ -55,6 +55,10 @@ const (
 	RegistryStatusActive     RegistryStatus = "active"
 	RegistryStatusDeprecated RegistryStatus = "deprecated"
 	RegistryStatusDeleted    RegistryStatus = "deleted"
+	// Blocked is a non-deletable, machine-set state used by the lifecycle
+	// daemon when a server's vulnerability score falls below the configured
+	// floor. Operators clear it manually after triage.
+	RegistryStatusBlocked RegistryStatus = "blocked"
 )
 
 // --- Servers --------------------------------------------------------------

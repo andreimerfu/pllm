@@ -95,6 +95,11 @@ const (
 	AuditEventAPIRequest   AuditEventType = "api_request"
 	AuditEventRateLimit    AuditEventType = "rate_limit"
 	AuditEventAccessDenied AuditEventType = "access_denied"
+
+	// Lifecycle hygiene — every action the lifecycle daemon takes is logged
+	// as a single AuditEventLifecycle row whose EventAction names the rule
+	// (e.g. "key_revoked_inactive", "server_blocked_risky").
+	AuditEventLifecycle AuditEventType = "lifecycle"
 )
 
 type AuditResult string
