@@ -55,6 +55,7 @@ Supports both direct database access (when run on server) and API access (when r
 	rootCmd.AddCommand(commands.NewKeyCommand(ctx))
 	rootCmd.AddCommand(commands.NewBudgetCommand(ctx))
 	rootCmd.AddCommand(commands.NewConfigCommand())
+	rootCmd.AddCommand(commands.NewSeedCommand(ctx))
 
 	return rootCmd
 }
