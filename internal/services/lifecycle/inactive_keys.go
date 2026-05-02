@@ -22,7 +22,7 @@ type InactiveKeysRule struct{}
 func (r *InactiveKeysRule) Name() string { return "inactive_keys" }
 
 func (r *InactiveKeysRule) Run(ctx context.Context, db *gorm.DB, cfg Config, hooks WebhookEmitter) RuleResult {
-	res := RuleResult{Rule: r.Name()}
+	res := RuleResult{Rule: r.Name(), Actions: []Action{}}
 	if cfg.InactiveKeyDays <= 0 {
 		return res
 	}

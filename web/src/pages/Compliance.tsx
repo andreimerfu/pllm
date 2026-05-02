@@ -861,6 +861,10 @@ function LifecycleRuleCard({
 }: {
   rule: LifecycleSummary["rules"][number];
 }) {
+  // Go marshals nil slices as JSON null, so `actions` may arrive as null
+  // when a rule scanned zero rows. Normalize once so the rest of the
+  // component can use array semantics safely.
+  const actions = rule.actions ?? [];
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
@@ -880,9 +884,9 @@ function LifecycleRuleCard({
             <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
             error
           </span>
-        ) : rule.actions.length > 0 ? (
+        ) : actions.length > 0 ? (
           <span className="inline-flex items-center h-[18px] px-1.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/30 text-[10px] font-mono uppercase tracking-wider">
-            {rule.actions.length} action{rule.actions.length === 1 ? "" : "s"}
+            {actions.length} action{actions.length === 1 ? "" : "s"}
           </span>
         ) : (
           <span className="inline-flex items-center h-[18px] px-1.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/30 text-[10px] font-mono uppercase tracking-wider">
@@ -892,17 +896,17 @@ function LifecycleRuleCard({
       </div>
 
       <div className="text-[11px] font-mono tabular-nums text-muted-foreground">
-        scanned {rule.scanned} · acted on {rule.actions.length}
+        scanned {rule.scanned} · acted on {actions.length}
         {rule.error ? ` · error: ${rule.error}` : ""}
       </div>
 
-      {rule.actions.length === 0 ? (
+      {actions.length === 0 ? (
         <p className="text-xs text-muted-foreground italic">
           No actions on the last run.
         </p>
       ) : (
         <ul className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-          {rule.actions.map((a) => (
+          {actions.map((a) => (
             <li
               key={a.resource_id}
               className="text-[12px] py-1 border-b border-border/30 last:border-0"

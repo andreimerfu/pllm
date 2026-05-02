@@ -21,7 +21,7 @@ type RiskyServersRule struct{}
 func (r *RiskyServersRule) Name() string { return "risky_servers" }
 
 func (r *RiskyServersRule) Run(ctx context.Context, db *gorm.DB, cfg Config, hooks WebhookEmitter) RuleResult {
-	res := RuleResult{Rule: r.Name()}
+	res := RuleResult{Rule: r.Name(), Actions: []Action{}}
 	if cfg.RiskyServerScoreFloor <= 0 {
 		return res
 	}

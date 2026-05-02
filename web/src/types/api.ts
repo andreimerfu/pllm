@@ -746,7 +746,9 @@ export interface LifecycleAction {
 export interface LifecycleRuleResult {
   rule: string;
   scanned: number;
-  actions: LifecycleAction[];
+  // May arrive as null when a rule scanned zero rows — Go's json.Marshal
+  // serializes nil slices as null. Consumers should normalize to [].
+  actions: LifecycleAction[] | null;
   error?: string;
 }
 

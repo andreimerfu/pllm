@@ -19,7 +19,7 @@ type OwnerlessKeysRule struct{}
 func (r *OwnerlessKeysRule) Name() string { return "ownerless_keys" }
 
 func (r *OwnerlessKeysRule) Run(ctx context.Context, db *gorm.DB, cfg Config, hooks WebhookEmitter) RuleResult {
-	res := RuleResult{Rule: r.Name()}
+	res := RuleResult{Rule: r.Name(), Actions: []Action{}}
 	if !cfg.OwnerlessKeysEnabled {
 		return res
 	}
