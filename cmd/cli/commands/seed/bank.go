@@ -103,7 +103,24 @@ func RunBank(opts Options) error {
 		out.Item(k.Name + " → " + k.UseCaseSlug)
 	}
 
-	// Task 8 will append: events, webhook.
+	if opts.WithEvents {
+		out.Step("seed scope-event history (last 7 days)")
+		ev := generateBankEvents(ucIDs)
+		n, err := pushEvents(c, ev)
+		if err != nil {
+			return fmt.Errorf("seed events: %w", err)
+		}
+		out.Item(fmt.Sprintf("%d events inserted", n))
+	}
+
+	if opts.WithWebhook {
+		out.Step("upsert webhook subscription (disabled)")
+		if err := upsertWebhook(c, opts.WebhookURL); err != nil {
+			return fmt.Errorf("seed webhook: %w", err)
+		}
+		out.Item("demo-siem-stub → " + opts.WebhookURL + " (disabled)")
+	}
+
 	out.Step("seeded API keys (copy these into your demo notes)")
 	for _, k := range BankKeys {
 		out.Result(k.Name, keyTokens[k.Name])
