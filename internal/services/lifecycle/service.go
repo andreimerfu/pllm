@@ -11,11 +11,13 @@ import (
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+
+	"github.com/amerfu/pllm/internal/core/models"
 )
 
-// Config is the runtime view of internal/core/config.LifecycleConfig.
-// Kept here as a plain struct so this package doesn't import the global
-// config package (matches the rest of internal/services).
+// Config is the runtime view of internal/core/config.LifecycleConfig
+// after the router has decided the daemon should run. Enabled lives only
+// on the source type; if it's false the router never instantiates this.
 type Config struct {
 	DryRun                bool
 	Interval              time.Duration
@@ -24,15 +26,26 @@ type Config struct {
 	RiskyServerScoreFloor float64
 }
 
+// WebhookEventEnvelope is what rules hand to the emitter. The router
+// translates this into a webhooks.Event with Type/Data preserved.
+type WebhookEventEnvelope struct {
+	Type models.WebhookEventType
+	Data any
+}
+
 // WebhookEmitter is the small surface this package needs from
-// webhooks.Dispatcher. Defined here so we don't import the concrete
-// dispatcher type — same pattern as use_cases.WebhookEmitter.
+// webhooks.Dispatcher. Defined here so the package doesn't import the
+// concrete dispatcher type — same pattern as use_cases.WebhookEmitter,
+// but with a typed Type field that prevents typo'd event names from
+// silently fanning out to no subscribers.
 type WebhookEmitter interface {
-	Emit(typ string, data any)
+	Emit(env WebhookEventEnvelope)
 }
 
 // Action is one mutation taken by a rule, recorded in the run summary
 // and returned to the admin UI. ResourceID is the row that was changed.
+// At is set by the rule at the moment the mutation was issued (or would
+// have been, under DryRun).
 type Action struct {
 	Rule       string    `json:"rule"`
 	ResourceID string    `json:"resource_id"`
@@ -98,6 +111,8 @@ func (s *Service) WithWebhooks(e WebhookEmitter) *Service {
 // Register appends a Rule to the run order. Idempotent across names —
 // last registration wins.
 func (s *Service) Register(r Rule) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for i, existing := range s.rules {
 		if existing.Name() == r.Name() {
 			s.rules[i] = r
@@ -112,8 +127,15 @@ func (s *Service) Register(r Rule) {
 // don't abort other rules.
 func (s *Service) RunOnce(ctx context.Context) (RunSummary, error) {
 	start := time.Now()
-	summary := RunSummary{RanAt: start, Rules: make([]RuleResult, 0, len(s.rules))}
-	for _, r := range s.rules {
+	s.mu.RLock()
+	rules := make([]Rule, len(s.rules))
+	copy(rules, s.rules)
+	s.mu.RUnlock()
+	summary := RunSummary{RanAt: start, Rules: make([]RuleResult, 0, len(rules))}
+	for _, r := range rules {
+		if err := ctx.Err(); err != nil {
+			break
+		}
 		res := r.Run(ctx, s.db, s.cfg, s.hooks)
 		summary.Rules = append(summary.Rules, res)
 		summary.TotalActions += len(res.Actions)
@@ -147,7 +169,9 @@ func (s *Service) Start(ctx context.Context) {
 	go func() {
 		t := time.NewTicker(s.cfg.Interval)
 		defer t.Stop()
-		_, _ = s.RunOnce(ctx)
+		if ctx.Err() == nil {
+			_, _ = s.RunOnce(ctx)
+		}
 		for {
 			select {
 			case <-ctx.Done():
