@@ -4,7 +4,7 @@ import { Icon } from "@iconify/react";
 
 import { cn } from "@/lib/utils";
 import { icons } from "@/lib/icons";
-import { axiosInstance, getMCPServers } from "@/lib/api";
+import { axiosInstance, getMCPServer, getMCPServers } from "@/lib/api";
 import type { MCPServer, MCPServerTool } from "@/types/api";
 
 import { Button } from "@/components/ui/button";
@@ -52,10 +52,18 @@ export function McpMode() {
   const [result, setResult] = useState<ToolResult | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
 
-  const selectedServer = useMemo(
-    () => servers.find((s) => s.id === serverId) ?? null,
-    [servers, serverId],
-  );
+  // The list endpoint returns tool_count but not the tools array.
+  // Hydrate per-server detail when one is selected — that endpoint
+  // preloads the cached tool definitions from the DB.
+  const { data: serverDetail } = useQuery({
+    queryKey: ["mcp-server-detail", serverId],
+    queryFn: () => (serverId ? getMCPServer(serverId) : null),
+    enabled: !!serverId,
+  });
+  const selectedServer: MCPServer | null = useMemo(() => {
+    if (serverDetail) return serverDetail as MCPServer;
+    return servers.find((s) => s.id === serverId) ?? null;
+  }, [serverDetail, servers, serverId]);
   const selectedTool: MCPServerTool | null = useMemo(() => {
     if (!selectedServer || !toolName) return null;
     return (selectedServer.tools ?? []).find((t) => t.name === toolName) ?? null;
