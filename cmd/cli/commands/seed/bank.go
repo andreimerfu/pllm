@@ -125,7 +125,7 @@ func RunBank(opts Options) error {
 			if agentID == uuid.Nil {
 				return fmt.Errorf("deploy agent %s: no UUID cached", a.Name)
 			}
-			if err := deployAgent(c, agentID, ucID); err != nil {
+			if err := deployAgent(c, agentID, ucID, a.DeployExtraEnv); err != nil {
 				return fmt.Errorf("deploy agent %s: %w", a.Name, err)
 			}
 			out.Item(a.Name + " → bound to " + a.DeployForUseCase)
@@ -304,11 +304,17 @@ func deployServer(c *Client, name, version string) error {
 }
 
 // deployAgent triggers a real K8s deployment of a published registry
-// agent against a use case. Idempotent at the service layer.
-func deployAgent(c *Client, agentID, useCaseID uuid.UUID) error {
+// agent against a use case. extraEnv is merged on top of the agent
+// adapter's defaults (used to point the research image at scenario-
+// specific allowed/denied probe models). Idempotent at the service
+// layer.
+func deployAgent(c *Client, agentID, useCaseID uuid.UUID, extraEnv map[string]string) error {
 	body := map[string]any{
 		"agent_id":    agentID,
 		"use_case_id": useCaseID,
+	}
+	if len(extraEnv) > 0 {
+		body["extra_env"] = extraEnv
 	}
 	st, b, err := c.Do(http.MethodPost, "/api/admin/agents", body, nil)
 	if err != nil {

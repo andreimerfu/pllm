@@ -38,6 +38,14 @@ PLLM_API_KEY = os.environ.get("PLLM_API_KEY", "")
 AGENT_NAME = os.environ.get("PLLM_AGENT_NAME", "research")
 USE_CASE = os.environ.get("PLLM_USE_CASE", "")
 
+# Probe targets are env-configurable so one image can serve multiple
+# scenarios. Defaults match the original Phase-1+2 customer-research
+# demo (test-model-allowed / test-model-restricted). The bank-MRM seed
+# overrides both to use real bank models (e.g. free-route allowed,
+# gpt-4-turbo denied) at deploy time via extra_env.
+PROBE_ALLOWED = os.environ.get("PLLM_PROBE_ALLOWED", "test-model-allowed")
+PROBE_DENIED = os.environ.get("PLLM_PROBE_DENIED", "test-model-restricted")
+
 SESSION = requests.Session()
 SESSION.headers.update({
     "Authorization": f"Bearer {PLLM_API_KEY}",
@@ -116,8 +124,8 @@ def invoke():
     task_id = body.get("task_id", "")
 
     probes = [
-        probe_llm("test-model-allowed", str(user_input)),
-        probe_llm("test-model-restricted", str(user_input)),
+        probe_llm(PROBE_ALLOWED, str(user_input)),
+        probe_llm(PROBE_DENIED, str(user_input)),
     ]
 
     summary = {

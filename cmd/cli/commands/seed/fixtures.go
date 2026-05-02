@@ -129,14 +129,18 @@ type AgentFixture struct {
 	Description string
 	Refs        []AgentRefFixture
 	// Packages mirrors RegistryAgent.Packages — required for deployment.
-	// Bank-demo agents use the existing pllm/agent-echo + pllm/agent-research
-	// reference images as runtime stand-ins (those are the only OCI agent
-	// images we ship pre-built). See deploy/agent-reference/.
+	// Both bank-demo agents reuse the existing pllm/agent-research image
+	// (env-configurable probe targets) so we get a real allowed-vs-denied
+	// scope story without authoring net-new agent code per scenario.
 	Packages []PackageRef
 	// DeployForUseCase names the use case the agent should be deployed
 	// against when --with-deployments is set. Agent deploys require a
 	// use_case_id at deploy time (it pins the bound key's scope).
 	DeployForUseCase string
+	// DeployExtraEnv is merged on top of the agent adapter's defaults
+	// at deploy time. Used to point the research image at the right
+	// allowed / denied probe models per scenario.
+	DeployExtraEnv map[string]string
 }
 
 var BankAgents = []AgentFixture{
@@ -150,9 +154,17 @@ var BankAgents = []AgentFixture{
 			{TargetKind: "prompt", TargetName: "bank.demo/decision-rationale"},
 		},
 		Packages: []PackageRef{
-			{RegistryType: "oci", Identifier: "pllm/agent-echo", Version: "dev"},
+			{RegistryType: "oci", Identifier: "pllm/agent-research", Version: "dev"},
 		},
 		DeployForUseCase: "loan-underwriting-assistant",
+		// Loan underwriting is T1 BLOCKING and declares free-route, so
+		// the allowed probe really succeeds (real LLM response from
+		// OpenRouter free tier) and the denied probe gets a 403 with the
+		// canonical scope.denied phrase.
+		DeployExtraEnv: map[string]string{
+			"PLLM_PROBE_ALLOWED": "free-route",
+			"PLLM_PROBE_DENIED":  "gpt-4-turbo",
+		},
 	},
 	{
 		Name:        "bank.demo/kyc-summarizer",
@@ -167,6 +179,14 @@ var BankAgents = []AgentFixture{
 			{RegistryType: "oci", Identifier: "pllm/agent-research", Version: "dev"},
 		},
 		DeployForUseCase: "aml-investigation-copilot",
+		// AML is in flag mode (under_review): out-of-scope calls log
+		// instead of blocking. The "denied" probe will report
+		// scope_allowed=true with the routing-layer status — that's the
+		// flag-mode story (logged in the audit trail, not blocked).
+		DeployExtraEnv: map[string]string{
+			"PLLM_PROBE_ALLOWED": "free-route",
+			"PLLM_PROBE_DENIED":  "gpt-4-turbo",
+		},
 	},
 }
 
