@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse, RoutesResponse, Route, RouteStatsResponse, MCPServer, MCPUpsertRequest, MCPHealthProbeResponse, RegistryServer, RegistryServerDetail, RegistryAgent, RegistryAgentWithRefs, RegistrySkill, RegistryPrompt, RegistryListResponse, Deployment, RegistryDependent, RegistryKind, UseCase, UseCaseWithRefs, UseCaseUpsertRequest, ScopeEvent, ScopeEventStats, Webhook, WebhookUpsertRequest, AgentDeployment, DeployAgentRequest } from "@/types/api";
+import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse, RoutesResponse, Route, RouteStatsResponse, MCPServer, MCPUpsertRequest, MCPHealthProbeResponse, RegistryServer, RegistryServerDetail, RegistryAgent, RegistryAgentWithRefs, RegistrySkill, RegistryPrompt, RegistryListResponse, Deployment, RegistryDependent, RegistryKind, UseCase, UseCaseWithRefs, UseCaseUpsertRequest, ScopeEvent, ScopeEventStats, Webhook, WebhookUpsertRequest, AgentDeployment, DeployAgentRequest, LifecycleSummary } from "@/types/api";
 
 const API_BASE = import.meta.env.DEV ? "http://localhost:8080" : "";
 
@@ -563,3 +563,12 @@ export const deleteWebhook = (id: string) =>
   axiosInstance.delete(`/api/admin/webhooks/${id}`);
 export const testWebhook = (id: string) =>
   axiosInstance.post(`/api/admin/webhooks/${id}/test`, {});
+
+// Lifecycle hygiene
+// Returns the cached summary of the most recent lifecycle daemon run.
+// Empty/zero summary before the daemon has run for the first time.
+export const getLifecycleStatus = () =>
+  axiosInstance.get(`/api/admin/lifecycle/status`) as Promise<LifecycleSummary>;
+// Triggers a synchronous run-now and returns its summary.
+export const runLifecycle = () =>
+  axiosInstance.post(`/api/admin/lifecycle/run`, {}) as Promise<LifecycleSummary>;

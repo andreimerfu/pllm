@@ -729,3 +729,31 @@ export interface WebhookUpsertRequest {
   team_id?: string;
 }
 
+// --- Lifecycle hygiene -----------------------------------------------------
+//
+// Mirrors internal/services/lifecycle types. JSON tags from RunSummary,
+// RuleResult, Action.
+
+export interface LifecycleAction {
+  rule: string;
+  resource_id: string;
+  subject: string;
+  reason: string;
+  dry_run: boolean;
+  at: string; // ISO timestamp
+}
+
+export interface LifecycleRuleResult {
+  rule: string;
+  scanned: number;
+  actions: LifecycleAction[];
+  error?: string;
+}
+
+export interface LifecycleSummary {
+  ran_at: string; // ISO timestamp; zero value before first run
+  duration: number; // nanoseconds (Go time.Duration JSON encoding)
+  total_actions: number;
+  rules: LifecycleRuleResult[];
+}
+
