@@ -9,6 +9,7 @@ import (
 	"github.com/amerfu/pllm/internal/api/handlers"
 	"github.com/amerfu/pllm/internal/api/handlers/admin"
 	deploymenthandlers "github.com/amerfu/pllm/internal/api/handlers/deployment"
+	lifecyclehandlers "github.com/amerfu/pllm/internal/api/handlers/lifecycle"
 	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
 	registryhandlers "github.com/amerfu/pllm/internal/api/handlers/registry"
 	usecasehandlers "github.com/amerfu/pllm/internal/api/handlers/use_cases"
@@ -42,6 +43,7 @@ type AdminRouterConfig struct {
 	AgentDeployHandler    *deploymenthandlers.AgentHandler
 	UseCaseHandler        *usecasehandlers.Handler
 	WebhookHandler        *webhookhandlers.Handler
+	LifecycleHandler      *lifecyclehandlers.Handler
 }
 
 // NewAdminSubRouter creates admin routes to be mounted on the main router
@@ -71,6 +73,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	// is EE-gated; webhooks ride along.
 	systemHandler.SetFeature("mrm", cfg.UseCaseHandler != nil)
 	systemHandler.SetFeature("webhooks", cfg.WebhookHandler != nil)
+	systemHandler.SetFeature("lifecycle", cfg.LifecycleHandler != nil)
 	dashboardHandler := handlers.NewDashboardHandler(cfg.DB, cfg.Logger)
 	guardrailsHandler := admin.NewGuardrailsHandler(cfg.Logger, cfg.Config, cfg.GuardrailsExecutor)
 	modelCRUDHandler := admin.NewModelCRUDHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
@@ -295,6 +298,15 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			})
 		}
 
+		// Lifecycle hygiene admin endpoints. Guarded by nil-check so the route
+		// only mounts when the service was wired (cfg.Lifecycle.Enabled=true).
+		if cfg.LifecycleHandler != nil {
+			r.Route("/lifecycle", func(rr chi.Router) {
+				rr.Get("/status", cfg.LifecycleHandler.Status)
+				rr.Post("/run", cfg.LifecycleHandler.RunNow)
+			})
+		}
+
 		// Deployment routes — admin only.
 		if cfg.DeploymentHandler != nil {
 			dh := cfg.DeploymentHandler
@@ -408,6 +420,7 @@ func NewAdminRouter(cfg *AdminRouterConfig) http.Handler {
 	systemHandler := admin.NewSystemHandler(cfg.Logger, cfg.DB)
 	systemHandler.SetFeature("mrm", cfg.UseCaseHandler != nil)
 	systemHandler.SetFeature("webhooks", cfg.WebhookHandler != nil)
+	systemHandler.SetFeature("lifecycle", cfg.LifecycleHandler != nil)
 	guardrailsHandler := admin.NewGuardrailsHandler(cfg.Logger, cfg.Config, cfg.GuardrailsExecutor)
 
 	// Initialize auth middleware

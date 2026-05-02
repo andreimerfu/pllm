@@ -13,6 +13,7 @@ import (
 	"github.com/amerfu/pllm/internal/api/handlers/admin"
 	a2ahandlers "github.com/amerfu/pllm/internal/api/handlers/a2a"
 	deploymenthandlers "github.com/amerfu/pllm/internal/api/handlers/deployment"
+	lifecyclehandlers "github.com/amerfu/pllm/internal/api/handlers/lifecycle"
 	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
 	registryhandlers "github.com/amerfu/pllm/internal/api/handlers/registry"
 	usecasehandlers "github.com/amerfu/pllm/internal/api/handlers/use_cases"
@@ -29,6 +30,7 @@ import (
 	a2asvc "github.com/amerfu/pllm/internal/services/a2a"
 	deploymentsvc "github.com/amerfu/pllm/internal/services/deployment"
 	deploymentmetrics "github.com/amerfu/pllm/internal/services/deployment/metrics"
+	lifecyclesvc "github.com/amerfu/pllm/internal/services/lifecycle"
 	mcpgateway "github.com/amerfu/pllm/internal/services/mcp/gateway"
 	mcpregistryserver "github.com/amerfu/pllm/internal/services/mcp/registryserver"
 	"github.com/amerfu/pllm/internal/services/registry/enrichment"
@@ -199,6 +201,25 @@ func (a deploymentWebhookEmitter) Emit(evt deploymentsvc.WebhookEventEnvelope) {
 	a.inner.Emit(webhooks.Event{
 		Type: coremodels.WebhookEventType(evt.Type),
 		Data: evt.Data,
+	})
+}
+
+// lifecycleWebhookAdapter bridges the lifecycle service's
+// WebhookEmitter onto the shared webhooks.Dispatcher. The lifecycle
+// envelope already carries a typed models.WebhookEventType, so the
+// adapter is a straight-through reshape — no string parsing, no
+// silent fan-out for typos.
+type lifecycleWebhookAdapter struct {
+	inner *webhooks.Dispatcher
+}
+
+func (a *lifecycleWebhookAdapter) Emit(env lifecyclesvc.WebhookEventEnvelope) {
+	if a == nil || a.inner == nil {
+		return
+	}
+	a.inner.Emit(webhooks.Event{
+		Type: env.Type,
+		Data: env.Data,
 	})
 }
 
@@ -380,6 +401,32 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		useCaseScope = ucSvc.Scope()
 		useCaseEvents = ucSvc.Events()
 		logger.Info("UseCase service initialized")
+	}
+
+	// Lifecycle hygiene daemon. Always-on when DB is present + feature
+	// enabled in config. Defaults to DryRun=true so a fresh deploy never
+	// revokes anything before the operator reviews the audit log.
+	var lifecycleHandler *lifecyclehandlers.Handler
+	if db != nil && cfg.Lifecycle.Enabled {
+		lifeCfg := lifecyclesvc.Config{
+			DryRun:                cfg.Lifecycle.DryRun,
+			Interval:              cfg.Lifecycle.Interval,
+			InactiveKeyDays:       cfg.Lifecycle.InactiveKeyDays,
+			OwnerlessKeysEnabled:  cfg.Lifecycle.OwnerlessKeysEnabled,
+			RiskyServerScoreFloor: cfg.Lifecycle.RiskyServerScoreFloor,
+		}
+		lifeSvc := lifecyclesvc.NewService(db, logger, lifeCfg)
+		lifeSvc.Register(&lifecyclesvc.InactiveKeysRule{})
+		lifeSvc.Register(&lifecyclesvc.OwnerlessKeysRule{})
+		lifeSvc.Register(&lifecyclesvc.RiskyServersRule{})
+		if webhookDispatcher != nil {
+			lifeSvc = lifeSvc.WithWebhooks(&lifecycleWebhookAdapter{inner: webhookDispatcher})
+		}
+		lifeSvc.Start(context.Background())
+		lifecycleHandler = lifecyclehandlers.NewHandler(logger, lifeSvc)
+		logger.Info("Lifecycle hygiene daemon initialized",
+			zap.Bool("dry_run", lifeCfg.DryRun),
+			zap.Duration("interval", lifeCfg.Interval))
 	}
 
 	// Deployment service — opt-in via config.deployment.enabled. Falls
@@ -895,6 +942,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			AgentDeployHandler:    agentDeployHandler,
 			UseCaseHandler:        useCaseHandler,
 			WebhookHandler:        webhookHandler,
+			LifecycleHandler:      lifecycleHandler,
 		}
 
 		// Mount admin routes at /api/admin
