@@ -3,6 +3,7 @@ package use_cases_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -71,6 +72,56 @@ func TestRecordAndListScopeEvents(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), stats.Last24hDenied)
 	require.Equal(t, int64(1), stats.Last24hFlagged)
+}
+
+// BulkInsert backdates events for the demo seed. Caller-supplied
+// timestamps are honoured so the Compliance timeline has shape.
+func TestBulkInsertScopeEvents(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration")
+	}
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+
+	svc := use_cases.NewService(db, nil)
+	uc, err := svc.Create(context.Background(), &use_cases.UpsertInput{
+		Name: "Bulk insert test",
+	})
+	require.NoError(t, err)
+
+	rec := svc.Events()
+	now := time.Now().UTC()
+	in := []use_cases.BulkRecordInput{
+		{
+			UseCaseID:  uc.UseCase.ID,
+			Kind:       models.ScopeEventKindLLM,
+			Outcome:    models.ScopeOutcomeDenied,
+			TargetName: "gpt-4-turbo",
+			KeyName:    "demo-key",
+			Reason:     "test reason",
+			OccurredAt: now.Add(-48 * time.Hour),
+		},
+		{
+			UseCaseID:  uc.UseCase.ID,
+			Kind:       models.ScopeEventKindLLM,
+			Outcome:    models.ScopeOutcomeFlagged,
+			TargetName: "tavily-search",
+			KeyName:    "demo-key",
+			Reason:     "test flag",
+			OccurredAt: now.Add(-1 * time.Hour),
+		},
+	}
+	n, err := rec.BulkInsert(context.Background(), in)
+	require.NoError(t, err)
+	require.Equal(t, 2, n)
+
+	var rows []models.ScopeEvent
+	require.NoError(t, db.Order("created_at ASC").Find(&rows).Error)
+	require.Len(t, rows, 2)
+	require.WithinDuration(t, now.Add(-48*time.Hour), rows[0].CreatedAt, time.Second)
+	require.WithinDuration(t, now.Add(-1*time.Hour), rows[1].CreatedAt, time.Second)
+	require.Equal(t, "gpt-4-turbo", rows[0].TargetName)
+	require.Equal(t, models.ScopeOutcomeDenied, rows[0].Outcome)
 }
 
 // Recording a nil-UseCaseID row is a no-op — we should never generate

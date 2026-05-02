@@ -2,6 +2,7 @@ package use_cases
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -114,6 +115,62 @@ func (r *EventRecorder) Record(ctx context.Context, in RecordInput) {
 			},
 		})
 	}
+}
+
+// BulkRecordInput is the seed-time variant of RecordInput. The seed
+// caller chooses the timestamp; runtime callers do not.
+type BulkRecordInput struct {
+	UseCaseID  uuid.UUID
+	KeyID      *uuid.UUID
+	KeyName    string
+	UserID     *uuid.UUID
+	Kind       models.ScopeEventKind
+	TargetName string
+	Outcome    models.ScopeEventOutcome
+	Reason     string
+	RemoteAddr string
+	RequestID  string
+	OccurredAt time.Time
+}
+
+// BulkInsert writes scope events with caller-supplied timestamps. Used
+// only by the demo seed (`pllm seed bank --with-events`). Webhook
+// fan-out is intentionally skipped — backdated history would generate
+// misleading "live" notifications for any subscribed endpoint.
+func (r *EventRecorder) BulkInsert(ctx context.Context, in []BulkRecordInput) (int, error) {
+	if r == nil || r.db == nil {
+		return 0, fmt.Errorf("event recorder not configured")
+	}
+	if len(in) == 0 {
+		return 0, nil
+	}
+	rows := make([]models.ScopeEvent, 0, len(in))
+	for _, e := range in {
+		if e.UseCaseID == uuid.Nil {
+			return 0, fmt.Errorf("bulk insert: use_case_id is required for every event")
+		}
+		ts := e.OccurredAt
+		if ts.IsZero() {
+			ts = time.Now().UTC()
+		}
+		rows = append(rows, models.ScopeEvent{
+			BaseModel:  models.BaseModel{ID: uuid.New(), CreatedAt: ts, UpdatedAt: ts},
+			UseCaseID:  e.UseCaseID,
+			KeyID:      e.KeyID,
+			KeyName:    e.KeyName,
+			UserID:     e.UserID,
+			Kind:       e.Kind,
+			TargetName: e.TargetName,
+			Outcome:    e.Outcome,
+			Reason:     e.Reason,
+			RemoteAddr: e.RemoteAddr,
+			RequestID:  e.RequestID,
+		})
+	}
+	if err := r.db.WithContext(ctx).Create(&rows).Error; err != nil {
+		return 0, err
+	}
+	return len(rows), nil
 }
 
 // --- Query side ----------------------------------------------------------
