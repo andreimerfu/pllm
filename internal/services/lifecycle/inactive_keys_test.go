@@ -79,6 +79,13 @@ func TestInactiveKeysRevokesOldKeyInLiveMode(t *testing.T) {
 	if auditCount != 1 {
 		t.Fatalf("expected 1 audit row, got %d", auditCount)
 	}
+	var auditRow models.Audit
+	if err := db.Where("event_type = ? AND key_id = ?", models.AuditEventLifecycle, key.ID).First(&auditRow).Error; err != nil {
+		t.Fatalf("load audit row: %v", err)
+	}
+	if auditRow.EventAction != "key_revoked_inactive" {
+		t.Fatalf("expected EventAction=key_revoked_inactive, got %q", auditRow.EventAction)
+	}
 }
 
 func TestInactiveKeysRespectsDryRun(t *testing.T) {

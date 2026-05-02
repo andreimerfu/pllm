@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"github.com/amerfu/pllm/internal/core/models"
@@ -42,6 +43,7 @@ func (r *InactiveKeysRule) Run(ctx context.Context, db *gorm.DB, cfg Config, hoo
 
 	for i := range keys {
 		k := keys[i]
+		now := time.Now()
 		reason := fmt.Sprintf("no activity since %s (threshold=%d days)",
 			lastSeen(&k), cfg.InactiveKeyDays)
 		act := Action{
@@ -50,17 +52,18 @@ func (r *InactiveKeysRule) Run(ctx context.Context, db *gorm.DB, cfg Config, hoo
 			Subject:    fmt.Sprintf("%s (%s)", k.Name, k.KeyPrefix),
 			Reason:     reason,
 			DryRun:     cfg.DryRun,
-			At:         time.Now(),
+			At:         now,
 		}
 		res.Actions = append(res.Actions, act)
 		if cfg.DryRun {
 			continue
 		}
-		if err := revokeKey(ctx, db, &k, reason); err != nil {
+		revokedAt, err := revokeKey(ctx, db, &k, reason)
+		if err != nil {
 			res.Actions[len(res.Actions)-1].Reason = "revoke failed: " + err.Error()
 			continue
 		}
-		writeKeyAudit(ctx, db, &k, r.Name(), reason)
+		writeKeyAudit(ctx, db, &k, "key_revoked_inactive", reason, revokedAt, nil)
 		if hooks != nil {
 			hooks.Emit(WebhookEventEnvelope{
 				Type: models.WebhookEventKeyRevokedInactive,
@@ -71,7 +74,7 @@ func (r *InactiveKeysRule) Run(ctx context.Context, db *gorm.DB, cfg Config, hoo
 					"user_id":     k.UserID,
 					"team_id":     k.TeamID,
 					"reason":      reason,
-					"occurred_at": time.Now().UTC(),
+					"occurred_at": revokedAt.UTC(),
 				},
 			})
 		}
@@ -81,41 +84,52 @@ func (r *InactiveKeysRule) Run(ctx context.Context, db *gorm.DB, cfg Config, hoo
 
 // revokeKey is the shared mutation used by all key-revoking rules.
 // Lifecycle is system-driven, so RevokedBy is left nil — the audit row
-// carries the system attribution via EventType=lifecycle.
-func revokeKey(ctx context.Context, db *gorm.DB, k *models.Key, reason string) error {
+// carries the system attribution via EventType=lifecycle. Returns the
+// revoke timestamp so the caller can thread it through the audit row
+// and webhook payload (single source of truth per key block).
+func revokeKey(ctx context.Context, db *gorm.DB, k *models.Key, reason string) (time.Time, error) {
 	now := time.Now()
-	return db.WithContext(ctx).Model(&models.Key{}).
+	if err := db.WithContext(ctx).Model(&models.Key{}).
 		Where("id = ?", k.ID).
 		Updates(map[string]any{
 			"is_active":         false,
 			"revoked_at":        now,
 			"revocation_reason": reason,
-		}).Error
+		}).Error; err != nil {
+		return time.Time{}, err
+	}
+	return now, nil
 }
 
 // writeKeyAudit persists a single AuditEventLifecycle row keyed to the
-// affected key. EventAction encodes the rule name so operators can
-// filter the audit log per-rule.
-func writeKeyAudit(ctx context.Context, db *gorm.DB, k *models.Key, action, reason string) {
+// affected key. The caller passes the literal EventAction verb (e.g.
+// "key_revoked_inactive") matching the convention documented at
+// internal/core/models/audit.go. Logger is optional — pass nil to skip.
+func writeKeyAudit(ctx context.Context, db *gorm.DB, k *models.Key, eventAction, reason string, revokedAt time.Time, logger *zap.Logger) {
 	row := &models.Audit{
 		BaseModel:    models.BaseModel{ID: uuid.New()},
 		EventType:    models.AuditEventLifecycle,
-		EventAction:  fmt.Sprintf("key_%s", action),
+		EventAction:  eventAction,
 		EventResult:  models.AuditResult("success"),
 		KeyID:        &k.ID,
 		ResourceType: "key",
 		ResourceID:   &k.ID,
 		Message:      reason,
-		Timestamp:    time.Now(),
+		Timestamp:    revokedAt,
 	}
 	if k.UserID != nil {
 		row.UserID = k.UserID
 	}
-	if b, err := json.Marshal(map[string]any{"is_active": false, "revoked_at": time.Now()}); err == nil {
+	if b, err := json.Marshal(map[string]any{
+		"is_active":  false,
+		"revoked_at": revokedAt,
+	}); err == nil {
 		row.NewValues = b
 	}
 	if err := db.WithContext(ctx).Create(row).Error; err != nil {
-		_ = err
+		if logger != nil {
+			logger.Warn("lifecycle audit write failed", zap.Error(err))
+		}
 	}
 }
 
