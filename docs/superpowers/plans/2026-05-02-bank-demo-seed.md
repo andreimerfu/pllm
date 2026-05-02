@@ -1347,13 +1347,16 @@ Open `cmd/cli/commands/seed/bank.go`. Append after `upsertUseCase`:
 ```go
 // upsertKey ensures a demo key exists and is bound to the given use case.
 // The admin keys API auto-generates the key value; the seed prints it
-// at the end so the demo presenter can copy it.
+// at the end so the demo presenter can copy it. Re-runs cannot recover
+// the plaintext (it's only returned at creation time), so existing
+// keys are PATCHed-by-PUT to refresh the use-case binding and report
+// "(unchanged — token already issued)".
 func upsertKey(c *Client, k KeyFixture, useCaseID uuid.UUID) (string, error) {
 	// Look for an existing key by name first.
+	// ListKeys response: { keys: [{...key fields, plaintext_key, usage}], pagination: {...} }
 	type keyRow struct {
-		ID    uuid.UUID `json:"id"`
-		Name  string    `json:"name"`
-		Token string    `json:"token,omitempty"`
+		ID   uuid.UUID `json:"id"`
+		Name string    `json:"name"`
 	}
 	type listResp struct {
 		Keys []keyRow `json:"keys"`
@@ -1368,29 +1371,31 @@ func upsertKey(c *Client, k KeyFixture, useCaseID uuid.UUID) (string, error) {
 	}
 	for _, row := range existing.Keys {
 		if row.Name == k.Name {
-			// Already exists. PATCH to make sure use-case binding is current.
-			patch := map[string]any{"use_case_id": useCaseID}
-			st, b, err := c.Do(http.MethodPatch, "/api/admin/keys/"+row.ID.String(), patch, nil)
+			// UpdateKey uses PUT /api/admin/keys/{keyID}. The use_case_id
+			// field on the update body is **uuid.UUID, so we wrap once
+			// to avoid the "field absent vs JSON null" ambiguity.
+			ucPtr := useCaseID
+			update := map[string]any{"use_case_id": &ucPtr}
+			st, b, err := c.Do(http.MethodPut, "/api/admin/keys/"+row.ID.String(), update, nil)
 			if err != nil {
 				return "", err
 			}
-			if err := MustOK(http.MethodPatch, "/api/admin/keys/"+row.ID.String(), st, b); err != nil {
+			if err := MustOK(http.MethodPut, "/api/admin/keys/"+row.ID.String(), st, b); err != nil {
 				return "", err
 			}
-			return "(unchanged — token not re-emitted)", nil
+			return "(unchanged — token already issued)", nil
 		}
 	}
-	// Create.
+	// Create. CreateKeyRequest field is `key_type`. Response is
+	// { ...embedded models.Key fields, plaintext_key: "...", usage: {...} }.
 	create := map[string]any{
-		"name":         k.Name,
-		"type":         "api",
-		"use_case_id":  useCaseID,
+		"name":        k.Name,
+		"key_type":    "api",
+		"use_case_id": useCaseID,
 	}
-	type created struct {
-		Key   string `json:"key"`
-		Token string `json:"token"`
+	var got struct {
+		PlaintextKey string `json:"plaintext_key"`
 	}
-	var got created
 	st, b, err := c.Do(http.MethodPost, "/api/admin/keys", create, &got)
 	if err != nil {
 		return "", err
@@ -1398,16 +1403,9 @@ func upsertKey(c *Client, k KeyFixture, useCaseID uuid.UUID) (string, error) {
 	if err := MustOK(http.MethodPost, "/api/admin/keys", st, b); err != nil {
 		return "", err
 	}
-	if got.Key != "" {
-		return got.Key, nil
-	}
-	return got.Token, nil
+	return got.PlaintextKey, nil
 }
 ```
-
-The exact field name (`key` vs `token`) varies by handler version — we
-try both. If neither is present, return empty and let the operator pull
-from the UI.
 
 - [ ] **Step 2: Wire keys into the run loop**
 
@@ -1802,28 +1800,28 @@ func cleanupBankInternal(opts Options) error {
 	allServers = append(allServers, PublicLiveServers...)
 	out.Step("remove registry servers")
 	for _, s := range allServers {
-		if err := deleteRegistryArtifact(c, "servers", s.Name); err != nil {
+		if err := deleteRegistryArtifact(c, "servers", s.Name, s.Version); err != nil {
 			return fmt.Errorf("delete server %s: %w", s.Name, err)
 		}
 		out.Item(s.Name)
 	}
 	out.Step("remove registry agents")
 	for _, a := range BankAgents {
-		if err := deleteRegistryArtifact(c, "agents", a.Name); err != nil {
+		if err := deleteRegistryArtifact(c, "agents", a.Name, a.Version); err != nil {
 			return fmt.Errorf("delete agent %s: %w", a.Name, err)
 		}
 		out.Item(a.Name)
 	}
 	out.Step("remove registry prompts")
 	for _, p := range BankPrompts {
-		if err := deleteRegistryArtifact(c, "prompts", p.Name); err != nil {
+		if err := deleteRegistryArtifact(c, "prompts", p.Name, p.Version); err != nil {
 			return fmt.Errorf("delete prompt %s: %w", p.Name, err)
 		}
 		out.Item(p.Name)
 	}
 	out.Step("remove registry skills")
 	for _, s := range BankSkills {
-		if err := deleteRegistryArtifact(c, "skills", s.Name); err != nil {
+		if err := deleteRegistryArtifact(c, "skills", s.Name, s.Version); err != nil {
 			return fmt.Errorf("delete skill %s: %w", s.Name, err)
 		}
 		out.Item(s.Name)
@@ -1833,9 +1831,11 @@ func cleanupBankInternal(opts Options) error {
 	return nil
 }
 
-// deleteRegistryArtifact deletes every version of name. Public-name
+// deleteRegistryArtifact deletes the seeded version of name. Public-name
 // safety check (description SeedMarker) is enforced by GETting first.
-func deleteRegistryArtifact(c *Client, kind, name string) error {
+// The registry delete route is concrete on (name, version) — there is
+// no "latest" alias — so we always pass the version we seeded.
+func deleteRegistryArtifact(c *Client, kind, name, version string) error {
 	// Public namespace safety check: if not under bank.demo/*, verify
 	// the description is one of ours before deleting.
 	if !strings.HasPrefix(name, "bank.demo/") {
@@ -1857,8 +1857,7 @@ func deleteRegistryArtifact(c *Client, kind, name string) error {
 			return nil // operator-owned; don't touch
 		}
 	}
-	// Delete latest version (the registry soft-deletes by name+version).
-	path := "/api/admin/registry/" + kind + "/" + EscapeName(name) + "/versions/latest"
+	path := "/api/admin/registry/" + kind + "/" + EscapeName(name) + "/versions/" + EscapeName(version)
 	st, b, err := c.Do(http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
