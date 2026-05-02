@@ -46,22 +46,22 @@ type Config struct {
 // not revoke half a fleet of keys before the operator has reviewed the
 // audit log. Operators flip DryRun=false explicitly via config.
 type LifecycleConfig struct {
-	Enabled  bool          `mapstructure:"enabled" yaml:"enabled"`
-	Interval time.Duration `mapstructure:"interval" yaml:"interval"`
-	DryRun   bool          `mapstructure:"dry_run" yaml:"dry_run"`
+	Enabled  bool          `mapstructure:"enabled"`
+	Interval time.Duration `mapstructure:"interval"`
+	DryRun   bool          `mapstructure:"dry_run"`
 
 	// InactiveKeyDays — keys whose LastUsedAt (or CreatedAt for never-used
 	// keys) is older than this are revoked. 0 disables the rule.
-	InactiveKeyDays int `mapstructure:"inactive_key_days" yaml:"inactive_key_days"`
+	InactiveKeyDays int `mapstructure:"inactive_key_days"`
 
 	// OwnerlessKeysEnabled — when true, revoke keys whose User row has
 	// IsActive=false or has been soft-deleted. Team-owned keys with no
 	// user are unaffected.
-	OwnerlessKeysEnabled bool `mapstructure:"ownerless_keys_enabled" yaml:"ownerless_keys_enabled"`
+	OwnerlessKeysEnabled bool `mapstructure:"ownerless_keys_enabled"`
 
 	// RiskyServerScoreFloor — RegistryServers whose latest OSV
 	// EnrichmentScore is BELOW this float are auto-blocked. 0 disables.
-	RiskyServerScoreFloor float64 `mapstructure:"risky_server_score_floor" yaml:"risky_server_score_floor"`
+	RiskyServerScoreFloor float64 `mapstructure:"risky_server_score_floor"`
 }
 
 // DefaultLifecycleConfig returns the default lifecycle settings. Used as
@@ -74,7 +74,7 @@ func DefaultLifecycleConfig() LifecycleConfig {
 		DryRun:                true,
 		InactiveKeyDays:       90,
 		OwnerlessKeysEnabled:  true,
-		RiskyServerScoreFloor: 40,
+		RiskyServerScoreFloor: 40.0,
 	}
 }
 
@@ -479,15 +479,15 @@ func setDefaults() {
 	viper.SetDefault("deployment.oom_autoscale.reset_after_healthy", "1h")
 	viper.SetDefault("deployment.oom_autoscale.poll_interval", "30s")
 
-	// Lifecycle hygiene defaults — the daemon is on by default but in
-	// DryRun mode, so operators see what *would* happen in the audit log
-	// before they explicitly flip dry_run=false to enforce.
-	viper.SetDefault("lifecycle.enabled", true)
-	viper.SetDefault("lifecycle.interval", "1h")
-	viper.SetDefault("lifecycle.dry_run", true)
-	viper.SetDefault("lifecycle.inactive_key_days", 90)
-	viper.SetDefault("lifecycle.ownerless_keys_enabled", true)
-	viper.SetDefault("lifecycle.risky_server_score_floor", 40.0)
+	// Lifecycle hygiene defaults — sourced from DefaultLifecycleConfig()
+	// so the constructor and viper cannot drift apart.
+	lc := DefaultLifecycleConfig()
+	viper.SetDefault("lifecycle.enabled", lc.Enabled)
+	viper.SetDefault("lifecycle.interval", lc.Interval)
+	viper.SetDefault("lifecycle.dry_run", lc.DryRun)
+	viper.SetDefault("lifecycle.inactive_key_days", lc.InactiveKeyDays)
+	viper.SetDefault("lifecycle.ownerless_keys_enabled", lc.OwnerlessKeysEnabled)
+	viper.SetDefault("lifecycle.risky_server_score_floor", lc.RiskyServerScoreFloor)
 }
 
 func bindEnvVars() {
