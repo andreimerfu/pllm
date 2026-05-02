@@ -14,6 +14,17 @@ type ServerFixture struct {
 	Version     string
 	Description string
 	Score       int // forced enrichment score, 0-100
+	// Packages mirrors RegistryServer.Packages — when non-nil the entry
+	// is deployable. Catalog-only fixtures leave this nil.
+	Packages []PackageRef
+}
+
+// PackageRef matches the wire shape the deployment service decodes from
+// RegistryServer.Packages / RegistryAgent.Packages.
+type PackageRef struct {
+	RegistryType string `json:"registry_type"` // "npm" | "pypi" | "oci"
+	Identifier   string `json:"identifier"`
+	Version      string `json:"version"`
 }
 
 var BankServers = []ServerFixture{
@@ -49,23 +60,30 @@ var BankServers = []ServerFixture{
 	},
 }
 
-// PublicLiveServers are published only when --with-deployments is set.
-// They reuse standard MCP server packages. The seed only publishes the
-// catalog entry — actual K8s deployment is left to the operator's
-// "Deploy" button in /ui/deployments because it requires the wrapper
-// image and per-cluster RBAC.
+// PublicLiveServers are published + deployed when --with-deployments is
+// set. They reuse the standard @modelcontextprotocol/* npm packages
+// driven by the existing wrapper image (built via
+// `make wrapper-image-minikube`). Each gets a real K8s workload + an
+// auto-registered MCP gateway backend (so tools surface under
+// reg-<workload>__* in /v1/mcp).
 var PublicLiveServers = []ServerFixture{
 	{
 		Name:        "mcp.io/filesystem",
 		Version:     "1.0.0",
 		Description: SeedMarker + "Reference filesystem MCP server (sandboxed).",
 		Score:       90,
+		Packages: []PackageRef{
+			{RegistryType: "npm", Identifier: "@modelcontextprotocol/server-filesystem", Version: "latest"},
+		},
 	},
 	{
 		Name:        "mcp.io/server-everything",
 		Version:     "1.0.0",
 		Description: SeedMarker + "MCP reference server with every tool type.",
 		Score:       90,
+		Packages: []PackageRef{
+			{RegistryType: "npm", Identifier: "@modelcontextprotocol/server-everything", Version: "latest"},
+		},
 	},
 }
 
@@ -110,6 +128,15 @@ type AgentFixture struct {
 	Version     string
 	Description string
 	Refs        []AgentRefFixture
+	// Packages mirrors RegistryAgent.Packages — required for deployment.
+	// Bank-demo agents use the existing pllm/agent-echo + pllm/agent-research
+	// reference images as runtime stand-ins (those are the only OCI agent
+	// images we ship pre-built). See deploy/agent-reference/.
+	Packages []PackageRef
+	// DeployForUseCase names the use case the agent should be deployed
+	// against when --with-deployments is set. Agent deploys require a
+	// use_case_id at deploy time (it pins the bound key's scope).
+	DeployForUseCase string
 }
 
 var BankAgents = []AgentFixture{
@@ -122,6 +149,10 @@ var BankAgents = []AgentFixture{
 			{TargetKind: "server", TargetName: "bank.demo/credit-scoring"},
 			{TargetKind: "prompt", TargetName: "bank.demo/decision-rationale"},
 		},
+		Packages: []PackageRef{
+			{RegistryType: "oci", Identifier: "pllm/agent-echo", Version: "dev"},
+		},
+		DeployForUseCase: "loan-underwriting-assistant",
 	},
 	{
 		Name:        "bank.demo/kyc-summarizer",
@@ -132,6 +163,10 @@ var BankAgents = []AgentFixture{
 			{TargetKind: "prompt", TargetName: "bank.demo/kyc-summary-template"},
 			{TargetKind: "skill", TargetName: "bank.demo/pii-redactor"},
 		},
+		Packages: []PackageRef{
+			{RegistryType: "oci", Identifier: "pllm/agent-research", Version: "dev"},
+		},
+		DeployForUseCase: "aml-investigation-copilot",
 	},
 }
 

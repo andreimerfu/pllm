@@ -44,12 +44,12 @@ func RunBank(opts Options) error {
 	}
 
 	if opts.WithDeployments {
-		out.Step("upsert servers (live, catalog only)")
+		out.Step("upsert servers (live)")
 		for _, s := range PublicLiveServers {
 			if err := upsertServer(c, s); err != nil {
 				return fmt.Errorf("server %s: %w", s.Name, err)
 			}
-			out.Item(s.Name + " (catalog only — click Deploy in /ui/deployments)")
+			out.Item(s.Name)
 		}
 	}
 
@@ -101,6 +101,35 @@ func RunBank(opts Options) error {
 		}
 		keyTokens[k.Name] = token
 		out.Item(k.Name + " → " + k.UseCaseSlug)
+	}
+
+	if opts.WithDeployments {
+		out.Step("deploy live MCP servers (npx via wrapper image)")
+		for _, s := range PublicLiveServers {
+			if err := deployServer(c, s.Name, s.Version); err != nil {
+				return fmt.Errorf("deploy server %s: %w", s.Name, err)
+			}
+			out.Item(s.Name + " → K8s workload + auto-registered as gateway backend")
+		}
+
+		out.Step("deploy bank agents (OCI images already in minikube)")
+		for _, a := range BankAgents {
+			if a.DeployForUseCase == "" {
+				continue
+			}
+			ucID, ok := ucIDs[a.DeployForUseCase]
+			if !ok {
+				return fmt.Errorf("deploy agent %s: bound use case %s not found", a.Name, a.DeployForUseCase)
+			}
+			agentID := c.LookupUUID(a.Name)
+			if agentID == uuid.Nil {
+				return fmt.Errorf("deploy agent %s: no UUID cached", a.Name)
+			}
+			if err := deployAgent(c, agentID, ucID); err != nil {
+				return fmt.Errorf("deploy agent %s: %w", a.Name, err)
+			}
+			out.Item(a.Name + " → bound to " + a.DeployForUseCase)
+		}
 	}
 
 	if opts.WithEvents {
@@ -169,6 +198,9 @@ func upsertServer(c *Client, s ServerFixture) error {
 		"name":        s.Name,
 		"version":     s.Version,
 		"description": s.Description,
+	}
+	if len(s.Packages) > 0 {
+		body["packages"] = s.Packages
 	}
 	type out struct {
 		ID   uuid.UUID `json:"id"`
@@ -240,8 +272,14 @@ func upsertAgent(c *Client, a AgentFixture) error {
 		"description": a.Description,
 		"refs":        refs,
 	}
+	if len(a.Packages) > 0 {
+		body["packages"] = a.Packages
+	}
+	// Agent upsert returns AgentWithRefs: { agent: {id, ...}, refs: [...] }.
 	var got struct {
-		ID uuid.UUID `json:"id"`
+		Agent struct {
+			ID uuid.UUID `json:"id"`
+		} `json:"agent"`
 	}
 	status, b, err := c.Do(http.MethodPost, "/api/admin/registry/agents", body, &got)
 	if err != nil {
@@ -250,8 +288,33 @@ func upsertAgent(c *Client, a AgentFixture) error {
 	if err := MustOK(http.MethodPost, "/api/admin/registry/agents", status, b); err != nil {
 		return err
 	}
-	c.CacheUUID(a.Name, got.ID)
+	c.CacheUUID(a.Name, got.Agent.ID)
 	return nil
+}
+
+// deployServer triggers a real K8s deployment of a published registry
+// server. Idempotent: the deployment service finds-or-creates the row.
+func deployServer(c *Client, name, version string) error {
+	body := map[string]any{"server_name": name, "server_version": version}
+	st, b, err := c.Do(http.MethodPost, "/api/admin/deployments", body, nil)
+	if err != nil {
+		return err
+	}
+	return MustOK(http.MethodPost, "/api/admin/deployments", st, b)
+}
+
+// deployAgent triggers a real K8s deployment of a published registry
+// agent against a use case. Idempotent at the service layer.
+func deployAgent(c *Client, agentID, useCaseID uuid.UUID) error {
+	body := map[string]any{
+		"agent_id":    agentID,
+		"use_case_id": useCaseID,
+	}
+	st, b, err := c.Do(http.MethodPost, "/api/admin/agents", body, nil)
+	if err != nil {
+		return err
+	}
+	return MustOK(http.MethodPost, "/api/admin/agents", st, b)
 }
 
 // upsertKey ensures a demo key exists and is bound to the given use case.
@@ -315,8 +378,10 @@ func upsertKey(c *Client, k KeyFixture, useCaseID uuid.UUID) (string, error) {
 	return got.PlaintextKey, nil
 }
 
-// upsertUseCase POSTs the use case (the Create handler is upsert-by-slug;
-// existing rows return 200 with the same row). Returns the row's UUID.
+// upsertUseCase ensures the use case exists with the right shape.
+// Strategy: GET by slug; if found PUT to update; else POST to create.
+// The Create endpoint returns 409 on duplicate slug, so we cannot just
+// POST blindly.
 func upsertUseCase(c *Client, uc UseCaseFixture) (uuid.UUID, error) {
 	refs := make([]map[string]any, 0, len(uc.Refs))
 	for _, r := range uc.Refs {
@@ -340,14 +405,40 @@ func upsertUseCase(c *Client, uc UseCaseFixture) (uuid.UUID, error) {
 			ID uuid.UUID `json:"id"`
 		} `json:"use_case"`
 	}
-	var got ucResp
-	status, b, err := c.Do(http.MethodPost, "/api/admin/use-cases", body, &got)
+
+	// Try GET first — Get accepts a slug (not just a UUID).
+	{
+		var got ucResp
+		st, b, err := c.Do(http.MethodGet, "/api/admin/use-cases/"+EscapeName(uc.Slug), nil, &got)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		if st == http.StatusOK && got.UseCase.ID != uuid.Nil {
+			// Update in place.
+			var updated ucResp
+			path := "/api/admin/use-cases/" + got.UseCase.ID.String()
+			st2, b2, err := c.Do(http.MethodPut, path, body, &updated)
+			if err != nil {
+				return uuid.Nil, err
+			}
+			if err := MustOK(http.MethodPut, path, st2, b2); err != nil {
+				return uuid.Nil, err
+			}
+			c.CacheUUID(uc.Slug, got.UseCase.ID)
+			return got.UseCase.ID, nil
+		}
+		// st 404 or empty body falls through to create.
+		_ = b
+	}
+
+	var created ucResp
+	st, b, err := c.Do(http.MethodPost, "/api/admin/use-cases", body, &created)
 	if err != nil {
 		return uuid.Nil, err
 	}
-	if err := MustOK(http.MethodPost, "/api/admin/use-cases", status, b); err != nil {
+	if err := MustOK(http.MethodPost, "/api/admin/use-cases", st, b); err != nil {
 		return uuid.Nil, err
 	}
-	c.CacheUUID(uc.Slug, got.UseCase.ID)
-	return got.UseCase.ID, nil
+	c.CacheUUID(uc.Slug, created.UseCase.ID)
+	return created.UseCase.ID, nil
 }
