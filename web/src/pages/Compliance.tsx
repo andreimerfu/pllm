@@ -11,8 +11,15 @@ import {
   listWebhooks,
   deleteWebhook,
   testWebhook,
+  getLifecycleStatus,
+  runLifecycle,
 } from "@/lib/api";
-import type { ScopeEvent, UseCase, Webhook } from "@/types/api";
+import type {
+  LifecycleSummary,
+  ScopeEvent,
+  UseCase,
+  Webhook,
+} from "@/types/api";
 
 import { PageShell } from "@/components/common/page-shell";
 import { PostureBreakdown, PostureRing } from "@/components/compliance/posture-ring";
@@ -254,6 +261,9 @@ export default function Compliance() {
         editing={editingHook}
         onEditingChange={setEditingHook}
       />
+
+      {/* ────────────── Lifecycle hygiene ────────────── */}
+      <LifecycleHygieneSection />
     </PageShell>
   );
 }
@@ -735,6 +745,187 @@ function WebhookRow({ hook, onEdit }: { hook: Webhook; onEdit: () => void }) {
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle hygiene — per-rule action panels for the inactive-keys,
+// ownerless-keys, and risky-servers sweepers. Status is fetched on mount;
+// "Run now" POSTs to /api/admin/lifecycle/run and replaces the cached
+// summary with the fresh result. Each action carries a dry-run badge when
+// the rule is configured to log without mutating.
+// ---------------------------------------------------------------------------
+
+function LifecycleHygieneSection() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: summary, isLoading } = useQuery({
+    queryKey: ["lifecycle-status"],
+    queryFn: getLifecycleStatus,
+  });
+
+  const runMutation = useMutation({
+    mutationFn: runLifecycle,
+    onSuccess: (next: LifecycleSummary) => {
+      qc.setQueryData(["lifecycle-status"], next);
+      toast({
+        title: "Lifecycle run complete",
+        description: `${next.total_actions} action${next.total_actions === 1 ? "" : "s"} across ${next.rules?.length ?? 0} rule${(next.rules?.length ?? 0) === 1 ? "" : "s"}.`,
+      });
+    },
+    onError: (e: any) => {
+      toast({
+        title: "Lifecycle run failed",
+        description: e?.response?.data?.error ?? e.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const ranAt = summary?.ran_at && !summary.ran_at.startsWith("0001-")
+    ? new Date(summary.ran_at)
+    : null;
+  const durationMs = summary ? Math.round(summary.duration / 1_000_000) : 0;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-end justify-between gap-2">
+        <div>
+          <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Hygiene
+          </p>
+          <h2 className="text-base font-semibold tracking-tight mt-0.5">
+            Lifecycle sweepers
+            <span className="text-muted-foreground font-normal text-sm ml-2">
+              · inactive keys, ownerless keys, risky servers
+            </span>
+          </h2>
+        </div>
+        <Button
+          onClick={() => runMutation.mutate()}
+          disabled={runMutation.isPending}
+          size="sm"
+          className="gap-1.5"
+        >
+          <Icon icon={icons.rocket} className="h-3.5 w-3.5" />
+          {runMutation.isPending ? "Running…" : "Run now"}
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-3 text-[11px] font-mono tabular-nums text-muted-foreground">
+        {isLoading ? (
+          <span>Loading…</span>
+        ) : ranAt ? (
+          <>
+            <span>
+              Last run {formatDistanceToNow(ranAt, { addSuffix: true })}
+            </span>
+            <span className="text-border">·</span>
+            <span>
+              {summary!.total_actions} action
+              {summary!.total_actions === 1 ? "" : "s"}
+            </span>
+            <span className="text-border">·</span>
+            <span>{durationMs}ms</span>
+          </>
+        ) : (
+          <span>Never run.</span>
+        )}
+      </div>
+
+      {summary && summary.rules && summary.rules.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {summary.rules.map((r) => (
+            <LifecycleRuleCard key={r.rule} rule={r} />
+          ))}
+        </div>
+      ) : !isLoading && (
+        <div className="rounded-lg border border-dashed border-border p-8 text-center">
+          <Icon
+            icon={icons.shield}
+            className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2"
+          />
+          <p className="text-sm text-muted-foreground">
+            No rules have run yet. Click <span className="font-mono">Run now</span> to
+            sweep inactive keys, ownerless keys, and risky servers.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function LifecycleRuleCard({
+  rule,
+}: {
+  rule: LifecycleSummary["rules"][number];
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Rule
+          </div>
+          <div className="text-sm font-mono font-semibold tracking-tight mt-0.5 truncate">
+            {rule.rule}
+          </div>
+        </div>
+        {rule.error ? (
+          <span
+            className="inline-flex items-center gap-1 h-[18px] px-1.5 rounded bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-1 ring-rose-500/30 text-[10px] font-mono uppercase tracking-wider"
+            title={rule.error}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+            error
+          </span>
+        ) : rule.actions.length > 0 ? (
+          <span className="inline-flex items-center h-[18px] px-1.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/30 text-[10px] font-mono uppercase tracking-wider">
+            {rule.actions.length} action{rule.actions.length === 1 ? "" : "s"}
+          </span>
+        ) : (
+          <span className="inline-flex items-center h-[18px] px-1.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/30 text-[10px] font-mono uppercase tracking-wider">
+            clean
+          </span>
+        )}
+      </div>
+
+      <div className="text-[11px] font-mono tabular-nums text-muted-foreground">
+        scanned {rule.scanned} · acted on {rule.actions.length}
+        {rule.error ? ` · error: ${rule.error}` : ""}
+      </div>
+
+      {rule.actions.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">
+          No actions on the last run.
+        </p>
+      ) : (
+        <ul className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+          {rule.actions.map((a) => (
+            <li
+              key={a.resource_id}
+              className="text-[12px] py-1 border-b border-border/30 last:border-0"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <code className="font-mono truncate">{a.subject}</code>
+                {a.dry_run && (
+                  <span
+                    className="inline-flex items-center h-[16px] px-1.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/30 text-[9px] font-mono uppercase tracking-wider shrink-0"
+                    title="Logged without mutating"
+                  >
+                    dry-run
+                  </span>
+                )}
+              </div>
+              <div className="text-muted-foreground text-[11px] truncate">
+                {a.reason}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
