@@ -36,6 +36,46 @@ type Config struct {
 	MCP        MCPConfig        `mapstructure:"mcp"`
 	Deployment DeploymentConfig `mapstructure:"deployment"`
 	Agents     AgentInvocationConfig `mapstructure:"agents"`
+	Lifecycle  LifecycleConfig  `mapstructure:"lifecycle"`
+}
+
+// LifecycleConfig governs the lifecycle hygiene daemon: how often it runs,
+// what thresholds it applies, and whether it actually mutates data.
+//
+// DryRun=true is the canonical first-install posture — the daemon should
+// not revoke half a fleet of keys before the operator has reviewed the
+// audit log. Operators flip DryRun=false explicitly via config.
+type LifecycleConfig struct {
+	Enabled  bool          `mapstructure:"enabled" yaml:"enabled"`
+	Interval time.Duration `mapstructure:"interval" yaml:"interval"`
+	DryRun   bool          `mapstructure:"dry_run" yaml:"dry_run"`
+
+	// InactiveKeyDays — keys whose LastUsedAt (or CreatedAt for never-used
+	// keys) is older than this are revoked. 0 disables the rule.
+	InactiveKeyDays int `mapstructure:"inactive_key_days" yaml:"inactive_key_days"`
+
+	// OwnerlessKeysEnabled — when true, revoke keys whose User row has
+	// IsActive=false or has been soft-deleted. Team-owned keys with no
+	// user are unaffected.
+	OwnerlessKeysEnabled bool `mapstructure:"ownerless_keys_enabled" yaml:"ownerless_keys_enabled"`
+
+	// RiskyServerScoreFloor — RegistryServers whose latest OSV
+	// EnrichmentScore is BELOW this float are auto-blocked. 0 disables.
+	RiskyServerScoreFloor float64 `mapstructure:"risky_server_score_floor" yaml:"risky_server_score_floor"`
+}
+
+// DefaultLifecycleConfig returns the default lifecycle settings. Used as
+// the starting point that viper merges YAML on top of, so an operator
+// who sets `dry_run: false` actually gets DryRun=false (no override bug).
+func DefaultLifecycleConfig() LifecycleConfig {
+	return LifecycleConfig{
+		Enabled:               true,
+		Interval:              time.Hour,
+		DryRun:                true,
+		InactiveKeyDays:       90,
+		OwnerlessKeysEnabled:  true,
+		RiskyServerScoreFloor: 40,
+	}
 }
 
 // AgentInvocationConfig tunes the outbound /invoke calls pllm makes to
@@ -438,6 +478,16 @@ func setDefaults() {
 	viper.SetDefault("deployment.oom_autoscale.max_memory", "4Gi")
 	viper.SetDefault("deployment.oom_autoscale.reset_after_healthy", "1h")
 	viper.SetDefault("deployment.oom_autoscale.poll_interval", "30s")
+
+	// Lifecycle hygiene defaults — the daemon is on by default but in
+	// DryRun mode, so operators see what *would* happen in the audit log
+	// before they explicitly flip dry_run=false to enforce.
+	viper.SetDefault("lifecycle.enabled", true)
+	viper.SetDefault("lifecycle.interval", "1h")
+	viper.SetDefault("lifecycle.dry_run", true)
+	viper.SetDefault("lifecycle.inactive_key_days", 90)
+	viper.SetDefault("lifecycle.ownerless_keys_enabled", true)
+	viper.SetDefault("lifecycle.risky_server_score_floor", 40.0)
 }
 
 func bindEnvVars() {
