@@ -276,6 +276,9 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 				// `events` is an audit surface — registered before {id}
 				// so chi doesn't try to parse "events" as a UUID.
 				rr.Get("/events", uh.ListScopeEvents)
+				// Bulk-seed endpoint for the demo CLI; backdates events.
+				// Master-key only via the upstream RequireAdmin gate.
+				rr.Post("/events:bulk", uh.BulkSeedScopeEvents)
 				rr.Get("/{id}", uh.Get)
 				rr.Put("/{id}", uh.Update)
 				rr.Delete("/{id}", uh.Delete)

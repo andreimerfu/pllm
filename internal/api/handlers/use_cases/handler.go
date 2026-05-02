@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -88,53 +87,9 @@ func (b *apiBody) toInput() *use_cases.UpsertInput {
 }
 
 // --- endpoints ------------------------------------------------------------
-
-// ListScopeEvents is GET /api/admin/use-cases/events — the audit log
-// across all use cases. Supports filters: use_case_id, kind (mcp_tool|llm),
-// outcome (denied|flagged), target_name, since (RFC3339), limit/offset.
-func (h *Handler) ListScopeEvents(w http.ResponseWriter, r *http.Request) {
-	if h.service == nil {
-		writeErr(w, http.StatusServiceUnavailable, "use cases not configured")
-		return
-	}
-	q := r.URL.Query()
-	f := use_cases.EventListFilter{
-		Kind:       models.ScopeEventKind(q.Get("kind")),
-		Outcome:    models.ScopeEventOutcome(q.Get("outcome")),
-		TargetName: q.Get("target_name"),
-	}
-	if v := q.Get("use_case_id"); v != "" {
-		if id, err := uuid.Parse(v); err == nil {
-			f.UseCaseID = &id
-		}
-	}
-	if v := q.Get("since"); v != "" {
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			f.Since = &t
-		}
-	}
-	if n, err := strconv.Atoi(q.Get("limit")); err == nil {
-		f.Limit = n
-	}
-	if n, err := strconv.Atoi(q.Get("offset")); err == nil && n >= 0 {
-		f.Offset = n
-	}
-	rec := h.service.Events()
-	events, err := rec.ListEvents(r.Context(), f)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	stats, err := rec.Stats(r.Context())
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"events": events,
-		"stats":  stats,
-	})
-}
+//
+// Scope-event endpoints (ListScopeEvents, BulkSeedScopeEvents) live in
+// scope_events.go.
 
 // List is GET /api/admin/use-cases.
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
