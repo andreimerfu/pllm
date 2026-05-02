@@ -31,7 +31,7 @@ func NewHandler(logger *zap.Logger, svc *lifesvc.Service) *Handler {
 // Status returns the cached summary of the most recent run.
 func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 	if h.svc == nil {
-		http.Error(w, "lifecycle disabled", http.StatusServiceUnavailable)
+		writeErr(w, http.StatusServiceUnavailable, "lifecycle disabled")
 		return
 	}
 	writeJSON(w, http.StatusOK, h.svc.LastSummary())
@@ -42,13 +42,13 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 // anything user-facing.
 func (h *Handler) RunNow(w http.ResponseWriter, r *http.Request) {
 	if h.svc == nil {
-		http.Error(w, "lifecycle disabled", http.StatusServiceUnavailable)
+		writeErr(w, http.StatusServiceUnavailable, "lifecycle disabled")
 		return
 	}
 	summary, err := h.svc.RunOnce(r.Context())
 	if err != nil {
 		h.logger.Warn("lifecycle run failed", zap.Error(err))
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, summary)
@@ -58,4 +58,10 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// writeErr emits a JSON error body matching the convention of the
+// other admin handlers (use_cases, webhooks).
+func writeErr(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg})
 }

@@ -91,6 +91,15 @@ func TestNilServiceReturns503(t *testing.T) {
 		r.ServeHTTP(w, req)
 		if w.Code != http.StatusServiceUnavailable {
 			t.Errorf("%s %s: expected 503, got %d", tc.method, tc.path, w.Code)
+			continue
+		}
+		var body map[string]string
+		if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+			t.Errorf("%s %s: expected JSON body, got %v (%s)", tc.method, tc.path, err, w.Body.String())
+			continue
+		}
+		if body["error"] == "" {
+			t.Errorf("%s %s: expected non-empty error field, got %v", tc.method, tc.path, body)
 		}
 	}
 }
