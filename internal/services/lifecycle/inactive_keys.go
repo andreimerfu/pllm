@@ -58,9 +58,15 @@ func (r *InactiveKeysRule) Run(ctx context.Context, db *gorm.DB, cfg Config, hoo
 		if cfg.DryRun {
 			continue
 		}
-		revokedAt, err := revokeKey(ctx, db, &k, reason)
+		revokedAt, mutated, err := revokeKey(ctx, db, &k, reason)
 		if err != nil {
 			res.Actions[len(res.Actions)-1].Reason = "revoke failed: " + err.Error()
+			continue
+		}
+		if !mutated {
+			// Race: already revoked by another rule/run since our scan. Mark the
+			// recorded action as a no-op and skip audit + webhook.
+			res.Actions[len(res.Actions)-1].Reason = "already revoked (race)"
 			continue
 		}
 		writeKeyAudit(ctx, db, &k, "key_revoked_inactive", reason, revokedAt, nil)
@@ -83,22 +89,29 @@ func (r *InactiveKeysRule) Run(ctx context.Context, db *gorm.DB, cfg Config, hoo
 }
 
 // revokeKey is the shared mutation used by all key-revoking rules.
+// Idempotent: if the key has already been revoked (concurrently by
+// another rule or another run), this returns (zero, nil, false) so
+// the caller can skip the audit + webhook for a no-op revocation.
+//
 // Lifecycle is system-driven, so RevokedBy is left nil — the audit row
-// carries the system attribution via EventType=lifecycle. Returns the
-// revoke timestamp so the caller can thread it through the audit row
-// and webhook payload (single source of truth per key block).
-func revokeKey(ctx context.Context, db *gorm.DB, k *models.Key, reason string) (time.Time, error) {
+// carries the system attribution via EventType=lifecycle.
+func revokeKey(ctx context.Context, db *gorm.DB, k *models.Key, reason string) (revokedAt time.Time, mutated bool, err error) {
 	now := time.Now()
-	if err := db.WithContext(ctx).Model(&models.Key{}).
-		Where("id = ?", k.ID).
+	res := db.WithContext(ctx).Model(&models.Key{}).
+		Where("id = ? AND is_active = ? AND revoked_at IS NULL", k.ID, true).
 		Updates(map[string]any{
 			"is_active":         false,
 			"revoked_at":        now,
 			"revocation_reason": reason,
-		}).Error; err != nil {
-		return time.Time{}, err
+		})
+	if res.Error != nil {
+		return time.Time{}, false, res.Error
 	}
-	return now, nil
+	if res.RowsAffected == 0 {
+		// Already revoked between our scan and this UPDATE — skip cleanly.
+		return time.Time{}, false, nil
+	}
+	return now, true, nil
 }
 
 // writeKeyAudit persists a single AuditEventLifecycle row keyed to the

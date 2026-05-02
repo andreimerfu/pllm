@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/amerfu/pllm/internal/core/models"
@@ -64,13 +65,30 @@ func (r *OwnerlessKeysRule) Run(ctx context.Context, db *gorm.DB, cfg Config, ho
 		case r2.UserActive == nil:
 			why = "owner user missing"
 		default:
+			// owner is healthy — left join found an active, non-deleted user
 			continue
 		}
 
-		var k models.Key
-		if err := db.WithContext(ctx).First(&k, "id = ?", r2.KeyID).Error; err != nil {
+		keyID, err := uuid.Parse(r2.KeyID)
+		if err != nil {
 			continue
 		}
+		k := models.Key{
+			BaseModel: models.BaseModel{ID: keyID},
+			Name:      r2.KeyName,
+			KeyPrefix: r2.KeyPrefix,
+		}
+		if r2.UserID != nil {
+			if uid, err := uuid.Parse(*r2.UserID); err == nil {
+				k.UserID = &uid
+			}
+		}
+		if r2.TeamID != nil {
+			if tid, err := uuid.Parse(*r2.TeamID); err == nil {
+				k.TeamID = &tid
+			}
+		}
+
 		now := time.Now()
 		reason := fmt.Sprintf("ownerless: %s", why)
 		res.Actions = append(res.Actions, Action{
@@ -84,9 +102,13 @@ func (r *OwnerlessKeysRule) Run(ctx context.Context, db *gorm.DB, cfg Config, ho
 		if cfg.DryRun {
 			continue
 		}
-		revokedAt, err := revokeKey(ctx, db, &k, reason)
+		revokedAt, mutated, err := revokeKey(ctx, db, &k, reason)
 		if err != nil {
 			res.Actions[len(res.Actions)-1].Reason = "revoke failed: " + err.Error()
+			continue
+		}
+		if !mutated {
+			res.Actions[len(res.Actions)-1].Reason = "already revoked (race)"
 			continue
 		}
 		writeKeyAudit(ctx, db, &k, "key_revoked_ownerless", reason, revokedAt, nil)

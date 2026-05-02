@@ -119,6 +119,45 @@ func TestOwnerlessKeysSkipsTeamOnlyKey(t *testing.T) {
 	}
 }
 
+func TestOwnerlessKeysRevokesKeyWhenUserRowMissing(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires postgres")
+	}
+	db, cleanup := testutil.NewTestDB(t)
+	defer cleanup()
+	// The schema has an FK keys.user_id -> users.id. To simulate a hard-deleted
+	// user (FK left dangling — e.g. legacy data, manual cleanup), drop the FK
+	// for this test so we can insert a key whose owner row does not exist.
+	if err := db.Exec(`ALTER TABLE keys DROP CONSTRAINT IF EXISTS fk_users_keys`).Error; err != nil {
+		t.Fatal(err)
+	}
+	missingUID := uuid.New()
+	// Note: we deliberately do NOT create a User row — the FK is dangling.
+	key := models.Key{
+		BaseModel: models.BaseModel{ID: uuid.New()},
+		Key:       "pllm_ak_orphan",
+		KeyHash:   "hash_orphan",
+		KeyPrefix: "orphan",
+		Name:      "orphan",
+		IsActive:  true,
+		UserID:    &missingUID,
+	}
+	if err := db.Create(&key).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	emitter := &fakeEmitter{}
+	rule := &OwnerlessKeysRule{}
+	res := rule.Run(context.Background(), db, Config{OwnerlessKeysEnabled: true, DryRun: false}, emitter)
+
+	if len(res.Actions) != 1 {
+		t.Fatalf("expected 1 action for missing-user key, got %d", len(res.Actions))
+	}
+	if res.Actions[0].Reason != "ownerless: owner user missing" {
+		t.Fatalf("expected reason \"ownerless: owner user missing\", got %q", res.Actions[0].Reason)
+	}
+}
+
 func TestOwnerlessKeysDisabledByConfig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("requires postgres")
