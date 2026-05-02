@@ -88,9 +88,28 @@ func RunBank(opts Options) error {
 		out.Item(uc.Slug + " (" + uc.Status + ")")
 	}
 
-	// Tasks 7-8 will append: keys, events, webhook.
-	_ = ucIDs
-	out.Done("bank seed complete (skeleton — keys/events/webhook to follow)")
+	out.Step("upsert API keys")
+	keyTokens := map[string]string{}
+	for _, k := range BankKeys {
+		ucID, ok := ucIDs[k.UseCaseSlug]
+		if !ok {
+			return fmt.Errorf("key %s: bound use case %s not found", k.Name, k.UseCaseSlug)
+		}
+		token, err := upsertKey(c, k, ucID)
+		if err != nil {
+			return fmt.Errorf("key %s: %w", k.Name, err)
+		}
+		keyTokens[k.Name] = token
+		out.Item(k.Name + " → " + k.UseCaseSlug)
+	}
+
+	// Task 8 will append: events, webhook.
+	out.Step("seeded API keys (copy these into your demo notes)")
+	for _, k := range BankKeys {
+		out.Result(k.Name, keyTokens[k.Name])
+	}
+
+	out.Done("bank seed complete")
 	return nil
 }
 
@@ -216,6 +235,67 @@ func upsertAgent(c *Client, a AgentFixture) error {
 	}
 	c.CacheUUID(a.Name, got.ID)
 	return nil
+}
+
+// upsertKey ensures a demo key exists and is bound to the given use case.
+// The admin keys API auto-generates the key value; the seed prints it
+// at the end so the demo presenter can copy it. Re-runs cannot recover
+// the plaintext (it's only returned at creation time), so existing
+// keys are PUT-updated to refresh the use-case binding and report
+// "(unchanged — token already issued)".
+func upsertKey(c *Client, k KeyFixture, useCaseID uuid.UUID) (string, error) {
+	// Look for an existing key by name first.
+	// ListKeys response: { keys: [{...key fields, plaintext_key, usage}], pagination }
+	type keyRow struct {
+		ID   uuid.UUID `json:"id"`
+		Name string    `json:"name"`
+	}
+	type listResp struct {
+		Keys []keyRow `json:"keys"`
+	}
+	var existing listResp
+	status, body, err := c.Do(http.MethodGet, "/api/admin/keys?limit=200", nil, &existing)
+	if err != nil {
+		return "", err
+	}
+	if err := MustOK(http.MethodGet, "/api/admin/keys", status, body); err != nil {
+		return "", err
+	}
+	for _, row := range existing.Keys {
+		if row.Name == k.Name {
+			// UpdateKey uses PUT /api/admin/keys/{keyID}. The use_case_id
+			// field on the update body is **uuid.UUID, so we wrap once
+			// to avoid the "field absent vs JSON null" ambiguity.
+			ucPtr := useCaseID
+			update := map[string]any{"use_case_id": &ucPtr}
+			st, b, err := c.Do(http.MethodPut, "/api/admin/keys/"+row.ID.String(), update, nil)
+			if err != nil {
+				return "", err
+			}
+			if err := MustOK(http.MethodPut, "/api/admin/keys/"+row.ID.String(), st, b); err != nil {
+				return "", err
+			}
+			return "(unchanged — token already issued)", nil
+		}
+	}
+	// Create. CreateKeyRequest field is `key_type`. Response shape:
+	// { ...embedded models.Key fields, plaintext_key: "...", usage: {...} }
+	create := map[string]any{
+		"name":        k.Name,
+		"key_type":    "api",
+		"use_case_id": useCaseID,
+	}
+	var got struct {
+		PlaintextKey string `json:"plaintext_key"`
+	}
+	st, b, err := c.Do(http.MethodPost, "/api/admin/keys", create, &got)
+	if err != nil {
+		return "", err
+	}
+	if err := MustOK(http.MethodPost, "/api/admin/keys", st, b); err != nil {
+		return "", err
+	}
+	return got.PlaintextKey, nil
 }
 
 // upsertUseCase POSTs the use case (the Create handler is upsert-by-slug;
