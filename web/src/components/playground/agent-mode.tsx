@@ -10,9 +10,12 @@ import {
   getMCPServers,
   getRegistryAgent,
   getRegistryPrompt,
+  invokeAgent,
+  listAgents,
   listRegistryAgents,
 } from "@/lib/api";
 import type {
+  AgentDeployment,
   MCPServer,
   MCPServerTool,
   RegistryAgent,
@@ -313,6 +316,37 @@ function AgentChat({
   const [pending, setPending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Find a live deployment for this registry agent. When present, the
+  // operator can flip "Deployed pod" mode and the playground will call
+  // POST /v1/agents/{slug}/invoke instead of simulating the agent loop
+  // locally — this exercises the actual deployed code path (e.g. the
+  // research image's scope-probe story).
+  const { data: deploymentsData } = useQuery({
+    queryKey: ["agents-deployments"],
+    queryFn: listAgents,
+    refetchInterval: 15_000,
+  });
+  const myDeployment: AgentDeployment | null = useMemo(() => {
+    const list = (deploymentsData as { agents: AgentDeployment[] } | undefined)?.agents ?? [];
+    return (
+      list.find(
+        (d) =>
+          (d as any).registry_agent_id === agent.id ||
+          (d as any).registry_agent?.id === agent.id,
+      ) ?? null
+    );
+  }, [deploymentsData, agent.id]);
+  const [useDeployedPod, setUseDeployedPod] = useState(false);
+  // Default to deployed-pod mode when one is available — that's the
+  // demo path. Users can flip it off to drive the simulation.
+  useEffect(() => {
+    if (myDeployment && (myDeployment as any).status === "running") {
+      setUseDeployedPod(true);
+    } else {
+      setUseDeployedPod(false);
+    }
+  }, [myDeployment]);
+
   // Reset when agent changes. Parent clears `trace` — we only clear messages.
   useEffect(() => {
     setMessages([]);
@@ -486,19 +520,59 @@ function AgentChat({
 
   const send = async () => {
     if (pending) return;
-    if (!input.trim() || !model) return;
+    if (!input.trim()) return;
+    if (!useDeployedPod && !model) return;
     setPending(true);
     const userMsg: ChatMsg = { role: "user", content: input.trim() };
     const sys: ChatMsg[] = systemMessage
       ? [{ role: "system", content: systemMessage }]
       : [];
-    const next = messages.length === 0
+    const next = messages.length === 0 && !useDeployedPod
       ? [...sys, userMsg]
       : [...messages, userMsg];
     setMessages(next);
     setInput("");
     try {
-      await runLoop(next);
+      if (useDeployedPod) {
+        // Hand off to the deployed agent pod via the public gateway
+        // route. /v1/agents/{slug}/invoke resolves the slug against
+        // the deployment's workload_name (e.g. loan-officer-copilot-0-1-0)
+        // — NOT the registry name — and scope-authorizes through the
+        // same chain as any other A2A caller. The playground uses
+        // master key, which bypasses scope; operators exercise scope
+        // from the use-case mode instead.
+        if (!myDeployment) {
+          throw new Error("no live deployment for this agent");
+        }
+        const slug = (myDeployment as any).workload_name as string;
+        const reqStart = performance.now();
+        addTrace({
+          kind: "llm_request",
+          ts: Date.now(),
+          model: "(deployed pod: " + slug + ")",
+          tool_count: 0,
+          msg_count: 1,
+        });
+        const out = await invokeAgent(slug, userMsg.content);
+        const latency_ms = Math.round(performance.now() - reqStart);
+        const text =
+          typeof out.output === "string"
+            ? out.output
+            : JSON.stringify(out.output, null, 2);
+        addTrace({
+          kind: "llm_response",
+          ts: Date.now(),
+          latency_ms,
+          has_tool_calls: false,
+          content_preview: text.slice(0, 120),
+        });
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: text },
+        ]);
+      } else {
+        await runLoop(next);
+      }
     } catch (e: any) {
       toast({
         title: "Run failed",
@@ -510,7 +584,8 @@ function AgentChat({
     }
   };
 
-  const canSend = !pending && input.trim().length > 0 && !!model;
+  const canSend =
+    !pending && input.trim().length > 0 && (useDeployedPod || !!model);
 
   const missingServers = resolvedServers.filter((r) => !r.server);
 
@@ -534,7 +609,47 @@ function AgentChat({
 
         {/* Agent-wired summary */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5">
+          {/* Mode toggle: Simulated (local LLM loop) vs Deployed pod */}
+          <div className="inline-flex items-center rounded-md ring-1 ring-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setUseDeployedPod(false)}
+              className={cn(
+                "text-[11px] font-mono uppercase tracking-wider h-6 px-2 transition",
+                !useDeployedPod
+                  ? "bg-foreground text-background"
+                  : "bg-transparent text-muted-foreground hover:bg-foreground/5",
+              )}
+              title="Build messages locally and call /v1/chat/completions — useful to rehearse the prompt + model + tools before deploy."
+            >
+              simulate
+            </button>
+            <button
+              type="button"
+              onClick={() => setUseDeployedPod(true)}
+              disabled={!myDeployment}
+              className={cn(
+                "text-[11px] font-mono uppercase tracking-wider h-6 px-2 transition",
+                useDeployedPod
+                  ? "bg-foreground text-background"
+                  : "bg-transparent text-muted-foreground hover:bg-foreground/5",
+                !myDeployment && "opacity-50 cursor-not-allowed",
+              )}
+              title={
+                myDeployment
+                  ? "POST /v1/agents/{slug}/invoke against the actual deployed pod."
+                  : "No live deployment for this agent. Deploy it from /ui/agents to enable."
+              }
+            >
+              deployed pod
+            </button>
+          </div>
+          <div
+            className={cn(
+              "flex items-center gap-1.5",
+              useDeployedPod && "opacity-40",
+            )}
+          >
             <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               Target
             </span>

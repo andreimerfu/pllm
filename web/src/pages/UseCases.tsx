@@ -97,6 +97,35 @@ const STATUS_TONES: Record<UseCaseStatus, string> = {
   retired: "bg-muted text-muted-foreground/60 ring-border",
 };
 
+// Tier rail — a 3px stripe on the card's left edge so a grid of cards reads
+// as a tier sort at first glance, before any text is parsed.
+const TIER_RAIL: Record<UseCaseRiskTier, string> = {
+  tier1: "bg-rose-500/70",
+  tier2: "bg-amber-500/70",
+  tier3: "bg-sky-500/70",
+  tier4: "bg-muted-foreground/30",
+};
+
+// Status dot — small "presence" indicator at the corner of the monogram tile.
+// under_review pulses to surface things waiting on a human.
+const STATUS_DOT: Record<UseCaseStatus, string> = {
+  draft: "bg-muted-foreground/50",
+  under_review: "bg-amber-500",
+  approved: "bg-emerald-500",
+  retired: "bg-transparent ring-1 ring-muted-foreground/40",
+};
+
+// Two-letter monogram derived from the use-case name. Single-word names
+// fall back to the first two characters.
+function monogramFromName(name: string): string {
+  const cleaned = name.trim();
+  if (!cleaned) return "?";
+  const words = cleaned.split(/[\s\-_/.]+/).filter(Boolean);
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+  const w = words[0];
+  return (w.length >= 2 ? w[0] + w[1] : w[0]).toUpperCase();
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -258,10 +287,23 @@ export default function UseCases() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="all">
+              <span className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+                All statuses
+              </span>
+            </SelectItem>
             {STATUSES.map((s) => (
               <SelectItem key={s.value} value={s.value}>
-                {s.label}
+                <span className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full shrink-0",
+                      STATUS_DOT[s.value],
+                    )}
+                  />
+                  {s.label}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -271,10 +313,27 @@ export default function UseCases() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All tiers</SelectItem>
+            <SelectItem value="all">
+              <span className="flex items-center gap-2">
+                <span className="inline-flex items-center h-[16px] px-1 rounded ring-1 text-[10px] font-mono uppercase tracking-wider bg-muted text-muted-foreground ring-border">
+                  T?
+                </span>
+                All tiers
+              </span>
+            </SelectItem>
             {RISK_TIERS.map((t) => (
               <SelectItem key={t.value} value={t.value}>
-                {t.label}
+                <span className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "inline-flex items-center h-[16px] px-1 rounded ring-1 text-[10px] font-mono uppercase tracking-wider",
+                      TIER_TONES[t.value],
+                    )}
+                  >
+                    {t.value.replace("tier", "t")}
+                  </span>
+                  {t.label}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -385,16 +444,38 @@ function UseCaseCard({ row, onClick }: { row: UseCase; onClick: () => void }) {
     <button
       onClick={onClick}
       className={cn(
-        "group relative text-left w-full",
+        "group relative text-left w-full overflow-hidden",
         "rounded-xl border border-border/80 bg-card",
         "hover:border-primary/40 hover:shadow-sm transition-all",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        "p-4 space-y-3",
+        "p-4 pl-[18px] space-y-3",
       )}
     >
+      <span
+        aria-hidden
+        className={cn(
+          "absolute left-0 top-0 bottom-0 w-[3px]",
+          TIER_RAIL[row.risk_tier],
+        )}
+      />
       <div className="flex items-start gap-3 min-w-0">
-        <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20 flex items-center justify-center shrink-0">
-          <Icon icon={icons.useCase} className="h-5 w-5" />
+        <div className="relative shrink-0">
+          <div
+            className={cn(
+              "h-10 w-10 rounded-lg flex items-center justify-center font-semibold text-[13px] tracking-wide ring-1",
+              TIER_TONES[row.risk_tier],
+            )}
+          >
+            {monogramFromName(row.name)}
+          </div>
+          <span
+            aria-label={`status ${row.status}`}
+            className={cn(
+              "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-card",
+              STATUS_DOT[row.status],
+              row.status === "under_review" && "animate-pulse",
+            )}
+          />
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-[15px] leading-tight truncate">

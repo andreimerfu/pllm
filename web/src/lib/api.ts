@@ -495,7 +495,10 @@ export const resetAgentOOM = (id: string) =>
 export const setAgentOOMAutoscale = (id: string, enabled: boolean | null) =>
   axiosInstance.put(`/api/admin/agents/${id}/oom/autoscale`, { enabled });
 export const invokeAgent = (slug: string, input: unknown) =>
-  axiosInstance.post(`/v1/agents/${slug}/invoke`, { input }) as Promise<{ output: unknown; error?: string; task_id?: string }>;
+  // Slug can contain "/" (e.g. "bank.demo/loan-officer-copilot") which
+  // chi otherwise treats as a path separator. encodeURIComponent
+  // double-encodes the slash so the gateway sees the slug intact.
+  axiosInstance.post(`/v1/agents/${encodeURIComponent(slug)}/invoke`, { input }) as Promise<{ output: unknown; error?: string; task_id?: string }>;
 
 // Use Cases
 export type UseCaseListParams = {
