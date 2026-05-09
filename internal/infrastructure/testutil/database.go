@@ -75,6 +75,9 @@ func NewTestDB(t *testing.T) (*gorm.DB, func()) {
 		&models.UseCase{},
 		&models.ScopeEvent{},
 		&models.Webhook{},
+		&models.LifecycleCustomRule{},
+		&models.DiscoveredAgent{},
+		&models.DiscoveredCall{},
 	)
 	require.NoError(t, err, "Failed to migrate test database")
 

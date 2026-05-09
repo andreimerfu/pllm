@@ -168,6 +168,9 @@ func Migrate() error {
 		&models.UseCase{},
 		&models.ScopeEvent{},
 		&models.Webhook{},
+		&models.LifecycleCustomRule{},
+		&models.DiscoveredAgent{},
+		&models.DiscoveredCall{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate models: %w", err)
 	}

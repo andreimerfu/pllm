@@ -42,6 +42,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.UseCase{},           // UseCase: top-level approval unit that consumes components
 		&models.ScopeEvent{},        // ScopeEvent: runtime denial/flag audit log
 		&models.Webhook{},           // Webhook: outbound event subscriptions
+		&models.LifecycleCustomRule{}, // Lifecycle: operator-defined CEL hygiene rules
+		&models.DiscoveredAgent{},   // Discovery: agents fingerprinted from OTel traffic
+		&models.DiscoveredCall{},    // Discovery: rollup of (agent, target) edges from OTel
 	)
 
 	if err != nil {
