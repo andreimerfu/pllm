@@ -3,11 +3,15 @@ package otel
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 
 	"github.com/amerfu/pllm/internal/services/discovery"
 	"go.uber.org/zap"
+	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 // Ingester is the surface this handler needs from the discovery service.
@@ -41,15 +45,42 @@ func (h *Handler) Traces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ct := r.Header.Get("Content-Type")
-	if !strings.Contains(ct, "application/json") {
-		http.Error(w, "only application/json OTLP is accepted; set OTEL_EXPORTER_OTLP_PROTOCOL=http/json", http.StatusUnsupportedMediaType)
-		return
-	}
-
 	var req discovery.ExportTraceServiceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.Warn("otel ingest decode failed", zap.Error(err))
-		http.Error(w, "bad otlp body", http.StatusBadRequest)
+	switch {
+	case strings.Contains(ct, "application/json"):
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			h.logger.Warn("otel ingest decode failed (json)", zap.Error(err))
+			http.Error(w, "bad otlp json", http.StatusBadRequest)
+			return
+		}
+	case strings.Contains(ct, "application/x-protobuf"):
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "read body failed", http.StatusBadRequest)
+			return
+		}
+		var pb coltracepb.ExportTraceServiceRequest
+		if err := proto.Unmarshal(body, &pb); err != nil {
+			h.logger.Warn("otel ingest decode failed (protobuf)", zap.Error(err))
+			http.Error(w, "bad otlp protobuf", http.StatusBadRequest)
+			return
+		}
+		// Convert proto -> JSON -> our internal struct. The
+		// double-encoding is cheap relative to the rest of the request
+		// path and avoids hand-mapping every proto field.
+		j, err := protojson.Marshal(&pb)
+		if err != nil {
+			h.logger.Warn("otel proto->json marshal failed", zap.Error(err))
+			http.Error(w, "otlp transcode failed", http.StatusInternalServerError)
+			return
+		}
+		if err := json.Unmarshal(j, &req); err != nil {
+			h.logger.Warn("otel json decode failed after transcode", zap.Error(err))
+			http.Error(w, "otlp transcode failed", http.StatusInternalServerError)
+			return
+		}
+	default:
+		http.Error(w, "Content-Type must be application/json or application/x-protobuf", http.StatusUnsupportedMediaType)
 		return
 	}
 
