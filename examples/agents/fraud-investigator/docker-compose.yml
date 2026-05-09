@@ -29,6 +29,8 @@ services:
       - PLLM_BASE_URL=${PLLM_BASE_URL:-http://host.docker.internal:8080}
       - PLLM_API_KEY=${PLLM_API_KEY:?set PLLM_API_KEY in your shell}
       - PLLM_KEY_ID=${PLLM_KEY_ID:?set PLLM_KEY_ID in your shell}
+      - ALLOWED_MODEL=${ALLOWED_MODEL:-gpt-4o}
+      - DENIED_MODEL=${DENIED_MODEL:-gpt-3.5-turbo}
       - QDRANT_URL=http://qdrant:6333
       - OTEL_SERVICE_NAME=fraud-investigator
       - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
