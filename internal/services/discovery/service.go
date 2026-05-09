@@ -25,9 +25,9 @@ type PolicyEvaluator interface {
 	Evaluate(ctx context.Context, agent *models.DiscoveredAgent, call *models.DiscoveredCall) PolicyResult
 }
 
-// Revoker reacts to flagged-count changes on an agent. Implementations
-// live in revoker.go. nil => no auto-revoke.
-type Revoker interface {
+// FlagReactor reacts to flagged-count changes on an agent.
+// Implementations live in revoker.go. nil => no auto-revoke.
+type FlagReactor interface {
 	OnFlagged(ctx context.Context, agent *models.DiscoveredAgent)
 }
 
@@ -51,7 +51,7 @@ type Service struct {
 	db      *gorm.DB
 	logger  *zap.Logger
 	policy  PolicyEvaluator
-	revoker Revoker
+	revoker FlagReactor
 	agents  AgentResolver
 }
 
@@ -59,7 +59,7 @@ func NewService(
 	db *gorm.DB,
 	logger *zap.Logger,
 	policy PolicyEvaluator,
-	revoker Revoker,
+	revoker FlagReactor,
 	agents AgentResolver,
 ) *Service {
 	if logger == nil {
