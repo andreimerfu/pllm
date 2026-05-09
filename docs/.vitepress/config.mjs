@@ -8,6 +8,11 @@ export default withMermaid(
       "Control plane for agentic systems — LLM gateway, MCP gateway, registry, deployments, and governance",
     base: "/docs/",
     ignoreDeadLinks: false,
+    // Implementation plans live under docs/superpowers/plans/ for the
+    // writing-plans skill convention but contain TSX/JSX snippets that
+    // VitePress's Vue compiler chokes on. They're working notes, not
+    // user-facing docs, so exclude them from the site build.
+    srcExclude: ["**/superpowers/**"],
     themeConfig: {
       nav: [
         { text: "Home", link: "/" },

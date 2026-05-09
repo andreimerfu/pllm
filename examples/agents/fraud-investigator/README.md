@@ -18,26 +18,44 @@ governance:
 The included `scripts/test-otel-discovery.sh` automates this provisioning;
 this directory is for the manual / demo flow.
 
-## Run
+## Run (docker compose, recommended)
+
+The compose file starts Qdrant and the agent together. The agent
+runs once, prints its three steps, then exits.
 
 ```bash
 # From this directory
-docker compose up -d
+export PLLM_BASE_URL=http://host.docker.internal:8080   # or your minikube URL
+export PLLM_API_KEY=sk-...                              # bound key's plaintext
+export PLLM_KEY_ID=<uuid of that key>                   # links OTel spans
+
+docker compose up --build agent
+```
+
+To run the agent again (e.g. to push the flagged_count past the threshold
+and trigger key revocation), just `docker compose up agent` again — Qdrant
+keeps its data in the `qdrant-data` volume.
+
+## Run (host Python, no docker for the agent)
+
+```bash
+# Start Qdrant only:
+docker compose up -d qdrant
 
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 export PLLM_BASE_URL=http://localhost:8080
-export PLLM_API_KEY=sk-...                  # the key bound to your UseCase
-export PLLM_KEY_ID=<uuid of that key>       # link OTel spans to the key
+export PLLM_API_KEY=sk-...
+export PLLM_KEY_ID=<uuid of that key>
 export OTEL_SERVICE_NAME=fraud-investigator
 export OTEL_EXPORTER_OTLP_PROTOCOL=http/json
 
 python main.py
 ```
 
-Then open `http://localhost:8080/compliance` — you'll see `fraud-investigator`
-in the Discovered Agents card. Promote it, run the agent again, and watch the
+After the first run, open `/compliance` — `fraud-investigator` appears in the
+Discovered Agents card. Promote it, run the agent again, and watch the
 flagged calls accumulate; after the third, the key is revoked and step 1
 starts failing too.
 

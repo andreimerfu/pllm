@@ -1,4 +1,16 @@
 version: "3.9"
+
+# Single-shot demo stack: Qdrant + the fraud-investigator agent.
+# The agent runs once, prints its three steps, then exits.
+#
+# Required env (export before `docker compose up`):
+#   PLLM_BASE_URL  e.g. http://host.docker.internal:8080  (or your minikube ingress)
+#   PLLM_API_KEY   the bound key's plaintext value
+#   PLLM_KEY_ID    that key's UUID (links OTel spans to the key in pllm)
+#
+# Both services share the `demo` network so the agent reaches Qdrant by
+# its service name. Qdrant data persists across runs in the named volume.
+
 services:
   qdrant:
     image: qdrant/qdrant:v1.12.0
@@ -6,5 +18,29 @@ services:
       - "6333:6333"
     volumes:
       - qdrant-data:/qdrant/storage
+    networks:
+      - demo
+
+  agent:
+    build: .
+    depends_on:
+      - qdrant
+    environment:
+      - PLLM_BASE_URL=${PLLM_BASE_URL:-http://host.docker.internal:8080}
+      - PLLM_API_KEY=${PLLM_API_KEY:?set PLLM_API_KEY in your shell}
+      - PLLM_KEY_ID=${PLLM_KEY_ID:?set PLLM_KEY_ID in your shell}
+      - QDRANT_URL=http://qdrant:6333
+      - OTEL_SERVICE_NAME=fraud-investigator
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
+    extra_hosts:
+      # Lets `host.docker.internal` resolve to the host on Linux too,
+      # so the agent can reach pllm running on the host or in minikube.
+      - "host.docker.internal:host-gateway"
+    networks:
+      - demo
+
+networks:
+  demo: {}
+
 volumes:
   qdrant-data: {}
