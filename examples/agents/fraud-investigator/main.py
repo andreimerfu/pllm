@@ -119,7 +119,9 @@ def call_denied_llm(client: OpenAI, tracer: trace.Tracer):
 
 def search_qdrant_unscoped(tracer: trace.Tracer):
     with step("3. Direct Qdrant search (NOT in policy) - expect flag via OTel"):
-        client = QdrantClient(url=QDRANT_URL)
+        # check_compatibility=False silences the noisy 1.17 client vs 1.12
+        # server version warning; the call paths we use are unchanged.
+        client = QdrantClient(url=QDRANT_URL, check_compatibility=False)
         coll = "customer-embeddings"
         existing = {c.name for c in client.get_collections().collections}
         if coll not in existing:
@@ -140,11 +142,14 @@ def search_qdrant_unscoped(tracer: trace.Tracer):
         with tracer.start_as_current_span("qdrant.search") as sp:
             sp.set_attribute("db.system", "qdrant")
             sp.set_attribute("db.collection.name", coll)
-            sp.set_attribute("db.operation", "search")
+            sp.set_attribute("db.operation", "query_points")
             try:
-                hits = client.search(
-                    coll, query_vector=[0.1, 0.2, 0.3, 0.4], limit=3
+                resp = client.query_points(
+                    collection_name=coll,
+                    query=[0.1, 0.2, 0.3, 0.4],
+                    limit=3,
                 )
+                hits = resp.points if hasattr(resp, "points") else resp
                 print(f"  qdrant returned {len(hits)} hits (will be flagged)")
             except Exception as e:
                 print(f"  qdrant error: {type(e).__name__}: {e}")
