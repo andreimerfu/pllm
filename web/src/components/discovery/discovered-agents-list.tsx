@@ -27,11 +27,22 @@ export function DiscoveredAgentsList() {
   const { toast } = useToast();
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
+  // Show pending + promoted both — once an operator clicks Promote we
+  // shouldn't make the row disappear. Ignored stays hidden.
+  const { data: pendingData, isLoading: pendingLoading } = useQuery({
     queryKey: ["discovered-agents", "pending"],
     queryFn: () => listDiscoveredAgents("pending"),
     refetchInterval: 5000,
   });
+  const { data: promotedData } = useQuery({
+    queryKey: ["discovered-agents", "promoted"],
+    queryFn: () => listDiscoveredAgents("promoted"),
+    refetchInterval: 5000,
+  });
+  const data = {
+    items: [...(pendingData?.items ?? []), ...(promotedData?.items ?? [])],
+  };
+  const isLoading = pendingLoading;
 
   const promote = useMutation({
     mutationFn: (id: string) => promoteDiscoveredAgent(id),
@@ -101,6 +112,11 @@ export function DiscoveredAgentsList() {
                         {a.service_version}
                       </Badge>
                     )}
+                    {a.status === "promoted" && (
+                      <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+                        promoted
+                      </Badge>
+                    )}
                     {a.flagged_count > 0 && (
                       <Badge variant="destructive" className="font-mono">
                         {a.flagged_count} flagged
@@ -125,21 +141,25 @@ export function DiscoveredAgentsList() {
                     <Icon icon={icons.eye ?? "lucide:eye"} className="h-3.5 w-3.5" />
                     <span className="ml-1">Details</span>
                   </Button>
-                  <Button
-                    size="sm"
-                    disabled={promote.isPending}
-                    onClick={() => promote.mutate(a.id)}
-                  >
-                    Promote
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={ignore.isPending}
-                    onClick={() => ignore.mutate(a.id)}
-                  >
-                    Ignore
-                  </Button>
+                  {a.status === "pending" && (
+                    <>
+                      <Button
+                        size="sm"
+                        disabled={promote.isPending}
+                        onClick={() => promote.mutate(a.id)}
+                      >
+                        Promote
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={ignore.isPending}
+                        onClick={() => ignore.mutate(a.id)}
+                      >
+                        Ignore
+                      </Button>
+                    </>
+                  )}
                 </div>
               </li>
             ))}
