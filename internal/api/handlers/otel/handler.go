@@ -68,7 +68,10 @@ func (h *Handler) Traces(w http.ResponseWriter, r *http.Request) {
 		// Convert proto -> JSON -> our internal struct. The
 		// double-encoding is cheap relative to the rest of the request
 		// path and avoids hand-mapping every proto field.
-		j, err := protojson.Marshal(&pb)
+		// UseEnumNumbers keeps Span.Kind as an int (matching our struct);
+		// EmitUnpopulated forces consistent shapes across OTel SDKs.
+		mo := protojson.MarshalOptions{UseEnumNumbers: true, EmitUnpopulated: false}
+		j, err := mo.Marshal(&pb)
 		if err != nil {
 			h.logger.Warn("otel proto->json marshal failed", zap.Error(err))
 			http.Error(w, "otlp transcode failed", http.StatusInternalServerError)
