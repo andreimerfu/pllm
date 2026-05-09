@@ -34,6 +34,10 @@ type ScopeEventOutcome string
 const (
 	ScopeOutcomeDenied  ScopeEventOutcome = "denied"
 	ScopeOutcomeFlagged ScopeEventOutcome = "flagged"
+	// ScopeOutcomeAllowed is used by detect-only paths (OTel discovery)
+	// that report a positive evaluation result; not persisted as a
+	// ScopeEvent row but consumed by callers via PolicyResult.
+	ScopeOutcomeAllowed ScopeEventOutcome = "allowed"
 )
 
 // ScopeEvent is a persistent record of one runtime scope check that
