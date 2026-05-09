@@ -392,6 +392,19 @@ deployment:
     poll_interval: 30s        # reconciler scan cadence
 
 # ===========================
+# Discovery (OTel) Configuration
+# ===========================
+# pllm exposes an OTLP/HTTP JSON receiver at /v1/traces. Agents that
+# emit OpenTelemetry traces with `pllm.key_id` resource attribute get
+# auto-onboarded into discovered_agents and governed via their bound
+# UseCase. Calls to non-LLM/non-MCP targets (vector DBs, raw HTTP)
+# can't be blocked at the gateway, but they're flagged + webhook'd.
+discovery:
+  enabled: true
+  flag_threshold: 3   # how many flags before auto_revoke fires (0 disables)
+  auto_revoke: true   # revoke the bound API key when threshold is hit
+
+# ===========================
 # Agent Invocation
 # ===========================
 agents:

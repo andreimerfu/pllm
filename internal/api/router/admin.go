@@ -9,6 +9,7 @@ import (
 	"github.com/amerfu/pllm/internal/api/handlers"
 	"github.com/amerfu/pllm/internal/api/handlers/admin"
 	deploymenthandlers "github.com/amerfu/pllm/internal/api/handlers/deployment"
+	dischandlers "github.com/amerfu/pllm/internal/api/handlers/discovery"
 	lifecyclehandlers "github.com/amerfu/pllm/internal/api/handlers/lifecycle"
 	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
 	registryhandlers "github.com/amerfu/pllm/internal/api/handlers/registry"
@@ -44,6 +45,7 @@ type AdminRouterConfig struct {
 	UseCaseHandler        *usecasehandlers.Handler
 	WebhookHandler        *webhookhandlers.Handler
 	LifecycleHandler      *lifecyclehandlers.Handler
+	DiscoveryHandler      *dischandlers.Handler
 }
 
 // NewAdminSubRouter creates admin routes to be mounted on the main router
@@ -295,10 +297,25 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Route("/webhooks", func(rr chi.Router) {
 				rr.Get("/", wh.List)
 				rr.Post("/", wh.Create)
+				rr.Get("/destinations", wh.Destinations)
 				rr.Get("/{id}", wh.Get)
 				rr.Put("/{id}", wh.Update)
 				rr.Delete("/{id}", wh.Delete)
 				rr.Post("/{id}/test", wh.Test)
+			})
+		}
+
+		// Discovery admin endpoints — list/promote/ignore agents
+		// fingerprinted from incoming OTel traffic. Guarded by nil-check
+		// so the routes only mount when discovery was wired in router.go
+		// (cfg.Discovery.Enabled + UseCase service present).
+		if cfg.DiscoveryHandler != nil {
+			dh := cfg.DiscoveryHandler
+			r.Route("/discovery", func(rr chi.Router) {
+				rr.Get("/agents", dh.List)
+				rr.Get("/agents/{id}", dh.Get)
+				rr.Post("/agents/{id}/promote", dh.Promote)
+				rr.Post("/agents/{id}/ignore", dh.Ignore)
 			})
 		}
 
@@ -308,6 +325,21 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			r.Route("/lifecycle", func(rr chi.Router) {
 				rr.Get("/status", cfg.LifecycleHandler.Status)
 				rr.Post("/run", cfg.LifecycleHandler.RunNow)
+
+				// Custom-rule CRUD + template catalog + preview. Mounted
+				// under the same /lifecycle root so a single feature flag
+				// controls the whole admin surface.
+				if cr := cfg.LifecycleHandler.Custom; cr != nil {
+					rr.Get("/templates", cr.ListTemplates)
+					rr.Route("/custom-rules", func(rrr chi.Router) {
+						rrr.Get("/", cr.List)
+						rrr.Post("/", cr.Create)
+						rrr.Post("/preview", cr.Preview)
+						rrr.Get("/{id}", cr.Get)
+						rrr.Put("/{id}", cr.Update)
+						rrr.Delete("/{id}", cr.Delete)
+					})
+				}
 			})
 		}
 

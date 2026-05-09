@@ -13,8 +13,10 @@ import (
 	"github.com/amerfu/pllm/internal/api/handlers/admin"
 	a2ahandlers "github.com/amerfu/pllm/internal/api/handlers/a2a"
 	deploymenthandlers "github.com/amerfu/pllm/internal/api/handlers/deployment"
+	dischandlers "github.com/amerfu/pllm/internal/api/handlers/discovery"
 	lifecyclehandlers "github.com/amerfu/pllm/internal/api/handlers/lifecycle"
 	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
+	otelhandlers "github.com/amerfu/pllm/internal/api/handlers/otel"
 	registryhandlers "github.com/amerfu/pllm/internal/api/handlers/registry"
 	usecasehandlers "github.com/amerfu/pllm/internal/api/handlers/use_cases"
 	webhookhandlers "github.com/amerfu/pllm/internal/api/handlers/webhooks"
@@ -30,6 +32,7 @@ import (
 	a2asvc "github.com/amerfu/pllm/internal/services/a2a"
 	deploymentsvc "github.com/amerfu/pllm/internal/services/deployment"
 	deploymentmetrics "github.com/amerfu/pllm/internal/services/deployment/metrics"
+	discoverysvc "github.com/amerfu/pllm/internal/services/discovery"
 	lifecyclesvc "github.com/amerfu/pllm/internal/services/lifecycle"
 	mcpgateway "github.com/amerfu/pllm/internal/services/mcp/gateway"
 	mcpregistryserver "github.com/amerfu/pllm/internal/services/mcp/registryserver"
@@ -223,6 +226,98 @@ func (a *lifecycleWebhookAdapter) Emit(env lifecyclesvc.WebhookEventEnvelope) {
 	})
 }
 
+// --- discovery bridges ----------------------------------------------------
+//
+// Same narrow-interface pattern as the use-case + webhook adapters above:
+// the discovery package never imports use_cases / webhooks / key services
+// directly; we bridge through tiny structs defined here.
+
+type discoveryScopeBridge struct{ inner *usecasesvc.ScopeResolver }
+
+func (b *discoveryScopeBridge) AllowLLM(ctx context.Context, ucID *uuid.UUID, model string) discoverysvc.OracleDecision {
+	d := b.inner.AllowLLM(ctx, ucID, model)
+	return discoverysvc.OracleDecision{Allowed: d.Allowed, Reason: d.Reason}
+}
+
+func (b *discoveryScopeBridge) AllowMCPTool(ctx context.Context, ucID *uuid.UUID, slug string) discoverysvc.OracleDecision {
+	d := b.inner.AllowMCPTool(ctx, ucID, slug)
+	return discoverysvc.OracleDecision{Allowed: d.Allowed, Reason: d.Reason}
+}
+
+type discoveryRecorderBridge struct{ inner *usecasesvc.EventRecorder }
+
+func (b *discoveryRecorderBridge) Record(ctx context.Context, in discoverysvc.RecordInput) {
+	if b == nil || b.inner == nil {
+		return
+	}
+	b.inner.Record(ctx, usecasesvc.RecordInput{
+		UseCaseID:  in.UseCaseID,
+		KeyID:      in.KeyID,
+		KeyName:    in.KeyName,
+		UserID:     in.UserID,
+		Kind:       in.Kind,
+		TargetName: in.TargetName,
+		Outcome:    in.Outcome,
+		Reason:     in.Reason,
+	})
+}
+
+type discoveryKeyLoader struct{ db *gorm.DB }
+
+func (l *discoveryKeyLoader) GetKey(ctx context.Context, id uuid.UUID) (*coremodels.Key, error) {
+	var k coremodels.Key
+	if err := l.db.WithContext(ctx).First(&k, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &k, nil
+}
+
+type discoveryKeyRevoker struct {
+	db     *gorm.DB
+	logger *zap.Logger
+}
+
+func (r *discoveryKeyRevoker) Revoke(ctx context.Context, keyID uuid.UUID, reason string) error {
+	now := time.Now()
+	res := r.db.WithContext(ctx).Model(&coremodels.Key{}).
+		Where("id = ? AND (revoked_at IS NULL OR is_active = TRUE)", keyID).
+		Updates(map[string]any{
+			"revoked_at":        &now,
+			"is_active":         false,
+			"revocation_reason": reason,
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected > 0 {
+		r.logger.Info("key auto-revoked by discovery",
+			zap.String("key_id", keyID.String()),
+			zap.String("reason", reason))
+	}
+	return nil
+}
+
+type discoveryAgentResolver struct {
+	db     *gorm.DB
+	logger *zap.Logger
+}
+
+func (a *discoveryAgentResolver) PublishFromDiscovery(ctx context.Context, in discoverysvc.PublishInput) (uuid.UUID, error) {
+	svc := registryservice.NewAgentService(a.db, a.logger)
+	out, err := svc.Upsert(ctx, &registryservice.UpsertInput{
+		Agent: coremodels.RegistryAgent{
+			Name:        in.Name,
+			Version:     in.Version,
+			Title:       in.Title,
+			Description: in.Description,
+		},
+	})
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return out.Agent.ID, nil
+}
+
 func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.ModelManager, db *gorm.DB, pricingManager *config.ModelPricingManager) http.Handler {
 	r := chi.NewRouter()
 
@@ -403,6 +498,38 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		logger.Info("UseCase service initialized")
 	}
 
+	// Discovery service — OTel-driven agent fingerprinting + governance.
+	// Requires DB + use-case scope/event surfaces (so reuses the existing
+	// audit + webhook plumbing). Mounted as POST /v1/traces below; admin
+	// CRUD lives under /api/admin/discovery.
+	var discoveryService *discoverysvc.Service
+	var otelHandler *otelhandlers.Handler
+	var discoveryHandler *dischandlers.Handler
+	if db != nil && cfg.Discovery.Enabled && useCaseScope != nil && useCaseEvents != nil {
+		policy := discoverysvc.NewPolicy(
+			logger,
+			&discoveryScopeBridge{inner: useCaseScope},
+			&discoveryRecorderBridge{inner: useCaseEvents},
+			&discoveryKeyLoader{db: db},
+		)
+		threshold := cfg.Discovery.FlagThreshold
+		if !cfg.Discovery.AutoRevoke {
+			threshold = 0
+		}
+		revoker := discoverysvc.NewRevoker(
+			logger,
+			&discoveryKeyRevoker{db: db, logger: logger},
+			threshold,
+		)
+		resolver := &discoveryAgentResolver{db: db, logger: logger}
+		discoveryService = discoverysvc.NewService(db, logger, policy, revoker, resolver)
+		otelHandler = otelhandlers.New(logger, discoveryService)
+		discoveryHandler = dischandlers.New(logger, discoveryService)
+		logger.Info("Discovery service initialized",
+			zap.Int("flag_threshold", cfg.Discovery.FlagThreshold),
+			zap.Bool("auto_revoke", cfg.Discovery.AutoRevoke))
+	}
+
 	// Lifecycle hygiene daemon. Always-on when DB is present + feature
 	// enabled in config. Defaults to DryRun=true so a fresh deploy never
 	// revokes anything before the operator reviews the audit log.
@@ -422,8 +549,12 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		if webhookDispatcher != nil {
 			lifeSvc = lifeSvc.WithWebhooks(&lifecycleWebhookAdapter{inner: webhookDispatcher})
 		}
+		// Custom rules (CEL) load fresh each tick so UI edits take
+		// effect on the next interval without process restart.
+		lifeSvc = lifeSvc.WithCustomLoader(lifecyclesvc.NewDBCustomLoader(db, logger))
 		lifeSvc.Start(context.Background())
-		lifecycleHandler = lifecyclehandlers.NewHandler(logger, lifeSvc)
+		lifecycleHandler = lifecyclehandlers.NewHandler(logger, lifeSvc).
+			WithCustomRules(lifecyclehandlers.NewCustomRulesHandler(logger, db))
 		logger.Info("Lifecycle hygiene daemon initialized",
 			zap.Bool("dry_run", lifeCfg.DryRun),
 			zap.Duration("interval", lifeCfg.Interval))
@@ -634,6 +765,14 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		r.Post("/v1/login", authHandler.Login)
 		r.Post("/v1/refresh", authHandler.RefreshToken)
 		r.Get("/api/auth/config", systemHandler.GetAuthConfig) // Public auth config
+
+		// OTLP/HTTP traces receiver — agents identify themselves via the
+		// pllm.key_id resource attribute, not via the Bearer header, so
+		// this endpoint is unauthenticated. Posting noise is harmless:
+		// it only creates DiscoveredAgent rows the operator can ignore.
+		if otelHandler != nil {
+			r.Post("/v1/traces", otelHandler.Traces)
+		}
 	})
 
 	// Protected routes
@@ -943,6 +1082,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			UseCaseHandler:        useCaseHandler,
 			WebhookHandler:        webhookHandler,
 			LifecycleHandler:      lifecycleHandler,
+			DiscoveryHandler:      discoveryHandler,
 		}
 
 		// Mount admin routes at /api/admin

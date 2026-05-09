@@ -37,6 +37,20 @@ type Config struct {
 	Deployment DeploymentConfig `mapstructure:"deployment"`
 	Agents     AgentInvocationConfig `mapstructure:"agents"`
 	Lifecycle  LifecycleConfig  `mapstructure:"lifecycle"`
+	Discovery  DiscoveryConfig  `mapstructure:"discovery"`
+}
+
+// DiscoveryConfig governs the OTel-driven agent discovery service.
+//
+// When Enabled, pllm exposes an OTLP/HTTP JSON receiver at /v1/traces.
+// Spans are fingerprinted into DiscoveredAgent rows; calls outside the
+// bound use case's scope are flagged via ScopeEvent + scope.flagged
+// webhook. AutoRevoke ties the FlagThreshold to the existing key
+// revocation pipeline so over-flagged agents lose gateway access.
+type DiscoveryConfig struct {
+	Enabled       bool `mapstructure:"enabled"`
+	FlagThreshold int  `mapstructure:"flag_threshold"`
+	AutoRevoke    bool `mapstructure:"auto_revoke"`
 }
 
 // LifecycleConfig governs the lifecycle hygiene daemon: how often it runs,
@@ -488,6 +502,13 @@ func setDefaults() {
 	viper.SetDefault("lifecycle.inactive_key_days", lc.InactiveKeyDays)
 	viper.SetDefault("lifecycle.ownerless_keys_enabled", lc.OwnerlessKeysEnabled)
 	viper.SetDefault("lifecycle.risky_server_score_floor", lc.RiskyServerScoreFloor)
+
+	// Discovery (OTel-driven agent fingerprinting). On by default so the
+	// /v1/traces endpoint is available without extra config; enforcement
+	// lives behind use-case bindings.
+	viper.SetDefault("discovery.enabled", true)
+	viper.SetDefault("discovery.flag_threshold", 3)
+	viper.SetDefault("discovery.auto_revoke", true)
 }
 
 func bindEnvVars() {

@@ -347,3 +347,11 @@ deployment:
 agents:
   invoke_timeout: 5m
   public_url: ""  # optional: base URL for A2A agent cards (e.g. "https://pllm.example.com"); empty = no url in card
+
+# ===========================
+# Discovery (OTel) Configuration
+# ===========================
+discovery:
+  enabled: true
+  flag_threshold: 3
+  auto_revoke: true
