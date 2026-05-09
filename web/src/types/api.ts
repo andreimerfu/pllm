@@ -705,11 +705,29 @@ export type WebhookEventType =
   | 'use_case.compliance_flag'
   | 'registry.server.saved';
 
+// Destination types correspond to backend adapters in
+// internal/services/webhooks/adapters. The drawer renders the
+// per-destination config form by reading the catalog from
+// /api/admin/webhooks/destinations rather than hardcoding.
+export type WebhookDestinationType =
+  | 'generic'
+  | 'slack'
+  | 'teams'
+  | 'splunk'
+  | 'datadog'
+  | 'servicenow';
+
 export interface Webhook {
   id: string;
   name: string;
   url: string;
   secret: string;
+  destination_type: WebhookDestinationType;
+  // config_summary is a redacted view of the per-destination config —
+  // sensitive keys (api_key, password, hec_token, ...) appear as "***"
+  // when set so the UI can show "you have a credential configured"
+  // without ever surfacing the raw value.
+  config_summary?: Record<string, string | null>;
   events?: WebhookEventType[];
   enabled: boolean;
   team_id?: string;
@@ -727,6 +745,33 @@ export interface WebhookUpsertRequest {
   events?: WebhookEventType[];
   enabled?: boolean;
   team_id?: string;
+  destination_type?: WebhookDestinationType;
+  // config carries the per-destination credentials/options. On update
+  // the backend merges with the existing values, so the UI can ship
+  // only changed fields. Pass "***" or omit to keep a sensitive value.
+  config?: Record<string, string>;
+}
+
+// /api/admin/webhooks/destinations — catalog the drawer renders from.
+export interface WebhookDestinationConfigKey {
+  key: string;
+  label: string;
+  type: 'text' | 'password' | 'select';
+  required: boolean;
+  help?: string;
+  default?: string;
+  options?: string[];
+}
+
+export interface WebhookDestinationView {
+  type: WebhookDestinationType;
+  label: string;
+  default_events?: WebhookEventType[];
+  config_keys?: WebhookDestinationConfigKey[];
+}
+
+export interface WebhookDestinationsResponse {
+  destinations: WebhookDestinationView[];
 }
 
 // --- Lifecycle hygiene -----------------------------------------------------
@@ -757,5 +802,128 @@ export interface LifecycleSummary {
   duration: number; // nanoseconds (Go time.Duration JSON encoding)
   total_actions: number;
   rules: LifecycleRuleResult[];
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Custom (CEL) lifecycle rules — operator-defined hygiene policies
+// authored from a small set of templates. The UI never asks the user
+// to write CEL: templates expose typed params, the backend resolves
+// them into the CEL expression, and we round-trip both sides through
+// these types.
+// ─────────────────────────────────────────────────────────────────────
+
+export type LifecycleScanTarget =
+  | "keys"
+  | "registry_servers"
+  | "use_cases"
+  | "users";
+
+export type LifecycleActionType = "revoke" | "block" | "flag" | "notify";
+
+export type TemplateParamType = "int" | "string" | "string[]" | "duration_days";
+
+export interface LifecycleTemplateParam {
+  key: string;
+  label: string;
+  type: TemplateParamType;
+  default?: string | number | string[];
+  min?: number;
+  max?: number;
+  placeholder?: string;
+  help?: string;
+  required?: boolean;
+}
+
+export interface LifecycleTemplate {
+  id: string;
+  title: string;
+  category: "keys" | "servers" | "use_cases" | "users";
+  description: string;
+  scan: LifecycleScanTarget;
+  action: LifecycleActionType;
+  params: LifecycleTemplateParam[];
+}
+
+export interface LifecycleCustomRule {
+  id: string;
+  name: string;
+  description: string;
+  scan: LifecycleScanTarget;
+  match: string; // resolved CEL expression
+  action: LifecycleActionType;
+  reason: string;
+  enabled: boolean;
+  dry_run?: boolean | null; // null = inherit global
+  template_id: string;
+  // params is the raw form values the user entered, kept so the rule
+  // builder can re-render the dialog when editing.
+  params?: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  // Optional hydrated template metadata returned by GET endpoints.
+  template?: LifecycleTemplate;
+}
+
+export interface CustomRuleUpsertRequest {
+  name: string;
+  description?: string;
+  template_id: string;
+  params: Record<string, unknown>;
+  enabled?: boolean;
+  dry_run?: boolean | null;
+  reason?: string;
+}
+
+export interface CustomRulePreviewMatch {
+  resource_id: string;
+  subject: string;
+  detail?: string;
+}
+
+export interface CustomRulePreviewResponse {
+  template_id: string;
+  scan: string;
+  action: string;
+  match: string;
+  reason: string;
+  total_rows: number;
+  matched: number;
+  capped: boolean;
+  sample: CustomRulePreviewMatch[];
+}
+
+// ===========================
+// Discovery (OTel) types
+// ===========================
+
+export type DiscoveredAgentStatus = "pending" | "promoted" | "ignored";
+export type DiscoveredCallKind = "llm" | "mcp" | "vector_db" | "http" | "unknown";
+
+export interface DiscoveredAgent {
+  id: string;
+  service_name: string;
+  service_version?: string;
+  key_id?: string | null;
+  promoted_agent_id?: string | null;
+  status: DiscoveredAgentStatus;
+  first_seen_at: string;
+  last_seen_at: string;
+  ignored_at?: string | null;
+  promoted_at?: string | null;
+  flagged_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DiscoveredCall {
+  id: string;
+  discovered_agent_id: string;
+  kind: DiscoveredCallKind;
+  target_name: string;
+  count: number;
+  first_seen_at: string;
+  last_seen_at: string;
+  last_outcome?: string;
+  last_reason?: string;
 }
 

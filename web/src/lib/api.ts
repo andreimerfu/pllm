@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse, RoutesResponse, Route, RouteStatsResponse, MCPServer, MCPUpsertRequest, MCPHealthProbeResponse, RegistryServer, RegistryServerDetail, RegistryAgent, RegistryAgentWithRefs, RegistrySkill, RegistryPrompt, RegistryListResponse, Deployment, RegistryDependent, RegistryKind, UseCase, UseCaseWithRefs, UseCaseUpsertRequest, ScopeEvent, ScopeEventStats, Webhook, WebhookUpsertRequest, AgentDeployment, DeployAgentRequest, LifecycleSummary } from "@/types/api";
+import type { StatsResponse, ModelsResponse, CreateModelRequest, UpdateModelRequest, AdminModelsResponse, ProviderConfig, ModelsHealthResponse, RoutesResponse, Route, RouteStatsResponse, MCPServer, MCPUpsertRequest, MCPHealthProbeResponse, RegistryServer, RegistryServerDetail, RegistryAgent, RegistryAgentWithRefs, RegistrySkill, RegistryPrompt, RegistryListResponse, Deployment, RegistryDependent, RegistryKind, UseCase, UseCaseWithRefs, UseCaseUpsertRequest, ScopeEvent, ScopeEventStats, Webhook, WebhookUpsertRequest, WebhookDestinationsResponse, AgentDeployment, DeployAgentRequest, LifecycleSummary } from "@/types/api";
 
 const API_BASE = import.meta.env.DEV ? "http://localhost:8080" : "";
 
@@ -573,6 +573,13 @@ export const deleteWebhook = (id: string) =>
   axiosInstance.delete(`/api/admin/webhooks/${id}`);
 export const testWebhook = (id: string) =>
   axiosInstance.post(`/api/admin/webhooks/${id}/test`, {});
+// Destination catalog — drives the drawer's per-vendor config form.
+// Returned shape mirrors internal/services/webhooks/adapters Adapter
+// interface (Type, Label, DefaultEvents, ConfigKeys).
+export const listWebhookDestinations = () =>
+  axiosInstance.get(
+    `/api/admin/webhooks/destinations`,
+  ) as Promise<WebhookDestinationsResponse>;
 
 // Lifecycle hygiene
 // Returns the cached summary of the most recent lifecycle daemon run.
@@ -582,3 +589,73 @@ export const getLifecycleStatus = () =>
 // Triggers a synchronous run-now and returns its summary.
 export const runLifecycle = () =>
   axiosInstance.post(`/api/admin/lifecycle/run`, {}) as Promise<LifecycleSummary>;
+
+// Custom rule templates — operator-facing recipes for building hygiene
+// rules without writing CEL by hand. The catalog is in-process so we
+// never expect this to fail in steady state.
+export const listLifecycleTemplates = () =>
+  axiosInstance.get(`/api/admin/lifecycle/templates`) as Promise<{
+    templates: import("@/types/api").LifecycleTemplate[];
+  }>;
+
+// Lists all configured custom rules (enabled + disabled).
+export const listCustomRules = () =>
+  axiosInstance.get(`/api/admin/lifecycle/custom-rules`) as Promise<{
+    rules: import("@/types/api").LifecycleCustomRule[];
+  }>;
+
+// Create a rule from a template + filled-in params. Server validates
+// and compiles the CEL expression before persisting.
+export const createCustomRule = (req: import("@/types/api").CustomRuleUpsertRequest) =>
+  axiosInstance.post(`/api/admin/lifecycle/custom-rules`, req) as Promise<
+    import("@/types/api").LifecycleCustomRule
+  >;
+
+export const updateCustomRule = (
+  id: string,
+  req: import("@/types/api").CustomRuleUpsertRequest,
+) =>
+  axiosInstance.put(`/api/admin/lifecycle/custom-rules/${id}`, req) as Promise<
+    import("@/types/api").LifecycleCustomRule
+  >;
+
+export const deleteCustomRule = (id: string) =>
+  axiosInstance.delete(`/api/admin/lifecycle/custom-rules/${id}`);
+
+// Preview returns the CEL expression + matching rows for an unsaved
+// rule body. Used by the rule builder to show "this rule would
+// affect N rows" before save.
+export const previewCustomRule = (req: {
+  template_id: string;
+  params: Record<string, unknown>;
+  limit?: number;
+}) =>
+  axiosInstance.post(`/api/admin/lifecycle/custom-rules/preview`, req) as Promise<
+    import("@/types/api").CustomRulePreviewResponse
+  >;
+
+// ===========================
+// Discovery (OTel-driven agent discovery)
+// ===========================
+
+export const listDiscoveredAgents = (status?: import("@/types/api").DiscoveredAgentStatus) => {
+  const suffix = status ? `?status=${encodeURIComponent(status)}` : "";
+  return axiosInstance.get(`/api/admin/discovery/agents${suffix}`) as Promise<{
+    items: import("@/types/api").DiscoveredAgent[];
+    total: number;
+  }>;
+};
+
+export const getDiscoveredAgent = (id: string) =>
+  axiosInstance.get(`/api/admin/discovery/agents/${id}`) as Promise<{
+    agent: import("@/types/api").DiscoveredAgent;
+    calls: import("@/types/api").DiscoveredCall[];
+  }>;
+
+export const promoteDiscoveredAgent = (id: string, version = "0.1.0") =>
+  axiosInstance.post(`/api/admin/discovery/agents/${id}/promote`, { version }) as Promise<{
+    registry_agent_id: string;
+  }>;
+
+export const ignoreDiscoveredAgent = (id: string) =>
+  axiosInstance.post(`/api/admin/discovery/agents/${id}/ignore`);
