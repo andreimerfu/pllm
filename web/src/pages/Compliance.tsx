@@ -1,27 +1,16 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
 import { formatDistanceToNow } from "date-fns";
 
 import { icons } from "@/lib/icons";
+import { detectProvider } from "@/lib/providers";
 import { cn } from "@/lib/utils";
-import {
-  listScopeEvents,
-  listUseCases,
-  listWebhooks,
-  deleteWebhook,
-  testWebhook,
-  getLifecycleStatus,
-  runLifecycle,
-} from "@/lib/api";
-import type {
-  LifecycleSummary,
-  ScopeEvent,
-  UseCase,
-  Webhook,
-} from "@/types/api";
+import { listScopeEvents, listUseCases, listWebhooks } from "@/lib/api";
+import type { ScopeEvent, UseCase, Webhook } from "@/types/api";
 
 import { PageShell } from "@/components/common/page-shell";
+import { DiscoveredAgentsList } from "@/components/discovery/discovered-agents-list";
 import { PostureBreakdown, PostureRing } from "@/components/compliance/posture-ring";
 import {
   ScopeTimeline,
@@ -33,36 +22,19 @@ import {
   topTargets,
   topUseCases,
 } from "@/components/compliance/top-violations";
-import { WebhookHealth } from "@/components/compliance/webhook-health";
-import { WebhookDrawer } from "@/components/compliance/webhook-drawer";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
 import { GovernanceHelp } from "@/components/governance/help-popover";
 import { InfoTip } from "@/components/governance/info-tip";
 
 // ---------------------------------------------------------------------------
-// Posture scoring — materialized from use-case enforcement + 24h denial
-// pressure + webhook delivery health. Weights are tuned for the bank demo:
-// enforcement is the biggest lever, denial noise penalizes but doesn't
-// dominate, webhook health is a tiebreaker.
+// Compliance — what the runtime saw.
+//
+// Live-refreshing dashboard surface for the Governance group. Subscriptions
+// (webhooks) and Policies (lifecycle + custom rules) used to live here as
+// CRUD sections; they now live on their own dedicated pages so this view
+// can stay focused on telemetry. Posture rolls up enforcement coverage,
+// 24h denial pressure, and webhook delivery health into one number.
+// Auto-refreshes every 10s.
 // ---------------------------------------------------------------------------
 
 function computePosture(
@@ -144,13 +116,10 @@ export default function Compliance() {
 
   const flaggedUCs = useCases.filter((u) => u.compliance_flag).length;
 
-  const [createHookOpen, setCreateHookOpen] = useState(false);
-  const [editingHook, setEditingHook] = useState<Webhook | null>(null);
-
   return (
     <PageShell
       title="Compliance"
-      description="What the runtime saw. Live scope events from keys bound to use cases, posture rolled up across the portfolio, outbound webhooks, and the lifecycle sweepers. Auto-refreshes every 10 s."
+      description="What the runtime saw — live scope events, posture across the portfolio, top violators. Manage notifications and policies on their own pages. Auto-refreshes every 10s."
       actions={
         <>
           <GovernanceHelp accent="audit" />
@@ -182,13 +151,13 @@ export default function Compliance() {
                   tip: "100 with zero denials, dropping 2 points per denial in the last 24 hours, floored at 0. High denial volume usually signals key/use-case mis-binding rather than attack.",
                 },
                 {
-                  label: "Webhook delivery",
+                  label: "Notification delivery",
                   value: posture.webhookHealth,
                   hint:
                     posture.enabled === 0
                       ? "no subscriptions"
                       : `${posture.healthy} of ${posture.enabled} healthy`,
-                  tip: "Share of enabled webhook subscriptions whose last delivery returned a 2xx. 100 when no webhooks are configured.",
+                  tip: "Share of enabled notification subscriptions whose last delivery returned a 2xx. 100 when no subscriptions are configured.",
                 },
               ]}
             />
@@ -226,9 +195,7 @@ export default function Compliance() {
           eyebrow="Runtime"
           title="Scope events"
           tip="Each call from a key bound to a use case is checked. If the target isn't declared, the call is denied (blocking) or flagged (logged but allowed)."
-          right={
-            <RangeToggle value={range} onChange={setRange} />
-          }
+          right={<RangeToggle value={range} onChange={setRange} />}
         >
           <div className="flex items-center gap-4 mb-2">
             <LegendDot tone="rose" label="Denied" />
@@ -255,6 +222,9 @@ export default function Compliance() {
         </Panel>
       </div>
 
+      {/* ────────────── Discovery row ────────────── */}
+      <DiscoveredAgentsList />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Panel
           eyebrow="Top"
@@ -264,28 +234,9 @@ export default function Compliance() {
           <TargetBars items={topTg} />
         </Panel>
         <div className="lg:col-span-2">
-          <WebhookHealth
-            webhooks={webhooks}
-            onCreate={() => setCreateHookOpen(true)}
-          />
-          <div className="mt-4">
-            <LiveFeed events={events.slice(0, 10)} />
-          </div>
+          <LiveFeed events={events.slice(0, 10)} />
         </div>
       </div>
-
-      {/* ────────────── Webhook subscriptions ────────────── */}
-      <WebhooksSection
-        webhooks={webhooks}
-        onEdit={setEditingHook}
-        onCreateOpen={createHookOpen}
-        onCreateOpenChange={setCreateHookOpen}
-        editing={editingHook}
-        onEditingChange={setEditingHook}
-      />
-
-      {/* ────────────── Lifecycle hygiene ────────────── */}
-      <LifecycleHygieneSection />
     </PageShell>
   );
 }
@@ -450,36 +401,47 @@ function LiveFeed({ events }: { events: ScopeEvent[] }) {
         </div>
       ) : (
         <ul className="space-y-1.5">
-          {events.map((e) => (
-            <li
-              key={e.id}
-              className="flex items-center gap-2 text-[12px] py-1 border-b border-border/30 last:border-0"
-            >
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full shrink-0",
-                  e.outcome === "denied" ? "bg-rose-500" : "bg-amber-500",
-                )}
-              />
-              <Icon
-                icon={e.kind === "mcp_tool" ? icons.mcp : icons.llm}
-                className={cn(
-                  "h-3 w-3 shrink-0",
-                  e.kind === "mcp_tool" ? "text-slate-500" : "text-violet-500",
-                )}
-              />
-              <code className="font-mono truncate max-w-[24ch]">
-                {e.target_name}
-              </code>
-              <span className="text-muted-foreground truncate flex-1">
-                {e.reason}
-              </span>
-              <span className="font-mono tabular-nums text-[10px] text-muted-foreground shrink-0">
-                {e.created_at &&
-                  formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
-              </span>
-            </li>
-          ))}
+          {events.map((e) => {
+            const providerInfo =
+              e.kind === "llm" ? detectProvider(e.target_name, "") : null;
+            return (
+              <li
+                key={e.id}
+                className="flex items-center gap-2 text-[12px] py-1 border-b border-border/30 last:border-0"
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full shrink-0",
+                    e.outcome === "denied" ? "bg-rose-500" : "bg-amber-500",
+                  )}
+                />
+                <Icon
+                  icon={
+                    providerInfo?.icon ??
+                    (e.kind === "mcp_tool" ? icons.mcp : icons.llm)
+                  }
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0",
+                    providerInfo
+                      ? null
+                      : e.kind === "mcp_tool"
+                        ? "text-slate-500"
+                        : "text-violet-500",
+                  )}
+                />
+                <code className="font-mono truncate max-w-[24ch]">
+                  {e.target_name}
+                </code>
+                <span className="text-muted-foreground truncate flex-1">
+                  {e.reason}
+                </span>
+                <span className="font-mono tabular-nums text-[10px] text-muted-foreground shrink-0">
+                  {e.created_at &&
+                    formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Panel>
@@ -547,424 +509,3 @@ function csvEscape(v: string): string {
   }
   return v;
 }
-
-// ---------------------------------------------------------------------------
-// Webhooks CRUD section — list + delete live here; create/edit lives in the
-// WebhookDrawer component.
-// ---------------------------------------------------------------------------
-
-function WebhooksSection({
-  webhooks,
-  onEdit,
-  onCreateOpen,
-  onCreateOpenChange,
-  editing,
-  onEditingChange,
-}: {
-  webhooks: Webhook[];
-  onEdit: (h: Webhook | null) => void;
-  onCreateOpen: boolean;
-  onCreateOpenChange: (v: boolean) => void;
-  editing: Webhook | null;
-  onEditingChange: (h: Webhook | null) => void;
-}) {
-  return (
-    <section className="space-y-3">
-      <div className="flex items-end justify-between gap-2">
-        <div>
-          <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Subscriptions
-          </p>
-          <h2 className="text-base font-semibold tracking-tight mt-0.5">
-            Webhooks
-            <span className="text-muted-foreground font-normal text-sm ml-2">
-              · HMAC-signed POSTs to any HTTPS endpoint
-            </span>
-          </h2>
-        </div>
-        <Button onClick={() => onCreateOpenChange(true)} size="sm" className="gap-1.5">
-          <Icon icon={icons.plus} className="h-3.5 w-3.5" />
-          New webhook
-        </Button>
-      </div>
-
-      {webhooks.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center">
-          <Icon
-            icon={icons.mail}
-            className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2"
-          />
-          <p className="text-sm text-muted-foreground">
-            No webhook subscriptions yet.
-          </p>
-        </div>
-      ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>URL</TableHead>
-                <TableHead>Events</TableHead>
-                <TableHead className="w-[120px]">Status</TableHead>
-                <TableHead className="w-[140px] text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {webhooks.map((h) => (
-                <WebhookRow key={h.id} hook={h} onEdit={() => onEdit(h)} />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-
-      <WebhookDrawer open={onCreateOpen} onOpenChange={onCreateOpenChange} existing={null} />
-      <WebhookDrawer
-        open={!!editing}
-        onOpenChange={(open) => !open && onEditingChange(null)}
-        existing={editing}
-      />
-    </section>
-  );
-}
-
-function WebhookRow({ hook, onEdit }: { hook: Webhook; onEdit: () => void }) {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-  const [confirmDelete, setConfirmDelete] = useState(false);
-
-  const testMutation = useMutation({
-    mutationFn: () => testWebhook(hook.id),
-    onSuccess: () => {
-      toast({ title: "Test delivery fired", description: "Check status in a moment." });
-      setTimeout(() => qc.invalidateQueries({ queryKey: ["webhooks"] }), 2000);
-    },
-    onError: (e: any) => {
-      toast({
-        title: "Test failed to queue",
-        description: e?.response?.data?.error ?? e.message,
-        variant: "destructive",
-      });
-    },
-  });
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteWebhook(hook.id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["webhooks"] });
-      setConfirmDelete(false);
-      toast({ title: "Webhook deleted" });
-    },
-    onError: (e: any) => {
-      toast({
-        title: "Delete failed",
-        description: e?.response?.data?.error ?? e.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const status = hook.last_delivery_status ?? 0;
-  const healthy = status >= 200 && status < 300;
-  const hasTried = !!hook.last_delivery_at;
-
-  return (
-    <>
-      <TableRow>
-        <TableCell>
-          <div className="flex flex-col min-w-0">
-            <span className="font-semibold text-sm truncate">{hook.name}</span>
-            <span className="text-[11px] font-mono text-muted-foreground">
-              {hook.created_at &&
-                `created ${formatDistanceToNow(new Date(hook.created_at), { addSuffix: true })}`}
-            </span>
-          </div>
-        </TableCell>
-        <TableCell>
-          <code className="text-xs font-mono truncate block max-w-[28ch]">
-            {hook.url}
-          </code>
-        </TableCell>
-        <TableCell>
-          <div className="flex flex-wrap gap-1">
-            {(hook.events ?? []).length === 0 ? (
-              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                all events
-              </span>
-            ) : (
-              hook.events!.map((e) => (
-                <span
-                  key={e}
-                  className="inline-flex items-center h-[18px] px-1.5 rounded bg-muted text-[10px] font-mono text-muted-foreground ring-1 ring-border"
-                >
-                  {e}
-                </span>
-              ))
-            )}
-          </div>
-        </TableCell>
-        <TableCell>
-          {!hook.enabled ? (
-            <span className="inline-flex items-center h-[18px] px-1.5 rounded bg-muted text-[10px] font-mono uppercase tracking-wider text-muted-foreground ring-1 ring-border">
-              disabled
-            </span>
-          ) : !hasTried ? (
-            <span className="inline-flex items-center h-[18px] px-1.5 rounded bg-muted text-[10px] font-mono uppercase tracking-wider text-muted-foreground ring-1 ring-border">
-              untested
-            </span>
-          ) : healthy ? (
-            <span
-              className="inline-flex items-center gap-1 h-[18px] px-1.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/30 text-[10px] font-mono uppercase tracking-wider"
-              title={`${status} — ${formatDistanceToNow(new Date(hook.last_delivery_at!), { addSuffix: true })}`}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              healthy
-            </span>
-          ) : (
-            <span
-              className="inline-flex items-center gap-1 h-[18px] px-1.5 rounded bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-1 ring-rose-500/30 text-[10px] font-mono uppercase tracking-wider"
-              title={hook.last_delivery_error ?? `HTTP ${status}`}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-              error
-            </span>
-          )}
-        </TableCell>
-        <TableCell className="text-right">
-          <div className="inline-flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => testMutation.mutate()}
-              disabled={testMutation.isPending}
-              className="gap-1.5"
-            >
-              <Icon icon={icons.rocket} className="h-3.5 w-3.5" />
-              Test
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onEdit} className="gap-1.5">
-              <Icon icon={icons.edit} className="h-3.5 w-3.5" />
-              Edit
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setConfirmDelete(true)}
-              className="text-destructive hover:text-destructive"
-            >
-              <Icon icon={icons.delete} className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
-
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete webhook?</AlertDialogTitle>
-            <AlertDialogDescription>
-              <span className="font-mono">{hook.name}</span> ({hook.url}) will stop
-              receiving events immediately. In-flight deliveries will still
-              complete their retry budget.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deleteMutation.mutate()}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Lifecycle hygiene — per-rule action panels for the inactive-keys,
-// ownerless-keys, and risky-servers sweepers. Status is fetched on mount;
-// "Run now" POSTs to /api/admin/lifecycle/run and replaces the cached
-// summary with the fresh result. Each action carries a dry-run badge when
-// the rule is configured to log without mutating.
-// ---------------------------------------------------------------------------
-
-function LifecycleHygieneSection() {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-
-  const { data: summary, isLoading } = useQuery({
-    queryKey: ["lifecycle-status"],
-    queryFn: getLifecycleStatus,
-  });
-
-  const runMutation = useMutation({
-    mutationFn: runLifecycle,
-    onSuccess: (next: LifecycleSummary) => {
-      qc.setQueryData(["lifecycle-status"], next);
-      toast({
-        title: "Lifecycle run complete",
-        description: `${next.total_actions} action${next.total_actions === 1 ? "" : "s"} across ${next.rules?.length ?? 0} rule${(next.rules?.length ?? 0) === 1 ? "" : "s"}.`,
-      });
-    },
-    onError: (e: any) => {
-      toast({
-        title: "Lifecycle run failed",
-        description: e?.response?.data?.error ?? e.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const ranAt = summary?.ran_at && !summary.ran_at.startsWith("0001-")
-    ? new Date(summary.ran_at)
-    : null;
-  const durationMs = summary ? Math.round(summary.duration / 1_000_000) : 0;
-
-  return (
-    <section className="space-y-3">
-      <div className="flex items-end justify-between gap-2">
-        <div>
-          <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Hygiene
-          </p>
-          <h2 className="text-base font-semibold tracking-tight mt-0.5">
-            Lifecycle sweepers
-            <span className="text-muted-foreground font-normal text-sm ml-2">
-              · inactive keys, ownerless keys, risky servers
-            </span>
-          </h2>
-        </div>
-        <Button
-          onClick={() => runMutation.mutate()}
-          disabled={runMutation.isPending}
-          size="sm"
-          className="gap-1.5"
-        >
-          <Icon icon={icons.rocket} className="h-3.5 w-3.5" />
-          {runMutation.isPending ? "Running…" : "Run now"}
-        </Button>
-      </div>
-
-      <div className="flex items-center gap-3 text-[11px] font-mono tabular-nums text-muted-foreground">
-        {isLoading ? (
-          <span>Loading…</span>
-        ) : ranAt ? (
-          <>
-            <span>
-              Last run {formatDistanceToNow(ranAt, { addSuffix: true })}
-            </span>
-            <span className="text-border">·</span>
-            <span>
-              {summary!.total_actions} action
-              {summary!.total_actions === 1 ? "" : "s"}
-            </span>
-            <span className="text-border">·</span>
-            <span>{durationMs}ms</span>
-          </>
-        ) : (
-          <span>Never run.</span>
-        )}
-      </div>
-
-      {summary && summary.rules && summary.rules.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {summary.rules.map((r) => (
-            <LifecycleRuleCard key={r.rule} rule={r} />
-          ))}
-        </div>
-      ) : !isLoading && (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center">
-          <Icon
-            icon={icons.shield}
-            className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2"
-          />
-          <p className="text-sm text-muted-foreground">
-            No rules have run yet. Click <span className="font-mono">Run now</span> to
-            sweep inactive keys, ownerless keys, and risky servers.
-          </p>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function LifecycleRuleCard({
-  rule,
-}: {
-  rule: LifecycleSummary["rules"][number];
-}) {
-  // Go marshals nil slices as JSON null, so `actions` may arrive as null
-  // when a rule scanned zero rows. Normalize once so the rest of the
-  // component can use array semantics safely.
-  const actions = rule.actions ?? [];
-  return (
-    <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Rule
-          </div>
-          <div className="text-sm font-mono font-semibold tracking-tight mt-0.5 truncate">
-            {rule.rule}
-          </div>
-        </div>
-        {rule.error ? (
-          <span
-            className="inline-flex items-center gap-1 h-[18px] px-1.5 rounded bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-1 ring-rose-500/30 text-[10px] font-mono uppercase tracking-wider"
-            title={rule.error}
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-            error
-          </span>
-        ) : actions.length > 0 ? (
-          <span className="inline-flex items-center h-[18px] px-1.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/30 text-[10px] font-mono uppercase tracking-wider">
-            {actions.length} action{actions.length === 1 ? "" : "s"}
-          </span>
-        ) : (
-          <span className="inline-flex items-center h-[18px] px-1.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/30 text-[10px] font-mono uppercase tracking-wider">
-            clean
-          </span>
-        )}
-      </div>
-
-      <div className="text-[11px] font-mono tabular-nums text-muted-foreground">
-        scanned {rule.scanned} · acted on {actions.length}
-        {rule.error ? ` · error: ${rule.error}` : ""}
-      </div>
-
-      {actions.length === 0 ? (
-        <p className="text-xs text-muted-foreground italic">
-          No actions on the last run.
-        </p>
-      ) : (
-        <ul className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-          {actions.map((a) => (
-            <li
-              key={a.resource_id}
-              className="text-[12px] py-1 border-b border-border/30 last:border-0"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <code className="font-mono truncate">{a.subject}</code>
-                {a.dry_run && (
-                  <span
-                    className="inline-flex items-center h-[16px] px-1.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/30 text-[9px] font-mono uppercase tracking-wider shrink-0"
-                    title="Logged without mutating"
-                  >
-                    dry-run
-                  </span>
-                )}
-              </div>
-              <div className="text-muted-foreground text-[11px] truncate">
-                {a.reason}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
