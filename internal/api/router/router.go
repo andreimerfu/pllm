@@ -303,6 +303,36 @@ type discoveryAgentResolver struct {
 }
 
 func (a *discoveryAgentResolver) PublishFromDiscovery(ctx context.Context, in discoverysvc.PublishInput) (uuid.UUID, error) {
+	// If a soft-deleted RegistryAgent already exists at this (name, version),
+	// restore it instead of trying to insert a duplicate. The unique index
+	// on idx_reg_agent_name_version is not partial — soft-deleted rows still
+	// hold the slot, so a fresh Upsert would fail with a constraint error.
+	var existing coremodels.RegistryAgent
+	err := a.db.WithContext(ctx).Unscoped().
+		Where("name = ? AND version = ?", in.Name, in.Version).
+		First(&existing).Error
+	if err == nil && existing.DeletedAt.Valid {
+		now := time.Now()
+		updates := map[string]any{
+			"deleted_at":   nil,
+			"title":        in.Title,
+			"description":  in.Description,
+			"status":       coremodels.RegistryStatusActive,
+			"published_at": now,
+			"updated_at":   now,
+		}
+		if err := a.db.WithContext(ctx).Unscoped().
+			Model(&coremodels.RegistryAgent{}).
+			Where("id = ?", existing.ID).
+			Updates(updates).Error; err != nil {
+			return uuid.Nil, err
+		}
+		a.logger.Info("re-promoted: restored soft-deleted RegistryAgent",
+			zap.String("name", in.Name),
+			zap.String("version", in.Version))
+		return existing.ID, nil
+	}
+
 	svc := registryservice.NewAgentService(a.db, a.logger)
 	out, err := svc.Upsert(ctx, &registryservice.UpsertInput{
 		Agent: coremodels.RegistryAgent{

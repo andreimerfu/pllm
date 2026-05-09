@@ -141,7 +141,7 @@ export function DiscoveredAgentsList() {
                     <Icon icon={icons.eye ?? "lucide:eye"} className="h-3.5 w-3.5" />
                     <span className="ml-1">Details</span>
                   </Button>
-                  {a.status === "pending" && (
+                  {a.status === "pending" ? (
                     <>
                       <Button
                         size="sm"
@@ -159,6 +159,18 @@ export function DiscoveredAgentsList() {
                         Ignore
                       </Button>
                     </>
+                  ) : (
+                    // Promoted rows still get a re-promote in case the
+                    // RegistryAgent was deleted out from under us; the
+                    // backend restores soft-deleted rows when found.
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={promote.isPending}
+                      onClick={() => promote.mutate(a.id)}
+                    >
+                      Re-promote
+                    </Button>
                   )}
                 </div>
               </li>
