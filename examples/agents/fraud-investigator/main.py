@@ -20,6 +20,7 @@ import uuid
 from contextlib import contextmanager
 
 from opentelemetry import trace
+from opentelemetry.trace import SpanKind
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.sdk.resources import Resource
@@ -77,7 +78,7 @@ def step(label: str):
 
 def llm_span(tracer: trace.Tracer, model: str):
     """Manual fallback that records the gen_ai.* attrs pllm classifies on."""
-    span = tracer.start_span(f"openai.chat.{model}")
+    span = tracer.start_span(f"openai.chat.{model}", kind=SpanKind.CLIENT)
     span.set_attribute("gen_ai.system", "openai")
     span.set_attribute("gen_ai.request.model", model)
     return span
@@ -139,7 +140,7 @@ def search_qdrant_unscoped(tracer: trace.Tracer):
                     )
                 ],
             )
-        with tracer.start_as_current_span("qdrant.search") as sp:
+        with tracer.start_as_current_span("qdrant.search", kind=SpanKind.CLIENT) as sp:
             sp.set_attribute("db.system", "qdrant")
             sp.set_attribute("db.collection.name", coll)
             sp.set_attribute("db.operation", "query_points")

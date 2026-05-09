@@ -43,6 +43,19 @@ type PublishInput struct {
 	Version     string
 	Title       string
 	Description string
+	// Refs are observed dependencies the resolver should attach to the
+	// new RegistryAgent. The resolver decides which kinds map cleanly
+	// onto the registry's `target_kind` enum; vector_db / http / unknown
+	// rows that don't fit are typically dropped.
+	Refs []PublishRef
+}
+
+// PublishRef is the discovery-side view of one observed dependency
+// edge. The resolver translates these into models.RegistryRef rows.
+type PublishRef struct {
+	Kind       CallKindStr
+	TargetName string
+	Count      int
 }
 
 // Service is the top-level discovery API. It is goroutine-safe: GORM
@@ -236,11 +249,32 @@ func (s *Service) Promote(ctx context.Context, id uuid.UUID, version string) (uu
 	if version == "" {
 		version = "0.1.0"
 	}
+
+	// Bring observed calls along as PublishRef so the registry's
+	// dependencies tab reflects what we actually saw at runtime, not
+	// just what someone declared.
+	var calls []models.DiscoveredCall
+	if err := s.db.WithContext(ctx).
+		Where("discovered_agent_id = ?", agent.ID).
+		Find(&calls).Error; err != nil {
+		s.logger.Warn("promote: failed to load observed calls",
+			zap.Error(err))
+	}
+	refs := make([]PublishRef, 0, len(calls))
+	for _, c := range calls {
+		refs = append(refs, PublishRef{
+			Kind:       CallKindStr(c.Kind),
+			TargetName: c.TargetName,
+			Count:      c.Count,
+		})
+	}
+
 	regID, err := s.agents.PublishFromDiscovery(ctx, PublishInput{
 		Name:        "discovered/" + agent.ServiceName,
 		Version:     version,
 		Title:       agent.ServiceName,
 		Description: "Auto-published from OTel discovery on " + time.Now().UTC().Format(time.RFC3339),
+		Refs:        refs,
 	})
 	if err != nil {
 		return uuid.Nil, err

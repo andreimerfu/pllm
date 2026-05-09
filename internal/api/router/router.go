@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/amerfu/pllm/internal/core/auth"
@@ -303,6 +304,12 @@ type discoveryAgentResolver struct {
 }
 
 func (a *discoveryAgentResolver) PublishFromDiscovery(ctx context.Context, in discoverysvc.PublishInput) (uuid.UUID, error) {
+	refs, descSuffix := translateDiscoveryRefs(in.Refs)
+	description := in.Description
+	if descSuffix != "" {
+		description = description + "\n\n" + descSuffix
+	}
+
 	// If a soft-deleted RegistryAgent already exists at this (name, version),
 	// restore it instead of trying to insert a duplicate. The unique index
 	// on idx_reg_agent_name_version is not partial — soft-deleted rows still
@@ -316,7 +323,7 @@ func (a *discoveryAgentResolver) PublishFromDiscovery(ctx context.Context, in di
 		updates := map[string]any{
 			"deleted_at":   nil,
 			"title":        in.Title,
-			"description":  in.Description,
+			"description":  description,
 			"status":       coremodels.RegistryStatusActive,
 			"published_at": now,
 			"updated_at":   now,
@@ -327,9 +334,14 @@ func (a *discoveryAgentResolver) PublishFromDiscovery(ctx context.Context, in di
 			Updates(updates).Error; err != nil {
 			return uuid.Nil, err
 		}
+		// Replace refs wholesale on restore, same as Upsert would.
+		if err := a.replaceRefs(ctx, existing.ID, refs); err != nil {
+			a.logger.Warn("failed to replace refs on restored agent", zap.Error(err))
+		}
 		a.logger.Info("re-promoted: restored soft-deleted RegistryAgent",
 			zap.String("name", in.Name),
-			zap.String("version", in.Version))
+			zap.String("version", in.Version),
+			zap.Int("refs", len(refs)))
 		return existing.ID, nil
 	}
 
@@ -339,13 +351,68 @@ func (a *discoveryAgentResolver) PublishFromDiscovery(ctx context.Context, in di
 			Name:        in.Name,
 			Version:     in.Version,
 			Title:       in.Title,
-			Description: in.Description,
+			Description: description,
 		},
+		Refs: refs,
 	})
 	if err != nil {
 		return uuid.Nil, err
 	}
 	return out.Agent.ID, nil
+}
+
+// translateDiscoveryRefs maps the discovery package's CallKindStr enum
+// onto RegistryRef.TargetKind. LLM and MCP targets fit cleanly; vector
+// DBs, raw HTTP, and unknowns don't have a registry kind yet, so we
+// surface them as a human-readable description suffix instead of
+// dropping the information entirely.
+func translateDiscoveryRefs(in []discoverysvc.PublishRef) ([]coremodels.RegistryRef, string) {
+	refs := make([]coremodels.RegistryRef, 0, len(in))
+	var notes []string
+	for _, r := range in {
+		switch r.Kind {
+		case discoverysvc.CallKindLLM:
+			refs = append(refs, coremodels.RegistryRef{
+				TargetKind: coremodels.RegistryKindLLM,
+				TargetName: r.TargetName,
+			})
+		case discoverysvc.CallKindMCP:
+			refs = append(refs, coremodels.RegistryRef{
+				TargetKind: coremodels.RegistryKindServer,
+				TargetName: r.TargetName,
+			})
+		case discoverysvc.CallKindVectorDB:
+			notes = append(notes, fmt.Sprintf("vector_db: %s (×%d)", r.TargetName, r.Count))
+		case discoverysvc.CallKindHTTP:
+			notes = append(notes, fmt.Sprintf("http: %s (×%d)", r.TargetName, r.Count))
+		default:
+			notes = append(notes, fmt.Sprintf("unknown: %s (×%d)", r.TargetName, r.Count))
+		}
+	}
+	suffix := ""
+	if len(notes) > 0 {
+		suffix = "Observed external dependencies (not in registry kinds):\n  - " +
+			strings.Join(notes, "\n  - ")
+	}
+	return refs, suffix
+}
+
+// replaceRefs deletes the agent's existing RegistryRefs and inserts the
+// provided set. Mirrors what AgentService.Upsert does internally.
+func (a *discoveryAgentResolver) replaceRefs(ctx context.Context, agentID uuid.UUID, refs []coremodels.RegistryRef) error {
+	if err := a.db.WithContext(ctx).
+		Where("owner_kind = ? AND owner_id = ?", coremodels.RegistryKindAgent, agentID).
+		Delete(&coremodels.RegistryRef{}).Error; err != nil {
+		return err
+	}
+	if len(refs) == 0 {
+		return nil
+	}
+	for i := range refs {
+		refs[i].OwnerKind = coremodels.RegistryKindAgent
+		refs[i].OwnerID = agentID
+	}
+	return a.db.WithContext(ctx).Create(&refs).Error
 }
 
 func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.ModelManager, db *gorm.DB, pricingManager *config.ModelPricingManager) http.Handler {

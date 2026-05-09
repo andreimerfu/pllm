@@ -80,10 +80,22 @@ func ProcessResourceSpans(rs ResourceSpans) ProcessedSpans {
 
 	for _, ss := range rs.ScopeSpans {
 		for _, sp := range ss.Spans {
-			if sp.Kind != SpanKindClient && sp.Kind != SpanKindUnspecified {
+			// SERVER spans are inbound (we're the recipient) — skip those.
+			// Everything else (CLIENT, INTERNAL, UNSPECIFIED, PRODUCER,
+			// CONSUMER) might be something the agent calls outwards.
+			// classify() returns Unknown for unrecognized targets and
+			// those rarely need filtering — they get bucketed under
+			// "unknown" in the UI for transparency.
+			if sp.Kind == SpanKindServer {
 				continue
 			}
 			kind, target := classify(sp)
+			// Drop "unknown" rows that have no informative target. Keeps
+			// internal SDK plumbing spans (e.g. "tracer.batch.flush") out
+			// of the discovery list while still recording named ones.
+			if kind == CallKindUnknown && (target == "" || target == sp.Name && len(sp.Attributes) == 0) {
+				continue
+			}
 			add(kind, target)
 		}
 	}
