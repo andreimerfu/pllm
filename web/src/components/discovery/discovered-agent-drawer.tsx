@@ -39,7 +39,7 @@ const KIND_FALLBACK_ICON: Record<DiscoveredCallKind, string> = {
 
 function vectorDbIcon(target: string): string {
   const t = target.toLowerCase();
-  if (t.startsWith("qdrant")) return "simple-icons:qdrant";
+  if (t.startsWith("qdrant")) return "logos:qdrant-icon";
   if (t.startsWith("pinecone")) return "simple-icons:pinecone";
   if (t.startsWith("weaviate")) return "simple-icons:weaviate";
   if (t.startsWith("chroma")) return "logos:chroma";
