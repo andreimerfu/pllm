@@ -1067,6 +1067,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 					rr.Get("/agents/{name}", registryHandler.GetAgent)
 					rr.Get("/agents/{name}/versions", registryHandler.ListAgentVersions)
 					rr.Get("/agents/{name}/versions/{version}", registryHandler.GetAgentVersion)
+					rr.Get("/agents/{name}/versions/{version}/observed", registryHandler.GetAgentObservedDeps)
 					rr.Get("/skills", registryHandler.ListSkills)
 					rr.Get("/skills/{name}", registryHandler.GetSkill)
 					rr.Get("/skills/{name}/versions", registryHandler.ListSkillVersions)
