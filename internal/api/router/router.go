@@ -361,6 +361,50 @@ func (a *discoveryAgentResolver) PublishFromDiscovery(ctx context.Context, in di
 	return out.Agent.ID, nil
 }
 
+// observedDepsLoader implements registryhandlers.ObservedDepsLoader.
+// Looks up the DiscoveredAgent that was promoted into the given
+// RegistryAgent, then loads its DiscoveredCalls.
+type observedDepsLoader struct{ db *gorm.DB }
+
+func (l *observedDepsLoader) LoadForAgent(ctx context.Context, agentID uuid.UUID) (*registryhandlers.ObservedDeps, error) {
+	var da coremodels.DiscoveredAgent
+	err := l.db.WithContext(ctx).
+		Where("promoted_agent_id = ?", agentID).
+		Order("last_seen_at DESC").
+		First(&da).Error
+	if err != nil {
+		// No DiscoveredAgent points at this RegistryAgent — agent was
+		// published manually or never re-promoted. Return empty.
+		return &registryhandlers.ObservedDeps{Calls: []registryhandlers.ObservedCall{}}, nil
+	}
+	var calls []coremodels.DiscoveredCall
+	if err := l.db.WithContext(ctx).
+		Where("discovered_agent_id = ?", da.ID).
+		Order("last_seen_at DESC").
+		Find(&calls).Error; err != nil {
+		return nil, err
+	}
+	out := &registryhandlers.ObservedDeps{
+		DiscoveredAgentID: &da.ID,
+		ServiceName:       da.ServiceName,
+		LastSeenAt:        &da.LastSeenAt,
+		FlaggedCount:      da.FlaggedCount,
+		Calls:             make([]registryhandlers.ObservedCall, 0, len(calls)),
+	}
+	for _, c := range calls {
+		out.Calls = append(out.Calls, registryhandlers.ObservedCall{
+			Kind:        string(c.Kind),
+			TargetName:  c.TargetName,
+			Count:       c.Count,
+			LastOutcome: c.LastOutcome,
+			LastReason:  c.LastReason,
+			FirstSeenAt: c.FirstSeenAt,
+			LastSeenAt:  c.LastSeenAt,
+		})
+	}
+	return out, nil
+}
+
 // translateDiscoveryRefs maps the discovery package's CallKindStr enum
 // onto RegistryRef.TargetKind. LLM and MCP targets fit cleanly; vector
 // DBs, raw HTTP, and unknowns don't have a registry kind yet, so we
@@ -535,6 +579,9 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			logger, serverSvc, agentSvc, skillSvc, promptSvc,
 			registryservice.NewRefService(db),
 		)
+		// Wire observed-deps loader so the registry's Dependencies tab
+		// can show runtime-discovered targets alongside declared refs.
+		registryHandler.Observed = &observedDepsLoader{db: db}
 		// Enrichment runner: OSV scanner only in phase 2. Started in a
 		// goroutine; shuts down when context is canceled (process exit).
 		runner := enrichment.NewRunner(db, logger)

@@ -44,6 +44,36 @@ type Handler struct {
 	Prompts    *service.PromptService
 	Refs       *service.RefService // cross-reference lookups
 	Enrichment *enrichment.Runner  // optional; nil disables auto-enqueue
+	Observed   ObservedDepsLoader  // optional; nil hides observed-deps panel
+}
+
+// ObservedDepsLoader is the narrow surface this handler needs to surface
+// runtime-observed dependencies on the registry's "Dependencies" tab.
+// Implemented in router.go against the discovery package's tables; the
+// registry handler stays independent of discovery.
+type ObservedDepsLoader interface {
+	LoadForAgent(ctx context.Context, agentID uuid.UUID) (*ObservedDeps, error)
+}
+
+// ObservedDeps is the JSON shape returned by GetAgentObservedDeps.
+type ObservedDeps struct {
+	DiscoveredAgentID *uuid.UUID     `json:"discovered_agent_id,omitempty"`
+	ServiceName       string         `json:"service_name,omitempty"`
+	LastSeenAt        *time.Time     `json:"last_seen_at,omitempty"`
+	FlaggedCount      int            `json:"flagged_count"`
+	Calls             []ObservedCall `json:"calls"`
+}
+
+// ObservedCall mirrors models.DiscoveredCall but flattened for the API
+// — keeps the registry handler from importing core/models discovery types.
+type ObservedCall struct {
+	Kind        string    `json:"kind"`
+	TargetName  string    `json:"target_name"`
+	Count       int       `json:"count"`
+	LastOutcome string    `json:"last_outcome,omitempty"`
+	LastReason  string    `json:"last_reason,omitempty"`
+	FirstSeenAt time.Time `json:"first_seen_at"`
+	LastSeenAt  time.Time `json:"last_seen_at"`
 }
 
 // NewHandler builds a Handler. Pass nil logger to get a no-op.
@@ -305,6 +335,37 @@ func (h *Handler) GetAgentVersion(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, row)
 }
 
+// GetAgentObservedDeps returns the discovered_agent + discovered_calls
+// linked to a promoted RegistryAgent. Used by the "Observed in
+// production" panel on the Dependencies tab. Returns an empty payload
+// (200) when no DiscoveredAgent points at this RegistryAgent — the UI
+// shows a hint instead of an error in that case.
+func (h *Handler) GetAgentObservedDeps(w http.ResponseWriter, r *http.Request) {
+	name := urlParam(r, "name")
+	version := r.URL.Query().Get("version")
+	if v := urlParam(r, "version"); v != "" {
+		version = v
+	}
+	row, err := h.Agents.Get(r.Context(), name, version)
+	if err != nil {
+		mapServiceErr(w, err)
+		return
+	}
+	if h.Observed == nil {
+		writeJSON(w, http.StatusOK, &ObservedDeps{Calls: []ObservedCall{}})
+		return
+	}
+	obs, err := h.Observed.LoadForAgent(r.Context(), row.Agent.ID)
+	if err != nil {
+		writeJSON(w, http.StatusOK, &ObservedDeps{Calls: []ObservedCall{}})
+		return
+	}
+	if obs == nil {
+		obs = &ObservedDeps{Calls: []ObservedCall{}}
+	}
+	writeJSON(w, http.StatusOK, obs)
+}
+
 // agentUpsertBody is the POST shape — an agent plus a flat list of refs.
 type agentUpsertBody struct {
 	models.RegistryAgent
@@ -516,6 +577,7 @@ func (h *Handler) Mount(r chi.Router, readsPublic bool) {
 		r.Get("/agents/{name}", h.GetAgent)
 		r.Get("/agents/{name}/versions", h.ListAgentVersions)
 		r.Get("/agents/{name}/versions/{version}", h.GetAgentVersion)
+		r.Get("/agents/{name}/versions/{version}/observed", h.GetAgentObservedDeps)
 
 		r.Get("/skills", h.ListSkills)
 		r.Get("/skills/{name}", h.GetSkill)

@@ -659,3 +659,11 @@ export const promoteDiscoveredAgent = (id: string, version = "0.1.0") =>
 
 export const ignoreDiscoveredAgent = (id: string) =>
   axiosInstance.post(`/api/admin/discovery/agents/${id}/ignore`);
+
+// Observed (OTel-derived) deps for a published RegistryAgent — used by
+// the registry's Dependencies tab to surface runtime-discovered targets
+// alongside the declared ref rows.
+export const getObservedAgentDeps = (name: string, version: string) =>
+  axiosInstance.get(
+    `/v1/registry/agents/${encodeURIComponent(name)}/versions/${encodeURIComponent(version)}/observed`,
+  ) as Promise<import("@/types/api").ObservedAgentDeps>;

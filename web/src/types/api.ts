@@ -490,6 +490,28 @@ export interface RegistryAgentWithRefs {
   servers?: RegistryRef[];
   skills?: RegistryRef[];
   prompts?: RegistryRef[];
+  agents?: RegistryRef[];
+  llms?: RegistryRef[];
+}
+
+// Observed (OTel-derived) dependencies for an agent — what was actually
+// seen at runtime, distinct from the declared `RegistryRef` rows above.
+export interface ObservedAgentDeps {
+  discovered_agent_id?: string | null;
+  service_name?: string;
+  last_seen_at?: string | null;
+  flagged_count: number;
+  calls: ObservedAgentCall[];
+}
+
+export interface ObservedAgentCall {
+  kind: DiscoveredCallKind;
+  target_name: string;
+  count: number;
+  last_outcome?: string;
+  last_reason?: string;
+  first_seen_at: string;
+  last_seen_at: string;
 }
 
 export interface RegistrySkill extends RegistryBase {

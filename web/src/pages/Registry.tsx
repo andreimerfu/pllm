@@ -31,7 +31,9 @@ import {
   listRegistrySkillVersions,
   listRegistryPromptVersions,
   listRegistryDependents,
+  getObservedAgentDeps,
 } from "@/lib/api";
+import { detectProvider } from "@/lib/providers";
 import type {
   Deployment,
   DeploymentStatus,
@@ -44,6 +46,7 @@ import type {
   RegistryServer,
   RegistryServerDetail,
   RegistrySkill,
+  ObservedAgentCall,
 } from "@/types/api";
 
 import { Button } from "@/components/ui/button";
@@ -1489,61 +1492,216 @@ function Detail({
 
 function DepsTab({ data }: { data: RegistryAgentWithRefs }) {
   const sections: { label: string; kind: RegistryKind; refs: RegistryAgentWithRefs["servers"] }[] = [
+    { label: "LLMs", kind: "llm", refs: data.llms },
     { label: "MCP Servers", kind: "server", refs: data.servers },
     { label: "Skills", kind: "skill", refs: data.skills },
     { label: "Prompts", kind: "prompt", refs: data.prompts },
   ];
-  const anyRefs = sections.some((s) => (s.refs?.length ?? 0) > 0);
-  if (!anyRefs) {
-    return (
-      <p className="text-sm text-muted-foreground text-center py-10">
-        This agent has no declared dependencies.
-      </p>
-    );
-  }
+  const anyDeclared = sections.some((s) => (s.refs?.length ?? 0) > 0);
+
   return (
-    <div className="space-y-5">
-      {sections.map((s) =>
-        !s.refs || s.refs.length === 0 ? null : (
-          <section key={s.label} className="space-y-2">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              {s.label}{" "}
-              <span className="text-foreground/70">({s.refs.length})</span>
-            </p>
-            <div className="space-y-1.5">
-              {s.refs.map((r, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 p-2.5 rounded-md border border-border/60 bg-card"
-                >
-                  <KindIcon kind={s.kind} name={r.target_name} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <code className="text-[12px] font-mono truncate block">
-                      {r.target_name}
-                    </code>
-                    <p className="text-[10px] text-muted-foreground">
-                      {r.local_name && (
-                        <>
-                          alias{" "}
-                          <code className="font-mono text-foreground/80">
-                            {r.local_name}
+    <div className="space-y-6">
+      <section className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Declared
+        </h3>
+        {!anyDeclared ? (
+          <p className="text-sm text-muted-foreground py-3">
+            No declared dependencies on this version.
+          </p>
+        ) : (
+          <div className="space-y-5">
+            {sections.map((s) =>
+              !s.refs || s.refs.length === 0 ? null : (
+                <div key={s.label} className="space-y-2">
+                  <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                    {s.label}{" "}
+                    <span className="text-foreground/70">({s.refs.length})</span>
+                  </p>
+                  <div className="space-y-1.5">
+                    {s.refs.map((r, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 p-2.5 rounded-md border border-border/60 bg-card"
+                      >
+                        <KindIcon kind={s.kind} name={r.target_name} size="sm" />
+                        <div className="flex-1 min-w-0">
+                          <code className="text-[12px] font-mono truncate block">
+                            {r.target_name}
                           </code>
-                          {" · "}
-                        </>
-                      )}
-                      pinned to{" "}
-                      <code className="font-mono text-foreground/80">
-                        {r.target_version ? `v${r.target_version}` : "latest"}
-                      </code>
-                    </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {r.local_name && (
+                              <>
+                                alias{" "}
+                                <code className="font-mono text-foreground/80">
+                                  {r.local_name}
+                                </code>
+                                {" · "}
+                              </>
+                            )}
+                            pinned to{" "}
+                            <code className="font-mono text-foreground/80">
+                              {r.target_version ? `v${r.target_version}` : "latest"}
+                            </code>
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
-        ),
-      )}
+              ),
+            )}
+          </div>
+        )}
+      </section>
+
+      <ObservedDepsSection
+        name={data.agent.name}
+        version={data.agent.version}
+      />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Observed deps panel — runtime targets fingerprinted from OTel traces.
+// Decoupled from the declared-refs view above so an agent can have one,
+// the other, or both. Renders nothing when no DiscoveredAgent points at
+// this RegistryAgent.
+// ---------------------------------------------------------------------------
+
+const OBSERVED_KIND_TONE: Record<string, string> = {
+  llm: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200",
+  mcp: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
+  vector_db: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
+  http: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+  unknown: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
+};
+
+const OBSERVED_OUTCOME_TONE: Record<string, string> = {
+  allowed: "text-emerald-700 dark:text-emerald-400",
+  flagged: "text-amber-700 dark:text-amber-400",
+  denied: "text-rose-700 dark:text-rose-400",
+};
+
+const OBSERVED_KIND_FALLBACK: Record<string, string> = {
+  llm: "solar:cpu-bolt-linear",
+  mcp: "lucide:plug-zap",
+  vector_db: "solar:database-linear",
+  http: "solar:global-linear",
+  unknown: "solar:question-circle-linear",
+};
+
+function vectorDbIconForObserved(target: string): string {
+  const t = target.toLowerCase();
+  if (t.startsWith("qdrant")) return "simple-icons:qdrant";
+  if (t.startsWith("pinecone")) return "simple-icons:pinecone";
+  if (t.startsWith("weaviate")) return "simple-icons:weaviate";
+  if (t.startsWith("chroma")) return "logos:chroma";
+  if (t.startsWith("milvus")) return "simple-icons:milvus";
+  return OBSERVED_KIND_FALLBACK.vector_db;
+}
+
+function observedVisual(call: ObservedAgentCall): { icon: string; label: string; tone?: string } {
+  switch (call.kind) {
+    case "llm": {
+      const p = detectProvider(call.target_name, call.target_name);
+      return { icon: p.icon, label: p.name, tone: p.color };
+    }
+    case "vector_db":
+      return {
+        icon: vectorDbIconForObserved(call.target_name),
+        label: call.target_name.split("://")[0],
+      };
+    case "mcp":
+      return { icon: OBSERVED_KIND_FALLBACK.mcp, label: "MCP server" };
+    case "http":
+      return { icon: OBSERVED_KIND_FALLBACK.http, label: "HTTP" };
+    default:
+      return { icon: OBSERVED_KIND_FALLBACK.unknown, label: "unknown" };
+  }
+}
+
+function ObservedDepsSection({ name, version }: { name: string; version: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["registry-agent-observed", name, version],
+    queryFn: () => getObservedAgentDeps(name, version),
+    refetchInterval: 5000,
+  });
+
+  if (isLoading) {
+    return null;
+  }
+  const calls = data?.calls ?? [];
+  // Hide the panel entirely when this agent was never auto-promoted —
+  // showing an empty section creates noise for hand-published agents.
+  if (!data?.discovered_agent_id) {
+    return null;
+  }
+
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center gap-2">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Observed in production
+        </h3>
+        <span className="text-[10px] font-mono text-muted-foreground">
+          via OpenTelemetry
+        </span>
+        {data.flagged_count > 0 && (
+          <Badge variant="destructive" className="font-mono text-[10px]">
+            {data.flagged_count} flagged
+          </Badge>
+        )}
+      </div>
+      {calls.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-3">
+          No calls observed yet — run the agent so its OTel spans hit{" "}
+          <code className="font-mono">/v1/traces</code>.
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          {calls.map((c, i) => {
+            const v = observedVisual(c);
+            return (
+              <div
+                key={i}
+                className="flex items-start gap-3 p-2.5 rounded-md border border-border/60 bg-card"
+              >
+                <Icon
+                  icon={v.icon}
+                  className={`h-6 w-6 mt-0.5 shrink-0 ${v.tone ?? ""}`}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge className={OBSERVED_KIND_TONE[c.kind] ?? ""}>
+                      {c.kind}
+                    </Badge>
+                    <span className="text-[11px] text-muted-foreground">
+                      {v.label}
+                    </span>
+                    <span className="ml-auto text-[11px] text-muted-foreground font-mono">
+                      ×{c.count}
+                    </span>
+                  </div>
+                  <code className="text-[12px] font-mono break-all block mt-1">
+                    {c.target_name}
+                  </code>
+                  {c.last_outcome && (
+                    <p
+                      className={`mt-1 text-[10px] uppercase tracking-wide ${OBSERVED_OUTCOME_TONE[c.last_outcome] ?? ""}`}
+                    >
+                      {c.last_outcome}
+                      {c.last_reason ? `: ${c.last_reason}` : ""}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
