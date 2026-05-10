@@ -193,10 +193,15 @@ def run_orchestrator(client: OpenAI, tracer: trace.Tracer):
 
 def run_risk_scorer(client: OpenAI, tracer: trace.Tracer):
     call_allowed_llm(client, tracer, prompt="Score this transaction 0-100.")
+    # Give the orchestrator time to finish its longer pipeline before
+    # this short-lived role exits — keeps `docker compose up
+    # --abort-on-container-exit` from cutting orchestrator off mid-demo.
+    time.sleep(int(os.environ.get("LINGER_SECONDS", "10")))
 
 
 def run_compliance_auditor(client: OpenAI, tracer: trace.Tracer):
     call_allowed_llm(client, tracer, prompt="Did this transaction comply with KYC?")
+    time.sleep(int(os.environ.get("LINGER_SECONDS", "10")))
 
 
 ROLES = {
