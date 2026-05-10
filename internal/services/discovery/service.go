@@ -29,6 +29,9 @@ type PolicyEvaluator interface {
 // Implementations live in revoker.go. nil => no auto-revoke.
 type FlagReactor interface {
 	OnFlagged(ctx context.Context, agent *models.DiscoveredAgent)
+	// Forget clears any per-agent latch the reactor keeps so a future
+	// threshold crossing can fire again. Called by Service.Reset.
+	Forget(agentID uuid.UUID)
 }
 
 // AgentResolver looks up the RegistryAgent service when promoting.
@@ -290,6 +293,34 @@ func (s *Service) Promote(ctx context.Context, id uuid.UUID, version string) (uu
 		return uuid.Nil, err
 	}
 	return regID, nil
+}
+
+// Reset clears the flagged_count counter for an agent, drops the
+// revoker's latch, and clears any per-call last_outcome state. Used by
+// the bootstrap script so a re-run starts with a fresh slate
+// (otherwise persisted flagged_count + the revoker's per-agent latch
+// keep auto-revoking the freshly minted key).
+func (s *Service) Reset(ctx context.Context, id uuid.UUID) error {
+	if err := s.db.WithContext(ctx).Model(&models.DiscoveredAgent{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"flagged_count": 0,
+			"updated_at":    time.Now(),
+		}).Error; err != nil {
+		return err
+	}
+	if err := s.db.WithContext(ctx).Model(&models.DiscoveredCall{}).
+		Where("discovered_agent_id = ?", id).
+		Updates(map[string]any{
+			"last_outcome": "",
+			"last_reason":  "",
+		}).Error; err != nil {
+		s.logger.Warn("reset: clearing call outcomes failed", zap.Error(err))
+	}
+	if s.revoker != nil {
+		s.revoker.Forget(id)
+	}
+	return nil
 }
 
 // Ignore marks an agent so it stops appearing in the pending list.

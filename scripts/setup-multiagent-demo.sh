@@ -127,6 +127,25 @@ ok "orchestrator key  ${ORCH_KEY_ID}"
 ok "risk-scorer key   ${RISK_KEY_ID}"
 ok "compliance key    ${COMP_KEY_ID}"
 
+# --- 2b. Reset existing DiscoveredAgent rows so flagged_count starts ---
+# at 0 and the revoker's per-agent latch is cleared. Without this, the
+# orchestrator gets auto-revoked seconds into the next run because
+# flagged_count from previous demo iterations persists.
+reset_discovered() {
+  local svc="$1"
+  local id
+  id=$(curl -s -H "$H_AUTH" "${BASE_URL}/api/admin/discovery/agents" |
+    jq -r --arg s "$svc" '.items[]? | select(.service_name==$s) | .id' | head -1)
+  if [ -n "$id" ] && [ "$id" != "null" ]; then
+    curl -s -o /dev/null -X POST -H "$H_AUTH" \
+      "${BASE_URL}/api/admin/discovery/agents/${id}/reset"
+    ok "reset discovered agent: ${svc}"
+  fi
+}
+reset_discovered "orchestrator"
+reset_discovered "risk-scorer"
+reset_discovered "compliance-auditor"
+
 # --- 3. Write .env ---------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/../examples/agents/fraud-investigator/.env"

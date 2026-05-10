@@ -316,6 +316,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 				rr.Get("/agents/{id}", dh.Get)
 				rr.Post("/agents/{id}/promote", dh.Promote)
 				rr.Post("/agents/{id}/ignore", dh.Ignore)
+				rr.Post("/agents/{id}/reset", dh.Reset)
 			})
 		}
 

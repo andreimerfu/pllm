@@ -40,6 +40,18 @@ func NewRevoker(logger *zap.Logger, adapter KeyRevoker, threshold int) *Revoker 
 	}
 }
 
+// Forget drops the latch for an agent so a future flagged-count
+// crossing can fire revocation again. Used by Service.Reset so the
+// demo can iterate without restarting pllm.
+func (r *Revoker) Forget(agentID uuid.UUID) {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	delete(r.fired, agentID)
+	r.mu.Unlock()
+}
+
 // OnFlagged is called after each flagged event. The Service has already
 // incremented FlaggedCount; we read agent.FlaggedCount.
 func (r *Revoker) OnFlagged(ctx context.Context, agent *models.DiscoveredAgent) {
