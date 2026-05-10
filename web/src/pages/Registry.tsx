@@ -1623,21 +1623,15 @@ function observedVisual(call: ObservedAgentCall): { icon: string; label: string;
 }
 
 function ObservedDepsSection({ name, version }: { name: string; version: string }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["registry-agent-observed", name, version],
     queryFn: () => getObservedAgentDeps(name, version),
     refetchInterval: 5000,
+    retry: false,
   });
 
-  if (isLoading) {
-    return null;
-  }
+  const linked = !!data?.discovered_agent_id;
   const calls = data?.calls ?? [];
-  // Hide the panel entirely when this agent was never auto-promoted —
-  // showing an empty section creates noise for hand-published agents.
-  if (!data?.discovered_agent_id) {
-    return null;
-  }
 
   return (
     <section className="space-y-2">
@@ -1648,16 +1642,30 @@ function ObservedDepsSection({ name, version }: { name: string; version: string 
         <span className="text-[10px] font-mono text-muted-foreground">
           via OpenTelemetry
         </span>
-        {data.flagged_count > 0 && (
+        {linked && data.flagged_count > 0 && (
           <Badge variant="destructive" className="font-mono text-[10px]">
             {data.flagged_count} flagged
           </Badge>
         )}
       </div>
-      {calls.length === 0 ? (
+      {error ? (
         <p className="text-sm text-muted-foreground py-3">
-          No calls observed yet — run the agent so its OTel spans hit{" "}
-          <code className="font-mono">/v1/traces</code>.
+          Couldn't load observed deps —{" "}
+          <code className="font-mono text-[11px]">/v1/traces</code> may not be
+          deployed on this build yet.
+        </p>
+      ) : isLoading ? (
+        <p className="text-sm text-muted-foreground py-3">Loading…</p>
+      ) : !linked ? (
+        <p className="text-sm text-muted-foreground py-3">
+          This agent isn't linked to any OTel-discovered fingerprint. Either it
+          was published manually, or no traces have arrived yet for the
+          matching <code className="font-mono">service.name</code>.
+        </p>
+      ) : calls.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-3">
+          Linked but no calls observed yet — run the agent so its OTel spans
+          hit <code className="font-mono">/v1/traces</code>.
         </p>
       ) : (
         <div className="space-y-1.5">
