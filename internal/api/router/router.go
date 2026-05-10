@@ -410,27 +410,63 @@ func (l *observedDepsLoader) LoadForAgent(ctx context.Context, agentID uuid.UUID
 	return out, nil
 }
 
+// isRegistryNameSafe mirrors the registry service's validName: only
+// alphanum + `.-_/@`. OTel-derived target names (e.g. provider-prefixed
+// model strings like "Z.ai: GLM 4.5 Air (free)") routinely violate
+// this, so we filter at the resolver boundary rather than letting
+// promote fail wholesale.
+func isRegistryNameSafe(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, ch := range name {
+		switch {
+		case ch >= 'a' && ch <= 'z':
+		case ch >= 'A' && ch <= 'Z':
+		case ch >= '0' && ch <= '9':
+		case ch == '.' || ch == '-' || ch == '_' || ch == '/' || ch == '@':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // translateDiscoveryRefs maps the discovery package's CallKindStr enum
 // onto RegistryRef.TargetKind. LLM and MCP targets fit cleanly; vector
 // DBs, raw HTTP, and unknowns don't have a registry kind yet, so we
 // surface them as a human-readable description suffix instead of
-// dropping the information entirely.
+// dropping the information entirely. LLM/MCP/Agent target_names that
+// fail registry name validation also fall through to the suffix path
+// — keeping promote idempotent regardless of upstream naming choices.
 func translateDiscoveryRefs(in []discoverysvc.PublishRef) ([]coremodels.RegistryRef, string) {
 	refs := make([]coremodels.RegistryRef, 0, len(in))
 	var notes []string
 	for _, r := range in {
 		switch r.Kind {
 		case discoverysvc.CallKindLLM:
+			if !isRegistryNameSafe(r.TargetName) {
+				notes = append(notes, fmt.Sprintf("llm: %s (×%d) — name not registry-safe", r.TargetName, r.Count))
+				break
+			}
 			refs = append(refs, coremodels.RegistryRef{
 				TargetKind: coremodels.RegistryKindLLM,
 				TargetName: r.TargetName,
 			})
 		case discoverysvc.CallKindMCP:
+			if !isRegistryNameSafe(r.TargetName) {
+				notes = append(notes, fmt.Sprintf("mcp: %s (×%d) — name not registry-safe", r.TargetName, r.Count))
+				break
+			}
 			refs = append(refs, coremodels.RegistryRef{
 				TargetKind: coremodels.RegistryKindServer,
 				TargetName: r.TargetName,
 			})
 		case discoverysvc.CallKindAgent:
+			if !isRegistryNameSafe(r.TargetName) {
+				notes = append(notes, fmt.Sprintf("agent: %s (×%d) — name not registry-safe", r.TargetName, r.Count))
+				break
+			}
 			refs = append(refs, coremodels.RegistryRef{
 				TargetKind: coremodels.RegistryKindAgent,
 				TargetName: r.TargetName,
