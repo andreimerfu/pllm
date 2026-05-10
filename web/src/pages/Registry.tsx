@@ -1583,6 +1583,7 @@ const OBSERVED_KIND_TONE: Record<string, string> = {
 const OBSERVED_OUTCOME_TONE: Record<string, string> = {
   allowed: "text-emerald-700 dark:text-emerald-400",
   flagged: "text-amber-700 dark:text-amber-400",
+  blocked: "text-rose-700 dark:text-rose-400",
   denied: "text-rose-700 dark:text-rose-400",
 };
 

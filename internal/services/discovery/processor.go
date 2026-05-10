@@ -35,6 +35,11 @@ type CallObservation struct {
 	Kind       CallKindStr
 	TargetName string
 	Count      int
+	// BlockedAtClient is true when the originating span carried the
+	// pllm.policy.blocked=true attribute. Set by client-side SDKs
+	// that refused the call locally; the outcome takes precedence
+	// over normal policy evaluation.
+	BlockedAtClient bool
 }
 
 // ProcessedSpans is the output of one call to ProcessResourceSpans.
@@ -67,16 +72,26 @@ func ProcessResourceSpans(rs ResourceSpans) ProcessedSpans {
 	}
 
 	dedup := map[string]*CallObservation{}
-	add := func(kind CallKindStr, target string) {
+	add := func(kind CallKindStr, target string, blocked bool) {
 		if target == "" {
 			return
 		}
 		k := string(kind) + "|" + target
 		if existing, ok := dedup[k]; ok {
 			existing.Count++
+			// If any observation in this batch was blocked, the
+			// rolled-up edge is blocked. Captures the worst case.
+			if blocked {
+				existing.BlockedAtClient = true
+			}
 			return
 		}
-		dedup[k] = &CallObservation{Kind: kind, TargetName: target, Count: 1}
+		dedup[k] = &CallObservation{
+			Kind:            kind,
+			TargetName:      target,
+			Count:           1,
+			BlockedAtClient: blocked,
+		}
 	}
 
 	for _, ss := range rs.ScopeSpans {
@@ -97,7 +112,8 @@ func ProcessResourceSpans(rs ResourceSpans) ProcessedSpans {
 			if kind == CallKindUnknown && (target == "" || target == sp.Name && len(sp.Attributes) == 0) {
 				continue
 			}
-			add(kind, target)
+			blocked := Lookup(sp.Attributes, "pllm.policy.blocked") == "true"
+			add(kind, target, blocked)
 		}
 	}
 

@@ -25,6 +25,7 @@ const KIND_TONE: Record<DiscoveredCallKind, string> = {
 const OUTCOME_TONE: Record<string, string> = {
   allowed: "text-emerald-700 dark:text-emerald-400",
   flagged: "text-amber-700 dark:text-amber-400",
+  blocked: "text-rose-700 dark:text-rose-400",
   denied: "text-rose-700 dark:text-rose-400",
 };
 

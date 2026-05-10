@@ -38,6 +38,12 @@ const (
 	// that report a positive evaluation result; not persisted as a
 	// ScopeEvent row but consumed by callers via PolicyResult.
 	ScopeOutcomeAllowed ScopeEventOutcome = "allowed"
+	// ScopeOutcomeBlocked is recorded when a client-side SDK refused
+	// to make the call (e.g. pllm_sdk's httpx patch raised
+	// PllmPolicyViolation). Distinct from "denied" (gateway) and
+	// "flagged" (after-the-fact observation) — the call never
+	// happened AND the agent's process knew it was prevented.
+	ScopeOutcomeBlocked ScopeEventOutcome = "blocked"
 )
 
 // ScopeEvent is a persistent record of one runtime scope check that

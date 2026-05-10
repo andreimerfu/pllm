@@ -36,6 +36,7 @@ interface ObservedGraphNodeData {
 const OUTCOME_STROKE: Record<string, string> = {
   allowed: "#10b981",
   flagged: "#f59e0b",
+  blocked: "#f43f5e",
   denied: "#f43f5e",
 };
 
@@ -161,12 +162,12 @@ export function ObservedGraph({ agentName, calls }: Props) {
         id: `e-${id}`,
         source: rootId,
         target: id,
-        animated: c.last_outcome === "flagged" || c.last_outcome === "denied",
+        animated: c.last_outcome !== "allowed" && c.last_outcome !== "" && c.last_outcome != null,
         style: {
           stroke,
           strokeWidth: 1.6,
           strokeDasharray:
-            c.last_outcome === "flagged" || c.last_outcome === "denied" ? "5,4" : undefined,
+            c.last_outcome !== "allowed" && c.last_outcome ? "5,4" : undefined,
         },
         markerEnd: { type: MarkerType.ArrowClosed, color: stroke },
         label: c.last_outcome,

@@ -76,6 +76,24 @@ func (p *Policy) Evaluate(ctx context.Context, agent *models.DiscoveredAgent, ca
 		return PolicyResult{Outcome: models.ScopeOutcomeAllowed, Reason: "no bound use case"}
 	}
 
+	// SDK-side block takes precedence: the call never happened, but the
+	// agent attempted it — record as ScopeOutcomeBlocked so the UI can
+	// distinguish "prevented by SDK" from "observed too late to stop".
+	if call.BlockedAtClient {
+		reason := "blocked locally by client SDK"
+		p.rec.Record(ctx, RecordInput{
+			UseCaseID:  *key.UseCaseID,
+			KeyID:      &key.ID,
+			KeyName:    key.Name,
+			UserID:     key.UserID,
+			Kind:       models.ScopeEventKindObserved,
+			TargetName: call.TargetName,
+			Outcome:    models.ScopeOutcomeBlocked,
+			Reason:     reason,
+		})
+		return PolicyResult{Outcome: models.ScopeOutcomeBlocked, Reason: reason}
+	}
+
 	allowed, reason := p.allow(ctx, key.UseCaseID, call)
 	if allowed {
 		return PolicyResult{Outcome: models.ScopeOutcomeAllowed}

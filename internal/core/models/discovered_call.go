@@ -39,6 +39,13 @@ type DiscoveredCall struct {
 	// Outcome of the most recent policy evaluation; "" if not yet evaluated.
 	LastOutcome string `gorm:"size:16" json:"last_outcome,omitempty"`
 	LastReason  string `gorm:"type:text" json:"last_reason,omitempty"`
+
+	// BlockedAtClient is a transient (non-persisted) hint set by the
+	// span processor when the originating OTel span carried
+	// `pllm.policy.blocked=true`. The policy evaluator uses it to
+	// pick ScopeOutcomeBlocked over normal scope evaluation. Not
+	// stored on the row; the persisted truth lives in LastOutcome.
+	BlockedAtClient bool `gorm:"-" json:"-"`
 }
 
 func (DiscoveredCall) TableName() string { return "discovered_calls" }

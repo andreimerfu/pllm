@@ -185,6 +185,10 @@ func (s *Service) upsertOne(ctx context.Context, p ProcessedSpans) error {
 		if s.policy == nil {
 			continue
 		}
+		// Forward the SDK-blocked hint to the policy evaluator.
+		// Transient field (non-persisted); evaluator picks
+		// ScopeOutcomeBlocked when set.
+		call.BlockedAtClient = c.BlockedAtClient
 		res := s.policy.Evaluate(ctx, &agent, call)
 		updates := map[string]any{
 			"last_outcome": string(res.Outcome),
@@ -193,7 +197,10 @@ func (s *Service) upsertOne(ctx context.Context, p ProcessedSpans) error {
 		if err := s.db.WithContext(ctx).Model(call).Updates(updates).Error; err != nil {
 			s.logger.Warn("discovery call outcome update failed", zap.Error(err))
 		}
-		if res.Outcome == models.ScopeOutcomeFlagged {
+		// Both flagged and blocked count as policy violations for the
+		// auto-revoke threshold — even if the SDK prevented the call,
+		// the agent attempted something it shouldn't have.
+		if res.Outcome == models.ScopeOutcomeFlagged || res.Outcome == models.ScopeOutcomeBlocked {
 			if err := s.db.WithContext(ctx).
 				Model(&models.DiscoveredAgent{}).
 				Where("id = ?", agent.ID).
