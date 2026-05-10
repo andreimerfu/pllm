@@ -38,6 +38,7 @@ services:
       - DENIED_PEER=${DENIED_PEER:-compliance-auditor}
       - QDRANT_URL=http://localhost:6333
       - OTEL_SERVICE_NAME=orchestrator
+      - SDK_ENFORCE=${SDK_ENFORCE:-0}
 
   risk-scorer:
     <<: *agent-base
@@ -49,6 +50,7 @@ services:
       - ALLOWED_MODEL=${ALLOWED_MODEL:-gpt-4o}
       - QDRANT_URL=http://localhost:6333
       - OTEL_SERVICE_NAME=risk-scorer
+      - SDK_ENFORCE=${SDK_ENFORCE:-0}
 
   compliance-auditor:
     <<: *agent-base
@@ -60,6 +62,7 @@ services:
       - ALLOWED_MODEL=${ALLOWED_MODEL:-gpt-4o}
       - QDRANT_URL=http://localhost:6333
       - OTEL_SERVICE_NAME=compliance-auditor
+      - SDK_ENFORCE=${SDK_ENFORCE:-0}
 
 volumes:
   qdrant-data: {}

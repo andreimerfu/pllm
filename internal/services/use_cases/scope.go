@@ -2,6 +2,7 @@ package use_cases
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -111,6 +112,43 @@ func (r *ScopeResolver) AllowAgent(ctx context.Context, useCaseID *uuid.UUID, ag
 		EnforceMode: s.enforce,
 		Reason:      "agent " + agentName + " is not declared by the bound use case",
 	}
+}
+
+// ScopeSnapshot is the read-only view of a use case's scope, returned
+// by GetScope. Slices are sorted for stable comparisons in callers
+// (e.g. the SDK policy endpoint can hash these for ETag-style caching).
+type ScopeSnapshot struct {
+	Enforce bool
+	LLMs    []string
+	Servers []string
+	Agents  []string
+}
+
+// GetScope returns a stable snapshot of the cached scope for a use
+// case. Returns nil if useCaseID is nil. Used by the SDK policy
+// endpoint so client-side enforcers can mirror the gateway's policy.
+func (r *ScopeResolver) GetScope(ctx context.Context, useCaseID *uuid.UUID) (*ScopeSnapshot, error) {
+	if useCaseID == nil {
+		return nil, nil
+	}
+	s, err := r.load(ctx, *useCaseID)
+	if err != nil {
+		return nil, err
+	}
+	out := &ScopeSnapshot{Enforce: s.enforce}
+	for k := range s.llms {
+		out.LLMs = append(out.LLMs, k)
+	}
+	for k := range s.serverSlug {
+		out.Servers = append(out.Servers, k)
+	}
+	for k := range s.agents {
+		out.Agents = append(out.Agents, k)
+	}
+	sort.Strings(out.LLMs)
+	sort.Strings(out.Servers)
+	sort.Strings(out.Agents)
+	return out, nil
 }
 
 // Invalidate drops the cached scope for a use case. Called by the service

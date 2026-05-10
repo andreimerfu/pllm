@@ -5,7 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py .
+COPY main.py pllm_sdk.py ./
 
 # Buffered stdout would hide the step-by-step "ok / blocked / flagged"
 # prints that make the demo readable.

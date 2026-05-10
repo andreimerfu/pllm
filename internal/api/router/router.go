@@ -19,6 +19,7 @@ import (
 	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
 	otelhandlers "github.com/amerfu/pllm/internal/api/handlers/otel"
 	registryhandlers "github.com/amerfu/pllm/internal/api/handlers/registry"
+	sdkhandlers "github.com/amerfu/pllm/internal/api/handlers/sdk"
 	usecasehandlers "github.com/amerfu/pllm/internal/api/handlers/use_cases"
 	webhookhandlers "github.com/amerfu/pllm/internal/api/handlers/webhooks"
 	"github.com/amerfu/pllm/internal/infrastructure/middleware"
@@ -1053,6 +1054,15 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 
 			// Moderations
 			r.Post("/moderations", moderationHandler.CreateModeration)
+
+			// SDK policy snapshot — client-side enforcers (e.g.
+			// pllm_sdk.py) fetch the scope of the calling key here so
+			// they can block disallowed calls locally before they hit
+			// the network.
+			if useCaseScope != nil {
+				sdkHandler := sdkhandlers.New(logger, useCaseScope)
+				r.Get("/sdk/policy", sdkHandler.Policy)
+			}
 
 			// Realtime API (WebSocket)
 			r.Get("/realtime", realtimeHandler.ConnectRealtime)

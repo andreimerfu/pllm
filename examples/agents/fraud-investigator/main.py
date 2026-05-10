@@ -36,6 +36,13 @@ from openai import OpenAI
 
 # ---------- Config ---------------------------------------------------------
 
+# Optional: client-side policy enforcement. When SDK_ENFORCE=1, we import
+# pllm_sdk early so it can patch httpx before any other library
+# instantiates a Client. Calls to non-pllm-gateway hosts that aren't in
+# the use-case scope raise PllmPolicyViolation locally.
+import pllm_sdk  # noqa: E402  (intentional early import)
+
+
 AGENT_ROLE = os.environ.get("AGENT_ROLE", "orchestrator")
 SERVICE_NAME = os.environ.get("OTEL_SERVICE_NAME", AGENT_ROLE)
 PLLM_BASE_URL = os.environ.get("PLLM_BASE_URL", "http://localhost:8080")
@@ -195,6 +202,17 @@ def main() -> int:
         return 2
 
     tracer = setup_otel()
+
+    # Initialize the client-side enforcement SDK BEFORE the OpenAI / Qdrant
+    # clients build their httpx instances. Toggle via SDK_ENFORCE env var
+    # so the existing demo path still runs when the user wants to compare.
+    if os.environ.get("SDK_ENFORCE", "0") == "1":
+        pllm_sdk.init(
+            base_url=PLLM_BASE_URL,
+            api_key=PLLM_API_KEY,
+            fail_closed=True,
+        )
+
     client = OpenAI(api_key=PLLM_API_KEY, base_url=f"{PLLM_BASE_URL}/v1")
 
     role_fn(client, tracer)
