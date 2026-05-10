@@ -223,8 +223,8 @@ def use_registered_prompt(client: OpenAI, tracer: trace.Tracer):
 
 # ---------- MCP gateway ----------------------------------------------------
 
-ALLOWED_MCP_TOOL = os.environ.get("ALLOWED_MCP_TOOL", "server-everything__echo")
-DENIED_MCP_TOOL = os.environ.get("DENIED_MCP_TOOL", "filesystem__list_directory")
+ALLOWED_MCP_TOOL = os.environ.get("ALLOWED_MCP_TOOL", "reg-server-everything-1-0-0__echo")
+DENIED_MCP_TOOL = os.environ.get("DENIED_MCP_TOOL", "reg-filesystem-1-0-0__list_directory")
 MCP_ECHO_MESSAGE = os.environ.get("MCP_ECHO_MESSAGE", "hello from orchestrator")
 
 

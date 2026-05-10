@@ -26,7 +26,7 @@ BASE_URL="${BASE_URL:-http://localhost:8080}"
 MASTER_KEY="${MASTER_KEY:-sk-master-dev-key-change-in-production}"
 ALLOWED_MODEL="${ALLOWED_MODEL:-Z.ai: GLM 4.5 Air (free)}"
 DENIED_MODEL="${DENIED_MODEL:-Qwen: Qwen3.6 Plus (free)}"
-ALLOWED_MCP_SERVER="${ALLOWED_MCP_SERVER:-server-everything}"
+ALLOWED_MCP_SERVER="${ALLOWED_MCP_SERVER:-reg-server-everything-1-0-0}"
 PROMPT_NAME="${PROMPT_NAME:-demo/loan-risk-eval}"
 PROMPT_VERSION="${PROMPT_VERSION:-1.0.0}"
 

@@ -334,7 +334,10 @@ def get_prompt(name: str, version: str = "latest") -> dict:
       - PllmPolicyViolation: if the bound use case doesn't declare the prompt.
       - httpx.HTTPStatusError: for 4xx/5xx other than 403.
     """
-    resp = _gateway_request("GET", f"/v1/prompts/{name}/versions/{version}")
+    # quote with safe='' so '/' inside the name (e.g. "demo/loan-risk-eval")
+    # gets percent-encoded — chi's {name} param won't capture across slashes.
+    encoded = urllib.parse.quote(name, safe="")
+    resp = _gateway_request("GET", f"/v1/prompts/{encoded}/versions/{version}")
     if resp.status_code == 403:
         raise PllmPolicyViolation(
             f"prompt:{name}@{version}",
@@ -380,9 +383,16 @@ def call_mcp_tool(tool: str, arguments: Optional[dict] = None) -> dict:
     resp.raise_for_status()
     body = resp.json()
     if isinstance(body, dict) and "error" in body:
-        # JSON-RPC error envelope (gateway returned 200 but with error)
+        # JSON-RPC error envelope (gateway returned 200 but with error).
+        # The MCP gateway uses this path for scope denials (rather than
+        # an HTTP 403) so we sniff the message for the "not declared by
+        # the bound use case" / "out of scope" patterns and surface a
+        # PllmPolicyViolation in those cases.
         err = body["error"]
         msg = err.get("message", "mcp error") if isinstance(err, dict) else str(err)
+        m = msg.lower()
+        if "out of scope" in m or "not declared by" in m or "forbidden" in m:
+            raise PllmPolicyViolation(f"mcp:{tool}", msg)
         raise RuntimeError(f"mcp tool '{tool}' returned error: {msg}")
     return body.get("result", body) if isinstance(body, dict) else body
 
