@@ -107,8 +107,17 @@ def _fetch_policy() -> Optional[dict]:
                     headers={"Authorization": f"Bearer {key}"},
                 )
             )
+            if resp.status_code == 401:
+                _emit_log(
+                    "FATAL: api key rejected by pllm (HTTP 401). "
+                    "The key was likely auto-revoked after flagged-call threshold "
+                    "or has been deleted. Re-run scripts/setup-multiagent-demo.sh "
+                    "and re-source the generated .env."
+                )
+                return None
             if resp.status_code != 200:
-                _emit_log(f"policy fetch returned {resp.status_code}")
+                body = resp.text[:200] if hasattr(resp, "text") else ""
+                _emit_log(f"policy fetch returned {resp.status_code}: {body}")
                 return None
             return resp.json()
     except Exception as e:  # pragma: no cover
