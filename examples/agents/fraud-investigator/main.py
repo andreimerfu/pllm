@@ -46,8 +46,19 @@ import pllm_sdk  # noqa: E402  (intentional early import)
 AGENT_ROLE = os.environ.get("AGENT_ROLE", "orchestrator")
 SERVICE_NAME = os.environ.get("OTEL_SERVICE_NAME", AGENT_ROLE)
 PLLM_BASE_URL = os.environ.get("PLLM_BASE_URL", "http://localhost:8080")
-PLLM_API_KEY = os.environ["PLLM_API_KEY"]
-PLLM_KEY_ID = os.environ["PLLM_KEY_ID"]
+
+# Role-specific key envs are written by setup-multiagent-demo.sh into
+# the local .env file, which docker-compose loads via env_file. Falling
+# back to the single-agent PLLM_API_KEY/PLLM_KEY_ID lets the same
+# main.py run standalone with a hand-set key.
+_ROLE_KEY_ENV = {
+    "orchestrator":       ("ORCH_API_KEY", "ORCH_KEY_ID"),
+    "risk-scorer":        ("RISK_API_KEY", "RISK_KEY_ID"),
+    "compliance-auditor": ("COMP_API_KEY", "COMP_KEY_ID"),
+}
+_api_var, _id_var = _ROLE_KEY_ENV.get(AGENT_ROLE, ("PLLM_API_KEY", "PLLM_KEY_ID"))
+PLLM_API_KEY = os.environ.get(_api_var) or os.environ["PLLM_API_KEY"]
+PLLM_KEY_ID = os.environ.get(_id_var) or os.environ["PLLM_KEY_ID"]
 QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
 OTEL_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", PLLM_BASE_URL)
 ALLOWED_MODEL = os.environ.get("ALLOWED_MODEL", "gpt-4o")

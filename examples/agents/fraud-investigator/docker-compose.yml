@@ -3,19 +3,23 @@ version: "3.9"
 # Multi-agent governance demo: orchestrator + risk-scorer + compliance-auditor.
 # All three share Qdrant; only the orchestrator actually touches it.
 #
-# Required env (use scripts/setup-multiagent-demo.sh to bootstrap, or set manually):
-#   PLLM_BASE_URL                  e.g. http://localhost:8080
-#   ORCH_API_KEY / ORCH_KEY_ID
-#   RISK_API_KEY / RISK_KEY_ID
-#   COMP_API_KEY / COMP_KEY_ID
-#   ALLOWED_MODEL                  e.g. "Z.ai: GLM 4.5 Air (free)"
-#   DENIED_MODEL                   e.g. "Qwen: Qwen3.6 Plus (free)"
+# To run:
+#   bash scripts/setup-multiagent-demo.sh         # generates .env in this dir
+#   docker compose up --build --abort-on-container-exit
+#
+# Each service loads .env directly via env_file. The agent picks its
+# own API key + key id from the per-role variables (ORCH_*, RISK_*,
+# COMP_*) inside main.py. This avoids the shell-vs-file precedence
+# problem where pre-existing exported variables in the user's shell
+# would shadow values in .env during compose interpolation.
 
 x-agent-base: &agent-base
   build: .
   network_mode: host
   depends_on:
     - qdrant
+  env_file:
+    - .env
 
 services:
   qdrant:
@@ -29,40 +33,22 @@ services:
     <<: *agent-base
     environment:
       - AGENT_ROLE=orchestrator
-      - PLLM_BASE_URL=${PLLM_BASE_URL:-http://localhost:8080}
-      - PLLM_API_KEY=${ORCH_API_KEY:?set ORCH_API_KEY}
-      - PLLM_KEY_ID=${ORCH_KEY_ID:?set ORCH_KEY_ID}
-      - ALLOWED_MODEL=${ALLOWED_MODEL:-gpt-4o}
-      - DENIED_MODEL=${DENIED_MODEL:-gpt-3.5-turbo}
-      - ALLOWED_PEER=${ALLOWED_PEER:-risk-scorer}
-      - DENIED_PEER=${DENIED_PEER:-compliance-auditor}
       - QDRANT_URL=http://localhost:6333
       - OTEL_SERVICE_NAME=orchestrator
-      - SDK_ENFORCE=${SDK_ENFORCE:-0}
 
   risk-scorer:
     <<: *agent-base
     environment:
       - AGENT_ROLE=risk-scorer
-      - PLLM_BASE_URL=${PLLM_BASE_URL:-http://localhost:8080}
-      - PLLM_API_KEY=${RISK_API_KEY:?set RISK_API_KEY}
-      - PLLM_KEY_ID=${RISK_KEY_ID:?set RISK_KEY_ID}
-      - ALLOWED_MODEL=${ALLOWED_MODEL:-gpt-4o}
       - QDRANT_URL=http://localhost:6333
       - OTEL_SERVICE_NAME=risk-scorer
-      - SDK_ENFORCE=${SDK_ENFORCE:-0}
 
   compliance-auditor:
     <<: *agent-base
     environment:
       - AGENT_ROLE=compliance-auditor
-      - PLLM_BASE_URL=${PLLM_BASE_URL:-http://localhost:8080}
-      - PLLM_API_KEY=${COMP_API_KEY:?set COMP_API_KEY}
-      - PLLM_KEY_ID=${COMP_KEY_ID:?set COMP_KEY_ID}
-      - ALLOWED_MODEL=${ALLOWED_MODEL:-gpt-4o}
       - QDRANT_URL=http://localhost:6333
       - OTEL_SERVICE_NAME=compliance-auditor
-      - SDK_ENFORCE=${SDK_ENFORCE:-0}
 
 volumes:
   qdrant-data: {}
