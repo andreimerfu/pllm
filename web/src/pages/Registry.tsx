@@ -84,6 +84,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { PublishDialog } from "@/components/registry/publish-dialog";
 import { ArtifactCard } from "@/components/registry/artifact-card";
 import { KindIcon, kindAccent } from "@/components/registry/kind-icon";
+import { ObservedGraph } from "@/components/registry/observed-graph";
 import { PackageChip } from "@/components/registry/package-chip";
 import { InstallCommand } from "@/components/registry/install-command";
 import { ScoresPanel } from "@/components/registry/score-ribbon";
@@ -1574,6 +1575,7 @@ const OBSERVED_KIND_TONE: Record<string, string> = {
   llm: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200",
   mcp: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
   vector_db: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
+  agent: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
   http: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
   unknown: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
 };
@@ -1588,6 +1590,7 @@ const OBSERVED_KIND_FALLBACK: Record<string, string> = {
   llm: "solar:cpu-bolt-linear",
   mcp: "lucide:plug-zap",
   vector_db: "solar:database-linear",
+  agent: "solar:users-group-rounded-linear",
   http: "solar:global-linear",
   unknown: "solar:question-circle-linear",
 };
@@ -1615,6 +1618,8 @@ function observedVisual(call: ObservedAgentCall): { icon: string; label: string;
       };
     case "mcp":
       return { icon: OBSERVED_KIND_FALLBACK.mcp, label: "MCP server" };
+    case "agent":
+      return { icon: OBSERVED_KIND_FALLBACK.agent, label: "agent (A2A)" };
     case "http":
       return { icon: OBSERVED_KIND_FALLBACK.http, label: "HTTP" };
     default:
@@ -1668,7 +1673,9 @@ function ObservedDepsSection({ name, version }: { name: string; version: string 
           hit <code className="font-mono">/v1/traces</code>.
         </p>
       ) : (
-        <div className="space-y-1.5">
+        <>
+          <ObservedGraph agentName={name} calls={calls} />
+          <div className="mt-3 space-y-1.5">
           {calls.map((c, i) => {
             const v = observedVisual(c);
             return (
@@ -1707,7 +1714,8 @@ function ObservedDepsSection({ name, version }: { name: string; version: string 
               </div>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
     </section>
   );

@@ -1,14 +1,19 @@
-"""Fraud-investigator demo agent.
+"""Multi-agent governance demo.
 
-Emits OpenTelemetry traces to pllm at $OTEL_EXPORTER_OTLP_ENDPOINT/v1/traces.
-The pllm.key_id resource attribute links spans to the API key so pllm can
-look up the bound use case and apply policy.
+Three roles run via AGENT_ROLE env var:
 
-Three steps run in sequence:
+  orchestrator       — calls LLM, calls Qdrant, calls risk-scorer (allowed),
+                       and tries to call compliance-auditor (NOT in scope,
+                       emits a flagged A2A span).
+  risk-scorer        — calls LLM only (the orchestrator is allowed to invoke
+                       this one).
+  compliance-auditor — calls LLM only (the orchestrator is NOT allowed to
+                       invoke this one — A2A call appears as flagged).
 
-  1. Call gpt-4o via pllm gateway        -> allowed (in scope)
-  2. Call gpt-3.5-turbo via pllm gateway -> hard-denied at gateway
-  3. Search Qdrant directly              -> flagged after-the-fact via OTel
+Each role emits OpenTelemetry traces tagged with `pllm.key_id` so pllm can
+look up the bound use case and apply policy. Inter-agent calls carry a
+`pllm.agent.target` attribute so pllm classifies them as agent-to-agent
+edges in the discovery and observed-deps views.
 """
 
 from __future__ import annotations
@@ -28,11 +33,11 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from openai import OpenAI
-from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
 
+# ---------- Config ---------------------------------------------------------
 
-SERVICE_NAME = os.environ.get("OTEL_SERVICE_NAME", "fraud-investigator")
+AGENT_ROLE = os.environ.get("AGENT_ROLE", "orchestrator")
+SERVICE_NAME = os.environ.get("OTEL_SERVICE_NAME", AGENT_ROLE)
 PLLM_BASE_URL = os.environ.get("PLLM_BASE_URL", "http://localhost:8080")
 PLLM_API_KEY = os.environ["PLLM_API_KEY"]
 PLLM_KEY_ID = os.environ["PLLM_KEY_ID"]
@@ -40,7 +45,11 @@ QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
 OTEL_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", PLLM_BASE_URL)
 ALLOWED_MODEL = os.environ.get("ALLOWED_MODEL", "gpt-4o")
 DENIED_MODEL = os.environ.get("DENIED_MODEL", "gpt-3.5-turbo")
+ALLOWED_PEER = os.environ.get("ALLOWED_PEER", "risk-scorer")
+DENIED_PEER = os.environ.get("DENIED_PEER", "compliance-auditor")
 
+
+# ---------- OTel setup -----------------------------------------------------
 
 def setup_otel() -> trace.Tracer:
     resource = Resource.create({
@@ -53,9 +62,6 @@ def setup_otel() -> trace.Tracer:
     provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
 
-    # Best-effort OpenAI auto-instrumentation. The package name has
-    # changed across versions; we tolerate either flavor and fall back
-    # to manual spans inside call_allowed_llm if neither imports.
     try:
         from opentelemetry.instrumentation.openai_v2 import OpenAIInstrumentor
         OpenAIInstrumentor().instrument()
@@ -72,27 +78,26 @@ def setup_otel() -> trace.Tracer:
 
 @contextmanager
 def step(label: str):
-    print(f"\n--- {label} ---", flush=True)
+    print(f"\n--- [{SERVICE_NAME}] {label} ---", flush=True)
     yield
 
 
+# ---------- LLM helpers ----------------------------------------------------
+
 def llm_span(tracer: trace.Tracer, model: str):
-    """Manual fallback that records the gen_ai.* attrs pllm classifies on."""
     span = tracer.start_span(f"openai.chat.{model}", kind=SpanKind.CLIENT)
     span.set_attribute("gen_ai.system", "openai")
     span.set_attribute("gen_ai.request.model", model)
     return span
 
 
-def call_allowed_llm(client: OpenAI, tracer: trace.Tracer):
-    with step(f"1. Call ALLOWED LLM ({ALLOWED_MODEL})"):
+def call_allowed_llm(client: OpenAI, tracer: trace.Tracer, prompt: str = "Reply with one word."):
+    with step(f"LLM (ALLOWED): {ALLOWED_MODEL}"):
         sp = llm_span(tracer, ALLOWED_MODEL)
         try:
             resp = client.chat.completions.create(
                 model=ALLOWED_MODEL,
-                messages=[
-                    {"role": "user", "content": "Reply with a one-word risk label for: charge $4 in NY."},
-                ],
+                messages=[{"role": "user", "content": prompt}],
                 max_tokens=8,
             )
             print(f"  ok -> {resp.choices[0].message.content!r}")
@@ -103,7 +108,7 @@ def call_allowed_llm(client: OpenAI, tracer: trace.Tracer):
 
 
 def call_denied_llm(client: OpenAI, tracer: trace.Tracer):
-    with step(f"2. Call DENIED LLM ({DENIED_MODEL}) - expect 403/4xx"):
+    with step(f"LLM (DENIED): {DENIED_MODEL}"):
         sp = llm_span(tracer, DENIED_MODEL)
         try:
             client.chat.completions.create(
@@ -118,55 +123,84 @@ def call_denied_llm(client: OpenAI, tracer: trace.Tracer):
             sp.end()
 
 
+# ---------- Qdrant ---------------------------------------------------------
+
 def search_qdrant_unscoped(tracer: trace.Tracer):
-    with step("3. Direct Qdrant search (NOT in policy) - expect flag via OTel"):
-        # check_compatibility=False silences the noisy 1.17 client vs 1.12
-        # server version warning; the call paths we use are unchanged.
+    """Direct vector-DB call. Cannot be blocked at the gateway — flagged via OTel."""
+    from qdrant_client import QdrantClient
+    from qdrant_client.models import Distance, PointStruct, VectorParams
+
+    with step("Vector DB (FLAGGED): qdrant"):
         client = QdrantClient(url=QDRANT_URL, check_compatibility=False)
         coll = "customer-embeddings"
         existing = {c.name for c in client.get_collections().collections}
         if coll not in existing:
-            client.create_collection(
-                coll,
-                vectors_config=VectorParams(size=4, distance=Distance.COSINE),
-            )
-            client.upsert(
-                coll,
-                points=[
-                    PointStruct(
-                        id=str(uuid.uuid4()),
-                        vector=[0.1, 0.2, 0.3, 0.4],
-                        payload={"name": "alice"},
-                    )
-                ],
-            )
+            client.create_collection(coll, vectors_config=VectorParams(size=4, distance=Distance.COSINE))
+            client.upsert(coll, points=[PointStruct(id=str(uuid.uuid4()), vector=[0.1, 0.2, 0.3, 0.4], payload={"name": "alice"})])
         with tracer.start_as_current_span("qdrant.search", kind=SpanKind.CLIENT) as sp:
             sp.set_attribute("db.system", "qdrant")
             sp.set_attribute("db.collection.name", coll)
             sp.set_attribute("db.operation", "query_points")
             try:
-                resp = client.query_points(
-                    collection_name=coll,
-                    query=[0.1, 0.2, 0.3, 0.4],
-                    limit=3,
-                )
+                resp = client.query_points(collection_name=coll, query=[0.1, 0.2, 0.3, 0.4], limit=3)
                 hits = resp.points if hasattr(resp, "points") else resp
-                print(f"  qdrant returned {len(hits)} hits (will be flagged)")
+                print(f"  qdrant returned {len(hits)} hits (flagged via OTel — cannot be blocked at gateway)")
             except Exception as e:
                 print(f"  qdrant error: {type(e).__name__}: {e}")
 
 
+# ---------- Agent-to-agent (A2A) -------------------------------------------
+
+def call_peer_agent(tracer: trace.Tracer, peer: str, label: str):
+    """Simulates an A2A invocation. The span carries `pllm.agent.target`
+    so pllm classifies it as agent-to-agent and applies AllowAgent.
+    """
+    with step(f"A2A ({label}): {peer}"):
+        with tracer.start_as_current_span(f"a2a.invoke.{peer}", kind=SpanKind.CLIENT) as sp:
+            sp.set_attribute("pllm.agent.target", peer)
+            sp.set_attribute("peer.service", peer)
+            sp.set_attribute("rpc.method", "invoke")
+            print(f"  emitted A2A span -> {peer} ({label})")
+
+
+# ---------- Roles ----------------------------------------------------------
+
+def run_orchestrator(client: OpenAI, tracer: trace.Tracer):
+    call_allowed_llm(client, tracer, prompt="Risk label for: charge $4 in NY?")
+    call_denied_llm(client, tracer)
+    search_qdrant_unscoped(tracer)
+    call_peer_agent(tracer, ALLOWED_PEER, "ALLOWED")
+    call_peer_agent(tracer, DENIED_PEER, "FLAGGED — not in scope")
+
+
+def run_risk_scorer(client: OpenAI, tracer: trace.Tracer):
+    call_allowed_llm(client, tracer, prompt="Score this transaction 0-100.")
+
+
+def run_compliance_auditor(client: OpenAI, tracer: trace.Tracer):
+    call_allowed_llm(client, tracer, prompt="Did this transaction comply with KYC?")
+
+
+ROLES = {
+    "orchestrator": run_orchestrator,
+    "risk-scorer": run_risk_scorer,
+    "compliance-auditor": run_compliance_auditor,
+}
+
+
 def main() -> int:
+    role_fn = ROLES.get(AGENT_ROLE)
+    if role_fn is None:
+        print(f"unknown AGENT_ROLE={AGENT_ROLE!r}; expected one of {list(ROLES)}", file=sys.stderr)
+        return 2
+
     tracer = setup_otel()
     client = OpenAI(api_key=PLLM_API_KEY, base_url=f"{PLLM_BASE_URL}/v1")
 
-    call_allowed_llm(client, tracer)
-    call_denied_llm(client, tracer)
-    search_qdrant_unscoped(tracer)
+    role_fn(client, tracer)
 
-    # Give the BatchSpanProcessor time to flush before exit.
     time.sleep(2)
-    print("\nDone. Check pllm /compliance for discovered agent + flagged calls.")
+    print(f"\n[{SERVICE_NAME}] done.")
     return 0
 
 

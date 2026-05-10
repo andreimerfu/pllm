@@ -1,15 +1,21 @@
 version: "3.9"
 
-# Single-shot demo stack: Qdrant + the fraud-investigator agent.
-# The agent runs once, prints its three steps, then exits.
+# Multi-agent governance demo: orchestrator + risk-scorer + compliance-auditor.
+# All three share Qdrant; only the orchestrator actually touches it.
 #
-# Required env (export before `docker compose up`):
-#   PLLM_BASE_URL  e.g. http://host.docker.internal:8080  (or your minikube ingress)
-#   PLLM_API_KEY   the bound key's plaintext value
-#   PLLM_KEY_ID    that key's UUID (links OTel spans to the key in pllm)
-#
-# Both services share the `demo` network so the agent reaches Qdrant by
-# its service name. Qdrant data persists across runs in the named volume.
+# Required env (use scripts/setup-multiagent-demo.sh to bootstrap, or set manually):
+#   PLLM_BASE_URL                  e.g. http://localhost:8080
+#   ORCH_API_KEY / ORCH_KEY_ID
+#   RISK_API_KEY / RISK_KEY_ID
+#   COMP_API_KEY / COMP_KEY_ID
+#   ALLOWED_MODEL                  e.g. "Z.ai: GLM 4.5 Air (free)"
+#   DENIED_MODEL                   e.g. "Qwen: Qwen3.6 Plus (free)"
+
+x-agent-base: &agent-base
+  build: .
+  network_mode: host
+  depends_on:
+    - qdrant
 
 services:
   qdrant:
@@ -18,30 +24,42 @@ services:
       - "6333:6333"
     volumes:
       - qdrant-data:/qdrant/storage
-    networks:
-      - demo
 
-  agent:
-    build: .
-    depends_on:
-      - qdrant
-    # Use the host network so `localhost:8080` reaches whatever is
-    # forwarded on the host (e.g. `kubectl port-forward` to minikube).
-    # Qdrant publishes :6333 on the host, so agent talks to it via
-    # localhost:6333 even though both are technically on different nets.
-    network_mode: host
+  orchestrator:
+    <<: *agent-base
     environment:
+      - AGENT_ROLE=orchestrator
       - PLLM_BASE_URL=${PLLM_BASE_URL:-http://localhost:8080}
-      - PLLM_API_KEY=${PLLM_API_KEY:?set PLLM_API_KEY in your shell}
-      - PLLM_KEY_ID=${PLLM_KEY_ID:?set PLLM_KEY_ID in your shell}
+      - PLLM_API_KEY=${ORCH_API_KEY:?set ORCH_API_KEY}
+      - PLLM_KEY_ID=${ORCH_KEY_ID:?set ORCH_KEY_ID}
       - ALLOWED_MODEL=${ALLOWED_MODEL:-gpt-4o}
       - DENIED_MODEL=${DENIED_MODEL:-gpt-3.5-turbo}
-      - QDRANT_URL=${QDRANT_URL:-http://localhost:6333}
-      - OTEL_SERVICE_NAME=fraud-investigator
-      - OTEL_EXPORTER_OTLP_PROTOCOL=http/json
+      - ALLOWED_PEER=${ALLOWED_PEER:-risk-scorer}
+      - DENIED_PEER=${DENIED_PEER:-compliance-auditor}
+      - QDRANT_URL=http://localhost:6333
+      - OTEL_SERVICE_NAME=orchestrator
 
-networks:
-  demo: {}
+  risk-scorer:
+    <<: *agent-base
+    environment:
+      - AGENT_ROLE=risk-scorer
+      - PLLM_BASE_URL=${PLLM_BASE_URL:-http://localhost:8080}
+      - PLLM_API_KEY=${RISK_API_KEY:?set RISK_API_KEY}
+      - PLLM_KEY_ID=${RISK_KEY_ID:?set RISK_KEY_ID}
+      - ALLOWED_MODEL=${ALLOWED_MODEL:-gpt-4o}
+      - QDRANT_URL=http://localhost:6333
+      - OTEL_SERVICE_NAME=risk-scorer
+
+  compliance-auditor:
+    <<: *agent-base
+    environment:
+      - AGENT_ROLE=compliance-auditor
+      - PLLM_BASE_URL=${PLLM_BASE_URL:-http://localhost:8080}
+      - PLLM_API_KEY=${COMP_API_KEY:?set COMP_API_KEY}
+      - PLLM_KEY_ID=${COMP_KEY_ID:?set COMP_KEY_ID}
+      - ALLOWED_MODEL=${ALLOWED_MODEL:-gpt-4o}
+      - QDRANT_URL=http://localhost:6333
+      - OTEL_SERVICE_NAME=compliance-auditor
 
 volumes:
   qdrant-data: {}

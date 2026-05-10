@@ -14,6 +14,7 @@ import (
 type ScopeOracle interface {
 	AllowLLM(ctx context.Context, useCaseID *uuid.UUID, model string) OracleDecision
 	AllowMCPTool(ctx context.Context, useCaseID *uuid.UUID, slug string) OracleDecision
+	AllowAgent(ctx context.Context, useCaseID *uuid.UUID, agentName string) OracleDecision
 }
 
 // OracleDecision is a copy of use_cases.Decision with only the field
@@ -107,6 +108,12 @@ func (p *Policy) allow(ctx context.Context, ucID *uuid.UUID, call *models.Discov
 			return true, ""
 		}
 		return false, "mcp '" + call.TargetName + "' not declared by bound use case"
+	case models.DiscoveredCallKindAgent:
+		d := p.scope.AllowAgent(ctx, ucID, call.TargetName)
+		if d.Allowed {
+			return true, ""
+		}
+		return false, "agent '" + call.TargetName + "' not declared by bound use case"
 	case models.DiscoveredCallKindVectorDB:
 		return false, "vector db call observed via OTel; cannot be governed at gateway"
 	case models.DiscoveredCallKindHTTP:

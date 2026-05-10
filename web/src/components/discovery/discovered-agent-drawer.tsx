@@ -17,6 +17,7 @@ const KIND_TONE: Record<DiscoveredCallKind, string> = {
   llm: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200",
   mcp: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
   vector_db: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
+  agent: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200",
   http: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
   unknown: "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
 };
@@ -33,6 +34,7 @@ const KIND_FALLBACK_ICON: Record<DiscoveredCallKind, string> = {
   llm: "solar:cpu-bolt-linear",
   mcp: "lucide:plug-zap",
   vector_db: "solar:database-linear",
+  agent: "solar:users-group-rounded-linear",
   http: "solar:global-linear",
   unknown: "solar:question-circle-linear",
 };
@@ -64,6 +66,8 @@ function visualFor(call: DiscoveredCall): CallVisual {
       return { icon: vectorDbIcon(call.target_name), label: call.target_name.split("://")[0] };
     case "mcp":
       return { icon: KIND_FALLBACK_ICON.mcp, label: "MCP server" };
+    case "agent":
+      return { icon: KIND_FALLBACK_ICON.agent, label: "agent (A2A)" };
     case "http":
       return { icon: KIND_FALLBACK_ICON.http, label: "HTTP" };
     default:
@@ -89,7 +93,7 @@ export function DiscoveredAgentDrawer({ agentId, onClose }: Props) {
 
   const summary = useMemo(() => {
     const buckets: Record<DiscoveredCallKind, number> = {
-      llm: 0, mcp: 0, vector_db: 0, http: 0, unknown: 0,
+      llm: 0, mcp: 0, vector_db: 0, agent: 0, http: 0, unknown: 0,
     };
     (data?.calls ?? []).forEach((c) => {
       buckets[c.kind] = (buckets[c.kind] ?? 0) + c.count;
@@ -115,7 +119,7 @@ export function DiscoveredAgentDrawer({ agentId, onClose }: Props) {
         ) : (
           <div className="mt-4 space-y-4">
             {/* Kind summary */}
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
               {(Object.keys(summary) as DiscoveredCallKind[]).map((k) => (
                 <div
                   key={k}

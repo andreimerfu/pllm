@@ -15,8 +15,9 @@ import (
 )
 
 type fakeScope struct {
-	allowedLLM map[string]bool
-	allowedMCP map[string]bool
+	allowedLLM   map[string]bool
+	allowedMCP   map[string]bool
+	allowedAgent map[string]bool
 }
 
 func (f *fakeScope) AllowLLM(_ context.Context, _ *uuid.UUID, model string) discovery.OracleDecision {
@@ -24,6 +25,9 @@ func (f *fakeScope) AllowLLM(_ context.Context, _ *uuid.UUID, model string) disc
 }
 func (f *fakeScope) AllowMCPTool(_ context.Context, _ *uuid.UUID, slug string) discovery.OracleDecision {
 	return discovery.OracleDecision{Allowed: f.allowedMCP[slug]}
+}
+func (f *fakeScope) AllowAgent(_ context.Context, _ *uuid.UUID, agentName string) discovery.OracleDecision {
+	return discovery.OracleDecision{Allowed: f.allowedAgent[agentName]}
 }
 
 type recordedEvent struct {

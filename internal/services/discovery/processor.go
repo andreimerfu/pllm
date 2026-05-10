@@ -14,6 +14,7 @@ const (
 	CallKindLLM      CallKindStr = "llm"
 	CallKindMCP      CallKindStr = "mcp"
 	CallKindVectorDB CallKindStr = "vector_db"
+	CallKindAgent    CallKindStr = "agent"
 	CallKindHTTP     CallKindStr = "http"
 	CallKindUnknown  CallKindStr = "unknown"
 )
@@ -108,6 +109,12 @@ func ProcessResourceSpans(rs ResourceSpans) ProcessedSpans {
 }
 
 func classify(sp Span) (CallKindStr, string) {
+	// Agent-to-agent calls take precedence — when an agent emits a
+	// span tagged with pllm.agent.target, it's declaring intent to
+	// invoke another agent regardless of the underlying transport.
+	if target := Lookup(sp.Attributes, "pllm.agent.target"); target != "" {
+		return CallKindAgent, target
+	}
 	if model := Lookup(sp.Attributes, "gen_ai.request.model"); model != "" {
 		return CallKindLLM, model
 	}

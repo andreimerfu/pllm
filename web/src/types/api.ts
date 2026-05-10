@@ -919,7 +919,7 @@ export interface CustomRulePreviewResponse {
 // ===========================
 
 export type DiscoveredAgentStatus = "pending" | "promoted" | "ignored";
-export type DiscoveredCallKind = "llm" | "mcp" | "vector_db" | "http" | "unknown";
+export type DiscoveredCallKind = "llm" | "mcp" | "vector_db" | "agent" | "http" | "unknown";
 
 export interface DiscoveredAgent {
   id: string;

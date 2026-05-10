@@ -245,6 +245,11 @@ func (b *discoveryScopeBridge) AllowMCPTool(ctx context.Context, ucID *uuid.UUID
 	return discoverysvc.OracleDecision{Allowed: d.Allowed, Reason: d.Reason}
 }
 
+func (b *discoveryScopeBridge) AllowAgent(ctx context.Context, ucID *uuid.UUID, agentName string) discoverysvc.OracleDecision {
+	d := b.inner.AllowAgent(ctx, ucID, agentName)
+	return discoverysvc.OracleDecision{Allowed: d.Allowed, Reason: d.Reason}
+}
+
 type discoveryRecorderBridge struct{ inner *usecasesvc.EventRecorder }
 
 func (b *discoveryRecorderBridge) Record(ctx context.Context, in discoverysvc.RecordInput) {
@@ -423,6 +428,11 @@ func translateDiscoveryRefs(in []discoverysvc.PublishRef) ([]coremodels.Registry
 		case discoverysvc.CallKindMCP:
 			refs = append(refs, coremodels.RegistryRef{
 				TargetKind: coremodels.RegistryKindServer,
+				TargetName: r.TargetName,
+			})
+		case discoverysvc.CallKindAgent:
+			refs = append(refs, coremodels.RegistryRef{
+				TargetKind: coremodels.RegistryKindAgent,
 				TargetName: r.TargetName,
 			})
 		case discoverysvc.CallKindVectorDB:

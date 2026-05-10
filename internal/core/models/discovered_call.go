@@ -13,8 +13,13 @@ const (
 	DiscoveredCallKindLLM      DiscoveredCallKind = "llm"
 	DiscoveredCallKindMCP      DiscoveredCallKind = "mcp"
 	DiscoveredCallKindVectorDB DiscoveredCallKind = "vector_db"
-	DiscoveredCallKindHTTP     DiscoveredCallKind = "http"
-	DiscoveredCallKindUnknown  DiscoveredCallKind = "unknown"
+	// DiscoveredCallKindAgent is an agent-to-agent invocation observed
+	// via OTel — the calling agent emits a span tagged with the
+	// `pllm.agent.target` attribute. Governance reuses
+	// use_cases.ScopeResolver.AllowAgent.
+	DiscoveredCallKindAgent   DiscoveredCallKind = "agent"
+	DiscoveredCallKindHTTP    DiscoveredCallKind = "http"
+	DiscoveredCallKindUnknown DiscoveredCallKind = "unknown"
 )
 
 // DiscoveredCall is a deduplicated rollup of (agent, target) edges
