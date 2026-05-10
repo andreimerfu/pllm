@@ -144,26 +144,41 @@ def call_denied_llm(client: OpenAI, tracer: trace.Tracer):
 # ---------- Qdrant ---------------------------------------------------------
 
 def search_qdrant_unscoped(tracer: trace.Tracer):
-    """Direct vector-DB call. Cannot be blocked at the gateway — flagged via OTel."""
+    """Direct vector-DB call. Without the SDK: cannot be blocked at the
+    gateway, gets flagged via OTel after the fact. With SDK_ENFORCE=1:
+    blocked locally before any TCP traffic.
+
+    The whole body is wrapped so a PllmPolicyViolation from the SDK
+    doesn't terminate the orchestrator's pipeline — we still want the
+    A2A steps to run.
+    """
     from qdrant_client import QdrantClient
     from qdrant_client.models import Distance, PointStruct, VectorParams
 
     with step("Vector DB (FLAGGED): qdrant"):
-        client = QdrantClient(url=QDRANT_URL, check_compatibility=False)
-        coll = "customer-embeddings"
-        existing = {c.name for c in client.get_collections().collections}
-        if coll not in existing:
-            client.create_collection(coll, vectors_config=VectorParams(size=4, distance=Distance.COSINE))
-            client.upsert(coll, points=[PointStruct(id=str(uuid.uuid4()), vector=[0.1, 0.2, 0.3, 0.4], payload={"name": "alice"})])
-        with tracer.start_as_current_span("qdrant.search", kind=SpanKind.CLIENT) as sp:
-            sp.set_attribute("db.system", "qdrant")
-            sp.set_attribute("db.collection.name", coll)
-            sp.set_attribute("db.operation", "query_points")
-            try:
+        try:
+            client = QdrantClient(url=QDRANT_URL, check_compatibility=False)
+            coll = "customer-embeddings"
+            existing = {c.name for c in client.get_collections().collections}
+            if coll not in existing:
+                client.create_collection(coll, vectors_config=VectorParams(size=4, distance=Distance.COSINE))
+                client.upsert(coll, points=[PointStruct(id=str(uuid.uuid4()), vector=[0.1, 0.2, 0.3, 0.4], payload={"name": "alice"})])
+            with tracer.start_as_current_span("qdrant.search", kind=SpanKind.CLIENT) as sp:
+                sp.set_attribute("db.system", "qdrant")
+                sp.set_attribute("db.collection.name", coll)
+                sp.set_attribute("db.operation", "query_points")
                 resp = client.query_points(collection_name=coll, query=[0.1, 0.2, 0.3, 0.4], limit=3)
                 hits = resp.points if hasattr(resp, "points") else resp
                 print(f"  qdrant returned {len(hits)} hits (flagged via OTel — cannot be blocked at gateway)")
-            except Exception as e:
+        except Exception as e:
+            # PllmPolicyViolation comes through wrapped as
+            # qdrant_client.http.exceptions.ResponseHandlingException;
+            # detect the inner type by string match so we don't have to
+            # import the SDK's exception type for both code paths.
+            msg = str(e)
+            if "pllm policy" in msg.lower():
+                print(f"  blocked locally by SDK as expected: {msg}")
+            else:
                 print(f"  qdrant error: {type(e).__name__}: {e}")
 
 
