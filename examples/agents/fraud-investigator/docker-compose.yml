@@ -35,6 +35,7 @@ services:
       - AGENT_ROLE=orchestrator
       - QDRANT_URL=http://localhost:6333
       - OTEL_SERVICE_NAME=orchestrator
+      - SDK_ENFORCE=${SDK_ENFORCE:-0}
 
   risk-scorer:
     <<: *agent-base
@@ -42,6 +43,7 @@ services:
       - AGENT_ROLE=risk-scorer
       - QDRANT_URL=http://localhost:6333
       - OTEL_SERVICE_NAME=risk-scorer
+      - SDK_ENFORCE=${SDK_ENFORCE:-0}
 
   compliance-auditor:
     <<: *agent-base
@@ -49,6 +51,7 @@ services:
       - AGENT_ROLE=compliance-auditor
       - QDRANT_URL=http://localhost:6333
       - OTEL_SERVICE_NAME=compliance-auditor
+      - SDK_ENFORCE=${SDK_ENFORCE:-0}
 
 volumes:
   qdrant-data: {}
