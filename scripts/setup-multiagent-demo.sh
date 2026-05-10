@@ -26,6 +26,9 @@ BASE_URL="${BASE_URL:-http://localhost:8080}"
 MASTER_KEY="${MASTER_KEY:-sk-master-dev-key-change-in-production}"
 ALLOWED_MODEL="${ALLOWED_MODEL:-Z.ai: GLM 4.5 Air (free)}"
 DENIED_MODEL="${DENIED_MODEL:-Qwen: Qwen3.6 Plus (free)}"
+ALLOWED_MCP_SERVER="${ALLOWED_MCP_SERVER:-server-everything}"
+PROMPT_NAME="${PROMPT_NAME:-demo/loan-risk-eval}"
+PROMPT_VERSION="${PROMPT_VERSION:-1.0.0}"
 
 H_AUTH="Authorization: Bearer ${MASTER_KEY}"
 H_JSON="Content-Type: application/json"
@@ -43,7 +46,10 @@ command -v jq >/dev/null 2>&1 || fail "jq is required"
 curl -s "${BASE_URL}/health" >/dev/null 2>&1 || fail "pllm not reachable at ${BASE_URL}"
 ok "pllm reachable"
 
-# Resolve-or-create a UseCase by name. Echoes the ID.
+# Resolve-or-create a UseCase by name and ALWAYS overwrite its refs to
+# match `payload`. Echoes the ID. The full-overwrite behavior is what
+# we want here — the demo's source-of-truth is this script, not what
+# happened to be persisted from a previous run.
 ensure_use_case() {
   local name="$1"
   local payload="$2"
@@ -51,6 +57,9 @@ ensure_use_case() {
   existing=$(curl -s -H "$H_AUTH" "${BASE_URL}/api/admin/use-cases" |
     jq -r --arg n "$name" '.use_cases[]? | select(.name==$n) | .id' | head -1)
   if [ -n "$existing" ] && [ "$existing" != "null" ]; then
+    # Overwrite refs / scope by PUTting the full payload on the existing ID.
+    curl -s -o /dev/null -X PUT -H "$H_AUTH" -H "$H_JSON" -d "$payload" \
+      "${BASE_URL}/api/admin/use-cases/${existing}"
     echo "$existing"
     return
   fi
@@ -59,28 +68,56 @@ ensure_use_case() {
     jq -r '.use_case.id // .id // empty'
 }
 
-# --- 1. UseCases -----------------------------------------------------------
-ORCH_PAYLOAD=$(jq -n --arg llm "$ALLOWED_MODEL" --arg peer "risk-scorer" '{
-  name: "otel-multi-orchestrator",
-  description: "Multi-agent demo: orchestrator allowed to call risk-scorer; LLM scope = single allowed model",
-  enforce_scope: true,
-  refs: [
-    { target_kind: "llm",   target_name: $llm },
-    { target_kind: "agent", target_name: $peer }
-  ]
-}')
+# --- 1. Prompt registry entry --------------------------------------------
+PROMPT_PAYLOAD=$(jq -n \
+  --arg name "$PROMPT_NAME" \
+  --arg version "$PROMPT_VERSION" \
+  '{
+    name: $name,
+    version: $version,
+    title: "Loan Risk Evaluation",
+    description: "Centralized template for loan-risk scoring. Bound use cases get this; others get 403.",
+    template: "Evaluate this transaction for fraud risk.\nCustomer: {customer}\nAmount: {amount}\nReply with one of: low | medium | high.",
+    arguments: [
+      { name: "customer", description: "Customer identifier", required: true },
+      { name: "amount", description: "Transaction amount + currency", required: true }
+    ]
+  }')
+curl -s -o /dev/null -X POST -H "$H_AUTH" -H "$H_JSON" \
+  -d "$PROMPT_PAYLOAD" "${BASE_URL}/api/admin/registry/prompts" || true
+ok "prompt registered: ${PROMPT_NAME}@${PROMPT_VERSION}"
+
+# --- 2. UseCases -----------------------------------------------------------
+ORCH_PAYLOAD=$(jq -n \
+  --arg llm "$ALLOWED_MODEL" \
+  --arg peer "risk-scorer" \
+  --arg mcp "$ALLOWED_MCP_SERVER" \
+  '{
+    name: "otel-multi-orchestrator",
+    description: "Multi-agent demo: orchestrator allowed to call risk-scorer + one MCP server; LLM scope = single allowed model",
+    enforce_scope: true,
+    refs: [
+      { target_kind: "llm",    target_name: $llm },
+      { target_kind: "agent",  target_name: $peer },
+      { target_kind: "server", target_name: $mcp }
+    ]
+  }')
 ORCH_UC_ID=$(ensure_use_case "otel-multi-orchestrator" "$ORCH_PAYLOAD")
 [ -n "$ORCH_UC_ID" ] || fail "create orchestrator UC"
 ok "orchestrator UC: ${ORCH_UC_ID}"
 
-RISK_PAYLOAD=$(jq -n --arg llm "$ALLOWED_MODEL" '{
-  name: "otel-multi-risk-scorer",
-  description: "Multi-agent demo: risk-scorer LLM scope only",
-  enforce_scope: true,
-  refs: [
-    { target_kind: "llm", target_name: $llm }
-  ]
-}')
+RISK_PAYLOAD=$(jq -n \
+  --arg llm "$ALLOWED_MODEL" \
+  --arg pname "$PROMPT_NAME" \
+  '{
+    name: "otel-multi-risk-scorer",
+    description: "Multi-agent demo: risk-scorer LLM + registered prompt template only",
+    enforce_scope: true,
+    refs: [
+      { target_kind: "llm",    target_name: $llm },
+      { target_kind: "prompt", target_name: $pname }
+    ]
+  }')
 RISK_UC_ID=$(ensure_use_case "otel-multi-risk-scorer" "$RISK_PAYLOAD")
 [ -n "$RISK_UC_ID" ] || fail "create risk-scorer UC"
 ok "risk-scorer UC: ${RISK_UC_ID}"

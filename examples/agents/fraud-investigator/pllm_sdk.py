@@ -52,7 +52,14 @@ except ImportError as e:  # pragma: no cover
     ) from e
 
 
-__all__ = ["init", "PllmPolicyViolation", "current_policy"]
+__all__ = [
+    "init",
+    "PllmPolicyViolation",
+    "current_policy",
+    "get_prompt",
+    "render_prompt",
+    "call_mcp_tool",
+]
 
 
 class PllmPolicyViolation(Exception):
@@ -300,6 +307,84 @@ def init(
     if refresh:
         t = threading.Thread(target=_refresher, name="pllm_sdk_refresher", daemon=True)
         t.start()
+
+
+# --- gateway helpers (prompts + MCP) --------------------------------------
+
+def _gateway_request(method: str, path: str, **kwargs) -> "httpx.Response":
+    """Issue a bearer-authed request to the pllm gateway via the
+    *patched* httpx client — this means the SDK's own policy applies to
+    its own helpers (a misconfigured agent that tries to grab a prompt
+    or call a tool not in scope sees the same `PllmPolicyViolation`)."""
+    base = _state["base_url"]
+    key = _state["api_key"]
+    if not base or not key:
+        raise RuntimeError("pllm_sdk.init() must be called before gateway helpers")
+    headers = kwargs.pop("headers", {}) or {}
+    headers["Authorization"] = f"Bearer {key}"
+    with httpx.Client(timeout=15.0) as c:
+        return c.request(method, f"{base.rstrip('/')}{path}", headers=headers, **kwargs)
+
+
+def get_prompt(name: str, version: str = "latest") -> dict:
+    """Fetch a registered prompt template from the pllm gateway.
+
+    Returns ``{"name", "version", "title", "template", "arguments"}``.
+    Raises:
+      - PllmPolicyViolation: if the bound use case doesn't declare the prompt.
+      - httpx.HTTPStatusError: for 4xx/5xx other than 403.
+    """
+    resp = _gateway_request("GET", f"/v1/prompts/{name}/versions/{version}")
+    if resp.status_code == 403:
+        raise PllmPolicyViolation(
+            f"prompt:{name}@{version}",
+            f"prompt fetch denied by gateway (403): {resp.text[:200]}",
+        )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def render_prompt(template: str, **vars) -> str:
+    """Format a fetched prompt template with the provided keyword args.
+
+    Uses Python ``str.format_map`` so missing variables surface clearly.
+    """
+    return template.format_map(_SafeMap(vars))
+
+
+class _SafeMap(dict):
+    def __missing__(self, key: str) -> str:
+        return "{" + key + "}"
+
+
+def call_mcp_tool(tool: str, arguments: Optional[dict] = None) -> dict:
+    """Invoke an MCP tool through the pllm gateway via JSON-RPC.
+
+    ``tool`` is the gateway-aggregated name like
+    ``server-everything__echo`` (slug + ``__`` + tool name). Returns
+    the JSON-RPC ``result`` payload. Raises ``PllmPolicyViolation`` on
+    403 (gateway-side scope deny).
+    """
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": tool, "arguments": arguments or {}},
+    }
+    resp = _gateway_request("POST", "/v1/mcp", json=payload)
+    if resp.status_code == 403:
+        raise PllmPolicyViolation(
+            f"mcp:{tool}",
+            f"mcp call denied by gateway (403): {resp.text[:200]}",
+        )
+    resp.raise_for_status()
+    body = resp.json()
+    if isinstance(body, dict) and "error" in body:
+        # JSON-RPC error envelope (gateway returned 200 but with error)
+        err = body["error"]
+        msg = err.get("message", "mcp error") if isinstance(err, dict) else str(err)
+        raise RuntimeError(f"mcp tool '{tool}' returned error: {msg}")
+    return body.get("result", body) if isinstance(body, dict) else body
 
 
 def shutdown() -> None:

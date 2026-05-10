@@ -15,6 +15,7 @@ const (
 	ScopeEventKindMCPTool ScopeEventKind = "mcp_tool"
 	ScopeEventKindLLM     ScopeEventKind = "llm"
 	ScopeEventKindAgent   ScopeEventKind = "agent"
+	ScopeEventKindPrompt  ScopeEventKind = "prompt"
 	// ScopeEventKindObserved is emitted when OTel ingestion discovers a
 	// call to a target that the bound use case does not declare.
 	// Cannot be denied at the gateway (the call already happened); always

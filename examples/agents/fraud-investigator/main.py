@@ -182,6 +182,87 @@ def search_qdrant_unscoped(tracer: trace.Tracer):
                 print(f"  qdrant error: {type(e).__name__}: {e}")
 
 
+# ---------- Prompt registry -----------------------------------------------
+
+PROMPT_NAME = os.environ.get("PROMPT_NAME", "demo/loan-risk-eval")
+PROMPT_VERSION = os.environ.get("PROMPT_VERSION", "1.0.0")
+
+
+def use_registered_prompt(client: OpenAI, tracer: trace.Tracer):
+    """Fetch a prompt template from pllm's gateway, render it locally, and
+    send the rendered text to the LLM. Demonstrates centralized prompt
+    governance — only use cases that declare the prompt as a ref can
+    fetch it."""
+    with step(f"Prompt fetch: {PROMPT_NAME}@{PROMPT_VERSION}"):
+        try:
+            spec = pllm_sdk.get_prompt(PROMPT_NAME, PROMPT_VERSION)
+            tmpl = spec.get("template", "")
+            rendered = pllm_sdk.render_prompt(tmpl, customer="alice", amount="4 USD")
+            print(f"  fetched template ({len(tmpl)} chars), rendered locally")
+        except pllm_sdk.PllmPolicyViolation as e:
+            print(f"  prompt fetch BLOCKED by policy: {e}")
+            return
+        except Exception as e:
+            print(f"  prompt fetch error: {type(e).__name__}: {e}")
+            return
+
+    with step("LLM call with registered prompt"):
+        sp = llm_span(tracer, ALLOWED_MODEL)
+        try:
+            resp = client.chat.completions.create(
+                model=ALLOWED_MODEL,
+                messages=[{"role": "user", "content": rendered}],
+                max_tokens=16,
+            )
+            print(f"  ok -> {resp.choices[0].message.content!r}")
+        except Exception as e:
+            print(f"  unexpected error: {type(e).__name__}: {e}")
+        finally:
+            sp.end()
+
+
+# ---------- MCP gateway ----------------------------------------------------
+
+ALLOWED_MCP_TOOL = os.environ.get("ALLOWED_MCP_TOOL", "server-everything__echo")
+DENIED_MCP_TOOL = os.environ.get("DENIED_MCP_TOOL", "filesystem__list_directory")
+MCP_ECHO_MESSAGE = os.environ.get("MCP_ECHO_MESSAGE", "hello from orchestrator")
+
+
+def call_mcp_allowed(_tracer: trace.Tracer):
+    with step(f"MCP (ALLOWED): {ALLOWED_MCP_TOOL}"):
+        try:
+            res = pllm_sdk.call_mcp_tool(ALLOWED_MCP_TOOL, {"message": MCP_ECHO_MESSAGE})
+            preview = str(res)[:120]
+            print(f"  ok -> {preview}")
+        except pllm_sdk.PllmPolicyViolation as e:
+            # Should not happen for the allowed path; print for visibility.
+            print(f"  unexpected gateway 403: {e}")
+        except Exception as e:
+            # Gateway may be unreachable or the backing MCP server not
+            # registered — fall back to OTel-only span so the demo
+            # still records the attempt.
+            print(f"  gateway/backing error: {type(e).__name__}: {e}")
+            with _tracer.start_as_current_span("mcp.invoke", kind=SpanKind.CLIENT) as sp:
+                sp.set_attribute("pllm.mcp.server", ALLOWED_MCP_TOOL.split("__", 1)[0])
+                sp.set_attribute("rpc.method", "tools/call")
+
+
+def call_mcp_denied(_tracer: trace.Tracer):
+    with step(f"MCP (DENIED — not in scope): {DENIED_MCP_TOOL}"):
+        try:
+            pllm_sdk.call_mcp_tool(DENIED_MCP_TOOL, {})
+            print("  unexpected: call succeeded")
+        except pllm_sdk.PllmPolicyViolation as e:
+            print(f"  blocked at gateway as expected: {e}")
+        except Exception as e:
+            # If the call gets through to a backing server but the
+            # server itself errors, still log with the OTel span.
+            print(f"  unexpected non-403 error: {type(e).__name__}: {e}")
+            with _tracer.start_as_current_span("mcp.invoke.denied", kind=SpanKind.CLIENT) as sp:
+                sp.set_attribute("pllm.mcp.server", DENIED_MCP_TOOL.split("__", 1)[0])
+                sp.set_attribute("pllm.policy.attempted", True)
+
+
 # ---------- Agent-to-agent (A2A) -------------------------------------------
 
 def call_peer_agent(tracer: trace.Tracer, peer: str, label: str):
@@ -202,21 +283,26 @@ def run_orchestrator(client: OpenAI, tracer: trace.Tracer):
     call_allowed_llm(client, tracer, prompt="Risk label for: charge $4 in NY?")
     call_denied_llm(client, tracer)
     search_qdrant_unscoped(tracer)
+    call_mcp_allowed(tracer)
+    call_mcp_denied(tracer)
     call_peer_agent(tracer, ALLOWED_PEER, "ALLOWED")
     call_peer_agent(tracer, DENIED_PEER, "FLAGGED — not in scope")
 
 
 def run_risk_scorer(client: OpenAI, tracer: trace.Tracer):
-    call_allowed_llm(client, tracer, prompt="Score this transaction 0-100.")
+    # Demonstrates centralized prompt fetch + render + LLM call.
+    use_registered_prompt(client, tracer)
     # Give the orchestrator time to finish its longer pipeline before
     # this short-lived role exits — keeps `docker compose up
     # --abort-on-container-exit` from cutting orchestrator off mid-demo.
-    time.sleep(int(os.environ.get("LINGER_SECONDS", "10")))
+    time.sleep(int(os.environ.get("LINGER_SECONDS", "15")))
 
 
 def run_compliance_auditor(client: OpenAI, tracer: trace.Tracer):
     call_allowed_llm(client, tracer, prompt="Did this transaction comply with KYC?")
-    time.sleep(int(os.environ.get("LINGER_SECONDS", "10")))
+    # Tries an MCP tool the use case doesn't declare — gateway 403.
+    call_mcp_denied(tracer)
+    time.sleep(int(os.environ.get("LINGER_SECONDS", "15")))
 
 
 ROLES = {

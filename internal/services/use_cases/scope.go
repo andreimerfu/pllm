@@ -31,6 +31,7 @@ type cachedScope struct {
 	llms       map[string]struct{}
 	serverSlug map[string]struct{}
 	agents     map[string]struct{}
+	prompts    map[string]struct{}
 	enforce    bool
 	expiresAt  time.Time
 }
@@ -122,6 +123,7 @@ type ScopeSnapshot struct {
 	LLMs    []string
 	Servers []string
 	Agents  []string
+	Prompts []string
 }
 
 // GetScope returns a stable snapshot of the cached scope for a use
@@ -145,10 +147,35 @@ func (r *ScopeResolver) GetScope(ctx context.Context, useCaseID *uuid.UUID) (*Sc
 	for k := range s.agents {
 		out.Agents = append(out.Agents, k)
 	}
+	for k := range s.prompts {
+		out.Prompts = append(out.Prompts, k)
+	}
 	sort.Strings(out.LLMs)
 	sort.Strings(out.Servers)
 	sort.Strings(out.Agents)
+	sort.Strings(out.Prompts)
 	return out, nil
+}
+
+// AllowPrompt checks whether the key's use case declares `name` as a
+// prompt ref. Same matching as servers/agents (full name, last
+// segment, or local alias).
+func (r *ScopeResolver) AllowPrompt(ctx context.Context, useCaseID *uuid.UUID, name string) Decision {
+	if useCaseID == nil {
+		return Decision{Allowed: true}
+	}
+	s, err := r.load(ctx, *useCaseID)
+	if err != nil {
+		return Decision{Allowed: true, Reason: "use case lookup failed: " + err.Error()}
+	}
+	if _, ok := s.prompts[name]; ok {
+		return Decision{Allowed: true, EnforceMode: s.enforce}
+	}
+	return Decision{
+		Allowed:     false,
+		EnforceMode: s.enforce,
+		Reason:      "prompt " + name + " is not declared by the bound use case",
+	}
 }
 
 // Invalidate drops the cached scope for a use case. Called by the service
@@ -195,6 +222,7 @@ func (r *ScopeResolver) fetch(ctx context.Context, id uuid.UUID) (cachedScope, e
 		llms:       map[string]struct{}{},
 		serverSlug: map[string]struct{}{},
 		agents:     map[string]struct{}{},
+		prompts:    map[string]struct{}{},
 		enforce:    uc.EnforceScope,
 		expiresAt:  time.Now().Add(r.ttl),
 	}
@@ -226,6 +254,15 @@ func (r *ScopeResolver) fetch(ctx context.Context, id uuid.UUID) (cachedScope, e
 			}
 			if ref.LocalName != "" {
 				out.agents[ref.LocalName] = struct{}{}
+			}
+		case models.RegistryKindPrompt:
+			// Prompts can be referenced by full name, last segment, or alias.
+			out.prompts[ref.TargetName] = struct{}{}
+			if i := strings.LastIndex(ref.TargetName, "/"); i >= 0 {
+				out.prompts[ref.TargetName[i+1:]] = struct{}{}
+			}
+			if ref.LocalName != "" {
+				out.prompts[ref.LocalName] = struct{}{}
 			}
 		}
 	}

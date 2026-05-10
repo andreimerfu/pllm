@@ -18,6 +18,7 @@ import (
 	lifecyclehandlers "github.com/amerfu/pllm/internal/api/handlers/lifecycle"
 	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
 	otelhandlers "github.com/amerfu/pllm/internal/api/handlers/otel"
+	promptgateway "github.com/amerfu/pllm/internal/api/handlers/prompts"
 	registryhandlers "github.com/amerfu/pllm/internal/api/handlers/registry"
 	sdkhandlers "github.com/amerfu/pllm/internal/api/handlers/sdk"
 	usecasehandlers "github.com/amerfu/pllm/internal/api/handlers/use_cases"
@@ -67,6 +68,20 @@ type mcpScopeAdapter struct {
 func (a mcpScopeAdapter) AllowMCPTool(ctx context.Context, useCaseID *uuid.UUID, serverSlug string) mcphandlers.ScopeDecision {
 	d := a.inner.AllowMCPTool(ctx, useCaseID, serverSlug)
 	return mcphandlers.ScopeDecision{
+		Allowed:     d.Allowed,
+		EnforceMode: d.EnforceMode,
+		Reason:      d.Reason,
+	}
+}
+
+// promptScopeAdapter bridges ScopeResolver to promptgateway.ScopeChecker.
+type promptScopeAdapter struct {
+	inner *usecasesvc.ScopeResolver
+}
+
+func (a promptScopeAdapter) AllowPrompt(ctx context.Context, useCaseID *uuid.UUID, name string) promptgateway.ScopeDecision {
+	d := a.inner.AllowPrompt(ctx, useCaseID, name)
+	return promptgateway.ScopeDecision{
 		Allowed:     d.Allowed,
 		EnforceMode: d.EnforceMode,
 		Reason:      d.Reason,
@@ -134,6 +149,16 @@ func (a scopeEventAdapter) RecordLLMDenial(
 	remoteAddr, requestID string,
 ) {
 	a.write(ctx, coremodels.ScopeEventKindLLM, useCaseID, keyID, keyName, target, reason, enforced, remoteAddr, requestID)
+}
+
+// RecordPromptDenial implements promptgateway.ScopeEventRecorder.
+func (a scopeEventAdapter) RecordPromptDenial(
+	ctx context.Context,
+	useCaseID uuid.UUID,
+	keyID *uuid.UUID, keyName, target, reason string, enforced bool,
+	remoteAddr, requestID string,
+) {
+	a.write(ctx, coremodels.ScopeEventKindPrompt, useCaseID, keyID, keyName, target, reason, enforced, remoteAddr, requestID)
 }
 
 // RecordAgentDenial implements a2ahandlers.ScopeEventRecorder.
@@ -1062,6 +1087,21 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			if useCaseScope != nil {
 				sdkHandler := sdkhandlers.New(logger, useCaseScope)
 				r.Get("/sdk/policy", sdkHandler.Policy)
+			}
+
+			// Prompt gateway — agents fetch registered prompt
+			// templates here. Scope-checked via the bound key's use
+			// case (out-of-scope = 403, mirroring LLM/MCP gateway).
+			if db != nil {
+				promptSvc := registryservice.NewPromptService(db, logger)
+				ph := promptgateway.New(logger, promptSvc)
+				if useCaseScope != nil {
+					ph = ph.WithScope(promptScopeAdapter{inner: useCaseScope})
+				}
+				if useCaseEvents != nil {
+					ph = ph.WithRecorder(scopeEventAdapter{inner: useCaseEvents})
+				}
+				r.Get("/prompts/{name}/versions/{version}", ph.Get)
 			}
 
 			// Realtime API (WebSocket)

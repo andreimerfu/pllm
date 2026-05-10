@@ -30,12 +30,13 @@ func New(logger *zap.Logger, scope *use_cases.ScopeResolver) *Handler {
 // sorted by the resolver so a hash of this body can be used for
 // stable ETag-style caching by the client.
 type PolicyResponse struct {
-	KeyID         string   `json:"key_id"`
-	UseCaseID     string   `json:"use_case_id,omitempty"`
-	Enforce       bool     `json:"enforce"`
-	AllowedLLMs   []string `json:"allowed_llms"`
-	AllowedMCP    []string `json:"allowed_mcp_servers"`
-	AllowedAgents []string `json:"allowed_agents"`
+	KeyID          string   `json:"key_id"`
+	UseCaseID      string   `json:"use_case_id,omitempty"`
+	Enforce        bool     `json:"enforce"`
+	AllowedLLMs    []string `json:"allowed_llms"`
+	AllowedMCP     []string `json:"allowed_mcp_servers"`
+	AllowedAgents  []string `json:"allowed_agents"`
+	AllowedPrompts []string `json:"allowed_prompts"`
 	// AllowedExternal lists `host:port` pairs the SDK should let
 	// through unconditionally. Currently empty by default — operators
 	// will extend the use case model later. The SDK still always
@@ -64,6 +65,7 @@ func (h *Handler) Policy(w http.ResponseWriter, r *http.Request) {
 		AllowedLLMs:     []string{},
 		AllowedMCP:      []string{},
 		AllowedAgents:   []string{},
+		AllowedPrompts:  []string{},
 		AllowedExternal: []string{},
 		TTLSeconds:      30,
 	}
@@ -83,6 +85,9 @@ func (h *Handler) Policy(w http.ResponseWriter, r *http.Request) {
 			}
 			if snap.Agents != nil {
 				resp.AllowedAgents = snap.Agents
+			}
+			if snap.Prompts != nil {
+				resp.AllowedPrompts = snap.Prompts
 			}
 		}
 	}
