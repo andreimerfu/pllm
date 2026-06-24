@@ -38,6 +38,58 @@ type Config struct {
 	Agents     AgentInvocationConfig `mapstructure:"agents"`
 	Lifecycle  LifecycleConfig  `mapstructure:"lifecycle"`
 	Discovery  DiscoveryConfig  `mapstructure:"discovery"`
+	Federation FederationConfig `mapstructure:"federation"`
+	PDP        PDPConfig        `mapstructure:"pdp"`
+}
+
+// FederationConfig governs peer-to-peer registry federation. When
+// Enabled, the runner pulls from configured FederationPeer rows and the
+// /v1/federation/* export endpoints accept ExportToken-bearing GETs.
+// ExportToken is the shared secret peers present when polling this
+// instance — required, no default, so a misconfigured pllm doesn't
+// silently expose its catalog.
+type FederationConfig struct {
+	Enabled             bool          `mapstructure:"enabled"`
+	ExportToken         string        `mapstructure:"export_token"`
+	TickInterval        time.Duration `mapstructure:"tick_interval"`
+	DefaultSyncInterval time.Duration `mapstructure:"default_sync_interval"`
+}
+
+// DefaultFederationConfig is what the constructor seeds; viper merges
+// YAML on top so explicit `federation.enabled: true` actually flips it.
+func DefaultFederationConfig() FederationConfig {
+	return FederationConfig{
+		Enabled:             false,
+		TickInterval:        time.Minute,
+		DefaultSyncInterval: time.Hour,
+	}
+}
+
+// PDPConfig configures the external OPA Policy Decision Point client. By
+// default pllm uses its built-in name-based scope resolver as the PDP. When
+// enabled, each enforcement point instead asks an external OPA PDP (e.g.
+// Beacon) for the verdict: Endpoint receives a POST with an OPA input
+// document (action + use_case + target) and returns {allow, enforce,
+// reason}, degrading to the local resolver when unreachable (see OnError).
+type PDPConfig struct {
+	Enabled  bool          `mapstructure:"enabled"`
+	Endpoint string        `mapstructure:"endpoint"`
+	Token    string        `mapstructure:"token"`
+	Timeout  time.Duration `mapstructure:"timeout"`
+	// OnError selects behaviour when the PDP call fails: "fallback_local"
+	// (default — fall back to the built-in scope resolver), "deny"
+	// (fail-closed), or "allow" (fail-open).
+	OnError string `mapstructure:"on_error"`
+}
+
+// DefaultPDPConfig seeds the PDP defaults; viper merges YAML on top so an
+// explicit `pdp.enabled: true` actually flips it.
+func DefaultPDPConfig() PDPConfig {
+	return PDPConfig{
+		Enabled: false,
+		Timeout: 2 * time.Second,
+		OnError: "fallback_local",
+	}
 }
 
 // DiscoveryConfig governs the OTel-driven agent discovery service.
@@ -509,6 +561,20 @@ func setDefaults() {
 	viper.SetDefault("discovery.enabled", true)
 	viper.SetDefault("discovery.flag_threshold", 3)
 	viper.SetDefault("discovery.auto_revoke", true)
+
+	// Federation defaults — off by default so a fresh deploy doesn't
+	// expose its catalog without explicit operator action.
+	fc := DefaultFederationConfig()
+	viper.SetDefault("federation.enabled", fc.Enabled)
+	viper.SetDefault("federation.tick_interval", fc.TickInterval)
+	viper.SetDefault("federation.default_sync_interval", fc.DefaultSyncInterval)
+
+	// PDP defaults — off by default so a fresh deploy keeps using the
+	// built-in scope resolver until an operator points at an external PDP.
+	pdpc := DefaultPDPConfig()
+	viper.SetDefault("pdp.enabled", pdpc.Enabled)
+	viper.SetDefault("pdp.timeout", pdpc.Timeout)
+	viper.SetDefault("pdp.on_error", pdpc.OnError)
 }
 
 func bindEnvVars() {

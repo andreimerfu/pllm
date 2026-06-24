@@ -87,6 +87,7 @@ export default withMermaid(
             { text: "Scope Enforcement", link: "/governance/scope" },
             { text: "Audit & Scope Events", link: "/governance/audit" },
             { text: "Webhooks (SIEM/GRC)", link: "/governance/webhooks" },
+            { text: "Policy Control-Plane Contract", link: "/governance/policy-control-plane-contract" },
           ],
         },
         {

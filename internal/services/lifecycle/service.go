@@ -79,6 +79,14 @@ type Rule interface {
 	Run(ctx context.Context, db *gorm.DB, cfg Config, hooks WebhookEmitter) RuleResult
 }
 
+// CustomRuleLoader returns the current set of custom rules to run on
+// this tick. Implementations typically query the LifecycleCustomRule
+// table and compile each spec into a CustomRule. Compilation errors
+// SHOULD NOT abort the tick — return only the rules that compiled,
+// log the rest. The loader is invoked once per RunOnce, so it can do
+// modest DB work without affecting steady-state cost.
+type CustomRuleLoader func(ctx context.Context) []Rule
+
 // Service holds the rule list and orchestrates ticker-driven runs.
 // One instance per process; safe to call RunOnce concurrently with the
 // background ticker (each run is its own DB transaction-per-action).
@@ -88,6 +96,8 @@ type Service struct {
 	cfg    Config
 	hooks  WebhookEmitter
 	rules  []Rule
+
+	customLoader CustomRuleLoader
 
 	mu          sync.RWMutex
 	lastSummary RunSummary
@@ -108,6 +118,14 @@ func (s *Service) WithWebhooks(e WebhookEmitter) *Service {
 	return s
 }
 
+// WithCustomLoader attaches a loader that produces custom rules per
+// run. Returns the receiver for chaining. Pass nil (the default) to
+// disable custom rules entirely.
+func (s *Service) WithCustomLoader(l CustomRuleLoader) *Service {
+	s.customLoader = l
+	return s
+}
+
 // Register appends a Rule to the run order. Idempotent across names —
 // last registration wins.
 func (s *Service) Register(r Rule) {
@@ -124,13 +142,21 @@ func (s *Service) Register(r Rule) {
 
 // RunOnce executes every rule in order, captures the summary, and
 // returns it. Errors from a single rule are recorded on the result but
-// don't abort other rules.
+// don't abort other rules. Custom rules are loaded fresh each tick so
+// edits in the admin UI take effect immediately.
 func (s *Service) RunOnce(ctx context.Context) (RunSummary, error) {
 	start := time.Now()
 	s.mu.RLock()
 	rules := make([]Rule, len(s.rules))
 	copy(rules, s.rules)
+	loader := s.customLoader
 	s.mu.RUnlock()
+
+	if loader != nil {
+		custom := loader(ctx)
+		rules = append(rules, custom...)
+	}
+
 	summary := RunSummary{RanAt: start, Rules: make([]RuleResult, 0, len(rules))}
 	for _, r := range rules {
 		if err := ctx.Err(); err != nil {

@@ -5,3 +5,13 @@ opentelemetry-sdk>=1.30.0
 opentelemetry-exporter-otlp-proto-http>=1.30.0
 opentelemetry-instrumentation-openai-v2>=2.0b0
 opentelemetry-instrumentation-requests>=0.51b0
+
+# LangGraph for risk-scorer (uses langchain-openai under the hood)
+langgraph>=0.2.0
+langchain-openai>=0.2.0
+
+# CrewAI for compliance-auditor (uses litellm under the hood — modern
+# CrewAI versions require litellm as a peer dep, otherwise Agent()
+# raises "Fallback to LiteLLM is not available" at construction time).
+crewai>=0.70.0
+litellm>=1.50.0

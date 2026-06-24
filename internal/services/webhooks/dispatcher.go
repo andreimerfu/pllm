@@ -1,18 +1,17 @@
 // Package webhooks delivers pllm events to external HTTP endpoints with
-// HMAC signing, bounded retries, and a best-effort "last seen" health
-// marker per webhook. No external queue; we run a simple in-process
-// buffered-channel worker pool. Events that can't be delivered in the
-// retry budget are dropped and counted in FailureCount.
+// vendor-specific formatting, bounded retries, and a best-effort "last
+// seen" health marker per webhook. No external queue; we run a simple
+// in-process buffered-channel worker pool. Events that can't be
+// delivered in the retry budget are dropped and counted in
+// FailureCount.
+//
+// Per-vendor request formatting and success criteria live in the
+// adapters sub-package — this file owns queueing, fan-out, retry
+// scheduling, and the "last delivery" persistence shape.
 package webhooks
 
 import (
-	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"sync"
@@ -23,19 +22,13 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/amerfu/pllm/internal/core/models"
+	"github.com/amerfu/pllm/internal/services/webhooks/adapters"
 )
 
-// Event is the envelope pushed to every subscribing endpoint.
-// Data is opaque on our side — callers marshal their own shape.
-type Event struct {
-	ID        string                  `json:"id"`
-	Type      models.WebhookEventType `json:"type"`
-	CreatedAt time.Time               `json:"created_at"`
-	// TeamID scopes delivery: when set, only webhooks with matching or
-	// nil TeamID receive this event. Nil = fire for every webhook.
-	TeamID *uuid.UUID              `json:"-"`
-	Data   any                     `json:"data"`
-}
+// Event is the dispatcher-level envelope. Type-aliased from the adapter
+// package so existing callers keep importing webhooks.Event without
+// caring that the canonical type lives one package down.
+type Event = adapters.Event
 
 // Dispatcher buffers events, matches them against active webhooks, and
 // delivers to each with retries.
@@ -136,8 +129,8 @@ func (d *Dispatcher) worker(ctx context.Context) {
 func (d *Dispatcher) fanOut(ctx context.Context, evt Event) {
 	var hooks []models.Webhook
 	q := d.db.WithContext(ctx).Where("enabled = ?", true)
-	if evt.TeamID != nil {
-		q = q.Where("team_id IS NULL OR team_id = ?", *evt.TeamID)
+	if evt.TeamID() != nil {
+		q = q.Where("team_id IS NULL OR team_id = ?", *evt.TeamID())
 	}
 	if err := q.Find(&hooks).Error; err != nil {
 		d.logger.Warn("load webhooks failed", zap.Error(err))
@@ -154,17 +147,16 @@ func (d *Dispatcher) fanOut(ctx context.Context, evt Event) {
 
 // deliver attempts the full retry schedule against a single webhook,
 // persisting the last delivery status + error for the admin UI.
+// Vendor-specific request shape and success criteria are delegated to
+// the adapter selected by the webhook's destination_type.
 func (d *Dispatcher) deliver(ctx context.Context, hook *models.Webhook, evt Event) {
-	body, err := json.Marshal(evt)
-	if err != nil {
-		d.logger.Warn("marshal event failed", zap.Error(err))
-		return
-	}
-	sig := sign(hook.Secret, body)
+	adapter := adapters.For(hook.DestinationType)
 
-	var lastStatus int
-	var lastErr string
-	success := false
+	var (
+		lastStatus int
+		lastErr    string
+		success    bool
+	)
 
 	for attempt, backoff := range d.retrySchedule {
 		if backoff > 0 {
@@ -176,16 +168,23 @@ func (d *Dispatcher) deliver(ctx context.Context, hook *models.Webhook, evt Even
 				return
 			}
 		}
-		status, err := d.attempt(ctx, hook, evt, body, sig, attempt)
+		status, body, err := d.attempt(ctx, adapter, hook, evt, attempt)
 		lastStatus = status
 		if err != nil {
 			lastErr = err.Error()
 		} else {
 			lastErr = ""
 		}
-		if err == nil && status >= 200 && status < 300 {
+		if err == nil && adapter.Success(status, body) {
 			success = true
 			break
+		}
+		// On a 2xx that the adapter rejects (e.g. Slack returning
+		// 200 + "no_service"), keep the body in lastErr so operators
+		// see why we treated the delivery as failed even though the
+		// status looks fine.
+		if err == nil && lastErr == "" && len(body) > 0 {
+			lastErr = "adapter rejected response: " + truncate(string(body), 200)
 		}
 	}
 	d.recordDelivery(hook, lastStatus, lastErr, success)
@@ -193,34 +192,35 @@ func (d *Dispatcher) deliver(ctx context.Context, hook *models.Webhook, evt Even
 
 func (d *Dispatcher) attempt(
 	ctx context.Context,
+	adapter adapters.Adapter,
 	hook *models.Webhook,
 	evt Event,
-	body []byte,
-	sig string,
 	attempt int,
-) (int, error) {
+) (int, []byte, error) {
 	reqCtx, cancel := context.WithTimeout(ctx, d.attemptTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, hook.URL, bytes.NewReader(body))
+	req, err := adapter.BuildRequest(evt, hook)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "pllm-webhook/1")
+	req = req.WithContext(reqCtx)
+	// Standard pllm headers: still added on top of whatever the adapter
+	// set so receivers (esp. generic relays in the chain) can correlate
+	// deliveries even for vendor-formatted payloads.
 	req.Header.Set("X-PLLM-Event", string(evt.Type))
 	req.Header.Set("X-PLLM-Delivery-ID", evt.ID)
-	req.Header.Set("X-PLLM-Signature", "sha256="+sig)
-	req.Header.Set("X-PLLM-Attempt", fmt.Sprintf("%d", attempt+1))
+	req.Header.Set("X-PLLM-Attempt", itoa(attempt+1))
 
 	resp, err := d.client.Do(req)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	defer resp.Body.Close()
-	// Drain a small portion so connections can be reused; ignore content.
-	_, _ = io.CopyN(io.Discard, resp.Body, 8*1024)
-	return resp.StatusCode, nil
+	// Vendor success bodies are small (Splunk returns ~30 bytes, Slack
+	// "ok" or "no_service"). 8 KiB is plenty and bounds memory.
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8*1024))
+	return resp.StatusCode, body, nil
 }
 
 func (d *Dispatcher) recordDelivery(hook *models.Webhook, status int, errMsg string, success bool) {
@@ -240,10 +240,39 @@ func (d *Dispatcher) recordDelivery(hook *models.Webhook, status int, errMsg str
 	}
 }
 
-// sign computes the HMAC-SHA256 of body with the webhook's secret and
-// returns the hex digest. Subscribers verify by re-computing.
-func sign(secret string, body []byte) string {
-	mac := hmac.New(sha256.New, []byte(secret))
-	_, _ = mac.Write(body)
-	return hex.EncodeToString(mac.Sum(nil))
+// --- helpers --------------------------------------------------------------
+
+// itoa avoids pulling in fmt for the per-attempt header value.
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	neg := n < 0
+	if neg {
+		n = -n
+	}
+	buf := [20]byte{}
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = byte('0' + n%10)
+		n /= 10
+	}
+	if neg {
+		i--
+		buf[i] = '-'
+	}
+	return string(buf[i:])
+}
+
+// truncate keeps adapter-rejection details readable in last_delivery_error
+// without ballooning the column with an entire vendor body.
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	if n <= 1 {
+		return s[:n]
+	}
+	return s[:n-1] + "…"
 }

@@ -8,8 +8,10 @@ import (
 	"github.com/amerfu/pllm/internal/core/config"
 	"github.com/amerfu/pllm/internal/api/handlers"
 	"github.com/amerfu/pllm/internal/api/handlers/admin"
+	cataloghandlers "github.com/amerfu/pllm/internal/api/handlers/catalog"
 	deploymenthandlers "github.com/amerfu/pllm/internal/api/handlers/deployment"
 	dischandlers "github.com/amerfu/pllm/internal/api/handlers/discovery"
+	federationhandlers "github.com/amerfu/pllm/internal/api/handlers/federation"
 	lifecyclehandlers "github.com/amerfu/pllm/internal/api/handlers/lifecycle"
 	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
 	registryhandlers "github.com/amerfu/pllm/internal/api/handlers/registry"
@@ -46,6 +48,8 @@ type AdminRouterConfig struct {
 	WebhookHandler        *webhookhandlers.Handler
 	LifecycleHandler      *lifecyclehandlers.Handler
 	DiscoveryHandler      *dischandlers.Handler
+	FederationHandler     *federationhandlers.Handler
+	CatalogHandler        *cataloghandlers.Handler
 }
 
 // NewAdminSubRouter creates admin routes to be mounted on the main router
@@ -76,6 +80,7 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 	systemHandler.SetFeature("mrm", cfg.UseCaseHandler != nil)
 	systemHandler.SetFeature("webhooks", cfg.WebhookHandler != nil)
 	systemHandler.SetFeature("lifecycle", cfg.LifecycleHandler != nil)
+	systemHandler.SetFeature("federation", cfg.FederationHandler != nil)
 	dashboardHandler := handlers.NewDashboardHandler(cfg.DB, cfg.Logger)
 	guardrailsHandler := admin.NewGuardrailsHandler(cfg.Logger, cfg.Config, cfg.GuardrailsExecutor)
 	modelCRUDHandler := admin.NewModelCRUDHandler(cfg.Logger, cfg.DB, cfg.ModelManager)
@@ -289,6 +294,19 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 			})
 		}
 
+		// Catalog facade — read-only producer side of the policy
+		// control-plane contract (§2). An external control plane pulls
+		// resources + use cases + bindings here, keyed on canonical
+		// identity. Admin-gated (governance data); nil-checked.
+		if cfg.CatalogHandler != nil {
+			ch := cfg.CatalogHandler
+			r.Route("/catalog", func(rr chi.Router) {
+				rr.Get("/resources", ch.ListResources)
+				rr.Get("/use-cases", ch.ListUseCases)
+				rr.Get("/bindings", ch.ListBindings)
+			})
+		}
+
 		// Webhook routes — outbound event subscriptions for scope denials,
 		// use-case lifecycle, etc. Admin-only (same block as everything
 		// else under /api/admin).
@@ -341,6 +359,14 @@ func NewAdminSubRouter(cfg *AdminRouterConfig) http.Handler {
 						rrr.Delete("/{id}", cr.Delete)
 					})
 				}
+			})
+		}
+
+		// Federation admin routes — peer CRUD + manual sync. Mounted only
+		// when the receiver/runner was wired in router.go.
+		if cfg.FederationHandler != nil {
+			r.Route("/federation", func(rr chi.Router) {
+				cfg.FederationHandler.MountAdmin(rr)
 			})
 		}
 

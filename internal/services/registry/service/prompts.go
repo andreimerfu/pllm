@@ -87,6 +87,9 @@ func (s *PromptService) Upsert(ctx context.Context, in *models.RegistryPrompt) (
 			return lookup.Error
 		}
 		if lookup.Error == nil {
+			if existing.SourcePeerID != "" {
+				return ErrFederatedReadOnly
+			}
 			existing.Title = in.Title
 			existing.Description = in.Description
 			existing.Status = in.Status
@@ -132,6 +135,9 @@ func (s *PromptService) SoftDelete(ctx context.Context, name, version string) er
 				return ErrNotFound
 			}
 			return err
+		}
+		if row.SourcePeerID != "" {
+			return ErrFederatedReadOnly
 		}
 		row.Status = models.RegistryStatusDeleted
 		row.IsLatest = false

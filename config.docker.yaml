@@ -355,3 +355,12 @@ discovery:
   enabled: true
   flag_threshold: 3
   auto_revoke: true
+
+# PDP (external OPA Policy Decision Point, e.g. Beacon). Disabled = built-in
+# scope resolver. Enable to route blocking enforcement points through an OPA PDP.
+# pdp:
+#   enabled: false
+#   endpoint: "https://beacon.internal/v1/pdp/decision"
+#   token: "${PDP_TOKEN}"
+#   timeout: 2s
+#   on_error: fallback_local   # fallback_local | deny | allow

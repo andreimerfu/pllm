@@ -341,6 +341,16 @@ func (h *KeyHandler) UpdateKey(w http.ResponseWriter, r *http.Request) {
 	if req.IsActive != nil && *req.IsActive != k.IsActive {
 		changes["is_active"] = map[string]bool{"from": k.IsActive, "to": *req.IsActive}
 		k.IsActive = *req.IsActive
+		// Reactivating a previously-revoked key needs to clear RevokedAt
+		// too — Key.CanUse() returns false while RevokedAt is non-nil
+		// regardless of IsActive, which is what the auth middleware
+		// checks. Without this, /v1/sdk/policy still returns 401 after
+		// a PUT {is_active:true}.
+		if *req.IsActive && k.RevokedAt != nil {
+			k.RevokedAt = nil
+			k.RevocationReason = ""
+			changes["revoked_at"] = map[string]string{"from": "set", "to": "cleared"}
+		}
 	}
 
 	if req.AllowedMCPTools != nil {

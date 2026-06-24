@@ -79,6 +79,7 @@ const navigation: NavGroup[] = [
       { title: "MCP Servers", href: "/mcp-servers", icon: icons.mcp, permission: null },
       { title: "Deployments", href: "/deployments", icon: icons.deployment, permission: null },
       { title: "Agents", href: "/agents", icon: icons.agents, permission: null },
+      { title: "Federation", href: "/federation", icon: icons.federation, permission: null, feature: "federation" },
     ],
   },
   {
@@ -87,6 +88,8 @@ const navigation: NavGroup[] = [
     items: [
       { title: "Use Cases", href: "/use-cases", icon: icons.useCase, permission: null, feature: "mrm" },
       { title: "Compliance", href: "/compliance", icon: icons.shield, permission: null, feature: "mrm" },
+      { title: "Policies", href: "/policies", icon: icons.policies, permission: null, feature: "mrm" },
+      { title: "Notifications", href: "/notifications", icon: icons.notifications, permission: null, feature: "mrm" },
     ],
   },
   {

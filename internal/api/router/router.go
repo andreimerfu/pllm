@@ -13,8 +13,10 @@ import (
 	"github.com/amerfu/pllm/internal/api/handlers"
 	"github.com/amerfu/pllm/internal/api/handlers/admin"
 	a2ahandlers "github.com/amerfu/pllm/internal/api/handlers/a2a"
+	cataloghandlers "github.com/amerfu/pllm/internal/api/handlers/catalog"
 	deploymenthandlers "github.com/amerfu/pllm/internal/api/handlers/deployment"
 	dischandlers "github.com/amerfu/pllm/internal/api/handlers/discovery"
+	federationhandlers "github.com/amerfu/pllm/internal/api/handlers/federation"
 	lifecyclehandlers "github.com/amerfu/pllm/internal/api/handlers/lifecycle"
 	mcphandlers "github.com/amerfu/pllm/internal/api/handlers/mcp"
 	otelhandlers "github.com/amerfu/pllm/internal/api/handlers/otel"
@@ -36,6 +38,7 @@ import (
 	deploymentsvc "github.com/amerfu/pllm/internal/services/deployment"
 	deploymentmetrics "github.com/amerfu/pllm/internal/services/deployment/metrics"
 	discoverysvc "github.com/amerfu/pllm/internal/services/discovery"
+	federationsvc "github.com/amerfu/pllm/internal/services/federation"
 	lifecyclesvc "github.com/amerfu/pllm/internal/services/lifecycle"
 	mcpgateway "github.com/amerfu/pllm/internal/services/mcp/gateway"
 	mcpregistryserver "github.com/amerfu/pllm/internal/services/mcp/registryserver"
@@ -62,7 +65,7 @@ import (
 // narrow ScopeChecker interface the MCP handler expects — keeps the
 // handlers package independent of use_cases for easier testing.
 type mcpScopeAdapter struct {
-	inner *usecasesvc.ScopeResolver
+	inner usecasesvc.Decider
 }
 
 func (a mcpScopeAdapter) AllowMCPTool(ctx context.Context, useCaseID *uuid.UUID, serverSlug string) mcphandlers.ScopeDecision {
@@ -76,7 +79,7 @@ func (a mcpScopeAdapter) AllowMCPTool(ctx context.Context, useCaseID *uuid.UUID,
 
 // promptScopeAdapter bridges ScopeResolver to promptgateway.ScopeChecker.
 type promptScopeAdapter struct {
-	inner *usecasesvc.ScopeResolver
+	inner usecasesvc.Decider
 }
 
 func (a promptScopeAdapter) AllowPrompt(ctx context.Context, useCaseID *uuid.UUID, name string) promptgateway.ScopeDecision {
@@ -90,7 +93,7 @@ func (a promptScopeAdapter) AllowPrompt(ctx context.Context, useCaseID *uuid.UUI
 
 // llmScopeAdapter does the same bridge for the chat/LLM handler.
 type llmScopeAdapter struct {
-	inner *usecasesvc.ScopeResolver
+	inner usecasesvc.Decider
 }
 
 func (a llmScopeAdapter) AllowLLM(ctx context.Context, useCaseID *uuid.UUID, modelName string) handlers.LLMScopeDecision {
@@ -104,7 +107,7 @@ func (a llmScopeAdapter) AllowLLM(ctx context.Context, useCaseID *uuid.UUID, mod
 
 // a2aScopeAdapter bridges to the narrow ScopeChecker the a2a handler expects.
 type a2aScopeAdapter struct {
-	inner *usecasesvc.ScopeResolver
+	inner usecasesvc.Decider
 }
 
 func (a a2aScopeAdapter) AllowAgent(ctx context.Context, useCaseID *uuid.UUID, agentName string) a2ahandlers.ScopeDecision {
@@ -234,6 +237,23 @@ func (a deploymentWebhookEmitter) Emit(evt deploymentsvc.WebhookEventEnvelope) {
 	})
 }
 
+// federationWebhookAdapter bridges federation events onto the shared
+// webhooks.Dispatcher. Same structure as the lifecycle adapter — the
+// envelope already carries a typed event, so this is a straight reshape.
+type federationWebhookAdapter struct {
+	inner *webhooks.Dispatcher
+}
+
+func (a *federationWebhookAdapter) Emit(env federationsvc.WebhookEventEnvelope) {
+	if a == nil || a.inner == nil {
+		return
+	}
+	a.inner.Emit(webhooks.Event{
+		Type: env.Type,
+		Data: env.Data,
+	})
+}
+
 // lifecycleWebhookAdapter bridges the lifecycle service's
 // WebhookEmitter onto the shared webhooks.Dispatcher. The lifecycle
 // envelope already carries a typed models.WebhookEventType, so the
@@ -355,6 +375,7 @@ func (a *discoveryAgentResolver) PublishFromDiscovery(ctx context.Context, in di
 			"deleted_at":   nil,
 			"title":        in.Title,
 			"description":  description,
+			"framework":    in.Framework,
 			"status":       coremodels.RegistryStatusActive,
 			"published_at": now,
 			"updated_at":   now,
@@ -383,6 +404,7 @@ func (a *discoveryAgentResolver) PublishFromDiscovery(ctx context.Context, in di
 			Version:     in.Version,
 			Title:       in.Title,
 			Description: description,
+			Framework:   in.Framework,
 		},
 		Refs: refs,
 	})
@@ -418,6 +440,7 @@ func (l *observedDepsLoader) LoadForAgent(ctx context.Context, agentID uuid.UUID
 	out := &registryhandlers.ObservedDeps{
 		DiscoveredAgentID: &da.ID,
 		ServiceName:       da.ServiceName,
+		Framework:         da.Framework,
 		LastSeenAt:        &da.LastSeenAt,
 		FlaggedCount:      da.FlaggedCount,
 		Calls:             make([]registryhandlers.ObservedCall, 0, len(calls)),
@@ -703,6 +726,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	var useCaseHandler *usecasehandlers.Handler
 	var useCaseScope *usecasesvc.ScopeResolver
 	var useCaseEvents *usecasesvc.EventRecorder
+	var catalogHandler *cataloghandlers.Handler
 	if db != nil {
 		ucSvc := usecasesvc.NewService(db, logger)
 		if webhookDispatcher != nil {
@@ -712,6 +736,36 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		useCaseScope = ucSvc.Scope()
 		useCaseEvents = ucSvc.Events()
 		logger.Info("UseCase service initialized")
+
+		// Catalog facade — read-only producer side of the policy
+		// control-plane contract (§2). Publishes registry resources +
+		// use cases + bindings for an external control plane to ingest.
+		ucStore := cataloghandlers.NewUseCaseStore(ucSvc)
+		resourceLister := cataloghandlers.NewRegistryResourceLister(
+			registryservice.NewServerService(db, logger),
+			registryservice.NewAgentService(db, logger),
+			registryservice.NewSkillService(db, logger),
+			registryservice.NewPromptService(db, logger),
+		)
+		catalogHandler = cataloghandlers.NewHandler(logger, resourceLister, ucStore, ucStore)
+	}
+
+	// Decider — the implementation behind every blocking enforcement point
+	// (chat/LLM, MCP, prompts, A2A). Defaults to the built-in name-based
+	// ScopeResolver (the built-in PDP). When an external OPA PDP (e.g.
+	// Beacon) is configured, wrap it so each point asks the remote PDP first
+	// and degrades to local scope per cfg.PDP.OnError. The discovery
+	// (observe-only) path intentionally stays on the local resolver.
+	var useCaseDecider usecasesvc.Decider
+	if useCaseScope != nil {
+		useCaseDecider = useCaseScope
+		if cfg.PDP.Enabled && cfg.PDP.Endpoint != "" {
+			remotePDP := usecasesvc.NewPDPDecider(db, cfg.PDP.Endpoint, cfg.PDP.Token, cfg.PDP.Timeout)
+			useCaseDecider = usecasesvc.NewCompositeDecider(remotePDP, useCaseScope, cfg.PDP.OnError, logger)
+			logger.Info("External PDP enabled",
+				zap.String("endpoint", cfg.PDP.Endpoint),
+				zap.String("on_error", cfg.PDP.OnError))
+		}
 	}
 
 	// Discovery service — OTel-driven agent fingerprinting + governance.
@@ -774,6 +828,29 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		logger.Info("Lifecycle hygiene daemon initialized",
 			zap.Bool("dry_run", lifeCfg.DryRun),
 			zap.Duration("interval", lifeCfg.Interval))
+	}
+
+	// Federation service — peer-to-peer registry sync. Off by default;
+	// when Enabled, exposes /v1/federation/* export endpoints and starts
+	// a runner that polls configured peers.
+	var federationHandler *federationhandlers.Handler
+	var federationRunner *federationsvc.Runner
+	if db != nil && cfg.Federation.Enabled {
+		fedSvc := federationsvc.NewService(db, logger)
+		var fedHooks federationsvc.WebhookEmitter
+		if webhookDispatcher != nil {
+			fedHooks = &federationWebhookAdapter{inner: webhookDispatcher}
+		}
+		federationRunner = federationsvc.NewRunner(fedSvc, fedHooks, federationsvc.RunnerConfig{
+			TickInterval:        cfg.Federation.TickInterval,
+			DefaultSyncInterval: cfg.Federation.DefaultSyncInterval,
+		}, logger)
+		federationRunner.Start(context.Background())
+		federationHandler = federationhandlers.NewHandler(logger, fedSvc, fedHooks, db, cfg.Federation.ExportToken)
+		logger.Info("Federation service initialized",
+			zap.Bool("export_token_set", cfg.Federation.ExportToken != ""),
+			zap.Duration("tick_interval", cfg.Federation.TickInterval),
+			zap.Duration("default_sync_interval", cfg.Federation.DefaultSyncInterval))
 	}
 
 	// Deployment service — opt-in via config.deployment.enabled. Falls
@@ -948,7 +1025,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 	// or inherit the same model resolution path, so we gate at the chat
 	// entrypoint for now — expand coverage as needed.
 	if useCaseScope != nil {
-		chatHandler = chatHandler.WithScope(llmScopeAdapter{inner: useCaseScope})
+		chatHandler = chatHandler.WithScope(llmScopeAdapter{inner: useCaseDecider})
 	}
 	if useCaseEvents != nil {
 		chatHandler = chatHandler.WithRecorder(scopeEventAdapter{inner: useCaseEvents})
@@ -988,6 +1065,16 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 		// it only creates DiscoveredAgent rows the operator can ignore.
 		if otelHandler != nil {
 			r.Post("/v1/traces", otelHandler.Traces)
+		}
+
+		// Federation export endpoints — peer pllm registries poll here
+		// using the static FederationExportToken. Hosted outside the
+		// authenticated group because peers don't have a pllm Key/JWT;
+		// auth lives inside the handler (constant-time bearer compare).
+		if federationHandler != nil {
+			r.Route("/v1/federation", func(rr chi.Router) {
+				federationHandler.MountExport(rr)
+			})
 		}
 	})
 
@@ -1096,7 +1183,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 				promptSvc := registryservice.NewPromptService(db, logger)
 				ph := promptgateway.New(logger, promptSvc)
 				if useCaseScope != nil {
-					ph = ph.WithScope(promptScopeAdapter{inner: useCaseScope})
+					ph = ph.WithScope(promptScopeAdapter{inner: useCaseDecider})
 				}
 				if useCaseEvents != nil {
 					ph = ph.WithRecorder(scopeEventAdapter{inner: useCaseEvents})
@@ -1116,7 +1203,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			if mcpManager != nil {
 				gatewayHandler := mcphandlers.NewGatewayHandler(logger, mcpManager)
 				if useCaseScope != nil {
-					gatewayHandler = gatewayHandler.WithScope(mcpScopeAdapter{inner: useCaseScope})
+					gatewayHandler = gatewayHandler.WithScope(mcpScopeAdapter{inner: useCaseDecider})
 				}
 				if useCaseEvents != nil {
 					gatewayHandler = gatewayHandler.WithRecorder(scopeEventAdapter{inner: useCaseEvents})
@@ -1137,7 +1224,7 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 				var scopeChk a2ahandlers.ScopeChecker
 				var evRec a2ahandlers.ScopeEventRecorder
 				if useCaseScope != nil {
-					scopeChk = a2aScopeAdapter{inner: useCaseScope}
+					scopeChk = a2aScopeAdapter{inner: useCaseDecider}
 				} else {
 					scopeChk = allowAllScope{}
 				}
@@ -1324,6 +1411,8 @@ func NewRouter(cfg *config.Config, logger *zap.Logger, modelManager *models.Mode
 			WebhookHandler:        webhookHandler,
 			LifecycleHandler:      lifecycleHandler,
 			DiscoveryHandler:      discoveryHandler,
+			FederationHandler:     federationHandler,
+			CatalogHandler:        catalogHandler,
 		}
 
 		// Mount admin routes at /api/admin

@@ -7,6 +7,7 @@ import {
   listDiscoveredAgents,
   promoteDiscoveredAgent,
 } from "@/lib/api";
+import { frameworkInfo } from "@/lib/frameworks";
 import { icons } from "@/lib/icons";
 import type { DiscoveredAgent } from "@/types/api";
 import { Badge } from "@/components/ui/badge";
@@ -97,7 +98,9 @@ export function DiscoveredAgentsList() {
           </p>
         ) : (
           <ul className="divide-y">
-            {items.map((a) => (
+            {items.map((a) => {
+              const fw = frameworkInfo(a.framework);
+              return (
               <li
                 key={a.id}
                 className="flex items-center justify-between gap-3 py-3"
@@ -107,6 +110,18 @@ export function DiscoveredAgentsList() {
                     <span className="font-mono text-sm truncate">
                       {a.service_name}
                     </span>
+                    {fw && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                        title={`Framework: ${fw.label}`}
+                      >
+                        <Icon
+                          icon={fw.icon}
+                          className={`h-3 w-3 ${fw.tone ?? ""}`}
+                        />
+                        {fw.label}
+                      </span>
+                    )}
                     {a.service_version && (
                       <Badge variant="outline" className="font-mono text-xs">
                         {a.service_version}
@@ -174,7 +189,8 @@ export function DiscoveredAgentsList() {
                   )}
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>

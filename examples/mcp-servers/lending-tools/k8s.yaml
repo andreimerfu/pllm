@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lending-tools
+  namespace: pllm-mcp
+  labels:
+    app.kubernetes.io/name: lending-tools
+    pllm.io/mcp-demo: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lending-tools
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: lending-tools
+    spec:
+      containers:
+        - name: lending-tools
+          image: lending-tools:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lending-tools
+  namespace: pllm-mcp
+  labels:
+    app.kubernetes.io/name: lending-tools
+spec:
+  selector:
+    app.kubernetes.io/name: lending-tools
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

@@ -59,6 +59,7 @@ type ObservedDepsLoader interface {
 type ObservedDeps struct {
 	DiscoveredAgentID *uuid.UUID     `json:"discovered_agent_id,omitempty"`
 	ServiceName       string         `json:"service_name,omitempty"`
+	Framework         string         `json:"framework,omitempty"`
 	LastSeenAt        *time.Time     `json:"last_seen_at,omitempty"`
 	FlaggedCount      int            `json:"flagged_count"`
 	Calls             []ObservedCall `json:"calls"`
@@ -189,6 +190,8 @@ func mapServiceErr(w http.ResponseWriter, err error) {
 	case errors.Is(err, service.ErrNotFound):
 		writeErr(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, service.ErrConflict):
+		writeErr(w, http.StatusConflict, err.Error())
+	case errors.Is(err, service.ErrFederatedReadOnly):
 		writeErr(w, http.StatusConflict, err.Error())
 	default:
 		writeErr(w, http.StatusBadRequest, err.Error())

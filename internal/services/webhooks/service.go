@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/amerfu/pllm/internal/core/models"
+	"github.com/amerfu/pllm/internal/services/webhooks/adapters"
 )
 
 // ErrNotFound / ErrConflict mirror the pattern used by other services.
@@ -45,6 +46,14 @@ type UpsertInput struct {
 	Enabled         *bool    // pointer to distinguish "leave alone" from "set false"
 	TeamID          *uuid.UUID
 	CreatedByUserID *uuid.UUID
+
+	// DestinationType picks the adapter that formats the event payload.
+	// Empty defaults to "generic" so unspecified callers behave like the
+	// pre-adapter dispatcher.
+	DestinationType models.WebhookDestinationType
+	// Config carries vendor-specific credentials and options. Validated
+	// against the chosen adapter's schema before persisting.
+	Config map[string]any
 }
 
 // List returns all webhooks, newest-first.
@@ -83,15 +92,23 @@ func (s *Service) Create(ctx context.Context, in *UpsertInput) (*models.Webhook,
 	if in.Enabled != nil {
 		enabled = *in.Enabled
 	}
+	dest := in.DestinationType
+	if dest == "" {
+		dest = models.WebhookDestGeneric
+	}
 	row := &models.Webhook{
 		BaseModel:       models.BaseModel{ID: uuid.New()},
 		Name:            in.Name,
 		URL:             in.URL,
+		DestinationType: dest,
 		Secret:          secret,
 		Events:          pq.StringArray(in.Events),
 		Enabled:         enabled,
 		TeamID:          in.TeamID,
 		CreatedByUserID: in.CreatedByUserID,
+	}
+	if err := row.SetConfig(in.Config); err != nil {
+		return nil, fmt.Errorf("encode config: %w", err)
 	}
 	if err := s.db.WithContext(ctx).Create(row).Error; err != nil {
 		return nil, err
@@ -99,8 +116,12 @@ func (s *Service) Create(ctx context.Context, in *UpsertInput) (*models.Webhook,
 	return row, nil
 }
 
-// Update mutates name, URL, events, enabled, team. Secret is immutable
-// via this path (delete + re-create to rotate).
+// Update mutates name, URL, events, enabled, team, destination, and
+// config. Secret is immutable via this path (delete + re-create to
+// rotate). Config is replaced wholesale on update — partial merges
+// would force the UI to round-trip masked values, which leaks them.
+// Empty Config preserves the existing value so a no-credential edit
+// (e.g. renaming a Splunk webhook) doesn't wipe its HEC token.
 func (s *Service) Update(ctx context.Context, id uuid.UUID, in *UpsertInput) (*models.Webhook, error) {
 	if err := validate(in, false); err != nil {
 		return nil, err
@@ -118,6 +139,27 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, in *UpsertInput) (*m
 	row.TeamID = in.TeamID
 	if in.Enabled != nil {
 		row.Enabled = *in.Enabled
+	}
+	if in.DestinationType != "" {
+		row.DestinationType = in.DestinationType
+	}
+	if len(in.Config) > 0 {
+		// Pull existing config so we can merge: any unspecified key
+		// keeps its prior value, any specified key overwrites. This
+		// lets the UI ship just the changed fields instead of asking
+		// the user to retype every credential on every edit.
+		merged := row.ConfigMap()
+		for k, v := range in.Config {
+			// A "***" sentinel from the redacted ConfigSummary means
+			// "no change" — drop it so we keep the persisted value.
+			if s, ok := v.(string); ok && s == "***" {
+				continue
+			}
+			merged[k] = v
+		}
+		if err := row.SetConfig(merged); err != nil {
+			return nil, fmt.Errorf("encode config: %w", err)
+		}
 	}
 	if err := s.db.WithContext(ctx).Save(&row).Error; err != nil {
 		return nil, err
@@ -155,7 +197,18 @@ func validate(in *UpsertInput, isCreate bool) error {
 	if !(startsWith(in.URL, "http://") || startsWith(in.URL, "https://")) {
 		return errors.New("url must start with http:// or https://")
 	}
-	_ = isCreate
+	if in.DestinationType != "" {
+		// Defer config validation to the adapter so each destination owns
+		// its required-fields list. On create we always check; on update
+		// we only check when the operator actually supplied config (since
+		// the merge logic preserves existing credentials otherwise).
+		needsCheck := isCreate || len(in.Config) > 0
+		if needsCheck {
+			if err := adapters.For(in.DestinationType).ValidateConfig(in.Config); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 

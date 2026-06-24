@@ -1,5 +1,6 @@
 import { formatDistanceToNow } from "date-fns";
 import { Icon } from "@iconify/react";
+import { frameworkInfo } from "@/lib/frameworks";
 import { icons } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { KindIcon } from "./kind-icon";
@@ -46,6 +47,13 @@ export function ArtifactCard({
     new Set((extras?.packages ?? []).map((p) => p.registry_type?.toLowerCase()).filter(Boolean)),
   ) as string[];
 
+  // Agent rows carry an optional framework slug — render its vendor logo
+  // alongside the title so LangGraph / CrewAI etc. are recognizable at a glance.
+  const fw =
+    kind === "agent"
+      ? frameworkInfo((row as RegistryAgent).framework)
+      : null;
+
   return (
     <button
       onClick={onClick}
@@ -61,9 +69,23 @@ export function ArtifactCard({
       <div className="flex items-start gap-3 min-w-0">
         <KindIcon kind={kind} name={row.name} size="md" />
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-[15px] leading-tight truncate">
-            {row.title || row.name.split("/").slice(-1)[0]}
-          </h3>
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="font-semibold text-[15px] leading-tight truncate">
+              {row.title || row.name.split("/").slice(-1)[0]}
+            </h3>
+            {fw && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0 h-[18px] text-[10px] font-medium text-muted-foreground shrink-0"
+                title={`Framework: ${fw.label}`}
+              >
+                <Icon
+                  icon={fw.icon}
+                  className={`h-3 w-3 ${fw.tone ?? ""}`}
+                />
+                {fw.label}
+              </span>
+            )}
+          </div>
           <code
             className="text-[11px] font-mono text-muted-foreground block truncate mt-0.5"
             title={row.name}
@@ -106,6 +128,15 @@ export function ArtifactCard({
           {row.status === "deprecated" && (
             <span className="inline-flex items-center h-[18px] px-1.5 rounded bg-amber-500/10 ring-1 ring-amber-500/20 font-mono text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400">
               deprecated
+            </span>
+          )}
+          {row.source_peer_id && (
+            <span
+              className="inline-flex items-center gap-1 h-[18px] px-1.5 rounded bg-violet-500/10 ring-1 ring-violet-500/20 font-mono text-[10px] uppercase tracking-wider text-violet-700 dark:text-violet-300"
+              title={`Federated from ${row.source_peer_id}`}
+            >
+              <Icon icon={icons.federation} className="h-3 w-3" />
+              {row.source_peer_id}
             </span>
           )}
           {extras?.deployStatus && extras.deployStatus !== "stopped" && (

@@ -1,5 +1,6 @@
 import { Icon } from "@iconify/react";
 import { icons } from "@/lib/icons";
+import { detectProvider } from "@/lib/providers";
 import { cn } from "@/lib/utils";
 import type { ScopeEvent, UseCase } from "@/types/api";
 
@@ -138,15 +139,25 @@ export function TargetBars({ items }: { items: TargetEntry[] }) {
   }
   return (
     <div className="space-y-2.5">
-      {items.map((it) => (
+      {items.map((it) => {
+        const providerInfo =
+          it.kind === "llm" ? detectProvider(it.target, "") : null;
+        return (
         <div key={`${it.kind}-${it.target}`} className="space-y-1">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
               <Icon
-                icon={it.kind === "mcp_tool" ? icons.mcp : icons.llm}
+                icon={
+                  providerInfo?.icon ??
+                  (it.kind === "mcp_tool" ? icons.mcp : icons.llm)
+                }
                 className={cn(
-                  "h-3 w-3 shrink-0",
-                  it.kind === "mcp_tool" ? "text-slate-500" : "text-violet-500",
+                  "h-3.5 w-3.5 shrink-0",
+                  providerInfo
+                    ? null
+                    : it.kind === "mcp_tool"
+                      ? "text-slate-500"
+                      : "text-violet-500",
                 )}
               />
               <code className="text-[11px] font-mono truncate">{it.target}</code>
@@ -166,7 +177,8 @@ export function TargetBars({ items }: { items: TargetEntry[] }) {
             />
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -85,6 +85,12 @@ type RegistryServer struct {
 	// Optional owner (publisher). Nil = global / master-key.
 	PublishedByUserID *uuid.UUID `gorm:"type:uuid;index" json:"published_by_user_id,omitempty"`
 	PublishedAt       time.Time  `json:"published_at"`
+
+	// Federation provenance — set on rows pulled from a peer registry.
+	// Empty SourcePeerID = locally published.
+	SourcePeerID        string     `gorm:"index" json:"source_peer_id,omitempty"`
+	FederatedGeneration int        `json:"federated_generation,omitempty"`
+	LastSyncedAt        *time.Time `json:"last_synced_at,omitempty"`
 }
 
 // --- Agents ---------------------------------------------------------------
@@ -115,6 +121,10 @@ type RegistryAgent struct {
 
 	PublishedByUserID *uuid.UUID `gorm:"type:uuid;index" json:"published_by_user_id,omitempty"`
 	PublishedAt       time.Time  `json:"published_at"`
+
+	SourcePeerID        string     `gorm:"index" json:"source_peer_id,omitempty"`
+	FederatedGeneration int        `json:"federated_generation,omitempty"`
+	LastSyncedAt        *time.Time `json:"last_synced_at,omitempty"`
 }
 
 // --- Skills ---------------------------------------------------------------
@@ -137,6 +147,10 @@ type RegistrySkill struct {
 
 	PublishedByUserID *uuid.UUID `gorm:"type:uuid;index" json:"published_by_user_id,omitempty"`
 	PublishedAt       time.Time  `json:"published_at"`
+
+	SourcePeerID        string     `gorm:"index" json:"source_peer_id,omitempty"`
+	FederatedGeneration int        `json:"federated_generation,omitempty"`
+	LastSyncedAt        *time.Time `json:"last_synced_at,omitempty"`
 }
 
 // --- Prompts --------------------------------------------------------------
@@ -158,7 +172,26 @@ type RegistryPrompt struct {
 
 	PublishedByUserID *uuid.UUID `gorm:"type:uuid;index" json:"published_by_user_id,omitempty"`
 	PublishedAt       time.Time  `json:"published_at"`
+
+	SourcePeerID        string     `gorm:"index" json:"source_peer_id,omitempty"`
+	FederatedGeneration int        `json:"federated_generation,omitempty"`
+	LastSyncedAt        *time.Time `json:"last_synced_at,omitempty"`
 }
+
+// IsFederated reports whether a registry row was pulled from a peer.
+// Each of the four artifact types embeds the same SourcePeerID field;
+// callers use this helper instead of comparing strings inline so the
+// "what counts as federated" rule stays in one place.
+func (s RegistryServer) IsFederated() bool { return s.SourcePeerID != "" }
+
+// IsFederated for agents.
+func (a RegistryAgent) IsFederated() bool { return a.SourcePeerID != "" }
+
+// IsFederated for skills.
+func (s RegistrySkill) IsFederated() bool { return s.SourcePeerID != "" }
+
+// IsFederated for prompts.
+func (p RegistryPrompt) IsFederated() bool { return p.SourcePeerID != "" }
 
 // --- Cross-kind references ------------------------------------------------
 

@@ -244,7 +244,7 @@ export function OutcomeDonut({ logs }: { logs: AuditLog[] }) {
                   innerRadius={28}
                   outerRadius={44}
                   paddingAngle={2}
-                  stroke="hsl(var(--background))"
+                  stroke="hsl(var(--card))"
                   strokeWidth={2}
                 >
                   {pieData.map((d) => (

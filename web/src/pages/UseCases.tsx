@@ -874,7 +874,7 @@ function DataClassifications({
 
 function DepsCounts({ data }: { data: UseCaseWithRefs }) {
   const tiles: { label: string; count: number; kind: "server" | "agent" | "skill" | "prompt" | "llm" }[] = [
-    { label: "Servers", count: data.servers?.length ?? 0, kind: "server" },
+    { label: "MCP Servers", count: data.servers?.length ?? 0, kind: "server" },
     { label: "Agents", count: data.agents?.length ?? 0, kind: "agent" },
     { label: "LLMs", count: data.llms?.length ?? 0, kind: "llm" },
     { label: "Skills", count: data.skills?.length ?? 0, kind: "skill" },

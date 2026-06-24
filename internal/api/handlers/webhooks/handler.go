@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/amerfu/pllm/internal/core/models"
 	"github.com/amerfu/pllm/internal/services/webhooks"
+	"github.com/amerfu/pllm/internal/services/webhooks/adapters"
 )
 
 // Dispatcher is the minimum surface the test-fire endpoint needs.
@@ -40,12 +42,18 @@ func NewHandler(logger *zap.Logger, service *webhooks.Service, dispatcher Dispat
 }
 
 type apiBody struct {
-	Name    string     `json:"name"`
-	URL     string     `json:"url"`
-	Secret  string     `json:"secret,omitempty"`
-	Events  []string   `json:"events,omitempty"`
-	Enabled *bool      `json:"enabled,omitempty"`
-	TeamID  *uuid.UUID `json:"team_id,omitempty"`
+	Name            string                        `json:"name"`
+	URL             string                        `json:"url"`
+	Secret          string                        `json:"secret,omitempty"`
+	Events          []string                      `json:"events,omitempty"`
+	Enabled         *bool                         `json:"enabled,omitempty"`
+	TeamID          *uuid.UUID                    `json:"team_id,omitempty"`
+	DestinationType models.WebhookDestinationType `json:"destination_type,omitempty"`
+	// Config is whatever the picked destination's adapter expects.
+	// Sensitive fields ("***") from a previous response round-trip are
+	// scrubbed by the service-layer merge so they don't overwrite the
+	// real persisted values.
+	Config map[string]any `json:"config,omitempty"`
 }
 
 // List is GET /api/admin/webhooks.
@@ -84,12 +92,14 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	row, err := h.service.Create(r.Context(), &webhooks.UpsertInput{
-		Name:    body.Name,
-		URL:     body.URL,
-		Secret:  body.Secret,
-		Events:  body.Events,
-		Enabled: body.Enabled,
-		TeamID:  body.TeamID,
+		Name:            body.Name,
+		URL:             body.URL,
+		Secret:          body.Secret,
+		Events:          body.Events,
+		Enabled:         body.Enabled,
+		TeamID:          body.TeamID,
+		DestinationType: body.DestinationType,
+		Config:          body.Config,
 	})
 	if err != nil {
 		mapErr(w, err)
@@ -110,11 +120,13 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	row, err := h.service.Update(r.Context(), id, &webhooks.UpsertInput{
-		Name:    body.Name,
-		URL:     body.URL,
-		Events:  body.Events,
-		Enabled: body.Enabled,
-		TeamID:  body.TeamID,
+		Name:            body.Name,
+		URL:             body.URL,
+		Events:          body.Events,
+		Enabled:         body.Enabled,
+		TeamID:          body.TeamID,
+		DestinationType: body.DestinationType,
+		Config:          body.Config,
 	})
 	if err != nil {
 		mapErr(w, err)
@@ -136,9 +148,10 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Test is POST /api/admin/webhooks/{id}/test — fires a synthetic event
-// at the specified webhook for health verification. Returns 202 and
-// the caller polls GET to see LastDeliveryStatus land.
+// Test is POST /api/admin/webhooks/{id}/test — fires a representative
+// scope.denied payload at the specified webhook. The event carries
+// realistic-looking sample data so vendor adapters render a complete
+// message rather than mostly-empty placeholders.
 func (h *Handler) Test(w http.ResponseWriter, r *http.Request) {
 	if h.dispatcher == nil {
 		writeErr(w, http.StatusServiceUnavailable, "webhook dispatcher not available")
@@ -153,18 +166,47 @@ func (h *Handler) Test(w http.ResponseWriter, r *http.Request) {
 		mapErr(w, err)
 		return
 	}
-	// We always fire scope.denied for tests since that's the most
-	// representative payload shape. Subscriber logic that filters on
-	// event type will ignore it if not subscribed.
 	h.dispatcher.Emit(webhooks.Event{
-		Type: models.WebhookEventScopeDenied,
+		Type:      models.WebhookEventScopeDenied,
+		CreatedAt: time.Now().UTC(),
 		Data: map[string]any{
-			"test":        true,
-			"webhook_id":  hook.ID,
-			"webhook_url": hook.URL,
+			"test":          true,
+			"target_name":   "anthropic/claude-3-opus",
+			"kind":          "llm",
+			"use_case_name": "fraud-investigation",
+			"key_name":      "retail-fraud-key",
+			"reason":        "test delivery — target is not declared in the use-case scope",
+			"webhook_id":    hook.ID,
+			"webhook_url":   hook.URL,
 		},
 	})
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// Destinations is GET /api/admin/webhooks/destinations — returns the
+// catalog of destination types and their config-key schema. The
+// frontend renders the picker + per-destination config form from this
+// payload so adding a new adapter doesn't require a UI change.
+func (h *Handler) Destinations(w http.ResponseWriter, _ *http.Request) {
+	all := adapters.All()
+	out := make([]destinationView, 0, len(all))
+	for _, a := range all {
+		out = append(out, destinationView{
+			Type:          a.Type(),
+			Label:         a.Label(),
+			DefaultEvents: a.DefaultEvents(),
+			ConfigKeys:    a.ConfigKeys(),
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"destinations": out})
+}
+
+// destinationView is the wire shape for the destinations catalog.
+type destinationView struct {
+	Type          models.WebhookDestinationType `json:"type"`
+	Label         string                        `json:"label"`
+	DefaultEvents []models.WebhookEventType     `json:"default_events,omitempty"`
+	ConfigKeys    []adapters.ConfigKey          `json:"config_keys,omitempty"`
 }
 
 // --- helpers --------------------------------------------------------------

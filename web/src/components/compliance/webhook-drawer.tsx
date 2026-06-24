@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
 
 import { cn } from "@/lib/utils";
 import { icons } from "@/lib/icons";
-import { createWebhook, updateWebhook } from "@/lib/api";
+import {
+  createWebhook,
+  listWebhookDestinations,
+  updateWebhook,
+} from "@/lib/api";
 import type {
   Webhook,
+  WebhookDestinationConfigKey,
+  WebhookDestinationType,
+  WebhookDestinationView,
   WebhookEventType,
   WebhookUpsertRequest,
 } from "@/types/api";
@@ -17,119 +24,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-
-// ---------------------------------------------------------------------------
-// Destination presets — what pllm webhooks commonly point at.
-//
-// Each preset supplies:
-//   • brand logo (Iconify id from logos: / simple-icons:)
-//   • URL placeholder + (optional) regex hint
-//   • a suggested default event subscription
-//   • suggested name, inserted only when the user hasn't typed one
-//
-// Picking a preset is purely convenience — the backend doesn't care, and
-// "Generic" leaves every field free.
-// ---------------------------------------------------------------------------
-
-type Destination = {
-  id: string;
-  label: string;
-  icon: string;
-  tint: string;
-  urlPlaceholder: string;
-  urlHint?: string;
-  defaultName: string;
-  defaultEvents: WebhookEventType[] | null; // null = all
-  colored: boolean; // true when icon is a full-color logos:* glyph
-};
-
-const DESTINATIONS: Destination[] = [
-  {
-    id: "slack",
-    label: "Slack",
-    icon: "logos:slack-icon",
-    tint: "",
-    urlPlaceholder: "https://hooks.slack.com/services/T…/B…/…",
-    urlHint: "Incoming webhook URL from Slack app config",
-    defaultName: "Slack — #compliance",
-    defaultEvents: ["scope.denied", "scope.flagged", "use_case.compliance_flag"],
-    colored: true,
-  },
-  {
-    id: "teams",
-    label: "Microsoft Teams",
-    icon: "logos:microsoft-teams",
-    tint: "",
-    urlPlaceholder: "https://outlook.office.com/webhook/…",
-    urlHint: "Teams connector URL",
-    defaultName: "Teams — compliance",
-    defaultEvents: ["scope.denied", "use_case.compliance_flag"],
-    colored: true,
-  },
-  {
-    id: "pagerduty",
-    label: "PagerDuty",
-    icon: "logos:pagerduty-icon",
-    tint: "",
-    urlPlaceholder: "https://events.pagerduty.com/v2/enqueue",
-    urlHint: "Events API v2 endpoint",
-    defaultName: "PagerDuty",
-    defaultEvents: ["scope.denied"],
-    colored: true,
-  },
-  {
-    id: "servicenow",
-    label: "ServiceNow",
-    icon: "simple-icons:servicenow",
-    tint: "text-emerald-600 dark:text-emerald-400",
-    urlPlaceholder: "https://<instance>.service-now.com/api/now/table/…",
-    urlHint: "Scripted REST or table API endpoint",
-    defaultName: "ServiceNow — GRC",
-    defaultEvents: ["use_case.compliance_flag", "scope.denied"],
-    colored: false,
-  },
-  {
-    id: "datadog",
-    label: "Datadog",
-    icon: "logos:datadog",
-    tint: "",
-    urlPlaceholder: "https://api.datadoghq.com/api/v1/events",
-    defaultName: "Datadog — events",
-    defaultEvents: null,
-    colored: true,
-  },
-  {
-    id: "splunk",
-    label: "Splunk",
-    icon: "logos:splunk",
-    tint: "",
-    urlPlaceholder: "https://<host>:8088/services/collector",
-    urlHint: "HTTP Event Collector (HEC)",
-    defaultName: "Splunk — HEC",
-    defaultEvents: null,
-    colored: true,
-  },
-  {
-    id: "discord",
-    label: "Discord",
-    icon: "logos:discord-icon",
-    tint: "",
-    urlPlaceholder: "https://discord.com/api/webhooks/…",
-    defaultName: "Discord",
-    defaultEvents: ["scope.denied", "scope.flagged"],
-    colored: true,
-  },
-  {
-    id: "generic",
-    label: "Generic webhook",
-    icon: icons.link,
-    tint: "text-muted-foreground",
-    urlPlaceholder: "https://example.com/hooks/pllm",
-    defaultName: "",
-    defaultEvents: null,
-    colored: false,
-  },
-];
+import {
+  DESTINATION_VISUALS,
+  visualFor,
+} from "@/components/compliance/destination-visuals";
 
 // ---------------------------------------------------------------------------
 // Event catalog
@@ -186,19 +84,18 @@ const ALL_EVENT_TYPES: {
 ];
 
 // ---------------------------------------------------------------------------
-// Destination inference for edit mode — guess the preset by URL
+// Destination inference for edit mode — guess the preset by URL when
+// the persisted webhook predates the destination_type column.
 // ---------------------------------------------------------------------------
 
-function inferDestination(url: string): string {
+function inferDestination(url: string): WebhookDestinationType {
   const u = url.toLowerCase();
   if (u.includes("hooks.slack.com")) return "slack";
-  if (u.includes("outlook.office.com/webhook") || u.includes("office.com"))
+  if (u.includes("outlook.office.com/webhook") || u.includes(".office.com"))
     return "teams";
-  if (u.includes("events.pagerduty.com")) return "pagerduty";
   if (u.includes("service-now.com")) return "servicenow";
-  if (u.includes("datadoghq.com")) return "datadog";
+  if (u.includes("datadoghq.com") || u.includes("datadoghq.eu")) return "datadog";
   if (u.includes("/services/collector")) return "splunk";
-  if (u.includes("discord.com/api/webhooks")) return "discord";
   return "generic";
 }
 
@@ -219,55 +116,120 @@ export function WebhookDrawer({
   const qc = useQueryClient();
   const isEdit = !!existing;
 
-  const [destId, setDestId] = useState<string>("slack");
+  // Catalog drives what destinations are pickable + what config form to
+  // render. Fetched once per drawer open; cached at the query layer.
+  const { data: catalog } = useQuery({
+    queryKey: ["webhook-destinations"],
+    queryFn: listWebhookDestinations,
+    staleTime: 60_000,
+    enabled: open,
+  });
+  const destinations = catalog?.destinations ?? [];
+
+  const [destType, setDestType] = useState<WebhookDestinationType>("slack");
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [secret, setSecret] = useState("");
   const [events, setEvents] = useState<WebhookEventType[]>([]);
   const [enabled, setEnabled] = useState(true);
   const [secretRevealed, setSecretRevealed] = useState(false);
+  // config holds the raw values the user has entered. On edit we keep
+  // existing-but-redacted ("***") sentinels so the user knows a value
+  // is set without us showing it; the backend strips them on merge.
+  const [config, setConfig] = useState<Record<string, string>>({});
 
-  const dest = useMemo(
-    () => DESTINATIONS.find((d) => d.id === destId) ?? DESTINATIONS[0],
-    [destId],
+  const dest = useMemo<WebhookDestinationView | null>(
+    () => destinations.find((d) => d.type === destType) ?? null,
+    [destinations, destType],
   );
+  const visual = visualFor(destType);
 
   // Rehydrate when opening or when existing changes.
   useEffect(() => {
     if (!open) return;
     if (existing) {
-      const inferred = inferDestination(existing.url);
-      setDestId(inferred);
+      const inferred = existing.destination_type || inferDestination(existing.url);
+      setDestType(inferred);
       setName(existing.name);
       setUrl(existing.url);
       setEvents(existing.events ?? []);
       setEnabled(existing.enabled);
       setSecret(existing.secret ?? "");
+      // Surface masked summary so the user sees "set" indicators.
+      const summary = (existing.config_summary ?? {}) as Record<string, string | null>;
+      const cfg: Record<string, string> = {};
+      for (const [k, v] of Object.entries(summary)) {
+        if (v == null) continue;
+        cfg[k] = String(v);
+      }
+      setConfig(cfg);
     } else {
-      setDestId("slack");
-      const d = DESTINATIONS[0];
-      setName(d.defaultName);
+      setDestType("slack");
+      const v = visualFor("slack");
+      setName(v.defaultName);
       setUrl("");
-      setEvents(d.defaultEvents ?? []);
+      setEvents([]);
       setEnabled(true);
       setSecret("");
+      setConfig({});
     }
     setSecretRevealed(false);
+    // events are derived from destination on first apply, see effect
+    // below — keep this hook focused on identity hydration so the
+    // initial pick can also feed off the catalog when it lands.
   }, [open, existing]);
 
-  // When the user picks a new destination (create mode), apply its defaults
-  // — but don't clobber fields the user has already edited.
-  const applyDestination = (id: string) => {
-    setDestId(id);
+  // When the catalog arrives in create mode, seed default events from
+  // the picked destination so the form is usable without further input.
+  useEffect(() => {
     if (isEdit) return;
-    const d = DESTINATIONS.find((x) => x.id === id) ?? DESTINATIONS[0];
-    // Replace the name only if the user hasn't typed a custom one, OR if
-    // it still matches a prior preset's default name.
-    const prevDefaults = DESTINATIONS.map((x) => x.defaultName).filter(Boolean);
-    if (!name || prevDefaults.includes(name)) {
-      setName(d.defaultName);
+    if (!dest) return;
+    setEvents((cur) => (cur.length === 0 ? dest.default_events ?? [] : cur));
+  }, [dest, isEdit]);
+
+  // When the user picks a new destination (create mode), apply its
+  // visual + event defaults — but don't clobber fields the user has
+  // already edited.
+  const applyDestination = (id: WebhookDestinationType) => {
+    setDestType(id);
+    if (isEdit) return;
+    const v = visualFor(id);
+    const knownDefaults = Object.values(DESTINATION_VISUALS)
+      .map((x) => x.defaultName)
+      .filter(Boolean);
+    if (!name || knownDefaults.includes(name)) {
+      setName(v.defaultName);
     }
-    setEvents(d.defaultEvents ?? []);
+    const next = destinations.find((d) => d.type === id);
+    setEvents(next?.default_events ?? []);
+    setConfig({});
+  };
+
+  const setConfigValue = (key: string, value: string) => {
+    setConfig((prev) => {
+      const next = { ...prev, [key]: value };
+      // Some destinations want URL pre-filled from a config selector
+      // (Datadog site → events API URL). Run the suggestion on every
+      // change but only auto-fill if the user hasn't typed a custom URL.
+      if (visual.suggestUrlOn) {
+        const suggested = visual.suggestUrlOn(next);
+        if (suggested) {
+          setUrl((cur) => {
+            // Only overwrite if URL is empty or matches a previously
+            // suggested value — never trample a hand-typed URL.
+            if (!cur) return suggested;
+            const allSuggestions = ["us1", "us3", "us5", "eu", "ap1"]
+              .map((s) =>
+                visual.suggestUrlOn?.({ site: s }) ?? "",
+              )
+              .filter(Boolean);
+            if (allSuggestions.includes(cur)) return suggested;
+            return cur;
+          });
+        }
+      }
+      return next;
+    });
   };
 
   const mutation = useMutation({
@@ -275,10 +237,10 @@ export function WebhookDrawer({
       existing ? updateWebhook(existing.id, body) : createWebhook(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["webhooks"] });
-      toast({ title: existing ? "Webhook updated" : "Webhook created" });
+      toast({ title: existing ? "Subscription updated" : "Subscription created" });
       onOpenChange(false);
     },
-    onError: (e: any) => {
+    onError: (e: { response?: { data?: { error?: string } }; message?: string }) => {
       toast({
         title: "Save failed",
         description: e?.response?.data?.error ?? e.message,
@@ -287,18 +249,50 @@ export function WebhookDrawer({
     },
   });
 
-  const canSubmit = name.trim().length > 0 && url.trim().length > 0;
+  // Required config check — UI mirrors what the backend will enforce.
+  const missingRequired = useMemo(() => {
+    const keys = dest?.config_keys ?? [];
+    return keys
+      .filter((k) => k.required)
+      .filter((k) => {
+        const v = config[k.key];
+        return !v || v === "";
+      })
+      .map((k) => k.label);
+  }, [config, dest]);
+
+  const canSubmit =
+    name.trim().length > 0 &&
+    url.trim().length > 0 &&
+    missingRequired.length === 0;
 
   const handleSubmit = () => {
     if (!canSubmit) {
-      toast({ title: "Name and URL are required", variant: "destructive" });
+      toast({
+        title: "Missing required fields",
+        description:
+          missingRequired.length > 0
+            ? `Required: ${missingRequired.join(", ")}`
+            : "Name and URL are required.",
+        variant: "destructive",
+      });
       return;
+    }
+    // Strip masked sentinels — the backend's merge logic does the same
+    // server-side, but cleaning here keeps PUT bodies free of "***".
+    const cfgOut: Record<string, string> = {};
+    for (const [k, v] of Object.entries(config)) {
+      if (v === "***") continue;
+      if (v === "" && !isEdit) continue;
+      cfgOut[k] = v;
     }
     const body: WebhookUpsertRequest = {
       name: name.trim(),
       url: url.trim(),
       events: events.length ? events : undefined,
       enabled,
+      destination_type: destType,
+      config: Object.keys(cfgOut).length > 0 ? cfgOut : undefined,
     };
     if (!existing && secret.trim()) body.secret = secret.trim();
     mutation.mutate(body);
@@ -312,16 +306,32 @@ export function WebhookDrawer({
     return g;
   }, []);
 
+  // Order picker by catalog. Generic last — feels less "default" when
+  // it's not at the front. Visual logos handle the rest of the prominence.
+  const orderedDestinations = useMemo(() => {
+    const order: WebhookDestinationType[] = [
+      "slack",
+      "teams",
+      "splunk",
+      "datadog",
+      "servicenow",
+      "generic",
+    ];
+    return order
+      .map((t) => destinations.find((d) => d.type === t))
+      .filter((d): d is WebhookDestinationView => !!d);
+  }, [destinations]);
+
   return (
     <FormDrawer
       open={open}
       onOpenChange={onOpenChange}
       size="lg"
-      title={isEdit ? "Edit webhook" : "New webhook"}
+      title={isEdit ? "Edit subscription" : "New subscription"}
       description={
         isEdit
-          ? "Rotate the secret by deleting and re-creating."
-          : "Pipe scope events to Slack, PagerDuty, a SIEM — anything that accepts HMAC-signed POSTs."
+          ? "Rotate the HMAC secret by deleting and re-creating the subscription."
+          : "Pipe pLLM events to Slack, Teams, a SIEM, or any HTTPS endpoint. Vendor-native formatting and auth are handled per destination."
       }
       footer={
         <>
@@ -332,7 +342,11 @@ export function WebhookDrawer({
             onClick={handleSubmit}
             disabled={!canSubmit || mutation.isPending}
           >
-            {mutation.isPending ? "Saving…" : isEdit ? "Save changes" : "Create webhook"}
+            {mutation.isPending
+              ? "Saving…"
+              : isEdit
+                ? "Save changes"
+                : "Create subscription"}
           </Button>
         </>
       }
@@ -344,17 +358,18 @@ export function WebhookDrawer({
             <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
               Destination
             </Label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {DESTINATIONS.map((d) => {
-                const active = d.id === destId;
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {orderedDestinations.map((d) => {
+                const v = visualFor(d.type);
+                const active = d.type === destType;
                 return (
                   <button
-                    key={d.id}
+                    key={d.type}
                     type="button"
-                    onClick={() => applyDestination(d.id)}
+                    onClick={() => applyDestination(d.type)}
                     className={cn(
                       "group rounded-lg border p-3 text-left transition-all",
-                      "flex flex-col items-center gap-2",
+                      "flex items-center gap-2.5",
                       "hover:border-primary/40",
                       active
                         ? "border-primary ring-1 ring-primary bg-primary/[0.04]"
@@ -364,15 +379,15 @@ export function WebhookDrawer({
                     <div
                       className={cn(
                         "h-8 w-8 rounded-md flex items-center justify-center shrink-0",
-                        d.colored ? "bg-background" : "bg-muted",
-                        d.tint,
+                        v.colored ? "bg-background" : "bg-muted",
+                        v.tint,
                       )}
                     >
-                      <Icon icon={d.icon} className="h-5 w-5" />
+                      <Icon icon={v.icon} className="h-5 w-5" />
                     </div>
                     <span
                       className={cn(
-                        "text-[11px] font-medium text-center leading-tight",
+                        "text-[12px] font-medium leading-tight truncate",
                         active ? "text-foreground" : "text-muted-foreground",
                       )}
                     >
@@ -390,17 +405,19 @@ export function WebhookDrawer({
             <div
               className={cn(
                 "h-10 w-10 rounded-md flex items-center justify-center shrink-0",
-                dest.colored ? "bg-background" : "bg-muted",
-                dest.tint,
+                visual.colored ? "bg-background" : "bg-muted",
+                visual.tint,
               )}
             >
-              <Icon icon={dest.icon} className="h-6 w-6" />
+              <Icon icon={visual.icon} className="h-6 w-6" />
             </div>
             <div className="min-w-0">
               <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
                 Destination
               </div>
-              <div className="text-sm font-semibold">{dest.label}</div>
+              <div className="text-sm font-semibold">
+                {dest?.label ?? destType}
+              </div>
             </div>
           </section>
         )}
@@ -412,7 +429,7 @@ export function WebhookDrawer({
             id="wh-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={dest.defaultName || "My webhook"}
+            placeholder={visual.defaultName || "My webhook"}
           />
         </section>
 
@@ -423,22 +440,50 @@ export function WebhookDrawer({
             id="wh-url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder={dest.urlPlaceholder}
+            placeholder={visual.urlPlaceholder}
             className="font-mono text-xs"
           />
-          {dest.urlHint && (
+          {visual.urlHint && (
             <p className="text-[11px] text-muted-foreground flex items-center gap-1">
               <Icon icon={icons.info} className="h-3 w-3" />
-              {dest.urlHint}
+              {visual.urlHint}
             </p>
           )}
         </section>
 
-        {/* ────────── Secret ────────── */}
-        {!isEdit && (
+        {/* ────────── Per-destination config form ────────── */}
+        {dest?.config_keys && dest.config_keys.length > 0 && (
+          <section className="space-y-3 rounded-lg border border-border p-3 bg-muted/10">
+            <div className="flex items-center justify-between">
+              <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+                {dest.label} credentials
+              </Label>
+              {isEdit && (
+                <span
+                  className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground"
+                  title="Leave a credential blank to keep the existing value."
+                >
+                  edit-only fields
+                </span>
+              )}
+            </div>
+            {dest.config_keys.map((k) => (
+              <ConfigField
+                key={k.key}
+                schema={k}
+                value={config[k.key] ?? ""}
+                onChange={(v) => setConfigValue(k.key, v)}
+                isEdit={isEdit}
+              />
+            ))}
+          </section>
+        )}
+
+        {/* ────────── Generic-only HMAC secret ────────── */}
+        {!isEdit && destType === "generic" && (
           <section className="space-y-2">
             <Label htmlFor="wh-secret" className="flex items-center gap-2">
-              Secret
+              HMAC secret
               <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
                 auto-generated if blank
               </span>
@@ -496,6 +541,15 @@ export function WebhookDrawer({
               <span className="text-muted-foreground/40">·</span>
               <button
                 type="button"
+                onClick={() => setEvents(dest?.default_events ?? [])}
+                className="text-[11px] text-muted-foreground hover:text-foreground"
+                title="Restore the destination's smart defaults"
+              >
+                Defaults
+              </button>
+              <span className="text-muted-foreground/40">·</span>
+              <button
+                type="button"
                 onClick={() => setEvents([])}
                 className="text-[11px] text-muted-foreground hover:text-foreground"
               >
@@ -506,7 +560,7 @@ export function WebhookDrawer({
           {events.length === 0 && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
               <Icon icon={icons.warning} className="h-3 w-3" />
-              Empty subscription — you'll get every event type.
+              Empty subscription — receiver will get every event type.
             </p>
           )}
           {Object.entries(eventGroups).map(([group, entries]) => (
@@ -573,5 +627,86 @@ export function WebhookDrawer({
         </section>
       </div>
     </FormDrawer>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ConfigField — renders one entry from the destination's config_keys
+// schema. Sensitive values arrive as "***" on edit; we treat that as
+// "value already set, leave alone unless user retypes" so the backend
+// can keep the persisted credential.
+// ---------------------------------------------------------------------------
+
+function ConfigField({
+  schema,
+  value,
+  onChange,
+  isEdit,
+}: {
+  schema: WebhookDestinationConfigKey;
+  value: string;
+  onChange: (v: string) => void;
+  isEdit: boolean;
+}) {
+  const masked = value === "***";
+  const placeholder = schema.required
+    ? `${schema.label} (required)`
+    : schema.label;
+  const inputId = `wh-cfg-${schema.key}`;
+
+  if (schema.type === "select") {
+    const options = schema.options ?? [];
+    return (
+      <div className="space-y-1.5">
+        <Label htmlFor={inputId} className="text-[11px] font-medium">
+          {schema.label}
+          {schema.required && (
+            <span className="text-rose-500 ml-1">*</span>
+          )}
+        </Label>
+        <select
+          id={inputId}
+          value={value || schema.default || options[0] || ""}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {options.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+        {schema.help && (
+          <p className="text-[11px] text-muted-foreground">{schema.help}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={inputId} className="text-[11px] font-medium flex items-center gap-1.5">
+        {schema.label}
+        {schema.required && <span className="text-rose-500">*</span>}
+        {isEdit && masked && (
+          <span className="ml-auto text-[10px] font-mono uppercase tracking-widest text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            stored
+          </span>
+        )}
+      </Label>
+      <Input
+        id={inputId}
+        type={schema.type === "password" ? "password" : "text"}
+        value={masked ? "" : value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={masked ? "(leave blank to keep stored value)" : placeholder}
+        className="font-mono text-xs"
+        autoComplete={schema.type === "password" ? "new-password" : "off"}
+      />
+      {schema.help && (
+        <p className="text-[11px] text-muted-foreground">{schema.help}</p>
+      )}
+    </div>
   );
 }

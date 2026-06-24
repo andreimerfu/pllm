@@ -149,10 +149,14 @@ export const getHistoricalSystemMetrics = (interval = "hourly", hours = 24) =>
 export const getHistoricalModelLatencies = (models: string[], interval = "hourly", hours = 24) =>
   axiosInstance.get(`/api/admin/analytics/historical/model-latencies?models=${models.join(",")}&interval=${interval}&hours=${hours}`);
 
-// Dashboard metrics API
-export const getDashboardMetrics = (): Promise<{
+// Dashboard metrics API. Accepts an optional time window (hours XOR days)
+// that the backend uses for overall stats + top_models. Backend defaults
+// to a 24h window when neither is provided.
+export const getDashboardMetrics = (
+  params: { hours?: number; days?: number } = {},
+): Promise<{
   total_requests: number;
-  total_tokens: number; 
+  total_tokens: number;
   total_cost: number;
   active_keys: number;
   active_models: number;
@@ -161,7 +165,15 @@ export const getDashboardMetrics = (): Promise<{
     requests: number;
     cost: number;
   }>;
-}> => axiosInstance.get("/api/admin/dashboard/metrics");
+}> => {
+  const sp = new URLSearchParams();
+  if (params.hours) sp.set("hours", String(params.hours));
+  else if (params.days) sp.set("days", String(params.days));
+  const qs = sp.toString();
+  return axiosInstance.get(
+    qs ? `/api/admin/dashboard/metrics?${qs}` : "/api/admin/dashboard/metrics",
+  );
+};
 export const getModelMetrics = (model: string) => axiosInstance.get(`/api/admin/dashboard/models/${encodeURIComponent(model)}`);
 export const getModelTrends = (model: string, params: { days?: number; hours?: number; interval?: string } = {}) => {
   const searchParams = new URLSearchParams();
@@ -667,3 +679,39 @@ export const getObservedAgentDeps = (name: string, version: string) =>
   axiosInstance.get(
     `/v1/registry/agents/${encodeURIComponent(name)}/versions/${encodeURIComponent(version)}/observed`,
   ) as Promise<import("@/types/api").ObservedAgentDeps>;
+
+// --- Federation ----------------------------------------------------------
+// Peer-to-peer registry sync: list, create, and trigger pulls against
+// configured upstream pllm registries. The federation_token field is
+// masked on read; only send a fresh value to rotate.
+export const listFederationPeers = () =>
+  axiosInstance.get(`/api/admin/federation/peers`) as Promise<{
+    peers: import("@/types/api").FederationPeer[];
+  }>;
+export const getFederationPeer = (id: string) =>
+  axiosInstance.get(
+    `/api/admin/federation/peers/${id}`,
+  ) as Promise<import("@/types/api").FederationPeer>;
+export const createFederationPeer = (
+  body: import("@/types/api").FederationPeerUpsertRequest,
+) =>
+  axiosInstance.post(
+    `/api/admin/federation/peers`,
+    body,
+  ) as Promise<import("@/types/api").FederationPeer>;
+export const updateFederationPeer = (
+  id: string,
+  body: import("@/types/api").FederationPeerUpsertRequest,
+) =>
+  axiosInstance.put(
+    `/api/admin/federation/peers/${id}`,
+    body,
+  ) as Promise<import("@/types/api").FederationPeer>;
+export const deleteFederationPeer = (id: string) =>
+  axiosInstance.delete(`/api/admin/federation/peers/${id}`);
+export const syncFederationPeer = (id: string) =>
+  axiosInstance.post(`/api/admin/federation/peers/${id}/sync`, {}) as Promise<{
+    result: import("@/types/api").FederationSyncResult;
+  }>;
+export const getFederationPeerStatus = (id: string) =>
+  axiosInstance.get(`/api/admin/federation/peers/${id}/status`);

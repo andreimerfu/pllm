@@ -413,6 +413,22 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// ListBindings returns use-case-owned registry refs — the
+// (use_case → resource) edges. When useCaseID is non-nil it scopes to one
+// use case; nil returns the edges for every use case. Used by the catalog
+// facade to publish bindings to an external control plane.
+func (s *Service) ListBindings(ctx context.Context, useCaseID *uuid.UUID) ([]models.RegistryRef, error) {
+	q := s.db.WithContext(ctx).Where("owner_kind = ?", models.RegistryKindUseCase)
+	if useCaseID != nil {
+		q = q.Where("owner_id = ?", *useCaseID)
+	}
+	var refs []models.RegistryRef
+	if err := q.Order("owner_id asc, target_kind asc, target_name asc").Find(&refs).Error; err != nil {
+		return nil, err
+	}
+	return refs, nil
+}
+
 // --- internal ------------------------------------------------------------
 
 func (s *Service) loadRefs(ctx context.Context, id uuid.UUID) ([]models.RegistryRef, error) {

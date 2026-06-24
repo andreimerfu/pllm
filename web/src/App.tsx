@@ -22,6 +22,9 @@ import Deployments from '@/pages/Deployments'
 import Agents from '@/pages/Agents'
 import UseCases from '@/pages/UseCases'
 import Compliance from '@/pages/Compliance'
+import Federation from '@/pages/Federation'
+import Notifications from '@/pages/Notifications'
+import Policies from '@/pages/Policies'
 import Playground from '@/pages/Playground'
 import Login from '@/pages/Login'
 import Callback from '@/pages/Callback'
@@ -70,6 +73,9 @@ function App() {
                       <Route path="/agents" element={<Agents />} />
                       <Route path="/use-cases" element={<UseCases />} />
                       <Route path="/compliance" element={<Compliance />} />
+                      <Route path="/federation" element={<Federation />} />
+                      <Route path="/notifications" element={<Notifications />} />
+                      <Route path="/policies" element={<Policies />} />
                       <Route path="/users" element={<Users />} />
                       <Route path="/teams" element={<Teams />} />
                       <Route path="/keys" element={<Keys />} />

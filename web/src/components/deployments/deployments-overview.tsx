@@ -60,7 +60,7 @@ export function ClusterRing({ deployments }: { deployments: Deployment[] }) {
                 innerRadius={40}
                 outerRadius={60}
                 paddingAngle={2}
-                stroke="hsl(var(--background))"
+                stroke="hsl(var(--card))"
                 strokeWidth={2}
               >
                 {pieData.map((d) => (

@@ -157,7 +157,7 @@ const KIND_COLOR = {
 
 export function KindBreakdown({ input }: { input: OverviewInput }) {
   const rows = [
-    { key: "server", label: "Servers", count: input.servers.length },
+    { key: "server", label: "MCP Servers", count: input.servers.length },
     { key: "agent", label: "Agents", count: input.agents.length },
     { key: "skill", label: "Skills", count: input.skills.length },
     { key: "prompt", label: "Prompts", count: input.prompts.length },
@@ -188,7 +188,7 @@ export function KindBreakdown({ input }: { input: OverviewInput }) {
                   innerRadius={40}
                   outerRadius={60}
                   paddingAngle={2}
-                  stroke="hsl(var(--background))"
+                  stroke="hsl(var(--card))"
                   strokeWidth={2}
                 >
                   {pieData.map((r) => (

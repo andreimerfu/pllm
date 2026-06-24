@@ -87,7 +87,7 @@ export const icons = {
   layers: 'solar:layers-linear',
   maximize: 'solar:maximize-linear',
   minimize: 'solar:minimize-linear',
-  mcp: 'solar:plug-circle-linear',
+  mcp: 'mingcute:mcp-line',
   registry: 'solar:book-bookmark-linear',
   agent: 'mdi:robot-outline',
   skill: 'solar:diploma-linear',
@@ -98,6 +98,12 @@ export const icons = {
   useCase: 'solar:target-linear',
   llm: 'solar:atom-linear',
   shieldAlert: 'solar:shield-warning-linear',
+  notifications: 'solar:bell-linear',
+  policies: 'solar:clipboard-check-linear',
+  broadcast: 'solar:wi-fi-router-linear',
+  federation: 'solar:routing-3-linear',
+  share: 'solar:share-linear',
+  syncSquare: 'solar:refresh-square-linear',
 } as const;
 
 export type IconName = keyof typeof icons;

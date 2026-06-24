@@ -33,6 +33,7 @@ import {
   listRegistryDependents,
   getObservedAgentDeps,
 } from "@/lib/api";
+import { frameworkInfo } from "@/lib/frameworks";
 import { detectProvider } from "@/lib/providers";
 import type {
   Deployment,
@@ -480,7 +481,7 @@ function KPIStrip({
     secondary?: string;
     kind?: RegistryKind;
   }[] = [
-    { key: "servers", label: "Servers", value: counts.servers, kind: "server" },
+    { key: "servers", label: "MCP Servers", value: counts.servers, kind: "server" },
     { key: "agents", label: "Agents", value: counts.agents, kind: "agent" },
     { key: "skills", label: "Skills", value: counts.skills, kind: "skill" },
     { key: "prompts", label: "Prompts", value: counts.prompts, kind: "prompt" },
@@ -715,6 +716,25 @@ function DetailDrawer({
               <code className="text-xs font-mono text-muted-foreground block truncate mt-1">
                 {target?.name}
               </code>
+              {target?.kind === "agents" && detailQuery.data
+                ? (() => {
+                    const fw = frameworkInfo(
+                      (detailQuery.data.row as RegistryAgentWithRefs).agent.framework,
+                    );
+                    return fw ? (
+                      <span
+                        className="mt-2 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+                        title={`Framework: ${fw.label}`}
+                      >
+                        <Icon
+                          icon={fw.icon}
+                          className={`h-3.5 w-3.5 ${fw.tone ?? ""}`}
+                        />
+                        {fw.label}
+                      </span>
+                    ) : null;
+                  })()
+                : null}
             </div>
           </div>
           <SheetDescription asChild>
@@ -1063,7 +1083,7 @@ function AgentOverview({ data }: { data: RegistryAgentWithRefs }) {
         </div>
       )}
       <div className="grid grid-cols-3 gap-2 text-center">
-        <DepSummary count={data.servers?.length ?? 0} label="Servers" kind="server" />
+        <DepSummary count={data.servers?.length ?? 0} label="MCP Servers" kind="server" />
         <DepSummary count={data.skills?.length ?? 0} label="Skills" kind="skill" />
         <DepSummary count={data.prompts?.length ?? 0} label="Prompts" kind="prompt" />
       </div>
@@ -1675,7 +1695,11 @@ function ObservedDepsSection({ name, version }: { name: string; version: string 
         </p>
       ) : (
         <>
-          <ObservedGraph agentName={name} calls={calls} />
+          <ObservedGraph
+            agentName={name}
+            calls={calls}
+            framework={data.framework}
+          />
           <div className="mt-3 space-y-1.5">
           {calls.map((c, i) => {
             const v = observedVisual(c);

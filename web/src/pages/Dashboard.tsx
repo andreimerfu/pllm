@@ -39,6 +39,73 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
+// ─── Time range model ─────────────────────────────────────────────────────────
+//
+// Shared by every dashboard widget. Three values matching the FE pill and
+// the backend allow-list in dashboard.go (parseDashboardTimeRange).
+type TimeRange = "24h" | "7d" | "30d"
+
+// trendParams maps a TimeRange to the (days/hours, interval) tuple every
+// trends-style API call accepts. Single source of truth — both the
+// sparkline queries in HeroMetrics and the area chart in
+// RequestVolumeChart go through this so the cache keys line up.
+function trendParams(range: TimeRange): { hours?: number; days?: number; interval: "hourly" | "daily" } {
+  switch (range) {
+    case "24h": return { hours: 24, interval: "hourly" }
+    case "7d":  return { days: 7,  interval: "daily" }
+    case "30d": return { days: 30, interval: "daily" }
+  }
+}
+
+// metricsParams maps a TimeRange to the (hours XOR days) tuple
+// getDashboardMetrics accepts. No interval — the snapshot endpoint
+// only cares about the window.
+function metricsParams(range: TimeRange): { hours?: number; days?: number } {
+  switch (range) {
+    case "24h": return { hours: 24 }
+    case "7d":  return { days: 7 }
+    case "30d": return { days: 30 }
+  }
+}
+
+// rangeLabel is the short label used in hero card titles ("Requests (24h)").
+function rangeLabel(range: TimeRange): string {
+  return range
+}
+
+// ─── Time range pill ──────────────────────────────────────────────────────────
+
+function TimeRangePill({
+  value,
+  onChange,
+}: {
+  value: TimeRange
+  onChange: (v: TimeRange) => void
+}) {
+  const tabs: { value: TimeRange; label: string }[] = [
+    { value: "24h", label: "24h" },
+    { value: "7d", label: "7d" },
+    { value: "30d", label: "30d" },
+  ]
+  return (
+    <div className="flex items-center gap-1 rounded-lg border p-0.5">
+      {tabs.map((tab) => (
+        <button
+          key={tab.value}
+          onClick={() => onChange(tab.value)}
+          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+            value === tab.value
+              ? "bg-teal-500/15 text-teal-400"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ─── Mini Sparkline ───────────────────────────────────────────────────────────
 
 function Sparkline({ data, color = "#14B8A6" }: { data: number[]; color?: string }) {
@@ -115,18 +182,20 @@ function HeroCard({
 
 // ─── Hero Metrics Row ─────────────────────────────────────────────────────────
 
-function HeroMetrics() {
+function HeroMetrics({ range }: { range: TimeRange }) {
   const navigate = useNavigate()
+  const mp = metricsParams(range)
+  const tp = trendParams(range)
 
   const { data: rawData, isLoading: metricsLoading } = useQuery({
-    queryKey: ["dashboard-metrics"],
-    queryFn: getDashboardMetrics,
+    queryKey: ["dashboard-metrics", mp],
+    queryFn: () => getDashboardMetrics(mp),
     refetchInterval: 60000,
   })
 
-  const { data: rawTrends7d } = useQuery({
-    queryKey: ["usage-trends", { days: 7, interval: "daily" }],
-    queryFn: () => getUsageTrends({ days: 7, interval: "daily" }),
+  const { data: rawTrends } = useQuery({
+    queryKey: ["usage-trends", tp],
+    queryFn: () => getUsageTrends(tp),
     refetchInterval: 60000,
   })
 
@@ -149,16 +218,16 @@ function HeroMetrics() {
   }, [rawData])
 
   const sparkRequests = React.useMemo(() => {
-    if (!rawTrends7d) return []
-    const raw = (rawTrends7d as any).data || rawTrends7d || []
+    if (!rawTrends) return []
+    const raw = (rawTrends as any).data || rawTrends || []
     return (raw as any[]).map((d: any) => d.requests || 0)
-  }, [rawTrends7d])
+  }, [rawTrends])
 
   const sparkTokens = React.useMemo(() => {
-    if (!rawTrends7d) return []
-    const raw = (rawTrends7d as any).data || rawTrends7d || []
+    if (!rawTrends) return []
+    const raw = (rawTrends as any).data || rawTrends || []
     return (raw as any[]).map((d: any) => d.tokens || 0)
-  }, [rawTrends7d])
+  }, [rawTrends])
 
   // Compute simple trend percentage (last vs first half average)
   const computeTrend = (arr: number[]): number | null => {
@@ -202,14 +271,14 @@ function HeroMetrics() {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <HeroCard
         icon={icons.trendingUp}
-        label="Total Requests (24h)"
+        label={`Total Requests (${rangeLabel(range)})`}
         value={metrics.totalRequests.toLocaleString()}
         trend={computeTrend(sparkRequests)}
         sparkData={sparkRequests}
       />
       <HeroCard
         icon={icons.bolt}
-        label="Tokens Used"
+        label={`Tokens Used (${rangeLabel(range)})`}
         value={
           metrics.totalTokens > 1000000
             ? `${(metrics.totalTokens / 1000000).toFixed(1)}M`
@@ -250,26 +319,13 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-function RequestVolumeChart() {
-  const [timeRange, setTimeRange] = React.useState<"24h" | "7d" | "30d">("7d")
-
-  const trendParams = React.useMemo(() => {
-    switch (timeRange) {
-      case "24h":
-        return { hours: 24, interval: "hourly" }
-      case "7d":
-        return { days: 7, interval: "daily" }
-      case "30d":
-      default:
-        return { days: 30, interval: "daily" }
-    }
-  }, [timeRange])
-
-  const currentInterval = (trendParams.interval || "daily") as "hourly" | "daily"
+function RequestVolumeChart({ range }: { range: TimeRange }) {
+  const tp = trendParams(range)
+  const currentInterval = tp.interval
 
   const { data: rawTrends, isLoading: loading } = useQuery({
-    queryKey: ["usage-trends", trendParams],
-    queryFn: () => getUsageTrends(trendParams),
+    queryKey: ["usage-trends", tp],
+    queryFn: () => getUsageTrends(tp),
     refetchInterval: 60000,
   })
 
@@ -277,9 +333,9 @@ function RequestVolumeChart() {
     if (!rawTrends) return []
     const raw = (rawTrends as any).data || rawTrends
     const data = raw || []
-    const range = trendParams.hours || trendParams.days || 30
-    return fillTimeGaps(data, currentInterval, range)
-  }, [rawTrends, currentInterval, trendParams])
+    const span = tp.hours ?? tp.days ?? 30
+    return fillTimeGaps(data, currentInterval, span)
+  }, [rawTrends, currentInterval, tp])
 
   const filteredData = chartData.map((item: any) => ({
     date: item.date,
@@ -287,31 +343,13 @@ function RequestVolumeChart() {
     tokens: item.tokens ? Math.floor(item.tokens / 100) : 0,
   }))
 
-  const tabs: { value: "24h" | "7d" | "30d"; label: string }[] = [
-    { value: "24h", label: "24h" },
-    { value: "7d", label: "7d" },
-    { value: "30d", label: "30d" },
-  ]
-
   return (
     <Card className="pt-0 flex-1 min-w-0">
       <CardHeader className="flex items-center gap-2 space-y-0 border-b py-4 sm:flex-row">
         <CardTitle className="flex-1 text-base">Request Volume</CardTitle>
-        <div className="flex items-center gap-1 rounded-lg border p-0.5">
-          {tabs.map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => setTimeRange(tab.value)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                timeRange === tab.value
-                  ? "bg-teal-500/15 text-teal-400"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+          {rangeLabel(range)}
+        </span>
       </CardHeader>
       <CardContent className="overflow-hidden px-2 pt-4 sm:px-6 sm:pt-6">
         {loading ? (
@@ -382,10 +420,11 @@ function RequestVolumeChart() {
 
 // ─── Provider Breakdown Panel ─────────────────────────────────────────────────
 
-function ProviderBreakdown() {
+function ProviderBreakdown({ range }: { range: TimeRange }) {
+  const mp = metricsParams(range)
   const { data: rawData, isLoading: metricsLoading } = useQuery({
-    queryKey: ["dashboard-metrics"],
-    queryFn: getDashboardMetrics,
+    queryKey: ["dashboard-metrics", mp],
+    queryFn: () => getDashboardMetrics(mp),
     refetchInterval: 60000,
   })
 
@@ -439,8 +478,11 @@ function ProviderBreakdown() {
 
   return (
     <Card className="pt-0 w-full lg:w-[340px] xl:w-[380px] flex-shrink-0">
-      <CardHeader className="border-b py-4">
-        <CardTitle className="text-base">Provider Breakdown</CardTitle>
+      <CardHeader className="border-b py-4 flex items-center gap-2 sm:flex-row">
+        <CardTitle className="text-base flex-1">Provider Breakdown</CardTitle>
+        <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+          {rangeLabel(range)}
+        </span>
       </CardHeader>
       <CardContent className="pt-4">
         {loading ? (
@@ -550,12 +592,13 @@ function SystemHealthStrip() {
 
 // ─── Models Activity Table ────────────────────────────────────────────────────
 
-function ModelsActivityTable() {
+function ModelsActivityTable({ range }: { range: TimeRange }) {
   const navigate = useNavigate()
+  const mp = metricsParams(range)
 
   const { data: rawData, isLoading: metricsLoading } = useQuery({
-    queryKey: ["dashboard-metrics"],
-    queryFn: getDashboardMetrics,
+    queryKey: ["dashboard-metrics", mp],
+    queryFn: () => getDashboardMetrics(mp),
     refetchInterval: 60000,
   })
 
@@ -606,6 +649,9 @@ function ModelsActivityTable() {
     <Card className="pt-0">
       <CardHeader className="flex items-center gap-2 space-y-0 border-b py-4 sm:flex-row">
         <CardTitle className="flex-1 text-base">Models Activity</CardTitle>
+        <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+          {rangeLabel(range)}
+        </span>
         <Button
           variant="ghost"
           size="sm"
@@ -707,18 +753,20 @@ function ModelsActivityTable() {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const [range, setRange] = React.useState<TimeRange>("7d")
   return (
     <PageShell
       title="Dashboard"
       description="Live health and traffic across the LLM, MCP, and governance surfaces of your console."
+      actions={<TimeRangePill value={range} onChange={setRange} />}
     >
       <SystemHealthStrip />
-      <HeroMetrics />
+      <HeroMetrics range={range} />
       <div className="flex flex-col lg:flex-row gap-6">
-        <RequestVolumeChart />
-        <ProviderBreakdown />
+        <RequestVolumeChart range={range} />
+        <ProviderBreakdown range={range} />
       </div>
-      <ModelsActivityTable />
+      <ModelsActivityTable range={range} />
     </PageShell>
   )
 }

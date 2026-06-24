@@ -405,6 +405,20 @@ discovery:
   auto_revoke: true   # revoke the bound API key when threshold is hit
 
 # ===========================
+# PDP (external OPA Policy Decision Point, e.g. Beacon)
+# ===========================
+# When disabled (default), pllm uses its built-in name-based scope resolver
+# as the PDP. When enabled, every blocking enforcement point (chat/LLM, MCP,
+# prompts, A2A) posts an OPA input document to `endpoint` and honours the
+# verdict.
+# pdp:
+#   enabled: false
+#   endpoint: "https://beacon.internal/v1/pdp/decision"
+#   token: "${PDP_TOKEN}"
+#   timeout: 2s
+#   on_error: fallback_local   # fallback_local | deny | allow
+
+# ===========================
 # Agent Invocation
 # ===========================
 agents:

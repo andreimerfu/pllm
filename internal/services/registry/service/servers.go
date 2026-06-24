@@ -95,6 +95,9 @@ func (s *ServerService) Upsert(ctx context.Context, in *models.RegistryServer) (
 			return lookup.Error
 		}
 		if lookup.Error == nil {
+			if existing.SourcePeerID != "" {
+				return ErrFederatedReadOnly
+			}
 			// Overwrite mutable fields on the existing row.
 			existing.Title = in.Title
 			existing.Description = in.Description
@@ -144,6 +147,9 @@ func (s *ServerService) SoftDelete(ctx context.Context, name, version string) er
 				return ErrNotFound
 			}
 			return err
+		}
+		if row.SourcePeerID != "" {
+			return ErrFederatedReadOnly
 		}
 		row.Status = models.RegistryStatusDeleted
 		row.IsLatest = false

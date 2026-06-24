@@ -135,9 +135,31 @@ COMP_UC_ID=$(ensure_use_case "otel-multi-compliance-auditor" "$COMP_PAYLOAD")
 ok "compliance-auditor UC: ${COMP_UC_ID}"
 
 # --- 2. Keys ---------------------------------------------------------------
+# Key handling: the discovery auto-revoker fires during a normal demo
+# run and revokes the orchestrator + compliance-auditor keys (sets
+# is_active=false AND revoked_at=now). To make this script idempotent
+# across docker-compose iterations, we DELETE any existing keys with the
+# demo names and mint fresh ones. PUT/{id} alone wouldn't be enough —
+# the admin handler historically didn't clear revoked_at, so reactivated
+# keys still failed Key.CanUse(). Delete + create avoids that quirk and
+# guarantees a clean slate on every run.
 mint_key() {
   local name="$1"
   local uc="$2"
+
+  # Delete any pre-existing keys with this exact name. The list endpoint
+  # is master-key-protected; we filter client-side via jq.
+  local stale_ids
+  stale_ids=$(curl -s -H "$H_AUTH" "${BASE_URL}/api/admin/keys?limit=200" |
+    jq -r --arg n "$name" '.keys[]? | select(.name==$n) | .id')
+  if [ -n "$stale_ids" ]; then
+    while IFS= read -r kid; do
+      [ -z "$kid" ] && continue
+      curl -s -o /dev/null -X DELETE -H "$H_AUTH" \
+        "${BASE_URL}/api/admin/keys/${kid}"
+    done <<<"$stale_ids"
+  fi
+
   local resp
   resp=$(curl -s -X POST -H "$H_AUTH" -H "$H_JSON" \
     -d "$(jq -n --arg n "$name" --arg uc "$uc" '{name:$n,key_type:"api",use_case_id:$uc}')" \
@@ -163,6 +185,26 @@ COMP_KEY_ID="${COMP_PAIR%%|*}"; COMP_API_KEY="${COMP_PAIR##*|}"
 ok "orchestrator key  ${ORCH_KEY_ID}"
 ok "risk-scorer key   ${RISK_KEY_ID}"
 ok "compliance key    ${COMP_KEY_ID}"
+
+# Probe each new key against /v1/sdk/policy. The SDK fails-closed when
+# this endpoint returns non-200, which surfaces in the agent log as
+# "policy not loaded — fail-closed mode active" and 401s on every
+# downstream call. Catch the bad key here instead of debugging in the
+# container output.
+verify_key() {
+  local label="$1"
+  local key="$2"
+  local code
+  code=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer ${key}" "${BASE_URL}/v1/sdk/policy")
+  if [ "$code" != "200" ]; then
+    fail "key ${label} rejected by /v1/sdk/policy (HTTP ${code}). Stop containers, then re-run."
+  fi
+}
+verify_key "orchestrator"       "$ORCH_API_KEY"
+verify_key "risk-scorer"        "$RISK_API_KEY"
+verify_key "compliance-auditor" "$COMP_API_KEY"
+ok "all 3 keys validated against /v1/sdk/policy"
 
 # --- 2b. Reset existing DiscoveredAgent rows so flagged_count starts ---
 # at 0 and the revoker's per-agent latch is cleared. Without this, the
@@ -217,6 +259,7 @@ cat <<EOF
 ${BOLD}Next${RESET}
 
   cd examples/agents/fraud-investigator
+  docker compose down       # clear any prior container's cached env
   set -a && source .env && set +a
   docker compose up --build
 

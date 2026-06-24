@@ -35,7 +35,7 @@ export default function Models() {
 
   const { data: dashboardData } = useQuery({
     queryKey: ["dashboard-metrics"],
-    queryFn: getDashboardMetrics,
+    queryFn: () => getDashboardMetrics(),
     refetchInterval: 60000,
   });
 

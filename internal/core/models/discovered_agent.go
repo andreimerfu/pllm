@@ -30,6 +30,12 @@ type DiscoveredAgent struct {
 	// ServiceVersion is the OTel resource `service.version`, if present.
 	ServiceVersion string `gorm:"size:64" json:"service_version,omitempty"`
 
+	// Framework is the agent's runtime framework, captured from the
+	// `pllm.agent.framework` OTel resource attribute. Examples:
+	// "langgraph", "crewai", "autogen", "llamaindex". Empty string for
+	// agents that don't advertise a framework.
+	Framework string `gorm:"size:64" json:"framework,omitempty"`
+
 	// KeyID is the pllm API key that the agent attaches to OTel spans
 	// via the `pllm.key_id` resource attribute. Optional — agents that
 	// only call non-pllm targets won't have one. When set, governance

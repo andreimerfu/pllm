@@ -46,6 +46,11 @@ type PublishInput struct {
 	Version     string
 	Title       string
 	Description string
+	// Framework is the runtime framework string captured from
+	// pllm.agent.framework on the OTel resource ("langgraph",
+	// "crewai", etc). The resolver writes it onto RegistryAgent.framework
+	// so the registry catalog can render the right vendor logo.
+	Framework string
 	// Refs are observed dependencies the resolver should attach to the
 	// new RegistryAgent. The resolver decides which kinds map cleanly
 	// onto the registry's `target_kind` enum; vector_db / http / unknown
@@ -124,6 +129,7 @@ func (s *Service) upsertOne(ctx context.Context, p ProcessedSpans) error {
 		agent = models.DiscoveredAgent{
 			ServiceName:    p.Agent.ServiceName,
 			ServiceVersion: p.Agent.ServiceVersion,
+			Framework:      p.Agent.Framework,
 			KeyID:          keyID,
 			Status:         models.DiscoveredStatusPending,
 			FirstSeenAt:    now,
@@ -139,6 +145,9 @@ func (s *Service) upsertOne(ctx context.Context, p ProcessedSpans) error {
 			"last_seen_at":    now,
 			"service_version": p.Agent.ServiceVersion,
 			"updated_at":      now,
+		}
+		if p.Agent.Framework != "" {
+			updates["framework"] = p.Agent.Framework
 		}
 		if keyID != nil {
 			updates["key_id"] = keyID
@@ -284,6 +293,7 @@ func (s *Service) Promote(ctx context.Context, id uuid.UUID, version string) (uu
 		Version:     version,
 		Title:       agent.ServiceName,
 		Description: "Auto-published from OTel discovery on " + time.Now().UTC().Format(time.RFC3339),
+		Framework:   agent.Framework,
 		Refs:        refs,
 	})
 	if err != nil {

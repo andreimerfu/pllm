@@ -183,4 +183,16 @@ data:
       # (the canonical skaffold layout — pllm Service in the pllm namespace).
       internal_url: ""
 
+    # Federation (EE): peer-to-peer registry sync. When enabled the runner
+    # pulls catalog entries from configured FederationPeer rows and the
+    # /v1/federation/* export endpoints serve this instance's local artifacts
+    # to peers that present the export_token. The token is a required shared
+    # secret (no default) - sourced from the pllm Secret so it isn't baked
+    # into the ConfigMap.
+    federation:
+      enabled: true
+      export_token: ${FEDERATION_EXPORT_TOKEN}
+      tick_interval: 1m
+      default_sync_interval: 1h
+
     model_list: []

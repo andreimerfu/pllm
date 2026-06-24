@@ -14,6 +14,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { Icon } from "@iconify/react";
+import { frameworkInfo } from "@/lib/frameworks";
 import { detectProvider } from "@/lib/providers";
 import type { ObservedAgentCall } from "@/types/api";
 
@@ -29,6 +30,9 @@ interface ObservedGraphNodeData {
   count?: number;
   outcome?: string;
   icon?: string;
+  /** Optional tailwind classes applied to the icon glyph (used to colorize
+   * monochrome simple-icons:* logos like CrewAI's). */
+  iconTone?: string;
 }
 
 // Edge styling per outcome. Solid emerald for allowed; dashed for the
@@ -94,7 +98,10 @@ function ObservedNode({ data }: NodeProps) {
     >
       <Handle type="target" position={Position.Left} className="!bg-transparent !border-0" />
       <div className="flex items-center gap-2">
-        <Icon icon={d.icon ?? KIND_ICON[d.kind]} className={`h-4 w-4 ${tone.iconClass}`} />
+        <Icon
+          icon={d.icon ?? KIND_ICON[d.kind]}
+          className={`h-4 w-4 ${d.iconTone ?? tone.iconClass}`}
+        />
         <div className="min-w-0">
           <div className="font-mono text-[11px] truncate max-w-[200px]" title={d.label}>
             {d.label}
@@ -117,14 +124,19 @@ const NODE_TYPES = { observed: ObservedNode };
 interface Props {
   agentName: string;
   calls: ObservedAgentCall[];
+  /** Optional framework slug (e.g. "langgraph", "crewai"). When set, the
+   * agent_root node renders the framework's vendor logo instead of the
+   * generic person glyph. */
+  framework?: string | null;
 }
 
 // Lay out the agent on the left, observed targets stacked on the right.
 // One row per unique target; vertical spacing scales to keep dense graphs
 // legible without React Flow's auto-layout overhead.
-export function ObservedGraph({ agentName, calls }: Props) {
+export function ObservedGraph({ agentName, calls, framework }: Props) {
   const { nodes, edges } = useMemo(() => {
     const rootId = "agent-root";
+    const fw = frameworkInfo(framework);
     const ns: Node[] = [
       {
         id: rootId,
@@ -133,8 +145,9 @@ export function ObservedGraph({ agentName, calls }: Props) {
         data: {
           kind: "agent_root",
           label: agentName,
-          sublabel: "this agent",
-          icon: KIND_ICON.agent_root,
+          sublabel: fw ? fw.label : "this agent",
+          icon: fw?.icon ?? KIND_ICON.agent_root,
+          iconTone: fw?.tone,
         } as unknown as Record<string, unknown>,
       },
     ];
@@ -176,7 +189,7 @@ export function ObservedGraph({ agentName, calls }: Props) {
       });
     });
     return { nodes: ns, edges: es };
-  }, [agentName, calls]);
+  }, [agentName, calls, framework]);
 
   if (calls.length === 0) {
     return null;

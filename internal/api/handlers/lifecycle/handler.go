@@ -14,18 +14,31 @@ import (
 
 // Handler is the HTTP edge for the lifecycle service. nil service is
 // allowed at construction time (returns 503 from each handler) so the
-// router can mount the routes regardless of feature gating.
+// router can mount the routes regardless of feature gating. Custom is
+// the embedded CRUD handler for operator-defined CEL rules; it has
+// independent nil-handling so templates can be served even when the
+// daemon itself is disabled.
 type Handler struct {
 	logger *zap.Logger
 	svc    *lifesvc.Service
+	Custom *CustomRulesHandler
 }
 
-// NewHandler returns a Handler. Pass a nil service to disable.
+// NewHandler returns a Handler. Pass a nil service to disable the
+// status/run endpoints; Custom must be wired separately via
+// WithCustomRules to enable the CRUD surface.
 func NewHandler(logger *zap.Logger, svc *lifesvc.Service) *Handler {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 	return &Handler{logger: logger, svc: svc}
+}
+
+// WithCustomRules attaches the custom-rules handler. Returns the
+// receiver for chaining at construction time.
+func (h *Handler) WithCustomRules(c *CustomRulesHandler) *Handler {
+	h.Custom = c
+	return h
 }
 
 // Status returns the cached summary of the most recent run.

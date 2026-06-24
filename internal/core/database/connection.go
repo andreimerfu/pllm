@@ -171,6 +171,7 @@ func Migrate() error {
 		&models.LifecycleCustomRule{},
 		&models.DiscoveredAgent{},
 		&models.DiscoveredCall{},
+		&models.FederationPeer{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate models: %w", err)
 	}

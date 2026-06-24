@@ -22,9 +22,12 @@ const (
 // AgentFingerprint is the minimum identity we extract from OTel
 // resource attributes. KeyIDRaw is the raw string from the
 // `pllm.key_id` attribute — the service layer parses it to uuid.UUID.
+// Framework comes from `pllm.agent.framework` and ends up on
+// DiscoveredAgent + (after promote) RegistryAgent.
 type AgentFingerprint struct {
 	ServiceName    string
 	ServiceVersion string
+	Framework      string
 	KeyIDRaw       string
 }
 
@@ -64,6 +67,7 @@ func ProcessResourceSpans(rs ResourceSpans) ProcessedSpans {
 		Agent: AgentFingerprint{
 			ServiceName:    Lookup(rs.Resource.Attributes, "service.name"),
 			ServiceVersion: Lookup(rs.Resource.Attributes, "service.version"),
+			Framework:      Lookup(rs.Resource.Attributes, "pllm.agent.framework"),
 			KeyIDRaw:       Lookup(rs.Resource.Attributes, "pllm.key_id"),
 		},
 	}

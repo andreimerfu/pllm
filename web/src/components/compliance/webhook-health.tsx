@@ -95,7 +95,7 @@ export function WebhookHealth({
                   innerRadius={32}
                   outerRadius={48}
                   paddingAngle={2}
-                  stroke="hsl(var(--background))"
+                  stroke="hsl(var(--card))"
                   strokeWidth={2}
                 >
                   {pieData.map((d) => (

@@ -23,6 +23,11 @@ var ErrNotFound = errors.New("registry: not found")
 // ErrConflict is returned when a unique constraint would be violated.
 var ErrConflict = errors.New("registry: conflict")
 
+// ErrFederatedReadOnly is returned when a write would mutate a row that
+// was pulled from a federation peer. Federated rows are managed by their
+// source registry; local edits are rejected to keep provenance honest.
+var ErrFederatedReadOnly = errors.New("registry: row is federated and read-only on this instance")
+
 // ListFilter narrows a list query. All fields optional.
 type ListFilter struct {
 	Search       string     // substring match on name or description

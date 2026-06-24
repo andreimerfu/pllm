@@ -65,7 +65,10 @@ type ModelUsage struct {
 
 func (h *DashboardHandler) GetDashboardMetrics(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
-	last24h := now.Add(-24 * time.Hour)
+	// Resolved time window for overall stats + top models. Defaults to
+	// 24h when no params are given so the legacy call-shape keeps its
+	// previous meaning; the FE pill sends ?hours=24, ?days=7, ?days=30.
+	since := parseDashboardTimeRange(r.URL.Query().Get("hours"), r.URL.Query().Get("days"))
 	lastHour := now.Add(-1 * time.Hour)
 
 	metrics := DashboardMetrics{}
@@ -81,7 +84,7 @@ func (h *DashboardHandler) GetDashboardMetrics(w http.ResponseWriter, r *http.Re
 	}
 
 	err := h.db.Raw(`
-		SELECT 
+		SELECT
 			COUNT(*) as total_requests,
 			SUM(total_tokens) as total_tokens,
 			SUM(total_cost) as total_cost,
@@ -90,7 +93,7 @@ func (h *DashboardHandler) GetDashboardMetrics(w http.ResponseWriter, r *http.Re
 			ROUND(AVG(latency)) as avg_latency
 		FROM usage_logs
 		WHERE timestamp >= ?
-	`, last24h).Scan(&overallStats).Error
+	`, since).Scan(&overallStats).Error
 
 	if err != nil {
 		h.logger.Error("Failed to get overall stats", zap.Error(err))
@@ -117,13 +120,16 @@ func (h *DashboardHandler) GetDashboardMetrics(w http.ResponseWriter, r *http.Re
 		First(&latestSystemMetrics)
 	metrics.ActiveModels = latestSystemMetrics.ActiveModels
 
-	// Get last 24h activity
+	// RecentActivity.Last24h is intentionally pinned to a literal 24h
+	// window regardless of the dashboard pill — it's a fixed "today vs
+	// last hour" diff used by widgets that explicitly want that frame.
+	last24h := now.Add(-24 * time.Hour)
 	err = h.db.Raw(`
-		SELECT 
+		SELECT
 			COUNT(*) as requests,
 			COALESCE(SUM(total_tokens), 0) as tokens,
 			COALESCE(SUM(total_cost), 0) as cost
-		FROM usage_logs 
+		FROM usage_logs
 		WHERE timestamp >= ?
 	`, last24h).Scan(&metrics.RecentActivity.Last24h).Error
 
@@ -145,7 +151,8 @@ func (h *DashboardHandler) GetDashboardMetrics(w http.ResponseWriter, r *http.Re
 		h.logger.Error("Failed to get 1h stats", zap.Error(err))
 	}
 
-	// Get top models by requests (last 24h) with enhanced metrics
+	// Top models follow the resolved dashboard window so the provider
+	// breakdown + models activity table respond to the pill.
 	var topModels []ModelUsage
 	err = h.db.Raw(`
 		SELECT
@@ -163,7 +170,7 @@ func (h *DashboardHandler) GetDashboardMetrics(w http.ResponseWriter, r *http.Re
 		GROUP BY model
 		ORDER BY requests DESC
 		LIMIT 10
-	`, last24h).Scan(&topModels).Error
+	`, since).Scan(&topModels).Error
 
 	if err != nil {
 		h.logger.Error("Failed to get top models", zap.Error(err))
@@ -324,6 +331,33 @@ func (h *DashboardHandler) GetModelTrends(w http.ResponseWriter, r *http.Request
 		h.logger.Error("Failed to encode model trends", zap.Error(err))
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
+}
+
+// parseDashboardTimeRange resolves the "since" time for the dashboard
+// metrics endpoint. Differs from parseTrendTimeRange in two ways:
+//   - default is 24 hours (the legacy behavior), not 30 days
+//   - allowed values match the FE pill (24h / 7d / 30d)
+//
+// Anything outside the allow-list falls back to 24h so a malformed
+// query string never surfaces a confusing very-narrow or very-wide window.
+func parseDashboardTimeRange(hoursParam, daysParam string) time.Time {
+	if hoursParam != "" {
+		if h, err := strconv.Atoi(hoursParam); err == nil {
+			switch h {
+			case 1, 6, 24:
+				return time.Now().Add(-time.Duration(h) * time.Hour)
+			}
+		}
+	}
+	if daysParam != "" {
+		if d, err := strconv.Atoi(daysParam); err == nil {
+			switch d {
+			case 7, 30, 90:
+				return time.Now().AddDate(0, 0, -d)
+			}
+		}
+	}
+	return time.Now().Add(-24 * time.Hour)
 }
 
 // parseTrendTimeRange determines the "since" time from hours/days query params.

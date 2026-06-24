@@ -45,6 +45,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.LifecycleCustomRule{}, // Lifecycle: operator-defined CEL hygiene rules
 		&models.DiscoveredAgent{},   // Discovery: agents fingerprinted from OTel traffic
 		&models.DiscoveredCall{},    // Discovery: rollup of (agent, target) edges from OTel
+		&models.FederationPeer{},    // Federation: upstream pllm registries this instance pulls from
 	)
 
 	if err != nil {

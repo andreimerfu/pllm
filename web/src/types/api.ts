@@ -443,6 +443,11 @@ export interface RegistryBase {
   metadata?: unknown;
   created_at?: string;
   updated_at?: string;
+  // Federation provenance — set on rows pulled from a peer registry.
+  // Empty source_peer_id = locally published.
+  source_peer_id?: string;
+  federated_generation?: number;
+  last_synced_at?: string;
 }
 
 export interface EnrichmentScore {
@@ -499,6 +504,7 @@ export interface RegistryAgentWithRefs {
 export interface ObservedAgentDeps {
   discovered_agent_id?: string | null;
   service_name?: string;
+  framework?: string;
   last_seen_at?: string | null;
   flagged_count: number;
   calls: ObservedAgentCall[];
@@ -925,6 +931,7 @@ export interface DiscoveredAgent {
   id: string;
   service_name: string;
   service_version?: string;
+  framework?: string;
   key_id?: string | null;
   promoted_agent_id?: string | null;
   status: DiscoveredAgentStatus;
@@ -947,5 +954,69 @@ export interface DiscoveredCall {
   last_seen_at: string;
   last_outcome?: string;
   last_reason?: string;
+}
+
+// --- Federation ----------------------------------------------------------
+
+export type FederationSyncMode = 'all' | 'whitelist' | 'tag_filter';
+export type FederationSyncStatus = '' | 'success' | 'failed' | 'partial';
+
+export interface FederationPeer {
+  id: string;
+  peer_id: string;
+  name: string;
+  endpoint: string;
+  enabled: boolean;
+  sync_mode: FederationSyncMode;
+  whitelist_servers?: string[];
+  whitelist_agents?: string[];
+  whitelist_skills?: string[];
+  whitelist_prompts?: string[];
+  tag_filters?: string[];
+  sync_interval_minutes: number;
+  expected_client_id?: string;
+  // Server masks this to "***" on read; clients re-send to update,
+  // leave blank or "***" to keep existing.
+  federation_token?: string;
+  last_sync_at?: string;
+  last_sync_status?: FederationSyncStatus;
+  last_sync_summary?: string;
+  last_sync_error?: string;
+  last_sync_generation?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FederationPeerUpsertRequest {
+  peer_id: string;
+  name: string;
+  endpoint: string;
+  federation_token?: string;
+  expected_client_id?: string;
+  sync_mode: FederationSyncMode;
+  whitelist_servers?: string[];
+  whitelist_agents?: string[];
+  whitelist_skills?: string[];
+  whitelist_prompts?: string[];
+  tag_filters?: string[];
+  sync_interval_minutes?: number;
+  enabled?: boolean;
+}
+
+export interface FederationSyncKindResult {
+  fetched: number;
+  saved: number;
+  skipped: number;
+}
+
+export interface FederationSyncResult {
+  peer_id: string;
+  generation: number;
+  servers: FederationSyncKindResult;
+  agents: FederationSyncKindResult;
+  skills: FederationSyncKindResult;
+  prompts: FederationSyncKindResult;
+  orphaned: number;
+  errors?: string[];
 }
 

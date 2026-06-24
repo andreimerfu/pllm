@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
 import { getDiscoveredAgent } from "@/lib/api";
+import { frameworkInfo } from "@/lib/frameworks";
 import { detectProvider } from "@/lib/providers";
 import type { DiscoveredCall, DiscoveredCallKind } from "@/types/api";
 import { Badge } from "@/components/ui/badge";
@@ -106,8 +107,26 @@ export function DiscoveredAgentDrawer({ agentId, onClose }: Props) {
     <Sheet open={!!agentId} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-[min(680px,100vw)] sm:max-w-[680px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="font-mono">
-            {data?.agent.service_name ?? "Agent"}
+          <SheetTitle className="font-mono flex items-center gap-2">
+            {(() => {
+              const fw = frameworkInfo(data?.agent.framework);
+              return fw ? (
+                <Icon
+                  icon={fw.icon}
+                  className={`h-5 w-5 ${fw.tone ?? ""}`}
+                  aria-label={fw.label}
+                />
+              ) : null;
+            })()}
+            <span>{data?.agent.service_name ?? "Agent"}</span>
+            {(() => {
+              const fw = frameworkInfo(data?.agent.framework);
+              return fw ? (
+                <span className="text-xs font-sans font-normal text-muted-foreground">
+                  {fw.label}
+                </span>
+              ) : null;
+            })()}
           </SheetTitle>
           <SheetDescription>
             Calls observed via OpenTelemetry. Out-of-scope rows are flagged but
