@@ -6,7 +6,6 @@ import { icons } from '@/lib/icons'
 import { format, formatDistanceToNow } from "date-fns"
 
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import {
@@ -32,39 +31,74 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AuditLog } from "@/types/api"
 import { useAuditLogs } from "@/hooks/useAuditLogs"
-import { getStatusBadge } from "@/components/audit-logs/columns"
 import { DetailItem } from "@/components/common/DetailItem"
 import { JsonViewer } from "@/components/common/JsonViewer"
 import { PageShell } from "@/components/common/page-shell"
+import { StatusChip, Tag } from "@/components/common/status-chip"
 import {
   EventsTimeline,
   OutcomeDonut,
   TopBars,
 } from "@/components/audit-logs/audit-overview"
 
-// Status dot color
+// Map an audit result to a semantic status tone.
+const resultTone = (result: string): "good" | "warn" | "bad" | "neutral" => {
+  switch (result) {
+    case 'success':
+      return 'good'
+    case 'warning':
+      return 'warn'
+    case 'failure':
+    case 'error':
+      return 'bad'
+    default:
+      return 'neutral'
+  }
+}
+
+// Status dot color — token-ized semantic tones.
 const getResultDot = (result: string) => {
   switch (result) {
     case 'success':
-      return 'bg-emerald-400'
+      return 'bg-good'
     case 'failure':
-      return 'bg-red-400'
     case 'error':
-      return 'bg-red-500'
+      return 'bg-bad'
     case 'warning':
-      return 'bg-amber-400'
+      return 'bg-warn'
     default:
-      return 'bg-zinc-400'
+      return 'bg-text-dim'
+  }
+}
+
+// Status pill — replaces the legacy getStatusBadge Badge output.
+const ResultChip = ({ result }: { result: string }) => (
+  <StatusChip tone={resultTone(result)} label={result.charAt(0).toUpperCase() + result.slice(1)} />
+)
+
+// HTTP method tone for the request endpoint chip.
+const methodTone = (method?: string): "good" | "warn" | "bad" | "info" | "neutral" => {
+  switch (method) {
+    case 'GET':
+      return 'info'
+    case 'POST':
+      return 'good'
+    case 'PUT':
+      return 'warn'
+    case 'DELETE':
+      return 'bad'
+    default:
+      return 'neutral'
   }
 }
 
 // Pill status options
 const statusOptions = [
-  { value: '', label: 'All', dot: 'bg-zinc-400' },
-  { value: 'success', label: 'Success', dot: 'bg-emerald-400' },
-  { value: 'failure', label: 'Failure', dot: 'bg-red-400' },
-  { value: 'error', label: 'Error', dot: 'bg-red-500' },
-  { value: 'warning', label: 'Warning', dot: 'bg-amber-400' },
+  { value: '', label: 'All', dot: 'bg-text-dim' },
+  { value: 'success', label: 'Success', dot: 'bg-good' },
+  { value: 'failure', label: 'Failure', dot: 'bg-bad' },
+  { value: 'error', label: 'Error', dot: 'bg-bad' },
+  { value: 'warning', label: 'Warning', dot: 'bg-warn' },
 ]
 
 export default function AuditLogs() {
@@ -183,28 +217,14 @@ export default function AuditLogs() {
         <EventsTimeline logs={auditLogs} />
         <OutcomeDonut logs={auditLogs} />
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TopBars
           logs={auditLogs}
           kind="action"
           onPick={(v) => setSearchInput(v)}
         />
-        <TopBars
-          logs={auditLogs}
-          kind="resource"
-          onPick={(v) => setFilters(prev => ({ ...prev, resource: v }))}
-        />
         <TopBars logs={auditLogs} kind="user" />
       </div>
-
-      {!isLoading && (
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">total events</span>
-          <Badge variant="secondary" className="font-mono text-xs tabular-nums h-6 px-2.5">
-            {total.toLocaleString()}
-          </Badge>
-        </div>
-      )}
 
       {/* ── Filter Bar ── */}
       <div className="rounded-xl border bg-card/60 backdrop-blur-sm px-3 py-2.5 mb-4">
@@ -321,15 +341,14 @@ export default function AuditLogs() {
       {activeFilterPills.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap mb-4">
           {activeFilterPills.map((pill) => (
-            <Badge
+            <button
               key={pill.key}
-              variant="secondary"
-              className="text-xs gap-1 pl-2.5 pr-1.5 py-0.5 cursor-pointer hover:bg-destructive/10 hover:text-destructive transition-colors"
               onClick={pill.onClear}
+              className="inline-flex items-center gap-1 rounded-md bg-surface-2 pl-2.5 pr-1.5 py-[3px] text-[10.5px] font-medium text-text-dim transition-colors hover:bg-bad/12 hover:text-bad"
             >
               {pill.label}
               <Icon icon={icons.close} className="h-3 w-3" />
-            </Badge>
+            </button>
           ))}
         </div>
       )}
@@ -399,9 +418,9 @@ export default function AuditLogs() {
                         </span>
                       </div>
                       {log.resource_type && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 capitalize font-normal shrink-0 hidden xl:inline-flex border-muted-foreground/20 text-muted-foreground">
-                          {log.resource_type}
-                        </Badge>
+                        <span className="shrink-0 hidden xl:inline-flex capitalize">
+                          <Tag label={log.resource_type} />
+                        </span>
                       )}
                     </div>
 
@@ -455,14 +474,14 @@ export default function AuditLogs() {
                       <div className="px-4 py-4">
                         {/* Quick summary bar */}
                         <div className="flex items-center gap-2 mb-4 flex-wrap">
-                          {getStatusBadge(log.event_result)}
-                          <Badge variant="outline" className="text-xs capitalize font-normal">
-                            {log.event_type.replace(/_/g, ' ')}
-                          </Badge>
+                          <ResultChip result={log.event_result} />
+                          <span className="capitalize">
+                            <Tag label={log.event_type.replace(/_/g, ' ')} />
+                          </span>
                           {log.resource_type && (
-                            <Badge variant="outline" className="text-xs capitalize font-normal">
-                              {log.resource_type}
-                            </Badge>
+                            <span className="capitalize">
+                              <Tag label={log.resource_type} />
+                            </span>
                           )}
                           <span className="text-[11px] font-mono text-muted-foreground ml-auto">
                             {format(timestamp, "yyyy-MM-dd HH:mm:ss")}
@@ -519,7 +538,7 @@ export default function AuditLogs() {
                                 )}
                                 {log.error_code && (
                                   <DetailItem label="Error Code">
-                                    <Badge variant="destructive" className="text-[10px] font-mono">{log.error_code}</Badge>
+                                    <StatusChip tone="bad" dot={false} label={<span className="font-mono">{log.error_code}</span>} />
                                   </DetailItem>
                                 )}
                               </div>
@@ -531,15 +550,8 @@ export default function AuditLogs() {
                                   <div className="col-span-2">
                                     <DetailItem label="Endpoint">
                                       <div className="flex items-center gap-1.5">
-                                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
-                                          log.method === 'GET' ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300" :
-                                          log.method === 'POST' ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300" :
-                                          log.method === 'PUT' ? "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300" :
-                                          log.method === 'DELETE' ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300" : ""
-                                        }`}>
-                                          {log.method}
-                                        </Badge>
-                                        <code className="text-[11px] font-mono bg-muted px-1.5 py-0.5 rounded break-all">{log.path}</code>
+                                        <StatusChip tone={methodTone(log.method)} dot={false} label={<span className="font-mono">{log.method}</span>} />
+                                        <code className="text-[11px] font-mono bg-surface-2 px-1.5 py-0.5 rounded break-all">{log.path}</code>
                                       </div>
                                     </DetailItem>
                                   </div>
@@ -589,21 +601,21 @@ export default function AuditLogs() {
                             <TabsContent value="technical" className="mt-0">
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <DetailItem label="Event ID">
-                                  <code className="text-[11px] font-mono bg-muted px-1.5 py-0.5 rounded break-all">{log.id}</code>
+                                  <code className="text-[11px] font-mono bg-surface-2 px-1.5 py-0.5 rounded break-all">{log.id}</code>
                                 </DetailItem>
                                 {log.auth_method && (
                                   <DetailItem label="Auth Method">
-                                    <Badge variant="secondary" className="capitalize text-[10px]">{log.auth_method}</Badge>
+                                    <span className="capitalize"><Tag label={log.auth_method} /></span>
                                   </DetailItem>
                                 )}
                                 {log.auth_provider && (
                                   <DetailItem label="Auth Provider">
-                                    <Badge variant="secondary" className="capitalize text-[10px]">{log.auth_provider}</Badge>
+                                    <span className="capitalize"><Tag label={log.auth_provider} /></span>
                                   </DetailItem>
                                 )}
                                 {log.user_id && (
                                   <DetailItem label="User ID">
-                                    <code className="text-[11px] font-mono bg-muted px-1.5 py-0.5 rounded">{log.user_id}</code>
+                                    <code className="text-[11px] font-mono bg-surface-2 px-1.5 py-0.5 rounded">{log.user_id}</code>
                                   </DetailItem>
                                 )}
                               </div>
@@ -671,36 +683,36 @@ export default function AuditLogs() {
             return (
               <>
                 {/* Dark header */}
-                <SheetHeader className="p-5 pr-12 bg-zinc-900 dark:bg-zinc-950 text-white">
+                <SheetHeader className="p-5 pr-12 bg-surface-2 text-foreground border-b border-border">
                   <div className="flex items-start gap-3">
-                    <span className={`inline-block h-3 w-3 rounded-full mt-1 shrink-0 ring-2 ring-white/20 ${getResultDot(selectedAuditLog.event_result)}`} />
+                    <span className={`inline-block h-3 w-3 rounded-full mt-1 shrink-0 ring-2 ring-border ${getResultDot(selectedAuditLog.event_result)}`} />
                     <div className="flex-1 min-w-0">
-                      <SheetTitle className="text-base font-semibold text-white">
+                      <SheetTitle className="text-base font-semibold text-foreground">
                         {selectedAuditLog.event_action}
                       </SheetTitle>
-                      <SheetDescription className="mt-1 text-xs font-mono text-zinc-400">
+                      <SheetDescription className="mt-1 text-xs font-mono text-muted-foreground">
                         {format(ts, "yyyy-MM-dd HH:mm:ss")}
-                        <span className="ml-2 text-zinc-500">
+                        <span className="ml-2 text-text-dim">
                           ({formatDistanceToNow(ts, { addSuffix: true })})
                         </span>
                       </SheetDescription>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 mt-3 flex-wrap">
-                    {getStatusBadge(selectedAuditLog.event_result)}
-                    <Badge variant="outline" className="text-xs capitalize font-normal border-zinc-700 text-zinc-300">
-                      {selectedAuditLog.event_type.replace(/_/g, ' ')}
-                    </Badge>
+                    <ResultChip result={selectedAuditLog.event_result} />
+                    <span className="capitalize">
+                      <Tag label={selectedAuditLog.event_type.replace(/_/g, ' ')} />
+                    </span>
                     {selectedAuditLog.resource_type && (
-                      <Badge variant="outline" className="text-xs capitalize font-normal border-zinc-700 text-zinc-300">
-                        {selectedAuditLog.resource_type}
-                      </Badge>
+                      <span className="capitalize">
+                        <Tag label={selectedAuditLog.resource_type} />
+                      </span>
                     )}
                     <div className="flex items-center gap-1.5 ml-auto">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-6 text-[11px] bg-transparent border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                        className="h-6 text-[11px]"
                         onClick={() => navigator.clipboard.writeText(selectedAuditLog.id)}
                       >
                         <Icon icon={icons.copy} className="h-3 w-3 mr-1" />
@@ -709,7 +721,7 @@ export default function AuditLogs() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-6 text-[11px] bg-transparent border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                        className="h-6 text-[11px]"
                         onClick={() => {
                           const blob = new Blob([JSON.stringify(selectedAuditLog, null, 2)], { type: 'application/json' })
                           const url = URL.createObjectURL(blob)
@@ -767,7 +779,7 @@ export default function AuditLogs() {
                               <DetailItem label="Resource Type" value={selectedAuditLog.resource_type} />
                               {selectedAuditLog.resource_id && (
                                 <DetailItem label="Resource ID">
-                                  <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{selectedAuditLog.resource_id}</code>
+                                  <code className="text-xs font-mono bg-surface-2 px-1.5 py-0.5 rounded">{selectedAuditLog.resource_id}</code>
                                 </DetailItem>
                               )}
                             </>
@@ -781,7 +793,7 @@ export default function AuditLogs() {
 
                           {selectedAuditLog.error_code && (
                             <DetailItem label="Error">
-                              <Badge variant="destructive" className="font-mono text-xs">{selectedAuditLog.error_code}</Badge>
+                              <StatusChip tone="bad" dot={false} label={<span className="font-mono">{selectedAuditLog.error_code}</span>} />
                             </DetailItem>
                           )}
                         </dl>
@@ -792,15 +804,8 @@ export default function AuditLogs() {
                           {selectedAuditLog.method && selectedAuditLog.path && (
                             <DetailItem label="Endpoint">
                               <div className="flex items-center gap-2">
-                                <Badge variant="outline" className={
-                                  selectedAuditLog.method === 'GET' ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300" :
-                                  selectedAuditLog.method === 'POST' ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300" :
-                                  selectedAuditLog.method === 'PUT' ? "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300" :
-                                  selectedAuditLog.method === 'DELETE' ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300" : ""
-                                }>
-                                  {selectedAuditLog.method}
-                                </Badge>
-                                <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded break-all">
+                                <StatusChip tone={methodTone(selectedAuditLog.method)} dot={false} label={<span className="font-mono">{selectedAuditLog.method}</span>} />
+                                <code className="text-xs font-mono bg-surface-2 px-1.5 py-0.5 rounded break-all">
                                   {selectedAuditLog.path}
                                 </code>
                               </div>
@@ -860,26 +865,26 @@ export default function AuditLogs() {
                       <TabsContent value="technical" className="space-y-4">
                         <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
                           <DetailItem label="Event ID">
-                            <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded break-all">
+                            <code className="text-xs font-mono bg-surface-2 px-1.5 py-0.5 rounded break-all">
                               {selectedAuditLog.id}
                             </code>
                           </DetailItem>
 
                           {selectedAuditLog.auth_method && (
                             <DetailItem label="Auth Method">
-                              <Badge variant="secondary" className="capitalize text-xs">{selectedAuditLog.auth_method}</Badge>
+                              <span className="capitalize"><Tag label={selectedAuditLog.auth_method} /></span>
                             </DetailItem>
                           )}
 
                           {selectedAuditLog.auth_provider && (
                             <DetailItem label="Auth Provider">
-                              <Badge variant="secondary" className="capitalize text-xs">{selectedAuditLog.auth_provider}</Badge>
+                              <span className="capitalize"><Tag label={selectedAuditLog.auth_provider} /></span>
                             </DetailItem>
                           )}
 
                           {selectedAuditLog.user_id && (
                             <DetailItem label="User ID">
-                              <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{selectedAuditLog.user_id}</code>
+                              <code className="text-xs font-mono bg-surface-2 px-1.5 py-0.5 rounded">{selectedAuditLog.user_id}</code>
                             </DetailItem>
                           )}
                         </dl>

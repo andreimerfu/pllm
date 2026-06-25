@@ -6,30 +6,108 @@ import {
   Cell,
   Pie,
   PieChart,
-  ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import { Icon } from "@iconify/react";
 import { icons } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+import { SectionLabel } from "@/components/common/status-chip";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import type { AuditLog } from "@/types/api";
 
 type Outcome = "success" | "failure" | "error" | "warning" | "other";
 
+// Semantic chart colors — driven entirely by the token system. Success maps to
+// the primary/good accent, warning to warn, error/failure to bad.
 const OUTCOME_COLOR: Record<Outcome, string> = {
-  success: "hsl(160 84% 39%)",
-  failure: "hsl(347 77% 50%)",
-  error: "hsl(347 77% 40%)",
-  warning: "hsl(38 92% 50%)",
-  other: "hsl(215 14% 50%)",
+  success: "hsl(var(--primary))",
+  failure: "hsl(var(--bad))",
+  error: "hsl(var(--bad))",
+  warning: "hsl(var(--warn))",
+  other: "hsl(var(--muted-foreground))",
 };
+
+const chartConfig = {
+  success: { label: "Success", color: "hsl(var(--primary))" },
+  warning: { label: "Warning", color: "hsl(var(--warn))" },
+  error: { label: "Error", color: "hsl(var(--bad))" },
+  failure: { label: "Failure", color: "hsl(var(--bad))" },
+} satisfies ChartConfig;
 
 function classify(r: string): Outcome {
   if (r === "success" || r === "failure" || r === "error" || r === "warning")
     return r;
   return "other";
+}
+
+// Shared card shell — editorial-catalog header with a mono eyebrow + title.
+function ChartCard({
+  eyebrow,
+  title,
+  sub,
+  icon,
+  legend,
+  children,
+}: {
+  eyebrow: React.ReactNode;
+  title: React.ReactNode;
+  sub?: React.ReactNode;
+  icon?: string;
+  legend?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[14px] border border-border bg-card shadow-sm">
+      <div className="flex items-start justify-between gap-3 border-b py-4 px-5">
+        <div className="min-w-0">
+          <SectionLabel>{eyebrow}</SectionLabel>
+          <div className="mt-1 flex items-center gap-2">
+            {icon && (
+              <Icon icon={icon} className="h-4 w-4 shrink-0 text-text-dim" />
+            )}
+            <h3 className="text-base font-semibold text-foreground">{title}</h3>
+          </div>
+          {sub && (
+            <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>
+          )}
+        </div>
+        {legend && <div className="shrink-0 pt-0.5">{legend}</div>}
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  );
+}
+
+// Tiny dot + label legend item, tinted by semantic token.
+function LegendDot({
+  color,
+  label,
+  count,
+}: {
+  color: string;
+  label: string;
+  count?: number;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        className="h-2 w-2 shrink-0 rounded-full"
+        style={{ backgroundColor: color }}
+      />
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      {count !== undefined && (
+        <span className="font-mono text-[11px] tabular-nums text-foreground">
+          {count}
+        </span>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -76,45 +154,39 @@ export function EventsTimeline({ logs }: { logs: AuditLog[] }) {
   }, [logs]);
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-baseline justify-between mb-2">
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Signal
-          </div>
-          <div className="text-sm font-semibold tracking-tight mt-0.5">
-            Events over time
-          </div>
-        </div>
+    <ChartCard
+      eyebrow="Signal"
+      title="Events over time"
+      sub="Last 24 hours"
+      icon={icons.trendingUp}
+      legend={
         <div className="flex items-center gap-3">
-          <Legend tone="emerald" label="Success" />
-          <Legend tone="amber" label="Warning" />
-          <Legend tone="rose" label="Error" />
-          <span className="text-[11px] font-mono tabular-nums text-muted-foreground ml-2">
-            {total} shown
-          </span>
+          <LegendDot color="hsl(var(--primary))" label="Success" />
+          <LegendDot color="hsl(var(--warn))" label="Warning" />
+          <LegendDot color="hsl(var(--bad))" label="Error" />
         </div>
-      </div>
+      }
+    >
       <div className="h-36">
         {total === 0 ? (
-          <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
             No events in range
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ChartContainer config={chartConfig} className="aspect-auto h-full w-full">
             <AreaChart data={data} margin={{ top: 6, right: 8, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="a-ok" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={OUTCOME_COLOR.success} stopOpacity={0.5} />
-                  <stop offset="100%" stopColor={OUTCOME_COLOR.success} stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="a-warn" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={OUTCOME_COLOR.warning} stopOpacity={0.5} />
-                  <stop offset="100%" stopColor={OUTCOME_COLOR.warning} stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--color-warning)" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="var(--color-warning)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="a-err" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={OUTCOME_COLOR.error} stopOpacity={0.5} />
-                  <stop offset="100%" stopColor={OUTCOME_COLOR.error} stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--color-error)" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="var(--color-error)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" vertical={false} />
@@ -134,19 +206,12 @@ export function EventsTimeline({ logs }: { logs: AuditLog[] }) {
                 allowDecimals={false}
                 width={32}
               />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--popover))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 6,
-                  fontSize: 11,
-                }}
-              />
+              <ChartTooltip content={<ChartTooltipContent />} />
               <Area
                 type="monotone"
                 dataKey="success"
                 stackId="1"
-                stroke={OUTCOME_COLOR.success}
+                stroke="var(--color-success)"
                 strokeWidth={1.5}
                 fill="url(#a-ok)"
               />
@@ -154,7 +219,7 @@ export function EventsTimeline({ logs }: { logs: AuditLog[] }) {
                 type="monotone"
                 dataKey="warning"
                 stackId="1"
-                stroke={OUTCOME_COLOR.warning}
+                stroke="var(--color-warning)"
                 strokeWidth={1.5}
                 fill="url(#a-warn)"
               />
@@ -162,7 +227,7 @@ export function EventsTimeline({ logs }: { logs: AuditLog[] }) {
                 type="monotone"
                 dataKey="error"
                 stackId="1"
-                stroke={OUTCOME_COLOR.error}
+                stroke="var(--color-error)"
                 strokeWidth={1.5}
                 fill="url(#a-err)"
               />
@@ -170,31 +235,15 @@ export function EventsTimeline({ logs }: { logs: AuditLog[] }) {
                 type="monotone"
                 dataKey="failure"
                 stackId="1"
-                stroke={OUTCOME_COLOR.failure}
+                stroke="var(--color-failure)"
                 strokeWidth={1.5}
                 fill="url(#a-err)"
               />
             </AreaChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         )}
       </div>
-    </div>
-  );
-}
-
-function Legend({ tone, label }: { tone: "emerald" | "amber" | "rose"; label: string }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span
-        className={cn(
-          "h-2 w-2 rounded-full",
-          tone === "emerald" && "bg-emerald-500",
-          tone === "amber" && "bg-amber-500",
-          tone === "rose" && "bg-rose-500",
-        )}
-      />
-      <span className="text-[11px] text-muted-foreground">{label}</span>
-    </div>
+    </ChartCard>
   );
 }
 
@@ -216,33 +265,26 @@ export function OutcomeDonut({ logs }: { logs: AuditLog[] }) {
   }, [logs]);
 
   const total = logs.length;
-  const successPct = total === 0 ? 0 : Math.round((counts.success / total) * 100);
+  const successPct = total === 0 ? 0 : (counts.success / total) * 100;
+  const successLabel = total === 0 ? "0" : successPct.toFixed(1);
   const pieData = (Object.keys(counts) as Outcome[])
     .filter((k) => counts[k] > 0)
     .map((k) => ({ name: k, value: counts[k] }));
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="mb-3">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Outcomes
-        </div>
-        <div className="text-sm font-semibold tracking-tight mt-0.5">
-          Success rate
-        </div>
-      </div>
-      <div className="flex items-center gap-4">
-        <div className="relative w-24 h-24 shrink-0">
+    <ChartCard eyebrow="Outcomes" title="Success rate" icon={icons.auditLogs}>
+      <div className="flex items-center gap-5">
+        <div className="relative h-28 w-28 shrink-0">
           {total === 0 ? (
             <div className="h-full w-full rounded-full border-4 border-muted/50" />
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer config={chartConfig} className="aspect-square h-full w-full">
               <PieChart>
                 <Pie
                   data={pieData}
                   dataKey="value"
-                  innerRadius={28}
-                  outerRadius={44}
+                  innerRadius={34}
+                  outerRadius={52}
                   paddingAngle={2}
                   stroke="hsl(var(--card))"
                   strokeWidth={2}
@@ -252,38 +294,38 @@ export function OutcomeDonut({ logs }: { logs: AuditLog[] }) {
                   ))}
                 </Pie>
               </PieChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           )}
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
             <span
               className={cn(
-                "text-xl font-bold tabular-nums leading-none",
+                "font-mono text-xl font-bold leading-none tabular-nums",
                 successPct >= 95
-                  ? "text-emerald-600 dark:text-emerald-400"
+                  ? "text-good"
                   : successPct >= 80
-                    ? "text-amber-600 dark:text-amber-400"
-                    : "text-rose-600 dark:text-rose-400",
+                    ? "text-warn"
+                    : "text-bad",
               )}
             >
-              {successPct}
+              {successLabel}
               <span className="text-base">%</span>
             </span>
-            <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground">
-              ok
+            <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-text-dim">
+              Success
             </span>
           </div>
         </div>
-        <div className="space-y-1 flex-1 min-w-0">
+        <div className="min-w-0 flex-1 space-y-2">
           {(["success", "warning", "failure", "error"] as Outcome[]).map((k) => (
-            <div key={k} className="flex items-center gap-1.5 text-[11px]">
+            <div key={k} className="flex items-center gap-2 text-[11px]">
               <span
-                className="h-2 w-2 rounded-full shrink-0"
+                className="h-2 w-2 shrink-0 rounded-full"
                 style={{ backgroundColor: OUTCOME_COLOR[k] }}
               />
-              <span className="text-muted-foreground capitalize truncate">{k}</span>
+              <span className="truncate capitalize text-muted-foreground">{k}</span>
               <span
                 className={cn(
-                  "ml-auto font-mono tabular-nums",
+                  "ml-auto font-mono tabular-nums text-foreground",
                   counts[k] === 0 && "text-muted-foreground/40",
                 )}
               >
@@ -293,7 +335,7 @@ export function OutcomeDonut({ logs }: { logs: AuditLog[] }) {
           ))}
         </div>
       </div>
-    </div>
+    </ChartCard>
   );
 }
 
@@ -346,40 +388,29 @@ export function TopBars({
   const max = Math.max(1, ...rows.map((r) => r.count));
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="mb-3">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          {eyebrow}
-        </div>
-        <div className="text-sm font-semibold tracking-tight mt-0.5">
-          {title}
-        </div>
-      </div>
+    <ChartCard eyebrow={eyebrow} title={title} icon={icon}>
       {rows.length === 0 ? (
-        <div className="h-24 flex items-center justify-center text-xs text-muted-foreground">
+        <div className="flex h-24 items-center justify-center text-xs text-muted-foreground">
           No data
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {rows.map((r) => (
             <button
               key={r.key}
               onClick={() => onPick?.(r.key)}
               disabled={!onPick}
-              className="group w-full text-left space-y-1"
+              className="group w-full space-y-1 text-left"
             >
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <Icon icon={icon} className="h-3 w-3 shrink-0 text-muted-foreground" />
-                  <span className="text-[12px] truncate group-hover:text-primary transition-colors">
-                    {r.label}
-                  </span>
-                </div>
-                <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
+                <span className="truncate text-[12px] text-foreground transition-colors group-hover:text-primary">
+                  {r.label}
+                </span>
+                <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
                   {r.count}
                 </span>
               </div>
-              <div className="h-1 w-full rounded-full overflow-hidden bg-muted/60">
+              <div className="h-1 w-full overflow-hidden rounded-full bg-muted/60">
                 <div
                   className="h-full bg-primary transition-all"
                   style={{ width: `${(r.count / max) * 100}%` }}
@@ -389,6 +420,6 @@ export function TopBars({
           ))}
         </div>
       )}
-    </div>
+    </ChartCard>
   );
 }

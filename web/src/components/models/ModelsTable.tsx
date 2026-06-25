@@ -10,17 +10,9 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Icon } from "@iconify/react";
-import { icons } from "@/lib/icons";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
-} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -69,44 +61,18 @@ export default function ModelsTable({ models, onEdit, onDelete }: ModelsTablePro
   });
 
   return (
-    <div className="space-y-4">
-      {/* Column Visibility */}
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} model(s)
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              Columns <Icon icon={icons.chevronDown} className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => (
-                <DropdownMenuCheckboxItem
-                  key={column.id}
-                  className="capitalize"
-                  checked={column.getIsVisible()}
-                  onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                >
-                  {String(column.id).replace(/[_.]/g, " ")}
-                </DropdownMenuCheckboxItem>
-              ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
+    <div className="space-y-3">
       {/* Table */}
-      <div className="overflow-hidden rounded-md border">
+      <div className="overflow-hidden rounded-[14px] border border-border bg-card shadow-sm">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-surface-2/60">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead
+                    key={header.id}
+                    className="h-10 font-mono text-[10.5px] font-semibold uppercase tracking-[0.08em] text-text-dim"
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -124,7 +90,7 @@ export default function ModelsTable({ models, onEdit, onDelete }: ModelsTablePro
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="hover:bg-muted/50 cursor-pointer"
+                  className="cursor-pointer hover:bg-surface-2"
                   onClick={() => navigate(`/models/${encodeURIComponent(row.original.id)}`)}
                 >
                   {row.getVisibleCells().map((cell) => (
@@ -136,7 +102,7 @@ export default function ModelsTable({ models, onEdit, onDelete }: ModelsTablePro
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
                   No models found.
                 </TableCell>
               </TableRow>
@@ -146,30 +112,32 @@ export default function ModelsTable({ models, onEdit, onDelete }: ModelsTablePro
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Page {table.getState().pagination.pageIndex + 1} of{" "}
-          {table.getPageCount()}
+      {table.getPageCount() > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-[12.5px] text-muted-foreground">
+            Page {table.getState().pagination.pageIndex + 1} of{" "}
+            {table.getPageCount()}
+          </div>
+          <div className="space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Next
+            </Button>
+          </div>
         </div>
-        <div className="space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

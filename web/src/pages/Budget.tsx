@@ -5,11 +5,10 @@ import { getBudgetSummary } from "@/lib/api"
 import { Icon } from '@iconify/react'
 import { icons } from '@/lib/icons'
 import {
-  Area, AreaChart, CartesianGrid, XAxis, YAxis, Pie, PieChart,
+  Area, AreaChart, CartesianGrid, XAxis, YAxis,
   ReferenceLine,
 } from "recharts"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -24,32 +23,18 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import { PageShell } from "@/components/common/page-shell"
-import { PageActions } from "@/components/common/page-chrome"
+import { PageShell, StatTile } from "@/components/common/page-shell"
+import { SectionLabel } from "@/components/common/status-chip"
 
 const chartConfig = {
   budget: {
     label: "Budget",
-    color: "hsl(var(--chart-1))",
+    color: "hsl(var(--primary))",
   },
   spent: {
     label: "Spent",
-    color: "hsl(var(--chart-2))",
+    color: "hsl(var(--kind-mcp))",
   },
   remaining: {
     label: "Remaining",
@@ -60,16 +45,18 @@ const chartConfig = {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function utilizationBgClass(pct: number): string {
-  if (pct > 90) return "bg-red-500"
-  if (pct > 75) return "bg-amber-500"
-  return "bg-teal-500"
+  if (pct >= 90) return "bg-bad"
+  if (pct >= 70) return "bg-warn"
+  return "bg-good"
 }
 
-function statusBadge(pct: number, isExceeded: boolean) {
-  if (isExceeded || pct > 100) return <Badge variant="destructive">Over budget</Badge>
-  if (pct > 75) return <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25">Near limit</Badge>
-  return <Badge variant="outline">On track</Badge>
+function utilizationTextClass(pct: number): string {
+  if (pct >= 90) return "text-bad"
+  if (pct >= 70) return "text-warn"
+  return "text-good"
 }
+
+const money = (n: number) => `$${Math.round(n || 0).toLocaleString()}`
 
 // ─── Period Selector ────────────────────────────────────────────────────────
 
@@ -110,54 +97,47 @@ function BudgetOverviewBar({ summary }: { summary: any }) {
   const projectedOver = projected > totalBudget
 
   return (
-    <Card>
-      <CardContent className="pt-6 pb-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          {/* Left: spent / budget */}
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Total Spent / Budget</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-semibold font-mono tabular-nums tracking-tight">
-                ${totalSpent.toFixed(2)}
-              </span>
-              <span className="text-lg text-muted-foreground font-mono tabular-nums">
-                / ${totalBudget.toFixed(2)}
-              </span>
-            </div>
+    <div className="rounded-[14px] border border-border bg-card p-5 shadow-sm">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        {/* Left: spent / budget */}
+        <div className="space-y-1">
+          <SectionLabel>Total spent / budget</SectionLabel>
+          <div className="flex items-baseline gap-2">
+            <span className="font-mono text-3xl font-semibold tabular-nums tracking-tight">
+              {money(totalSpent)}
+            </span>
+            <span className="font-mono text-lg text-muted-foreground tabular-nums">
+              / {money(totalBudget)}
+            </span>
           </div>
-          {/* Right: remaining + projection */}
-          <div className="text-right space-y-1">
-            <p className="text-sm text-muted-foreground">Remaining</p>
-            <p className="text-2xl font-semibold font-mono tabular-nums tracking-tight">
-              ${remaining.toFixed(2)}
-            </p>
-            <p className={`text-xs font-medium font-mono ${projectedOver ? "text-amber-500" : "text-muted-foreground"}`}>
-              {projectedOver && <Icon icon={icons.warning} className="inline h-3 w-3 mr-1" />}
-              Projected EOM: ${projected.toFixed(2)}
-            </p>
-          </div>
+          <p className="text-xs text-text-dim">{pct.toFixed(0)}% used this month</p>
         </div>
-        {/* Progress bar */}
-        <div className="mt-4 space-y-1">
-          <div className="flex justify-between text-xs text-muted-foreground font-mono">
-            <span>{pct.toFixed(1)}% used</span>
-            <span>{Math.max(0, 100 - pct).toFixed(1)}% remaining</span>
-          </div>
-          <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${barColor}`}
-              style={{ width: `${Math.min(pct, 100)}%` }}
-            />
-          </div>
+        {/* Right: remaining + projection */}
+        <div className="space-y-0.5 sm:text-right">
+          <SectionLabel className="sm:text-right">Remaining</SectionLabel>
+          <p className={`font-mono text-2xl font-semibold tabular-nums tracking-tight ${remaining < 0 ? "text-bad" : "text-good"}`}>
+            {money(remaining)}
+          </p>
+          <p className={`text-xs ${projectedOver ? "text-warn" : "text-text-dim"}`}>
+            {projectedOver && <Icon icon={icons.warning} className="mr-1 inline h-3 w-3" />}
+            Projected EOM {money(projected)}
+          </p>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+      {/* Progress bar */}
+      <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-surface-2">
+        <div
+          className={`h-full rounded-full transition-all ${barColor}`}
+          style={{ width: `${Math.min(pct, 100)}%` }}
+        />
+      </div>
+    </div>
   )
 }
 
 // ─── Metric Cards Row ───────────────────────────────────────────────────────
 
-function MetricCards({ summary }: { summary: any }) {
+function BudgetKpis({ summary }: { summary: any }) {
   const totalBudget = summary.total_budget || 0
   const totalSpent = summary.total_spent || 0
 
@@ -168,75 +148,41 @@ function MetricCards({ summary }: { summary: any }) {
   const projected = dailyAvg * daysInMonth
   const projectedOver = projected > totalBudget
 
-  const nearLimitCount = (summary.alerting_count || 0)
+  const nearLimitCount = summary.alerting_count || 0
+  const exceededCount = summary.exceeded_count || 0
   const activeBudgets = summary.total_entities || 0
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {/* Daily Average */}
-      <Card>
-        <CardContent className="pt-5 pb-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-500/10">
-              <Icon icon={icons.trendingUp} className="h-5 w-5 text-teal-500" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Daily Average</p>
-              <p className="text-xl font-semibold font-mono tabular-nums">
-                ${dailyAvg.toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Projected EOM */}
-      <Card>
-        <CardContent className="pt-5 pb-5">
-          <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-              projectedOver ? "bg-amber-500/10" : "bg-teal-500/10"
-            }`}>
-              <Icon icon={icons.calendar} className={`h-5 w-5 ${projectedOver ? "text-amber-500" : "text-teal-500"}`} />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Projected End of Month</p>
-              <p className={`text-xl font-semibold font-mono tabular-nums ${projectedOver ? "text-amber-500" : ""}`}>
-                ${projected.toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Active Budgets */}
-      <Card>
-        <CardContent className="pt-5 pb-5">
-          <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-              nearLimitCount > 0 ? "bg-amber-500/10" : "bg-teal-500/10"
-            }`}>
-              <Icon icon={icons.budget} className={`h-5 w-5 ${nearLimitCount > 0 ? "text-amber-500" : "text-teal-500"}`} />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Active Budgets</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-xl font-semibold font-mono tabular-nums">{activeBudgets}</p>
-                {nearLimitCount > 0 && (
-                  <span className="text-xs font-medium text-amber-500">
-                    {nearLimitCount} near limit
-                  </span>
-                )}
-                {(summary.exceeded_count || 0) > 0 && (
-                  <span className="text-xs font-medium text-red-500">
-                    {summary.exceeded_count} exceeded
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <StatTile
+        label="Daily average"
+        value={money(dailyAvg)}
+        icon={<Icon icon={icons.trendingUp} />}
+        iconColor="good"
+        sub="This month"
+      />
+      <StatTile
+        label="Projected EOM"
+        value={money(projected)}
+        tone={projectedOver ? "warn" : "default"}
+        icon={<Icon icon={icons.bolt} />}
+        iconColor={projectedOver ? "warn" : "prompt"}
+        sub="On current pace"
+      />
+      <StatTile
+        label="Active budgets"
+        value={activeBudgets}
+        tone={exceededCount > 0 ? "bad" : nearLimitCount > 0 ? "warn" : "default"}
+        icon={<Icon icon={icons.budget} />}
+        iconColor={exceededCount > 0 ? "bad" : nearLimitCount > 0 ? "warn" : "model"}
+        sub={
+          exceededCount > 0
+            ? `${exceededCount} exceeded`
+            : nearLimitCount > 0
+              ? `${nearLimitCount} over 80%`
+              : "All under budget"
+        }
+      />
     </div>
   )
 }
@@ -308,8 +254,8 @@ function SpendingTrendsChart({ charts, summary }: { charts: any; summary: any })
           <AreaChart data={chartData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="fillSpending" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#14B8A6" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#14B8A6" stopOpacity={0.02} />
+                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.02} />
               </linearGradient>
             </defs>
             <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -331,13 +277,13 @@ function SpendingTrendsChart({ charts, summary }: { charts: any; summary: any })
             {budgetPerDay > 0 && (
               <ReferenceLine
                 y={budgetPerDay}
-                stroke="rgb(245 158 11)"
+                stroke="hsl(var(--warn))"
                 strokeDasharray="6 4"
                 strokeWidth={1.5}
                 label={{
                   value: "Daily budget",
                   position: "insideTopRight",
-                  fill: "rgb(245 158 11)",
+                  fill: "hsl(var(--warn))",
                   fontSize: 11,
                 }}
               />
@@ -353,7 +299,7 @@ function SpendingTrendsChart({ charts, summary }: { charts: any; summary: any })
               type="monotone"
               dataKey="amount"
               fill="url(#fillSpending)"
-              stroke="#14B8A6"
+              stroke="hsl(var(--primary))"
               strokeWidth={2}
             />
           </AreaChart>
@@ -365,211 +311,59 @@ function SpendingTrendsChart({ charts, summary }: { charts: any; summary: any })
 
 // ─── Budget Breakdown Table (used in each tab) ─────────────────────────────
 
-function BreakdownTable({ budgets }: { budgets: any[] }) {
-  const sorted = [...budgets].sort((a, b) => {
-    const aUtil = a.usage_percent || 0
-    const bUtil = b.usage_percent || 0
-    return bUtil - aUtil
-  })
-
-  if (sorted.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Icon icon={icons.budget} className="h-10 w-10 text-muted-foreground mb-3" />
-        <p className="text-sm text-muted-foreground">No entities in this category</p>
-      </div>
-    )
-  }
+function BudgetsByTeamTable({ budgets }: { budgets: any[] }) {
+  const rows = [...(budgets || [])].sort((a, b) => (b.usage_percent || 0) - (a.usage_percent || 0))
 
   return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead className="text-right">Budget</TableHead>
-            <TableHead className="text-right">Spent</TableHead>
-            <TableHead>Utilization</TableHead>
-            <TableHead className="text-right font-mono">%</TableHead>
-            <TableHead>Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sorted.map((b) => {
-            const util = b.usage_percent || 0
-            const isExceeded = b.is_exceeded || false
-            const color = utilizationBgClass(util)
-            return (
-              <TableRow key={`${b.type}-${b.id}`}>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Icon
-                      icon={b.type === 'team' ? icons.teams : b.type === 'model' ? icons.models : icons.keys}
-                      className="h-4 w-4 text-muted-foreground"
-                    />
-                    <span className="font-medium">{b.name}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right font-mono tabular-nums">
-                  ${b.max_budget?.toFixed(2) || '0.00'}
-                </TableCell>
-                <TableCell className="text-right font-mono tabular-nums">
-                  ${b.current_spend?.toFixed(2) || '0.00'}
-                </TableCell>
-                <TableCell>
-                  <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${color}`}
-                      style={{ width: `${Math.min(util, 100)}%` }}
-                    />
-                  </div>
-                </TableCell>
-                <TableCell className="text-right font-mono tabular-nums text-sm">
-                  {util.toFixed(1)}%
-                </TableCell>
-                <TableCell>
-                  {statusBadge(util, isExceeded)}
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  )
-}
-
-// ─── Budget Breakdown Tabs ──────────────────────────────────────────────────
-
-function BudgetBreakdown({ teamBudgets, keyBudgets }: { teamBudgets: any[]; keyBudgets: any[] }) {
-  const allBudgets = [...(teamBudgets || []), ...(keyBudgets || [])]
-  // There's no model budget data from the API, so model tab uses empty
-  const modelBudgets: any[] = []
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div>
-          <CardTitle>Budget Breakdown</CardTitle>
-          <CardDescription className="mt-1">
-            {allBudgets.length} entities with budget tracking
-          </CardDescription>
-        </div>
-        <Button variant="outline" size="sm" asChild>
-          <a href="/ui/teams">
-            <Icon icon={icons.settings} className="h-4 w-4" />
-            Manage
-          </a>
-        </Button>
+    <Card className="rounded-[14px] border border-border bg-card shadow-sm">
+      <CardHeader className="border-b py-4">
+        <CardTitle className="text-base">Budgets by team</CardTitle>
       </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="team" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="team">
-              <Icon icon={icons.teams} className="h-3.5 w-3.5 mr-1.5" />
-              By Team
-            </TabsTrigger>
-            <TabsTrigger value="model">
-              <Icon icon={icons.models} className="h-3.5 w-3.5 mr-1.5" />
-              By Model
-            </TabsTrigger>
-            <TabsTrigger value="key">
-              <Icon icon={icons.keys} className="h-3.5 w-3.5 mr-1.5" />
-              By Key
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="team">
-            <BreakdownTable budgets={(teamBudgets || []).map(b => ({ ...b, type: 'team' }))} />
-          </TabsContent>
-          <TabsContent value="model">
-            <BreakdownTable budgets={modelBudgets} />
-          </TabsContent>
-          <TabsContent value="key">
-            <BreakdownTable budgets={(keyBudgets || []).map(b => ({ ...b, type: 'key' }))} />
-          </TabsContent>
-        </Tabs>
+      <CardContent className="p-0">
+        {rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Icon icon={icons.budget} className="mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">No team budgets configured.</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-dim">Team</th>
+                <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-dim">Limit</th>
+                <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-dim">Spent</th>
+                <th className="px-5 py-3 text-left text-[11px] font-medium uppercase tracking-wider text-text-dim">Usage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((b) => {
+                const util = b.usage_percent || 0
+                return (
+                  <tr key={`${b.type || 'team'}-${b.id}`} className="border-b border-border last:border-0 hover:bg-surface-2/60">
+                    <td className="px-5 py-3.5 font-medium text-foreground">{b.name}</td>
+                    <td className="px-5 py-3.5 font-mono tabular-nums text-muted-foreground">{money(b.max_budget)}</td>
+                    <td className="px-5 py-3.5 font-mono tabular-nums text-foreground">{money(b.current_spend)}</td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
+                          <div
+                            className={`h-full rounded-full ${utilizationBgClass(util)}`}
+                            style={{ width: `${Math.min(util, 100)}%` }}
+                          />
+                        </div>
+                        <span className={`w-10 shrink-0 text-right font-mono text-xs font-semibold tabular-nums ${utilizationTextClass(util)}`}>
+                          {util.toFixed(0)}%
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </CardContent>
     </Card>
-  )
-}
-
-// ─── Budget Distribution Charts (preserved) ────────────────────────────────
-
-function BudgetDistributionCharts({ charts }: { charts: any }) {
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {/* Budget Allocation */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Budget Allocation</CardTitle>
-          <CardDescription>Distribution by type</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center pb-6">
-          {charts?.budget_distribution?.some((item: any) => item.value > 0) ? (
-            <ChartContainer
-              config={chartConfig}
-              className="mx-auto h-[220px] w-full max-w-[220px]"
-            >
-              <PieChart>
-                <Pie
-                  dataKey="value"
-                  data={charts.budget_distribution.map((item: any, index: number) => ({
-                    ...item,
-                    fill: `hsl(var(--chart-${(index % 5) + 1}))`,
-                  }))}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-              </PieChart>
-            </ChartContainer>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Icon icon={icons.budget} className="h-10 w-10 text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground">No budget allocation data</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Spending Distribution */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Spending Distribution</CardTitle>
-          <CardDescription>Actual spend by type</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center pb-6">
-          {charts?.spending_distribution?.some((item: any) => item.value > 0) ? (
-            <ChartContainer
-              config={chartConfig}
-              className="mx-auto h-[220px] w-full max-w-[220px]"
-            >
-              <PieChart>
-                <Pie
-                  dataKey="value"
-                  data={charts.spending_distribution.map((item: any, index: number) => ({
-                    ...item,
-                    fill: `hsl(var(--chart-${(index % 5) + 1}))`,
-                  }))}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-              </PieChart>
-            </ChartContainer>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Icon icon={icons.budget} className="h-10 w-10 text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground">No spending data yet</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
   )
 }
 
@@ -640,45 +434,41 @@ export default function Budget() {
     )
   }
 
-  const { summary, team_budgets = [], key_budgets = [], charts } = (budgetData as any).data || (budgetData as any)
+  const { summary, team_budgets = [], charts } = (budgetData as any).data || (budgetData as any)
 
   return (
     <PageShell
-      eyebrow="Access"
-      title="Spend &"
-      accent="budgets"
+      title="Spend & Budget"
       description="Monitor spending, track budgets, and manage allocations across teams, keys, and models."
       toolbar={<PeriodSelector period={period} onChange={setPeriod} />}
+      actions={
+        <>
+          <Button variant="outline" size="sm" asChild>
+            <a href="/ui/keys">
+              <Icon icon={icons.plus} className="h-4 w-4" />
+              Add Key
+            </a>
+          </Button>
+          <Button size="sm" asChild>
+            <a href="/ui/teams">
+              <Icon icon={icons.plus} className="h-4 w-4" />
+              Add Team
+            </a>
+          </Button>
+        </>
+      }
     >
-      <PageActions>
-        <Button variant="outline" size="sm" asChild>
-          <a href="/ui/keys">
-            <Icon icon={icons.plus} className="h-4 w-4" />
-            Add Key
-          </a>
-        </Button>
-        <Button size="sm" asChild>
-          <a href="/ui/teams">
-            <Icon icon={icons.plus} className="h-4 w-4" />
-            Add Team
-          </a>
-        </Button>
-      </PageActions>
-
-      {/* ── Budget Overview Bar ─────────────────────────────────────────── */}
+      {/* ── Total spent / budget hero ───────────────────────────────────── */}
       <BudgetOverviewBar summary={summary} />
 
-      {/* ── Metric Cards ────────────────────────────────────────────────── */}
-      <MetricCards summary={summary} />
+      {/* ── KPI cards ───────────────────────────────────────────────────── */}
+      <BudgetKpis summary={summary} />
 
-      {/* ── Spending Trends Chart ───────────────────────────────────────── */}
+      {/* ── Spending trend ──────────────────────────────────────────────── */}
       <SpendingTrendsChart charts={charts} summary={summary} />
 
-      {/* ── Distribution Charts ─────────────────────────────────────────── */}
-      <BudgetDistributionCharts charts={charts} />
-
-      {/* ── Budget Breakdown (tabbed) ───────────────────────────────────── */}
-      <BudgetBreakdown teamBudgets={team_budgets} keyBudgets={key_budgets} />
+      {/* ── Budgets by team ─────────────────────────────────────────────── */}
+      <BudgetsByTeamTable budgets={team_budgets} />
     </PageShell>
   )
 }

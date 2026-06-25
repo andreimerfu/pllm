@@ -46,6 +46,13 @@ type NavItem = {
   // routes to a "Governance is part of pLLM Enterprise" info panel
   // instead of the page itself. Leave undefined for always-on items.
   feature?: string;
+  // kind deep-links into the Catalog (/registry) pre-filtered by registry
+  // kind. Skills/Prompts have no standalone page — they're catalog facets.
+  // Active-matching keys off the ?kind= query when this is set.
+  kind?: string;
+  // count renders an optional mono pill badge. Left undefined for now —
+  // wired to live list counts later; never fabricated.
+  count?: number;
 };
 
 type NavGroup = {
@@ -56,30 +63,34 @@ type NavGroup = {
   enterprise?: boolean;
 };
 
-// Navigation grouped by narrative rather than admin-rights:
-//   LLM Gateway   — OpenAI-compatible request surface
-//   Agents & MCP  — the MCP/registry/deployments layer
+// Navigation grouped to lead with the registry — pLLM's new center of
+// gravity as a control plane for agentic systems:
+//   AI Registry   — catalog of agents/MCP/skills/prompts + deploy/federate
+//   Gateway       — the OpenAI-compatible request surface
 //   Governance    — MRM / compliance (EE, gated by features.mrm)
 //   Access & Activity — identities, limits, audit
-//   System        — operator-only
+//   System        — notifications + operator settings
 const navigation: NavGroup[] = [
   {
-    title: "LLM Gateway",
+    title: "AI Registry",
+    items: [
+      { title: "Catalog", href: "/registry", icon: icons.registry, permission: null },
+      { title: "Agents", href: "/agents", icon: icons.agents, permission: null },
+      { title: "MCP Servers", href: "/mcp-servers", icon: icons.mcp, permission: null },
+      { title: "Skills", href: "/registry?kind=skill", icon: icons.skill, permission: null, kind: "skill" },
+      { title: "Prompts", href: "/registry?kind=prompt", icon: icons.prompt, permission: null, kind: "prompt" },
+      { title: "Deployments", href: "/deployments", icon: icons.rocket, permission: null },
+      { title: "Federation", href: "/federation", icon: icons.federation, permission: null, feature: "federation" },
+    ],
+  },
+  {
+    title: "Gateway",
     items: [
       { title: "Models", href: "/models", icon: icons.models, permission: null },
       { title: "Routes", href: "/routes", icon: icons.routes, permission: null },
       { title: "Providers", href: "/providers", icon: icons.globe, permission: null },
       { title: "Guardrails", href: "/guardrails", icon: icons.guardrails, permission: "admin.guardrails.read" },
-    ],
-  },
-  {
-    title: "Agents & MCP",
-    items: [
-      { title: "Registry", href: "/registry", icon: icons.registry, permission: null },
-      { title: "MCP Servers", href: "/mcp-servers", icon: icons.mcp, permission: null },
-      { title: "Deployments", href: "/deployments", icon: icons.deployment, permission: null },
-      { title: "Agents", href: "/agents", icon: icons.agents, permission: null },
-      { title: "Federation", href: "/federation", icon: icons.federation, permission: null, feature: "federation" },
+      { title: "Playground", href: "/playground", icon: icons.terminal, permission: null },
     ],
   },
   {
@@ -89,7 +100,6 @@ const navigation: NavGroup[] = [
       { title: "Use Cases", href: "/use-cases", icon: icons.useCase, permission: null, feature: "mrm" },
       { title: "Compliance", href: "/compliance", icon: icons.shield, permission: null, feature: "mrm" },
       { title: "Policies", href: "/policies", icon: icons.policies, permission: null, feature: "mrm" },
-      { title: "Notifications", href: "/notifications", icon: icons.notifications, permission: null, feature: "mrm" },
     ],
   },
   {
@@ -105,6 +115,7 @@ const navigation: NavGroup[] = [
   {
     title: "System",
     items: [
+      { title: "Notifications", href: "/notifications", icon: icons.notifications, permission: null, feature: "mrm" },
       { title: "Settings", href: "/settings", icon: icons.settings, permission: "admin.settings.read" },
     ],
   },
@@ -132,25 +143,49 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       .toUpperCase()
       .slice(0, 2) || "U";
 
+  // Role badge — only rendered when a real role claim is present (never
+  // fabricated). Looks at common OIDC shapes: `role`, `roles[]`, `groups[]`.
+  const profile = user?.profile as Record<string, unknown> | undefined;
+  const userRole = ((): string | null => {
+    const r =
+      (typeof profile?.role === "string" && profile.role) ||
+      (Array.isArray(profile?.roles) && (profile?.roles as string[])[0]) ||
+      (Array.isArray(profile?.groups) && (profile?.groups as string[])[0]) ||
+      null;
+    return r ? String(r).toUpperCase() : null;
+  })();
+
   const toggleTheme = () => {
     setColorMode(resolvedMode === 'dark' ? 'light' : 'dark');
   };
 
   const dashboardActive = location.pathname === "/dashboard";
-  const playgroundActive =
-    location.pathname === "/playground" || location.pathname === "/chat";
 
-  // Active-row style: muted bg tint + 2px primary left bar, instead of
-  // the default solid teal background. Keeps the sidebar calm and
-  // reserves saturated color for the CTA on each page.
+  // Skills/Prompts are catalog facets (/registry?kind=…). Match active state
+  // off the query so they highlight independently of the bare Catalog entry.
+  const kindParam = new URLSearchParams(location.search).get("kind");
+  const itemActive = (item: NavItem): boolean => {
+    if (item.href.startsWith("/registry")) {
+      if (item.kind) {
+        return location.pathname === "/registry" && kindParam === item.kind;
+      }
+      // Catalog itself — active on /registry unless a facet deep-link owns it.
+      return (
+        location.pathname === "/registry" &&
+        kindParam !== "skill" &&
+        kindParam !== "prompt"
+      );
+    }
+    return location.pathname === item.href;
+  };
+
+  // Active-row style: soft accent fill + accent text (the "pLLM Console"
+  // pill). Saturated color stays reserved for the CTA on each page.
   const activeRowClass = cn(
-    "relative",
-    "data-[active=true]:bg-primary/5 data-[active=true]:text-foreground data-[active=true]:font-medium",
-    "data-[active=true]:before:content-[''] data-[active=true]:before:absolute",
-    "data-[active=true]:before:left-0 data-[active=true]:before:inset-y-1",
-    "data-[active=true]:before:w-[2px] data-[active=true]:before:rounded-full",
-    "data-[active=true]:before:bg-primary",
+    "rounded-[9px]",
+    "data-[active=true]:bg-[var(--accent-soft)] data-[active=true]:text-primary data-[active=true]:font-semibold",
     "data-[active=true]:[&_svg]:text-primary",
+    "data-[active=true]:hover:bg-[var(--accent-soft)] data-[active=true]:hover:text-primary",
   );
 
   // Filter navigation groups based on dex configuration. Feature-gated
@@ -169,17 +204,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <div className="flex items-center gap-2.5 px-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center py-3 border-b border-sidebar-border overflow-hidden">
-          <img src={`${import.meta.env.BASE_URL}robot.png`} alt="pLLM" className="w-8 h-8 rounded-lg flex-shrink-0" />
-          <div className="group-data-[collapsible=icon]:hidden">
-            <div className="text-sm font-bold text-sidebar-foreground">pLLM</div>
-            <div className="text-[11px] text-muted-foreground">Gateway Console</div>
+          <span className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-[9px] bg-gradient-to-br from-emerald-400 to-emerald-700 text-white shadow-[0_3px_10px_rgba(14,159,110,0.32)]">
+            <Icon icon={icons.layers} className="h-[18px] w-[18px]" />
+          </span>
+          <div className="min-w-0 group-data-[collapsible=icon]:hidden">
+            <div className="text-[15px] font-bold leading-tight tracking-[-0.01em] text-sidebar-foreground">pLLM</div>
+            <div className="text-[11px] text-text-dim">AI Registry &amp; Gateway</div>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Pinned top-level — cross-cutting entries that don't belong to a
-            narrative group. Dashboard = overview, Playground = try things. */}
+        {/* Pinned top-level — Dashboard is the cross-cutting overview that
+            doesn't belong to a single narrative group. */}
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
@@ -192,19 +229,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Link to="/dashboard">
                   <Icon icon={icons.dashboard} className="h-4 w-4" />
                   <span>Dashboard</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={playgroundActive}
-                tooltip="Playground"
-                className={activeRowClass}
-              >
-                <Link to="/playground">
-                  <Icon icon={icons.chat} className="h-4 w-4" />
-                  <span>Playground</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -235,7 +259,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <CollapsibleContent>
                 <SidebarMenu>
                   {section.items.map((item) => {
-                    const isActive = location.pathname === item.href;
+                    const isActive = itemActive(item);
                     const locked = Boolean(item.feature) && !features?.[item.feature as string];
 
                     const NavigationItem = (
@@ -252,12 +276,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           >
                             <Icon icon={item.icon} className="h-4 w-4" />
                             <span className="flex-1">{item.title}</span>
-                            {locked && (
+                            {locked ? (
                               <Icon
                                 icon={icons.lock}
                                 className="h-3 w-3 text-muted-foreground"
                                 aria-hidden
                               />
+                            ) : (
+                              item.count != null && (
+                                <span className="ml-auto rounded-full bg-surface-2 px-[7px] py-px font-mono text-[10.5px] font-semibold text-text-dim group-data-[collapsible=icon]:hidden">
+                                  {item.count}
+                                </span>
+                              )
                             )}
                           </Link>
                         </SidebarMenuButton>
@@ -300,7 +330,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <span className="truncate font-medium">{userName}</span>
                     <span className="truncate text-xs">{userEmail}</span>
                   </div>
-                  <Icon icon={icons.chevronsUpDown} className="ml-auto size-4" />
+                  {userRole && (
+                    <span className="ml-auto rounded-md bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[9.5px] font-bold tracking-[0.05em] text-primary group-data-[collapsible=icon]:hidden">
+                      {userRole}
+                    </span>
+                  )}
+                  <Icon icon={icons.chevronsUpDown} className="size-4 shrink-0" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent

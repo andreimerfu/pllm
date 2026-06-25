@@ -13,9 +13,8 @@ import {
 } from "@tanstack/react-table";
 
 import { formatDateTime } from "@/lib/date-utils";
-import { useGuardrails, formatLatency, formatRate, getModeColor, GuardrailInfo } from "@/hooks/useGuardrails";
+import { useGuardrails, formatLatency, formatRate, GuardrailInfo } from "@/hooks/useGuardrails";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -37,12 +36,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChartConfig, ChartContainer } from "@/components/ui/chart";
-import { PageShell } from "@/components/common/page-shell";
-import { PageActions } from "@/components/common/page-chrome";
+import { PageShell, StatTile } from "@/components/common/page-shell";
+import { StatusChip, Tag, type StatusTone } from "@/components/common/status-chip";
 
 // GuardrailInfo interface now imported from hooks/useGuardrails
 
-
+// Token-based tone for an execution mode. Replaces the legacy raw-palette
+// getModeColor helper — color is reserved for meaning.
+const modeTone = (mode: string): StatusTone => {
+  switch (mode) {
+    case 'pre_call':
+      return 'info';
+    case 'post_call':
+      return 'good';
+    case 'during_call':
+      return 'warn';
+    default:
+      return 'neutral';
+  }
+};
 
 // Microsoft icon component for Presidio
 const MicrosoftIcon = () => (
@@ -63,14 +75,26 @@ const PII_ENTITIES = [
   { value: "US_BANK_NUMBER", label: "US Bank Numbers" }
 ];
 
+// Type-tinted icon tile for a guardrail (Presidio brand mark or shield).
+const GuardrailIconTile = ({ provider }: { provider: string }) =>
+  provider === 'presidio' ? (
+    <span className="inline-flex h-[34px] w-[34px] items-center justify-center rounded-[9px] bg-info/12">
+      <MicrosoftIcon />
+    </span>
+  ) : (
+    <span className="inline-flex h-[34px] w-[34px] items-center justify-center rounded-[9px] bg-kind-skill/12 text-kind-skill">
+      <Icon icon={icons.shield} className="h-[18px] w-[18px]" />
+    </span>
+  );
+
 // Microchart component for performance visualization
 const PerformanceMicroChart = ({ stats }: { stats: any }) => {
-  if (!stats) return <div className="w-20 h-8 bg-muted rounded" />;
+  if (!stats) return <div className="w-20 h-8 bg-surface-2 rounded" />;
 
   const chartData = [
-    { name: "Passed", value: stats.total_passed, fill: "#22c55e" },
-    { name: "Blocked", value: stats.total_blocked, fill: "#ef4444" },
-    { name: "Errors", value: stats.total_errors, fill: "#f59e0b" },
+    { name: "Passed", value: stats.total_passed, fill: "hsl(var(--good))" },
+    { name: "Blocked", value: stats.total_blocked, fill: "hsl(var(--bad))" },
+    { name: "Errors", value: stats.total_errors, fill: "hsl(var(--warn))" },
   ];
 
   const chartConfig = {
@@ -99,7 +123,7 @@ const LatencyMicroChart = ({ latency }: { latency: number }) => {
   const chartConfig = {
     latency: {
       label: "Latency",
-      color: "#3b82f6",
+      color: "hsl(var(--info))",
     },
   } satisfies ChartConfig;
 
@@ -118,8 +142,7 @@ const createColumns = (
   onEdit: (guardrail: GuardrailInfo) => void,
   onDelete: (guardrail: GuardrailInfo) => void,
   formatLatency: (ms: number) => string,
-  formatRate: (rate: number) => string,
-  getModeColor: (mode: string) => string
+  formatRate: (rate: number) => string
 ): ColumnDef<GuardrailInfo>[] => [
   {
     accessorKey: "name",
@@ -139,22 +162,14 @@ const createColumns = (
       const guardrail = row.original;
       return (
         <div className="flex items-center gap-3">
-          {guardrail.provider === 'presidio' ? (
-            <div className="p-2 bg-blue-50 rounded-lg">
-              <MicrosoftIcon />
-            </div>
-          ) : (
-            <div className="p-2 bg-gray-50 rounded-lg">
-              <Icon icon={icons.shield} className="h-5 w-5 text-gray-600" />
-            </div>
-          )}
+          <GuardrailIconTile provider={guardrail.provider} />
           <div>
             <div className="font-semibold flex items-center gap-2">
               {guardrail.name}
               {guardrail.healthy ? (
-                <Icon icon={icons.check} className="h-4 w-4 text-green-500" />
+                <Icon icon={icons.check} className="h-4 w-4 text-good" />
               ) : (
-                <Icon icon={icons.error} className="h-4 w-4 text-red-500" />
+                <Icon icon={icons.error} className="h-4 w-4 text-bad" />
               )}
             </div>
             <div className="text-sm text-muted-foreground">
@@ -171,15 +186,12 @@ const createColumns = (
     cell: ({ row }) => {
       const guardrail = row.original;
       return (
-        <div className="flex flex-col gap-1">
-          <Badge variant={guardrail.enabled ? "default" : "secondary"}>
-            {guardrail.enabled ? "Enabled" : "Disabled"}
-          </Badge>
-          {guardrail.default_on && (
-            <Badge variant="outline" className="text-xs">
-              Default On
-            </Badge>
-          )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusChip
+            tone={guardrail.enabled ? "good" : "neutral"}
+            label={guardrail.enabled ? "Enabled" : "Disabled"}
+          />
+          {guardrail.default_on && <Tag label="Default on" />}
         </div>
       );
     },
@@ -190,11 +202,9 @@ const createColumns = (
     cell: ({ row }) => {
       const modes = row.original.mode;
       return (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {modes.map((mode: string) => (
-            <Badge key={mode} className={`${getModeColor(mode)} text-xs`}>
-              {mode.replace('_', ' ')}
-            </Badge>
+            <StatusChip key={mode} tone={modeTone(mode)} dot={false} label={mode.replace('_', ' ')} />
           ))}
         </div>
       );
@@ -237,7 +247,7 @@ const createColumns = (
       return (
         <div className="flex items-center gap-3">
           {stats && <LatencyMicroChart latency={stats.average_latency} />}
-          <div className="text-sm font-medium">
+          <div className="text-sm font-medium font-mono tabular-nums">
             {stats ? formatLatency(stats.average_latency) : 'N/A'}
           </div>
         </div>
@@ -289,7 +299,7 @@ const createColumns = (
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => onDelete(guardrail)}
-              className="text-red-600"
+              className="text-bad"
             >
               <Icon icon={icons.delete} className="mr-2 h-4 w-4" />
               Delete
@@ -309,7 +319,6 @@ function GuardrailsTable({
   onDelete,
   formatLatency,
   formatRate,
-  getModeColor
 }: {
   guardrails: GuardrailInfo[];
   onConfigure: (guardrail: GuardrailInfo) => void;
@@ -317,11 +326,10 @@ function GuardrailsTable({
   onDelete: (guardrail: GuardrailInfo) => void;
   formatLatency: (ms: number) => string;
   formatRate: (rate: number) => string;
-  getModeColor: (mode: string) => string;
 }) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  const columns = createColumns(onConfigure, onEdit, onDelete, formatLatency, formatRate, getModeColor);
+  const columns = createColumns(onConfigure, onEdit, onDelete, formatLatency, formatRate);
 
   const table = useReactTable({
     data: guardrails,
@@ -336,21 +344,21 @@ function GuardrailsTable({
 
   if (guardrails.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <Icon icon={icons.shield} className="h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No Guardrails Configured</h3>
-          <p className="text-muted-foreground text-center max-w-md">
-            No guardrails are currently configured. Add guardrails to your configuration to start protecting your LLM interactions.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center justify-center rounded-[14px] border border-border bg-card py-12 shadow-sm">
+        <span className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-[12px] bg-kind-skill/12 text-kind-skill">
+          <Icon icon={icons.shield} className="h-6 w-6" />
+        </span>
+        <h3 className="text-lg font-semibold mb-2">No Guardrails Configured</h3>
+        <p className="text-muted-foreground text-center max-w-md">
+          No guardrails are currently configured. Add guardrails to your configuration to start protecting your LLM interactions.
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-md border">
+      <div className="overflow-hidden rounded-[14px] border border-border bg-card shadow-sm">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -432,53 +440,94 @@ export default function Guardrails() {
     );
   }
 
+  // ── KPI values, computed only from data already present on the rows ──
+  const totalGuardrails = guardrails.length;
+  const enabledCount = guardrails.filter((g) => g.enabled).length;
+  const rowsWithStats = guardrails.filter((g) => g.stats);
+  const totalBlocked = rowsWithStats.reduce((sum, g) => sum + (g.stats?.total_blocked ?? 0), 0);
+  const latencyRows = rowsWithStats.filter((g) => typeof g.stats?.average_latency === "number");
+  const avgLatency =
+    latencyRows.length > 0
+      ? latencyRows.reduce((sum, g) => sum + (g.stats?.average_latency ?? 0), 0) / latencyRows.length
+      : null;
+
   const getHealthIcon = (healthy?: boolean) => {
     if (healthy === undefined) return null;
     return healthy ? (
-      <Icon icon={icons.check} className="h-4 w-4 text-green-500" />
+      <Icon icon={icons.check} className="h-4 w-4 text-good" />
     ) : (
-      <Icon icon={icons.error} className="h-4 w-4 text-red-500" />
+      <Icon icon={icons.error} className="h-4 w-4 text-bad" />
     );
   };
 
   return (
     <PageShell
-      eyebrow="LLM Gateway"
-      title="Content"
-      accent="guardrails"
+      title="Guardrails"
       description="Safety policies — PII redaction, moderation, prompt-injection screens — applied on every request and response."
+      actions={
+        <>
+          <StatusChip
+            tone={systemEnabled ? "good" : "neutral"}
+            label={systemEnabled ? "Enabled" : "Disabled"}
+          />
+          <Button variant="outline" onClick={() => navigate("/guardrails/marketplace")}>
+            <Icon icon={icons.shield} className="h-4 w-4 mr-2" />
+            Browse Marketplace
+          </Button>
+          <Button onClick={() => navigate("/guardrails/config/new")}>
+            <Icon icon={icons.plus} className="h-4 w-4 mr-2" />
+            Add Guardrail
+          </Button>
+        </>
+      }
     >
-      <PageActions>
-        <Badge variant={systemEnabled ? "default" : "secondary"}>
-          {systemEnabled ? "Enabled" : "Disabled"}
-        </Badge>
-        <Button
-          variant="outline"
-          onClick={() => navigate("/guardrails/marketplace")}
-        >
-          <Icon icon={icons.shield} className="h-4 w-4 mr-2" />
-          Browse Marketplace
-        </Button>
-        <Button
-          onClick={() => navigate("/guardrails/config/new")}
-        >
-          <Icon icon={icons.plus} className="h-4 w-4 mr-2" />
-          Add Guardrail
-        </Button>
-      </PageActions>
+      {/* ────────────── KPI cards ────────────── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <StatTile
+          label="Active guardrails"
+          value={enabledCount}
+          tone={enabledCount > 0 ? "good" : "default"}
+          icon={<Icon icon={icons.shield} />}
+          iconColor="good"
+          sub={`of ${totalGuardrails} configured`}
+        />
+        <StatTile
+          label="Configured"
+          value={totalGuardrails}
+          icon={<Icon icon={icons.guardrails} />}
+          iconColor="skill"
+          sub="Total policies"
+        />
+        <StatTile
+          label="Violations blocked"
+          value={totalBlocked.toLocaleString()}
+          tone={totalBlocked > 0 ? "warn" : "default"}
+          icon={<Icon icon={icons.shieldAlert} />}
+          iconColor="info"
+          sub="Across all guardrails"
+        />
+        {avgLatency !== null && (
+          <StatTile
+            label="Avg added latency"
+            value={formatLatency(Math.round(avgLatency))}
+            tone="warn"
+            icon={<Icon icon={icons.clock} />}
+            iconColor="warn"
+            sub="Mean over active policies"
+          />
+        )}
+      </div>
 
       {/* System Status Alert */}
       {!systemEnabled && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Icon icon={icons.warning} className="h-4 w-4 text-yellow-600" />
-              <p className="text-sm text-yellow-800">
-                Guardrails system is currently disabled. Enable it in the configuration to start protecting your LLM interactions.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="rounded-[14px] border border-warn/30 bg-warn/12 p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Icon icon={icons.warning} className="h-4 w-4 text-warn" />
+            <p className="text-sm text-warn">
+              Guardrails system is currently disabled. Enable it in the configuration to start protecting your LLM interactions.
+            </p>
+          </div>
+        </div>
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -496,12 +545,11 @@ export default function Guardrails() {
             onDelete={handleDelete}
             formatLatency={formatLatency}
             formatRate={formatRate}
-            getModeColor={getModeColor}
           />
         </TabsContent>
 
         <TabsContent value="statistics" className="space-y-4">
-          <Card>
+          <Card className="rounded-[14px] shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Icon icon={icons.trendingUp} className="h-5 w-5" />
@@ -519,33 +567,33 @@ export default function Guardrails() {
               ) : (
                 <div className="space-y-6">
                   {Object.entries(stats as Record<string, any>).map(([name, stats]) => (
-                    <div key={name} className="border-b pb-4 last:border-b-0">
+                    <div key={name} className="border-b border-border pb-4 last:border-b-0">
                       <h4 className="font-medium mb-3">{name}</h4>
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">{stats.total_executions.toLocaleString()}</div>
+                          <div className="text-2xl font-bold font-mono tabular-nums text-info">{stats.total_executions.toLocaleString()}</div>
                           <div className="text-muted-foreground">Total Executions</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-green-600">{stats.total_passed.toLocaleString()}</div>
+                          <div className="text-2xl font-bold font-mono tabular-nums text-good">{stats.total_passed.toLocaleString()}</div>
                           <div className="text-muted-foreground">Passed</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-red-600">{stats.total_blocked.toLocaleString()}</div>
+                          <div className="text-2xl font-bold font-mono tabular-nums text-bad">{stats.total_blocked.toLocaleString()}</div>
                           <div className="text-muted-foreground">Blocked</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-2xl font-bold text-yellow-600">{stats.total_errors.toLocaleString()}</div>
+                          <div className="text-2xl font-bold font-mono tabular-nums text-warn">{stats.total_errors.toLocaleString()}</div>
                           <div className="text-muted-foreground">Errors</div>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
                         <div className="text-center">
-                          <div className="text-xl font-semibold">{formatRate(stats.block_rate)}</div>
+                          <div className="text-xl font-semibold font-mono tabular-nums">{formatRate(stats.block_rate)}</div>
                           <div className="text-muted-foreground">Block Rate</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-xl font-semibold">{formatLatency(stats.average_latency)}</div>
+                          <div className="text-xl font-semibold font-mono tabular-nums">{formatLatency(stats.average_latency)}</div>
                           <div className="text-muted-foreground">Avg Latency</div>
                         </div>
                       </div>
@@ -558,7 +606,7 @@ export default function Guardrails() {
         </TabsContent>
 
         <TabsContent value="health" className="space-y-4">
-          <Card>
+          <Card className="rounded-[14px] shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -583,19 +631,15 @@ export default function Guardrails() {
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 mb-4">
-                    {allHealthy ? (
-                      <Icon icon={icons.check} className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <Icon icon={icons.error} className="h-5 w-5 text-red-500" />
-                    )}
-                    <span className={`font-medium ${allHealthy ? 'text-green-700' : 'text-red-700'}`}>
-                      {allHealthy ? 'All Guardrails Healthy' : 'Some Guardrails Unhealthy'}
-                    </span>
+                    <StatusChip
+                      tone={allHealthy ? "good" : "bad"}
+                      label={allHealthy ? "All Guardrails Healthy" : "Some Guardrails Unhealthy"}
+                    />
                   </div>
 
                   <div className="space-y-3">
                     {Object.entries(health as Record<string, any>).map(([name, status]) => (
-                      <div key={name} className="flex items-center justify-between p-3 border rounded-md">
+                      <div key={name} className="flex items-center justify-between rounded-[12px] border border-border bg-card p-3 shadow-sm">
                         <div className="flex items-center gap-2">
                           {getHealthIcon(status.healthy)}
                           <span className="font-medium">{name}</span>
@@ -627,15 +671,7 @@ export default function Guardrails() {
             <>
               <SheetHeader>
                 <div className="flex items-center gap-3">
-                  {selectedGuardrail.provider === 'presidio' ? (
-                    <div className="p-2 bg-blue-50 rounded-lg">
-                      <MicrosoftIcon />
-                    </div>
-                  ) : (
-                    <div className="p-2 bg-gray-50 rounded-lg">
-                      <Icon icon={icons.shield} className="h-5 w-5 text-gray-600" />
-                    </div>
-                  )}
+                  <GuardrailIconTile provider={selectedGuardrail.provider} />
                   <div>
                     <SheetTitle>{selectedGuardrail.name}</SheetTitle>
                     <SheetDescription>
@@ -651,9 +687,10 @@ export default function Guardrails() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Status</label>
                     <div className="flex items-center gap-2">
-                      <Badge variant={selectedGuardrail.enabled ? "default" : "secondary"}>
-                        {selectedGuardrail.enabled ? "Enabled" : "Disabled"}
-                      </Badge>
+                      <StatusChip
+                        tone={selectedGuardrail.enabled ? "good" : "neutral"}
+                        label={selectedGuardrail.enabled ? "Enabled" : "Disabled"}
+                      />
                       {getHealthIcon(selectedGuardrail.healthy)}
                       <span className="text-sm text-muted-foreground">
                         {selectedGuardrail.healthy ? 'Healthy' : 'Unhealthy'}
@@ -680,11 +717,9 @@ export default function Guardrails() {
                 {/* Execution Modes */}
                 <div className="space-y-3">
                   <label className="text-sm font-medium">Execution Modes</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {selectedGuardrail.mode.map((mode: string) => (
-                      <Badge key={mode} className={getModeColor(mode)}>
-                        {mode.replace('_', ' ')}
-                      </Badge>
+                      <StatusChip key={mode} tone={modeTone(mode)} dot={false} label={mode.replace('_', ' ')} />
                     ))}
                   </div>
                 </div>
@@ -700,7 +735,7 @@ export default function Guardrails() {
                       {selectedGuardrail.config.analyzer_url && (
                         <div className="grid grid-cols-3 gap-2 text-sm">
                           <span className="text-muted-foreground">Analyzer URL:</span>
-                          <span className="col-span-2 font-mono text-xs bg-muted p-2 rounded">
+                          <span className="col-span-2 font-mono text-xs bg-surface-2 p-2 rounded">
                             {selectedGuardrail.config.analyzer_url}
                           </span>
                         </div>
@@ -708,7 +743,7 @@ export default function Guardrails() {
                       {selectedGuardrail.config.anonymizer_url && (
                         <div className="grid grid-cols-3 gap-2 text-sm">
                           <span className="text-muted-foreground">Anonymizer URL:</span>
-                          <span className="col-span-2 font-mono text-xs bg-muted p-2 rounded">
+                          <span className="col-span-2 font-mono text-xs bg-surface-2 p-2 rounded">
                             {selectedGuardrail.config.anonymizer_url}
                           </span>
                         </div>
@@ -719,7 +754,7 @@ export default function Guardrails() {
                         {selectedGuardrail.config.threshold && (
                           <div>
                             <span className="text-sm text-muted-foreground">Threshold</span>
-                            <div className="text-lg font-semibold">{selectedGuardrail.config.threshold}</div>
+                            <div className="text-lg font-semibold font-mono tabular-nums">{selectedGuardrail.config.threshold}</div>
                           </div>
                         )}
                         {selectedGuardrail.config.language && (
@@ -752,9 +787,10 @@ export default function Guardrails() {
                           <span className="text-sm text-muted-foreground">Monitored PII Types</span>
                           <div className="flex flex-wrap gap-2">
                             {selectedGuardrail.config.entities.map((entity: string) => (
-                              <Badge key={entity} variant="outline" className="text-xs">
-                                {PII_ENTITIES.find(e => e.value === entity)?.label || entity}
-                              </Badge>
+                              <Tag
+                                key={entity}
+                                label={PII_ENTITIES.find(e => e.value === entity)?.label || entity}
+                              />
                             ))}
                           </div>
                         </div>
@@ -766,9 +802,9 @@ export default function Guardrails() {
                           <span className="text-sm text-muted-foreground">Custom Anonymization Rules</span>
                           <div className="space-y-2">
                             {Object.entries(selectedGuardrail.config.anonymizers).map(([entity, method]) => (
-                              <div key={entity} className="flex justify-between items-center text-sm bg-muted p-2 rounded">
+                              <div key={entity} className="flex justify-between items-center text-sm bg-surface-2 p-2 rounded">
                                 <span className="font-medium">{entity}</span>
-                                <Badge variant="secondary">{method as string}</Badge>
+                                <Tag label={method as string} />
                               </div>
                             ))}
                           </div>
@@ -785,29 +821,29 @@ export default function Guardrails() {
                   <div className="space-y-4">
                     <label className="text-sm font-medium">Performance Statistics</label>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center p-3 bg-blue-50 rounded-lg">
-                        <div className="text-2xl font-bold text-blue-600">
+                      <div className="text-center p-3 rounded-[12px] border border-border bg-info/12">
+                        <div className="text-2xl font-bold font-mono tabular-nums text-info">
                           {selectedGuardrail.stats.total_executions.toLocaleString()}
                         </div>
-                        <div className="text-xs text-blue-600">Total Executions</div>
+                        <div className="text-xs text-info">Total Executions</div>
                       </div>
-                      <div className="text-center p-3 bg-green-50 rounded-lg">
-                        <div className="text-2xl font-bold text-green-600">
+                      <div className="text-center p-3 rounded-[12px] border border-border bg-good/12">
+                        <div className="text-2xl font-bold font-mono tabular-nums text-good">
                           {formatLatency(selectedGuardrail.stats.average_latency)}
                         </div>
-                        <div className="text-xs text-green-600">Avg Latency</div>
+                        <div className="text-xs text-good">Avg Latency</div>
                       </div>
-                      <div className="text-center p-3 bg-red-50 rounded-lg">
-                        <div className="text-2xl font-bold text-red-600">
+                      <div className="text-center p-3 rounded-[12px] border border-border bg-bad/12">
+                        <div className="text-2xl font-bold font-mono tabular-nums text-bad">
                           {formatRate(selectedGuardrail.stats.block_rate)}
                         </div>
-                        <div className="text-xs text-red-600">Block Rate</div>
+                        <div className="text-xs text-bad">Block Rate</div>
                       </div>
-                      <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                        <div className="text-2xl font-bold text-yellow-600">
+                      <div className="text-center p-3 rounded-[12px] border border-border bg-warn/12">
+                        <div className="text-2xl font-bold font-mono tabular-nums text-warn">
                           {formatRate(selectedGuardrail.stats.error_rate)}
                         </div>
-                        <div className="text-xs text-yellow-600">Error Rate</div>
+                        <div className="text-xs text-warn">Error Rate</div>
                       </div>
                     </div>
                     {selectedGuardrail.stats.last_executed && (

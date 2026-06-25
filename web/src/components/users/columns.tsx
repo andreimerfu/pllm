@@ -4,91 +4,9 @@ import { ColumnDef } from "@tanstack/react-table"
 import { Icon } from '@iconify/react'
 import { icons } from '@/lib/icons'
 import { Button } from "../ui/button"
-import { Badge } from "../ui/badge"
-import { formatDate } from '@/lib/date-utils'
+import { StatusChip } from "@/components/common/status-chip"
+import { formatRelativeTime } from '@/lib/date-utils'
 import { User } from '@/types/api'
-
-const PROVIDER_ICON_MAP: Record<string, { icon: string; label: string }> = {
-  github: { icon: 'simple-icons:github', label: 'GitHub' },
-  gitlab: { icon: 'simple-icons:gitlab', label: 'GitLab' },
-  bitbucket: { icon: 'simple-icons:bitbucket', label: 'Bitbucket' },
-  microsoft: { icon: 'simple-icons:microsoft', label: 'Microsoft' },
-  google: { icon: 'simple-icons:google', label: 'Google' },
-  okta: { icon: 'simple-icons:okta', label: 'Okta' },
-  auth0: { icon: 'simple-icons:auth0', label: 'Auth0' },
-  keycloak: { icon: 'simple-icons:keycloak', label: 'Keycloak' },
-  ldap: { icon: 'solar:server-2-linear', label: 'LDAP' },
-  saml: { icon: 'solar:shield-keyhole-linear', label: 'SAML' },
-}
-
-const normalizeProvider = (raw?: string): string | null => {
-  if (!raw) return null
-  const p = raw.trim().toLowerCase()
-  if (!p) return null
-  if (PROVIDER_ICON_MAP[p]) return p
-  if (p.includes('github')) return 'github'
-  if (p.includes('gitlab')) return 'gitlab'
-  if (p.includes('bitbucket')) return 'bitbucket'
-  if (p.includes('microsoft') || p.includes('azure') || p.includes('entra') || p === 'ms' || p === 'msft' || p === 'aad') return 'microsoft'
-  if (p.includes('google') || p.includes('workspace')) return 'google'
-  if (p.includes('okta')) return 'okta'
-  if (p.includes('auth0')) return 'auth0'
-  if (p.includes('keycloak')) return 'keycloak'
-  if (p.includes('ldap')) return 'ldap'
-  if (p.includes('saml')) return 'saml'
-  return null
-}
-
-const getProviderIcon = (user: User) => {
-  const normalized = normalizeProvider(user.external_provider) ?? normalizeProvider(user.provider_icon)
-
-  if (normalized && PROVIDER_ICON_MAP[normalized]) {
-    const { icon, label } = PROVIDER_ICON_MAP[normalized]
-    return (
-      <Icon
-        icon={icon}
-        width="18"
-        height="18"
-        className="text-muted-foreground"
-        aria-label={label}
-      />
-    )
-  }
-
-  const rawIcon = user.provider_icon
-  if (rawIcon === 'master_key') {
-    return (
-      <Icon
-        icon={icons.keys}
-        width="18"
-        height="18"
-        className="text-muted-foreground"
-        aria-label="Master key"
-      />
-    )
-  }
-  if (rawIcon === 'key') {
-    return (
-      <Icon
-        icon={icons.keys}
-        width="18"
-        height="18"
-        className="text-muted-foreground"
-        aria-label="Local account"
-      />
-    )
-  }
-
-  return (
-    <Icon
-      icon={icons.user}
-      width="18"
-      height="18"
-      className="text-muted-foreground"
-      aria-label={user.external_provider || 'Unknown provider'}
-    />
-  )
-}
 
 const getUserDisplayName = (user: User) => {
   if (user.first_name && user.last_name) {
@@ -97,88 +15,134 @@ const getUserDisplayName = (user: User) => {
   return user.name || user.email?.split('@')[0] || 'Unknown'
 }
 
+// Deterministic avatar tint + initials — display logic only.
+const AVATAR_TINTS = [
+  "bg-info/12 text-info",
+  "bg-good/12 text-good",
+  "bg-warn/12 text-warn",
+  "bg-bad/12 text-bad",
+  "bg-kind-agent/12 text-kind-agent",
+  "bg-kind-prompt/12 text-kind-prompt",
+  "bg-kind-skill/12 text-kind-skill",
+  "bg-kind-model/12 text-kind-model",
+]
+
+const avatarTint = (seed: string) => {
+  let hash = 0
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0
+  }
+  return AVATAR_TINTS[Math.abs(hash) % AVATAR_TINTS.length]
+}
+
+const getInitials = (name: string) => {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+// "USER" header label — mono uppercase eyebrow, dim. Returns a node (not a
+// component) so the file keeps a single component-shaped export.
+const colHeader = (label: string) => (
+  <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.08em] text-text-dim">
+    {label}
+  </span>
+)
+
 export const createColumns = (): ColumnDef<User>[] => [
   {
     accessorKey: "name",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Name
-          <Icon icon={icons.arrowUpDown} className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
+    header: () => colHeader("User"),
     cell: ({ row }) => {
       const user = row.original
-      return <div className="font-medium">{getUserDisplayName(user)}</div>
-    },
-  },
-  {
-    accessorKey: "provider_icon",
-    header: "Provider",
-    cell: ({ row }) => {
-      const user = row.original
+      const displayName = getUserDisplayName(user)
       return (
-        <div
-          className="flex justify-center"
-          title={user.external_provider || 'Unknown provider'}
-        >
-          {getProviderIcon(user)}
+        <div className="flex items-center gap-3">
+          <span
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[12px] font-semibold ${avatarTint(
+              displayName || user.id,
+            )}`}
+          >
+            {getInitials(displayName)}
+          </span>
+          <div className="min-w-0">
+            <div className="truncate font-semibold text-foreground">{displayName}</div>
+            <div className="truncate text-[12px] text-muted-foreground">
+              {user.email || 'No email'}
+            </div>
+          </div>
         </div>
       )
     },
   },
   {
-    accessorKey: "email",
-    header: "Email",
-    cell: ({ row }) => {
-      return <div className="text-muted-foreground">{row.getValue("email") || 'No email'}</div>
-    },
-  },
-  {
     accessorKey: "is_admin",
-    header: "Role",
+    header: () => colHeader("Role"),
     cell: ({ row }) => {
       const isAdmin = row.getValue("is_admin") as boolean
       return (
-        <Badge variant={isAdmin ? 'default' : 'secondary'} className="font-medium">
-          {isAdmin ? 'Admin' : 'User'}
-        </Badge>
+        <StatusChip
+          tone={isAdmin ? 'info' : 'neutral'}
+          dot={false}
+          label={isAdmin ? 'Admin' : 'Member'}
+        />
+      )
+    },
+  },
+  {
+    accessorKey: "groups",
+    header: () => colHeader("Teams"),
+    cell: ({ row }) => {
+      const groups = row.original.groups
+      const hasGroups = Array.isArray(groups) && groups.length > 0
+      return (
+        <span className={hasGroups ? "text-[13px] text-foreground" : "text-text-dim"}>
+          {hasGroups ? groups.join(', ') : '—'}
+        </span>
       )
     },
   },
   {
     accessorKey: "last_login_at",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Last Login
-          <Icon icon={icons.arrowUpDown} className="ml-2 h-4 w-4" />
-        </Button>
-      )
-    },
+    header: () => colHeader("Last active"),
     cell: ({ row }) => {
-      const lastLogin = row.getValue("last_login_at") as string | undefined
+      const user = row.original
+      const lastActive = user.last_login_at || user.last_login
       return (
-        <div className="text-muted-foreground text-xs">
-          {lastLogin ? formatDate(lastLogin) : 'Never'}
-        </div>
+        <span className="font-mono text-[12px] text-muted-foreground">
+          {lastActive ? formatRelativeTime(lastActive) : 'Never'}
+        </span>
       )
     },
   },
   {
+    id: "status",
+    header: () => colHeader("Status"),
+    cell: ({ row }) => {
+      const user = row.original
+      const lastActive = user.last_login_at || user.last_login
+      if (lastActive) {
+        return <StatusChip tone="good" label="Active" />
+      }
+      return <StatusChip tone="warn" label="Invited" />
+    },
+  },
+  {
     id: "actions",
+    header: () => null,
     cell: () => {
       return (
-        <Button variant="ghost" size="sm" className="hover:bg-muted transition-colors">
-          View
-        </Button>
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-text-dim hover:bg-surface-2 hover:text-foreground"
+            aria-label="User actions"
+          >
+            <Icon icon={icons.moreVertical} className="h-4 w-4" />
+          </Button>
+        </div>
       )
     },
   },

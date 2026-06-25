@@ -1,14 +1,26 @@
 import * as React from "react"
 import { useNavigate } from "react-router-dom"
-import { Area, AreaChart, CartesianGrid, XAxis, Line, LineChart, ResponsiveContainer } from "recharts"
+import { Area, AreaChart, CartesianGrid, XAxis, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { useQuery } from "@tanstack/react-query"
+import { formatDistanceToNow } from "date-fns"
 import { Icon } from "@iconify/react"
 import { icons } from "@/lib/icons"
 import { getProviderLogo } from "@/lib/provider-logos"
 import { detectProvider } from "@/lib/providers"
-import { getDashboardMetrics, getUsageTrends, getAdminModels, getModelsHealth } from "@/lib/api"
-import { PageShell } from "@/components/common/page-shell"
-import type { AdminModelsResponse, ModelsHealthResponse } from "@/types/api"
+import {
+  getDashboardMetrics,
+  getUsageTrends,
+  getAdminModels,
+  getModelsHealth,
+  getAuditLogs,
+  listDeployments,
+  listRegistryServers,
+  listRegistryAgents,
+  listRegistrySkills,
+  listRegistryPrompts,
+} from "@/lib/api"
+import { PageShell, StatTile } from "@/components/common/page-shell"
+import type { AdminModelsResponse, ModelsHealthResponse, AuditLog } from "@/types/api"
 import { formatChartLabel, fillTimeGaps } from "@/lib/date-utils"
 
 import { Button } from "@/components/ui/button"
@@ -88,14 +100,14 @@ function TimeRangePill({
     { value: "30d", label: "30d" },
   ]
   return (
-    <div className="flex items-center gap-1 rounded-lg border p-0.5">
+    <div className="flex items-center gap-0.5 rounded-[9px] border border-border bg-surface-2 p-[3px]">
       {tabs.map((tab) => (
         <button
           key={tab.value}
           onClick={() => onChange(tab.value)}
-          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+          className={`h-[26px] rounded-md px-3 text-xs font-semibold transition-colors ${
             value === tab.value
-              ? "bg-teal-500/15 text-teal-400"
+              ? "bg-card text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -106,84 +118,15 @@ function TimeRangePill({
   )
 }
 
-// ─── Mini Sparkline ───────────────────────────────────────────────────────────
-
-function Sparkline({ data, color = "#14B8A6" }: { data: number[]; color?: string }) {
-  const chartData = data.map((v, i) => ({ i, v }))
-  return (
-    <ResponsiveContainer width="100%" height={32}>
-      <LineChart data={chartData} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
-        <Line
-          type="monotone"
-          dataKey="v"
-          stroke={color}
-          strokeWidth={1.5}
-          dot={false}
-          isAnimationActive={false}
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  )
-}
-
-// ─── Trend Indicator ──────────────────────────────────────────────────────────
-
-function TrendIndicator({ value }: { value: number | null }) {
-  if (value === null || value === undefined) return null
-  const isPositive = value >= 0
-  return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${isPositive ? "text-emerald-500" : "text-red-400"}`}>
-      <Icon icon={isPositive ? icons.arrowUp : icons.arrowDown} className="h-3 w-3" />
-      {Math.abs(value).toFixed(1)}%
-    </span>
-  )
-}
-
-// ─── Hero Metric Card ─────────────────────────────────────────────────────────
-
-function HeroCard({
-  icon,
-  label,
-  value,
-  trend,
-  sparkData,
-  onClick,
-}: {
-  icon: string
-  label: string
-  value: string
-  trend: number | null
-  sparkData: number[]
-  onClick?: () => void
-}) {
-  return (
-    <Card
-      className={`bg-card border rounded-lg p-4 transition-colors ${onClick ? "cursor-pointer hover:border-teal-500/40" : ""}`}
-      onClick={onClick}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-teal-500/10">
-          <Icon icon={icon} className="h-4 w-4 text-teal-500" />
-        </div>
-        <TrendIndicator value={trend} />
-      </div>
-      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
-        {label}
-      </p>
-      <p className="text-2xl font-bold font-mono leading-none mb-2">{value}</p>
-      {sparkData.length > 1 && (
-        <div className="mt-1">
-          <Sparkline data={sparkData} />
-        </div>
-      )}
-    </Card>
-  )
-}
-
 // ─── Hero Metrics Row ─────────────────────────────────────────────────────────
 
+function fmtCompact(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return n.toLocaleString()
+}
+
 function HeroMetrics({ range }: { range: TimeRange }) {
-  const navigate = useNavigate()
   const mp = metricsParams(range)
   const tp = trendParams(range)
 
@@ -202,6 +145,17 @@ function HeroMetrics({ range }: { range: TimeRange }) {
   const { data: adminModelsData } = useQuery({
     queryKey: ["admin-models"],
     queryFn: getAdminModels,
+  })
+
+  // Registry composition + deployments — the registry-first KPIs the
+  // "pLLM Console" dashboard leads with. Counts come straight from the
+  // list endpoints (latest-only), never fabricated.
+  const { data: registryCounts } = useRegistryCounts()
+
+  const { data: deploymentsData } = useQuery({
+    queryKey: ["deployments"],
+    queryFn: listDeployments,
+    refetchInterval: 10000,
   })
 
   const metrics = React.useMemo(() => {
@@ -223,12 +177,6 @@ function HeroMetrics({ range }: { range: TimeRange }) {
     return (raw as any[]).map((d: any) => d.requests || 0)
   }, [rawTrends])
 
-  const sparkTokens = React.useMemo(() => {
-    if (!rawTrends) return []
-    const raw = (rawTrends as any).data || rawTrends || []
-    return (raw as any[]).map((d: any) => d.tokens || 0)
-  }, [rawTrends])
-
   // Compute simple trend percentage (last vs first half average)
   const computeTrend = (arr: number[]): number | null => {
     if (arr.length < 4) return null
@@ -245,65 +193,91 @@ function HeroMetrics({ range }: { range: TimeRange }) {
     return models.filter(m => m.enabled).length || metrics?.activeModels || 0
   }, [adminModelsData, metrics])
 
-  // Compute error rate from top_models if available
-  const errorRate = React.useMemo(() => {
-    if (!metrics) return 0
-    // If we have top_models with error info, compute; otherwise show 0
-    return 0
-  }, [metrics])
-
   if (metricsLoading || !metrics) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="bg-card border rounded-lg p-4">
-            <div className="h-8 w-8 bg-muted animate-pulse rounded-md mb-3" />
-            <div className="h-3 w-20 bg-muted animate-pulse rounded mb-2" />
-            <div className="h-7 w-24 bg-muted animate-pulse rounded mb-2" />
-            <div className="h-8 w-full bg-muted animate-pulse rounded" />
-          </Card>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="rounded-[14px] border border-border bg-card p-4 shadow-sm">
+            <div className="mb-3.5 h-[34px] w-[34px] animate-pulse rounded-[9px] bg-muted" />
+            <div className="mb-2 h-7 w-24 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+          </div>
         ))}
       </div>
     )
   }
 
+  const c = registryCounts
+  const registeredAssets = c ? c.servers + c.agents + c.skills + c.prompts : null
+  const deployments = deploymentsData?.deployments ?? []
+  const running = deployments.filter((d) => d.status === "running").length
+  const reqTrend = computeTrend(sparkRequests)
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <HeroCard
-        icon={icons.trendingUp}
-        label={`Total Requests (${rangeLabel(range)})`}
-        value={metrics.totalRequests.toLocaleString()}
-        trend={computeTrend(sparkRequests)}
-        sparkData={sparkRequests}
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <StatTile
+        label="Registered assets"
+        value={registeredAssets ?? "—"}
+        icon={<Icon icon={icons.registry} />}
+        iconColor="agent"
+        sub={c ? `${c.agents} agents · ${c.servers} MCP · ${c.skills + c.prompts} others` : "Across the catalog"}
+        className="cursor-pointer"
       />
-      <HeroCard
-        icon={icons.bolt}
-        label={`Tokens Used (${rangeLabel(range)})`}
-        value={
-          metrics.totalTokens > 1000000
-            ? `${(metrics.totalTokens / 1000000).toFixed(1)}M`
-            : metrics.totalTokens.toLocaleString()
-        }
-        trend={computeTrend(sparkTokens)}
-        sparkData={sparkTokens}
+      <StatTile
+        label="Live deployments"
+        value={deployments.length}
+        icon={<Icon icon={icons.rocket} />}
+        iconColor="mcp"
+        sub={`${running} running`}
       />
-      <HeroCard
-        icon={icons.models}
-        label="Active Models"
-        value={String(activeModelCount)}
-        trend={null}
-        sparkData={[]}
-        onClick={() => navigate("/models")}
+      <StatTile
+        label={`Requests (${rangeLabel(range)})`}
+        value={fmtCompact(metrics.totalRequests)}
+        icon={<Icon icon={icons.trendingUp} />}
+        iconColor="primary"
+        delta={reqTrend !== null ? `${reqTrend >= 0 ? "+" : ""}${reqTrend.toFixed(0)}%` : undefined}
+        deltaPositive={(reqTrend ?? 0) >= 0}
+        sub="Routed through the gateway"
       />
-      <HeroCard
-        icon={icons.warning}
-        label="Error Rate"
-        value={`${errorRate.toFixed(2)}%`}
-        trend={null}
-        sparkData={[]}
+      <StatTile
+        label="Active models"
+        value={activeModelCount}
+        icon={<Icon icon={icons.models} />}
+        iconColor="model"
+        sub={`${metrics.activeKeys} active keys`}
+      />
+      <StatTile
+        label={`Spend (${rangeLabel(range)})`}
+        value={`$${metrics.totalCost.toFixed(2)}`}
+        icon={<Icon icon={icons.budget} />}
+        iconColor="prompt"
+        sub={`${fmtCompact(metrics.totalTokens)} tokens`}
       />
     </div>
   )
+}
+
+// Shared registry-count query — agents/MCP/skills/prompts totals. Used by
+// both the KPI row and the composition donut so it fires once and caches.
+function useRegistryCounts() {
+  return useQuery({
+    queryKey: ["dashboard-registry-counts"],
+    queryFn: async () => {
+      const [s, a, sk, p] = await Promise.all([
+        listRegistryServers({ latest: true }),
+        listRegistryAgents({ latest: true }),
+        listRegistrySkills({ latest: true }),
+        listRegistryPrompts({ latest: true }),
+      ])
+      return {
+        servers: s.total ?? s.servers?.length ?? 0,
+        agents: a.total ?? a.agents?.length ?? 0,
+        skills: sk.total ?? sk.skills?.length ?? 0,
+        prompts: p.total ?? p.prompts?.length ?? 0,
+      }
+    },
+    refetchInterval: 60000,
+  })
 }
 
 // ─── Request Volume Chart ─────────────────────────────────────────────────────
@@ -311,11 +285,11 @@ function HeroMetrics({ range }: { range: TimeRange }) {
 const chartConfig = {
   requests: {
     label: "Requests",
-    color: "#14B8A6",
+    color: "hsl(var(--primary))",
   },
   tokens: {
     label: "Tokens (100s)",
-    color: "#0D9488",
+    color: "hsl(var(--kind-mcp))",
   },
 } satisfies ChartConfig
 
@@ -367,12 +341,12 @@ function RequestVolumeChart({ range }: { range: TimeRange }) {
             <AreaChart data={filteredData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="fillRequests" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#14B8A6" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#14B8A6" stopOpacity={0.02} />
+                  <stop offset="5%" stopColor="var(--color-requests)" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="var(--color-requests)" stopOpacity={0.02} />
                 </linearGradient>
                 <linearGradient id="fillTokens" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0D9488" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#0D9488" stopOpacity={0.02} />
+                  <stop offset="5%" stopColor="var(--color-tokens)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--color-tokens)" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -398,7 +372,7 @@ function RequestVolumeChart({ range }: { range: TimeRange }) {
                 dataKey="tokens"
                 type="monotone"
                 fill="url(#fillTokens)"
-                stroke="#0D9488"
+                stroke="var(--color-tokens)"
                 strokeWidth={1.5}
                 stackId="a"
               />
@@ -406,7 +380,7 @@ function RequestVolumeChart({ range }: { range: TimeRange }) {
                 dataKey="requests"
                 type="monotone"
                 fill="url(#fillRequests)"
-                stroke="#14B8A6"
+                stroke="var(--color-requests)"
                 strokeWidth={1.5}
                 stackId="a"
               />
@@ -515,7 +489,7 @@ function ProviderBreakdown({ range }: { range: TimeRange }) {
                   </div>
                   <div className="h-1.5 w-full rounded-full bg-muted/50 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-teal-500 transition-all"
+                      className="h-full rounded-full bg-primary transition-all"
                       style={{ width: `${Math.max(provider.percentage, 2)}%` }}
                     />
                   </div>
@@ -655,7 +629,7 @@ function ModelsActivityTable({ range }: { range: TimeRange }) {
         <Button
           variant="ghost"
           size="sm"
-          className="text-teal-500 hover:text-teal-400 text-xs"
+          className="text-primary hover:text-primary/80 text-xs"
           onClick={() => navigate("/models")}
         >
           View All Models
@@ -706,7 +680,7 @@ function ModelsActivityTable({ range }: { range: TimeRange }) {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
-                      <span className={`h-1.5 w-1.5 rounded-full ${model.enabled ? "bg-emerald-500" : "bg-zinc-500"}`} />
+                      <span className={`h-1.5 w-1.5 rounded-full ${model.enabled ? "bg-good" : "bg-text-dim"}`} />
                       <span className="text-xs text-muted-foreground">{model.enabled ? "Active" : "Inactive"}</span>
                     </div>
                   </TableCell>
@@ -750,6 +724,119 @@ function ModelsActivityTable({ range }: { range: TimeRange }) {
   )
 }
 
+// ─── Catalog Composition Donut ────────────────────────────────────────────────
+
+function CompositionDonut() {
+  const { data: c } = useRegistryCounts()
+  const { data: adminModelsData } = useQuery({
+    queryKey: ["admin-models"],
+    queryFn: getAdminModels,
+  })
+  const modelCount = (adminModelsData as AdminModelsResponse | undefined)?.models?.length ?? 0
+
+  const segs = [
+    { key: "agent", name: "Agents", value: c?.agents ?? 0, color: "hsl(var(--kind-agent))" },
+    { key: "mcp", name: "MCP Servers", value: c?.servers ?? 0, color: "hsl(var(--kind-mcp))" },
+    { key: "skill", name: "Skills", value: c?.skills ?? 0, color: "hsl(var(--kind-skill))" },
+    { key: "prompt", name: "Prompts", value: c?.prompts ?? 0, color: "hsl(var(--kind-prompt))" },
+    { key: "model", name: "Models", value: modelCount, color: "hsl(var(--kind-model))" },
+  ]
+  const data = segs.filter((s) => s.value > 0)
+  const total = segs.reduce((a, s) => a + s.value, 0)
+
+  return (
+    <Card className="w-full flex-shrink-0 pt-0 lg:w-[360px] xl:w-[400px]">
+      <CardHeader className="border-b py-4">
+        <CardTitle className="text-base">Catalog composition</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-5">
+        {total === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Nothing published yet.</p>
+        ) : (
+          <div className="flex items-center gap-5">
+            <div className="relative h-[150px] w-[150px] shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={data} dataKey="value" nameKey="name" innerRadius={48} outerRadius={70} paddingAngle={2} stroke="none">
+                    {data.map((s) => (
+                      <Cell key={s.key} fill={s.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="font-mono text-2xl font-semibold leading-none">{total}</span>
+                <span className="text-[10.5px] uppercase tracking-wider text-text-dim">assets</span>
+              </div>
+            </div>
+            <div className="flex-1 space-y-2">
+              {segs.map((s) => (
+                <div key={s.key} className="flex items-center gap-2.5 text-sm">
+                  <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: s.color }} />
+                  <span className="flex-1 text-muted-foreground">{s.name}</span>
+                  <span className="font-mono tabular-nums">{s.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ─── Recent Activity Feed ─────────────────────────────────────────────────────
+
+function RecentActivity() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["dashboard-recent-activity"],
+    queryFn: () => getAuditLogs({ limit: 7 }),
+    refetchInterval: 30000,
+    retry: false,
+  })
+  const logs = (((data as any)?.audit_logs as AuditLog[] | undefined) ?? [])
+  const dotClass = (r: AuditLog["event_result"]) =>
+    r === "success" ? "bg-good" : r === "warning" ? "bg-warn" : r === "failure" || r === "error" ? "bg-bad" : "bg-info"
+
+  return (
+    <Card className="flex-1 pt-0">
+      <CardHeader className="border-b py-4">
+        <CardTitle className="text-base">Recent activity</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading ? (
+          <div className="space-y-3 p-5">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-8 animate-pulse rounded bg-muted" />
+            ))}
+          </div>
+        ) : isError || logs.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">No recent events.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {logs.map((l) => (
+              <li key={l.id} className="flex items-start gap-3 px-5 py-3">
+                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotClass(l.event_result)}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium">{l.event_action || l.event_type}</p>
+                  <p className="truncate text-[11.5px] text-text-dim">
+                    {[l.resource_type, l.message].filter(Boolean).join(" · ") || l.user?.email || "—"}
+                  </p>
+                </div>
+                {l.created_at && (
+                  <span className="shrink-0 text-[11px] text-text-dim">
+                    {formatDistanceToNow(new Date(l.created_at))}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -757,13 +844,17 @@ export default function Dashboard() {
   return (
     <PageShell
       title="Dashboard"
-      description="Live health and traffic across the LLM, MCP, and governance surfaces of your console."
+      description="Registry health, governance, and gateway traffic at a glance."
       actions={<TimeRangePill value={range} onChange={setRange} />}
     >
       <SystemHealthStrip />
       <HeroMetrics range={range} />
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col gap-4 xl:flex-row">
         <RequestVolumeChart range={range} />
+        <CompositionDonut />
+      </div>
+      <div className="flex flex-col gap-4 lg:flex-row">
+        <RecentActivity />
         <ProviderBreakdown range={range} />
       </div>
       <ModelsActivityTable range={range} />

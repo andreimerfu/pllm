@@ -4,7 +4,7 @@ import { frameworkInfo } from "@/lib/frameworks";
 import { icons } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { KindIcon } from "./kind-icon";
-import { PackageChip } from "./package-chip";
+import { KindChip, StatusChip, Tag } from "@/components/common/status-chip";
 import type {
   RegistryAgent,
   RegistryKind,
@@ -21,12 +21,29 @@ type Extras = {
   packages?: RegistryPackage[];
   deployStatus?: string; // server-only
   tagline?: string; // one-line secondary text (framework, image, template preview)
+  score?: number; // enrichment score when known on the list row
+  deployCount?: number; // running/active deployments for this row
 };
 
+const KIND_LABEL: Record<RegistryKind, string> = {
+  server: "MCP",
+  agent: "Agent",
+  skill: "Skill",
+  prompt: "Prompt",
+  llm: "Model",
+  use_case: "Use case",
+};
+
+// score tone: ≥88 good, ≥75 muted, else warn.
+function scoreTone(score: number) {
+  if (score >= 88) return "text-good";
+  if (score >= 75) return "text-muted-foreground";
+  return "text-warn";
+}
+
 // ArtifactCard is the uniform card used across all four kinds. Visual
-// hierarchy, left-to-right: kind icon → title stack → metadata tail. Click
-// opens the detail drawer. Tiny strip across the bottom carries status +
-// install command when relevant.
+// hierarchy, top-to-bottom: kind icon → title stack + version → description
+// → chip row → footer (score · deployed · time). Click opens the drawer.
 export function ArtifactCard({
   kind,
   row,
@@ -42,109 +59,99 @@ export function ArtifactCard({
     ? formatDistanceToNow(new Date(row.published_at), { addSuffix: true })
     : null;
 
-  // Collect unique package types (so a single card with npm + oci shows both).
-  const pkgTypes = Array.from(
-    new Set((extras?.packages ?? []).map((p) => p.registry_type?.toLowerCase()).filter(Boolean)),
-  ) as string[];
+  // Third-party provenance: federated rows carry a source peer; the npm/PyPI
+  // importers stamp `<type>.import/` into the namespace. Everything else is
+  // first-party / internal.
+  const thirdParty = !!row.source_peer_id || /\.import\//i.test(row.name);
 
   // Agent rows carry an optional framework slug — render its vendor logo
-  // alongside the title so LangGraph / CrewAI etc. are recognizable at a glance.
+  // as a source Tag so LangGraph / CrewAI etc. are recognizable at a glance.
   const fw =
-    kind === "agent"
-      ? frameworkInfo((row as RegistryAgent).framework)
-      : null;
+    kind === "agent" ? frameworkInfo((row as RegistryAgent).framework) : null;
+
+  const deployCount = extras?.deployCount ?? 0;
+  const hasScore = typeof extras?.score === "number";
 
   return (
     <button
       onClick={onClick}
       className={cn(
-        "group relative text-left w-full",
-        "rounded-xl border border-border/80 bg-card",
-        "hover:border-primary/40 hover:shadow-sm transition-all",
+        "group relative flex w-full flex-col gap-3 text-left",
+        "rounded-[14px] border border-border bg-card p-4 shadow-sm",
+        "transition-all hover:border-border-strong hover:shadow",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        "p-4 space-y-3",
       )}
     >
-      {/* Top row: icon + title + version */}
+      {/* Top row: icon + title stack + version badge */}
       <div className="flex items-start gap-3 min-w-0">
         <KindIcon kind={kind} name={row.name} size="md" />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 min-w-0">
-            <h3 className="font-semibold text-[15px] leading-tight truncate">
-              {row.title || row.name.split("/").slice(-1)[0]}
-            </h3>
-            {fw && (
-              <span
-                className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0 h-[18px] text-[10px] font-medium text-muted-foreground shrink-0"
-                title={`Framework: ${fw.label}`}
-              >
-                <Icon
-                  icon={fw.icon}
-                  className={`h-3 w-3 ${fw.tone ?? ""}`}
-                />
-                {fw.label}
-              </span>
-            )}
-          </div>
+          <h3 className="font-semibold text-[15px] leading-tight truncate">
+            {row.title || row.name.split("/").slice(-1)[0]}
+          </h3>
           <code
-            className="text-[11px] font-mono text-muted-foreground block truncate mt-0.5"
+            className="mt-0.5 block truncate font-mono text-[11px] text-text-dim"
             title={row.name}
           >
             {row.name}
           </code>
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className="inline-flex items-center h-[18px] px-1.5 rounded bg-foreground/5 ring-1 ring-border/60 font-mono text-[10px] tabular-nums">
-            v{row.version}
-          </span>
-          {row.is_latest && (
-            <span className="text-[9px] font-mono uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-              latest
-            </span>
-          )}
-        </div>
+        <span className="inline-flex shrink-0 items-center rounded-md bg-surface-2 px-1.5 py-[3px] font-mono text-[10.5px] tabular-nums text-text-dim">
+          v{row.version}
+        </span>
       </div>
 
-      {/* Description */}
-      {row.description && (
-        <p className="text-[13px] leading-relaxed text-muted-foreground line-clamp-2">
-          {row.description}
-        </p>
-      )}
+      {/* Description (always 2 lines tall for an even grid) */}
+      <p className="line-clamp-2 min-h-[2.5rem] text-[13px] leading-relaxed text-muted-foreground">
+        {row.description || extras?.tagline || (
+          <span className="text-text-dim">No description provided.</span>
+        )}
+      </p>
 
-      {/* Tagline — e.g. framework/language for agents, image ref for skills */}
-      {extras?.tagline && (
-        <p className="text-[11px] font-mono text-muted-foreground/80 truncate">
-          {extras.tagline}
-        </p>
-      )}
+      {/* Chip row: kind · origin · verified/latest · source */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <KindChip kind={kind} label={KIND_LABEL[kind]} />
+        <Tag label={thirdParty ? "Third-party" : "Internal"} />
+        {row.is_latest && (
+          <StatusChip tone="good" dot={false} label="✓ Latest" />
+        )}
+        {row.status === "deprecated" && (
+          <StatusChip tone="warn" label="Deprecated" />
+        )}
+        {fw && <Tag label={fw.label} />}
+        {row.source_peer_id && <Tag label={row.source_peer_id} />}
+        {extras?.deployStatus && extras.deployStatus !== "stopped" && (
+          <DeployBadge status={extras.deployStatus} />
+        )}
+      </div>
 
-      {/* Metadata rail */}
-      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground pt-1">
-        <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-          {pkgTypes.map((t) => (
-            <PackageChip key={t} type={t} />
-          ))}
-          {row.status === "deprecated" && (
-            <span className="inline-flex items-center h-[18px] px-1.5 rounded bg-amber-500/10 ring-1 ring-amber-500/20 font-mono text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400">
-              deprecated
-            </span>
-          )}
-          {row.source_peer_id && (
+      {/* Footer: score · deployed · relative time */}
+      <div className="mt-auto flex items-center gap-3 border-t border-border/60 pt-2.5 text-[11px] text-text-dim">
+        {hasScore && (
+          <span className="inline-flex items-center gap-1">
+            <Icon
+              icon={icons.star}
+              className={cn("h-3.5 w-3.5", scoreTone(extras!.score!))}
+            />
             <span
-              className="inline-flex items-center gap-1 h-[18px] px-1.5 rounded bg-violet-500/10 ring-1 ring-violet-500/20 font-mono text-[10px] uppercase tracking-wider text-violet-700 dark:text-violet-300"
-              title={`Federated from ${row.source_peer_id}`}
+              className={cn(
+                "font-mono tabular-nums",
+                scoreTone(extras!.score!),
+              )}
             >
-              <Icon icon={icons.federation} className="h-3 w-3" />
-              {row.source_peer_id}
+              {extras!.score}
             </span>
-          )}
-          {extras?.deployStatus && extras.deployStatus !== "stopped" && (
-            <DeployBadge status={extras.deployStatus} />
-          )}
-        </div>
+          </span>
+        )}
+        {deployCount > 0 && (
+          <span className="inline-flex items-center gap-1">
+            <Icon icon={icons.rocket} className="h-3.5 w-3.5" />
+            <span className="font-mono tabular-nums">{deployCount}</span>{" "}
+            deployed
+          </span>
+        )}
         {when && (
-          <span className="inline-flex items-center gap-1 shrink-0">
+          <span className="ml-auto inline-flex shrink-0 items-center gap-1">
             <Icon icon={icons.clock} className="h-3 w-3" />
             {when}
           </span>
@@ -155,23 +162,13 @@ export function ArtifactCard({
 }
 
 function DeployBadge({ status }: { status: string }) {
-  const palette: Record<string, string> = {
-    running: "text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 ring-emerald-500/30",
-    deploying: "text-blue-700 dark:text-blue-300 bg-blue-500/10 ring-blue-500/30",
-    pending: "text-muted-foreground bg-muted ring-border",
-    failed: "text-rose-700 dark:text-rose-300 bg-rose-500/10 ring-rose-500/30",
-    terminating: "text-amber-700 dark:text-amber-300 bg-amber-500/10 ring-amber-500/30",
-  };
-  const tone = palette[status] ?? palette.pending;
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 h-[18px] px-1.5 rounded font-mono text-[10px] uppercase tracking-wider ring-1",
-        tone,
-      )}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-      {status}
-    </span>
-  );
+  const tone =
+    status === "running"
+      ? "good"
+      : status === "failed"
+        ? "bad"
+        : status === "deploying" || status === "pending"
+          ? "info"
+          : "warn";
+  return <StatusChip tone={tone} label={status} />;
 }

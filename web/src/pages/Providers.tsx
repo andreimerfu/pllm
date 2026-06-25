@@ -33,7 +33,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PageShell } from "@/components/common/page-shell";
-import { PageActions } from "@/components/common/page-chrome";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingState } from "@/components/common/LoadingState";
 import { useToast } from "@/hooks/use-toast";
@@ -256,18 +255,15 @@ export default function Providers() {
 
   return (
     <PageShell
-      eyebrow="LLM Gateway"
-      title="Provider"
-      accent="credentials"
+      title="Providers"
       description="Saved provider connections reused across models. Keys never leave the gateway."
-    >
-      <PageActions>
+      actions={
         <Button onClick={openCreateDialog}>
           <Icon icon={icons.add} className="mr-2 h-4 w-4" />
           Add Provider
         </Button>
-      </PageActions>
-
+      }
+    >
       {providerList.length === 0 ? (
         <EmptyState
           icon={icons.globe}

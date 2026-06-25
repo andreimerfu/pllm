@@ -15,15 +15,32 @@ export default {
   	},
   	extend: {
   		fontFamily: {
-  			sans: ['Inter', 'system-ui', 'sans-serif'],
-  			mono: ['Geist Mono', 'ui-monospace', 'monospace'],
+  			sans: ['IBM Plex Sans', 'system-ui', 'sans-serif'],
+  			mono: ['IBM Plex Mono', 'ui-monospace', 'monospace'],
   		},
   		colors: {
   			border: 'hsl(var(--border))',
+  			'border-strong': 'hsl(var(--border-strong))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
+  			'surface-2': 'hsl(var(--surface-2))',
+  			'surface-3': 'hsl(var(--surface-3))',
+  			'text-dim': 'hsl(var(--text-dim))',
+  			good: 'hsl(var(--good))',
+  			warn: 'hsl(var(--warn))',
+  			bad: 'hsl(var(--bad))',
+  			info: 'hsl(var(--info))',
+  			'accent-soft': 'var(--accent-soft)',
+  			'accent-line': 'var(--accent-line)',
+  			kind: {
+  				agent: 'hsl(var(--kind-agent))',
+  				mcp: 'hsl(var(--kind-mcp))',
+  				skill: 'hsl(var(--kind-skill))',
+  				prompt: 'hsl(var(--kind-prompt))',
+  				model: 'hsl(var(--kind-model))',
+  			},
   			primary: {
   				DEFAULT: 'hsl(var(--primary))',
   				foreground: 'hsl(var(--primary-foreground))'
@@ -68,6 +85,10 @@ export default {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+  		boxShadow: {
+  			sm: 'var(--shadow-sm)',
+  			md: 'var(--shadow-md)'
+  		},
   		keyframes: {
   			'accordion-down': {
   				from: {
@@ -84,11 +105,16 @@ export default {
   				to: {
   					height: 0
   				}
+  			},
+  			pulse: {
+  				'0%, 100%': { opacity: 1 },
+  				'50%': { opacity: 0.35 }
   			}
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+  			pulse: 'pulse 2s ease-in-out infinite'
   		}
   	}
   },

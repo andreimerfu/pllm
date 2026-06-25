@@ -3,7 +3,6 @@ import { Icon } from "@iconify/react";
 import { icons } from "@/lib/icons";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,11 +11,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { StatusChip } from "@/components/common/status-chip";
+import { SparklineChart } from "./ModelCharts";
 import { ModelWithUsage } from "@/types/api";
 import { detectProvider } from "@/lib/providers";
-import { SparklineChart } from "./ModelCharts";
-import ModelTags from "./ModelTags";
-import ModelCapabilities from "./ModelCapabilities";
+
+// Sparkline stroke per model state — concrete colors (recharts strokes are
+// SVG attributes, which don't resolve CSS vars). Matches the status chips:
+// healthy = emerald, degraded = amber, paused/unhealthy = dim/red.
+function sparkColor(model: ModelWithUsage): string {
+  if (model.is_active === false) return "#94A3B8"; // paused
+  const health = model.usage_stats?.health_score ?? 100;
+  if (health >= 90) return "#0E9F6E"; // healthy
+  if (health >= 70) return "#D97706"; // degraded
+  return "#E0484D"; // unhealthy
+}
 
 export const formatNumber = (num: number): string => {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -32,206 +41,153 @@ export const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
+// Per-million-token price, the way model cards are usually quoted. Falls
+// back to an em-dash when the model has no pricing configured.
+const formatPricePerM = (perToken?: number): string | null => {
+  if (perToken == null || perToken <= 0) return null;
+  const perM = perToken * 1_000_000;
+  const digits = perM >= 1 ? 2 : 3;
+  return `$${perM.toFixed(digits)}`;
+};
+
+const formatContext = (maxTokens?: number): string | null => {
+  if (!maxTokens || maxTokens <= 0) return null;
+  if (maxTokens >= 1000) return `${Math.round(maxTokens / 1000)}K`;
+  return String(maxTokens);
+};
+
 export const columns: ColumnDef<ModelWithUsage>[] = [
   {
     accessorKey: "id",
     header: "Model",
     cell: ({ row }) => {
       const model = row.original;
-      const providerInfo = detectProvider(model.id, model.owned_by);
-      
       return (
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={`flex-shrink-0 p-2 rounded-lg border ${providerInfo.bgColor} ${providerInfo.borderColor}`}>
-            <Icon
-              icon={providerInfo.icon}
-              width="20"
-              height="20"
-              className={providerInfo.color}
-            />
-          </div>
-          <div className="min-w-0">
-            <div className="font-medium truncate">{model.id}</div>
-            <div className={`text-sm ${providerInfo.color}`}>
-              {providerInfo.name}
-            </div>
-          </div>
+        <span className="font-mono text-[13px] font-semibold text-foreground">
+          {model.id}
+        </span>
+      );
+    },
+  },
+  {
+    accessorKey: "owned_by",
+    header: "Provider",
+    cell: ({ row }) => {
+      const model = row.original;
+      const providerInfo = detectProvider(model.id, model.owned_by);
+      return (
+        <div className="flex items-center gap-2 min-w-0">
+          <Icon
+            icon={providerInfo.icon}
+            width="16"
+            height="16"
+            className={`shrink-0 ${providerInfo.color}`}
+          />
+          <span className="truncate text-[13px] text-foreground">
+            {providerInfo.name}
+          </span>
         </div>
       );
     },
   },
   {
-    accessorKey: "object",
-    header: "Type",
-    cell: ({ row }) => (
-      <Badge variant="outline" className="font-medium">
-        {row.getValue("object")}
-      </Badge>
-    ),
+    accessorKey: "max_tokens",
+    header: "Context",
+    cell: ({ row }) => {
+      const ctx = formatContext(row.original.max_tokens);
+      return ctx ? (
+        <span className="font-mono text-[13px] text-foreground">{ctx}</span>
+      ) : (
+        <span className="text-text-dim">—</span>
+      );
+    },
   },
   {
-    accessorKey: "source",
-    header: "Source",
+    id: "price",
+    header: "Price in / out",
     cell: ({ row }) => {
-      const source = row.original.source;
-      if (source === "user") {
-        return (
-          <Badge variant="outline" className="font-medium">
-            User
-          </Badge>
-        );
+      const model = row.original;
+      const priceIn = formatPricePerM(model.input_cost_per_token);
+      const priceOut = formatPricePerM(model.output_cost_per_token);
+      if (!priceIn && !priceOut) {
+        return <span className="text-text-dim">—</span>;
       }
       return (
-        <Badge variant="secondary" className="font-medium">
-          System
-        </Badge>
+        <span className="font-mono text-[13px]">
+          <span className="text-foreground">{priceIn ?? "—"}</span>
+          <span className="text-text-dim"> / {priceOut ?? "—"}</span>
+        </span>
       );
     },
   },
   {
-    accessorKey: "tags",
-    header: "Tags",
+    accessorKey: "usage_stats.avg_latency",
+    header: ({ column }) => (
+      <button
+        type="button"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="inline-flex items-center gap-1 hover:text-foreground"
+      >
+        Latency
+        <Icon icon={icons.arrowUpDown} className="h-3 w-3" />
+      </button>
+    ),
     cell: ({ row }) => {
-      const model = row.original;
-      return (
-        <div className="min-w-0 max-w-32">
-          <ModelTags tags={model.tags} maxVisible={2} />
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "capabilities",
-    header: "Capabilities",
-    cell: ({ row }) => {
-      const model = row.original;
-      return (
-        <div className="min-w-0 max-w-40">
-          <ModelCapabilities capabilities={model.capabilities} maxVisible={4} />
-        </div>
+      const latency = row.original.usage_stats?.avg_latency || 0;
+      return latency > 0 ? (
+        <span className="font-mono text-[13px] text-foreground">{latency}ms</span>
+      ) : (
+        <span className="text-text-dim">—</span>
       );
     },
   },
   {
     accessorKey: "usage_stats.requests_today",
     header: ({ column }) => (
-      <Button
-        variant="ghost"
+      <button
+        type="button"
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="gap-1"
+        className="inline-flex items-center gap-1 hover:text-foreground"
       >
-        Total Requests
-        <Icon icon={icons.arrowUpDown} className="h-4 w-4" />
-      </Button>
+        Requests 24h
+        <Icon icon={icons.arrowUpDown} className="h-3 w-3" />
+      </button>
     ),
     cell: ({ row }) => {
-      const requests = row.original.usage_stats?.requests_total || 0;
-      const trendData = row.original.usage_stats?.trend_data?.slice(-7); // Last 7 days
-      
+      const model = row.original;
+      const requests = model.usage_stats?.requests_today || 0;
+      const trend = model.usage_stats?.trend_data ?? [];
       return (
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Icon icon={icons.trendingUp} className="h-4 w-4 text-teal-500" />
-            <span className="font-medium">{formatNumber(requests)}</span>
-          </div>
-          {trendData && trendData.length > 0 && (
-            <SparklineChart
-              data={trendData}
-              color="#14B8A6"
-              className="h-6 w-16"
-            />
+          {trend.length > 1 ? (
+            <SparklineChart data={trend} color={sparkColor(model)} className="h-7 w-24" />
+          ) : (
+            <span className="h-7 w-24" />
           )}
+          <span className="font-mono text-[13px] tabular-nums text-foreground">
+            {requests > 0 ? formatNumber(requests) : <span className="text-text-dim">0</span>}
+          </span>
         </div>
-      );
-    },
-  },
-  {
-    accessorKey: "usage_stats.tokens_total",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="gap-1"
-      >
-        Total Tokens
-        <Icon icon={icons.arrowUpDown} className="h-4 w-4" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const tokens = row.original.usage_stats?.tokens_total || 0;
-      return (
-        <div className="flex items-center gap-2">
-          <Icon icon={icons.trendingUp} className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium">{formatNumber(tokens)}</span>
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "usage_stats.cost_total",
-    header: ({ column }) => (
-      <Button
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="gap-1"
-      >
-        Total Cost
-        <Icon icon={icons.arrowUpDown} className="h-4 w-4" />
-      </Button>
-    ),
-    cell: ({ row }) => {
-      const cost = row.original.usage_stats?.cost_total || 0;
-      return (
-        <span className="font-medium">
-          {formatCurrency(cost)}
-        </span>
       );
     },
   },
   {
     accessorKey: "usage_stats.health_score",
-    header: "Health & Trend",
+    header: "Status",
     cell: ({ row }) => {
-      const health = row.original.usage_stats?.health_score || 100;
-      const isHealthy = health >= 90;
-      const isWarning = health >= 70 && health < 90;
-      const trendData = row.original.usage_stats?.trend_data?.slice(-7); // Last 7 days
-      
-      return (
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-2 h-2 rounded-full ${
-                isHealthy ? "bg-green-500" : isWarning ? "bg-yellow-500" : "bg-red-500"
-              }`}
-            />
-            <span className="font-medium">{health}%</span>
-          </div>
-          {trendData && trendData.length > 0 && (
-            <SparklineChart 
-              data={trendData} 
-              color={isHealthy ? "#10b981" : isWarning ? "#f59e0b" : "#ef4444"}
-              className="h-6 w-16" 
-            />
-          )}
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "created",
-    header: "Created",
-    cell: ({ row }) => {
-      const date = new Date((row.getValue("created") as number) * 1000);
-      return (
-        <span className="text-muted-foreground">
-          {date.toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "short", 
-            day: "numeric",
-          })}
-        </span>
-      );
+      const model = row.original;
+      const isActive = model.is_active !== false;
+      const health = model.usage_stats?.health_score ?? 100;
+      if (!isActive) {
+        return <StatusChip tone="neutral" label="Paused" />;
+      }
+      if (health >= 90) {
+        return <StatusChip tone="good" label="Healthy" />;
+      }
+      if (health >= 70) {
+        return <StatusChip tone="warn" label="Degraded" />;
+      }
+      return <StatusChip tone="bad" label="Unhealthy" />;
     },
   },
   {
@@ -247,14 +203,14 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="h-8 w-8 p-0"
+              className="h-8 w-8 p-0 text-muted-foreground"
               onClick={(e) => e.stopPropagation()}
             >
               <span className="sr-only">Open menu</span>
-              <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
+              <Icon icon={icons.moreVertical} className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuItem
               onClick={() => navigator.clipboard.writeText(model.id)}
@@ -262,7 +218,6 @@ export const columns: ColumnDef<ModelWithUsage>[] = [
               Copy model ID
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>View details</DropdownMenuItem>
             {isUserModel && (
               <DropdownMenuItem onClick={() => meta?.onEdit?.(model)}>
                 <Icon icon={icons.edit} className="h-3 w-3 mr-2" />

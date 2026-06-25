@@ -14,43 +14,46 @@ import type { RegistryKind } from "@/types/api";
 // For colored `logos:*` icons we drop the tint fill and keep the kind
 // color as a ring, so brand colors read cleanly; for monochrome
 // `simple-icons:*` icons we keep the tint fill (they inherit currentColor).
+// Kind tints follow the "pLLM Console" palette: agent indigo, MCP blue,
+// skill purple, prompt amber, model/llm pink. Driven by the shared
+// --kind-* tokens so the same colors back chips, KPI tiles, and charts.
 const TINTS: Record<RegistryKind, { bg: string; fg: string; ring: string; icon: string }> = {
   server: {
-    bg: "bg-slate-500/10 dark:bg-slate-400/10",
-    fg: "text-slate-700 dark:text-slate-300",
-    ring: "ring-slate-500/20",
+    bg: "bg-kind-mcp/12",
+    fg: "text-kind-mcp",
+    ring: "ring-kind-mcp/20",
     icon: icons.mcp,
   },
   agent: {
-    bg: "bg-indigo-500/10 dark:bg-indigo-400/10",
-    fg: "text-indigo-700 dark:text-indigo-300",
-    ring: "ring-indigo-500/20",
+    bg: "bg-kind-agent/12",
+    fg: "text-kind-agent",
+    ring: "ring-kind-agent/20",
     icon: icons.agent,
   },
   skill: {
-    bg: "bg-emerald-500/10 dark:bg-emerald-400/10",
-    fg: "text-emerald-700 dark:text-emerald-300",
-    ring: "ring-emerald-500/20",
+    bg: "bg-kind-skill/12",
+    fg: "text-kind-skill",
+    ring: "ring-kind-skill/20",
     icon: icons.skill,
   },
   prompt: {
-    bg: "bg-amber-500/10 dark:bg-amber-400/10",
-    fg: "text-amber-700 dark:text-amber-300",
-    ring: "ring-amber-500/20",
+    bg: "bg-kind-prompt/12",
+    fg: "text-kind-prompt",
+    ring: "ring-kind-prompt/20",
     icon: icons.prompt,
   },
   // LLMs live in the existing model-registry pipeline — they're surfaced
   // here as graph nodes via dependency edges, so they deserve a tint too.
   llm: {
-    bg: "bg-violet-500/10 dark:bg-violet-400/10",
-    fg: "text-violet-700 dark:text-violet-300",
-    ring: "ring-violet-500/20",
+    bg: "bg-kind-model/12",
+    fg: "text-kind-model",
+    ring: "ring-kind-model/20",
     icon: icons.llm,
   },
-  // UseCase is a top-level business-activity node; the primary blue tint
+  // UseCase is a top-level business-activity node; the primary tint
   // signals "this is where approvals live."
   use_case: {
-    bg: "bg-primary/10",
+    bg: "bg-[var(--accent-soft)]",
     fg: "text-primary",
     ring: "ring-primary/20",
     icon: icons.useCase,

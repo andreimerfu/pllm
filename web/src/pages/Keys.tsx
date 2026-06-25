@@ -8,7 +8,7 @@ import { LoadingState } from '../components/common/LoadingState';
 import { Icon } from '@iconify/react';
 import { icons } from '@/lib/icons';
 import { useKeys, useUserTeams } from '../hooks/useKeys';
-import { PageShell } from '@/components/common/page-shell';
+import { PageShell, StatTile } from '@/components/common/page-shell';
 
 const Keys: React.FC = () => {
   const { toast } = useToast();
@@ -133,12 +133,6 @@ const Keys: React.FC = () => {
   const totalRequests = keys.reduce((sum, k) => sum + k.usage_count, 0);
   const totalSpend = keys.reduce((sum, k) => sum + k.current_spend, 0);
 
-  // Calculate bar widths for the stacked bar
-  const total = keys.length || 1;
-  const activePercent = (activeKeys / total) * 100;
-  const inactivePercent = (inactiveKeys / total) * 100;
-  const revokedPercent = (revokedKeys / total) * 100;
-
   return (
     <PageShell
       title={isAdmin ? "API Keys" : "My keys"}
@@ -151,64 +145,41 @@ const Keys: React.FC = () => {
         />
       }
     >
-      {/* Quick Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {/* Total Keys */}
-        <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Keys</span>
-            <Icon icon={icons.keys} className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="text-2xl font-bold font-mono">{keys.length}</div>
-          {keys.length > 0 && (
-            <div className="mt-2 space-y-1">
-              <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-muted">
-                <div className="bg-emerald-500 transition-all" style={{ width: `${activePercent}%` }} />
-                <div className="bg-zinc-400 transition-all" style={{ width: `${inactivePercent}%` }} />
-                <div className="bg-red-500 transition-all" style={{ width: `${revokedPercent}%` }} />
-              </div>
-              <div className="flex gap-3 text-[10px] text-muted-foreground">
-                <span>{activeKeys} active</span>
-                <span>{inactiveKeys} inactive</span>
-                {revokedKeys > 0 && <span>{revokedKeys} revoked</span>}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Active Keys */}
-        <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Active Keys</span>
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          </div>
-          <div className="text-2xl font-bold font-mono">{activeKeys}</div>
-          <p className="text-[11px] text-muted-foreground mt-1">
-            {keys.length > 0 ? `${Math.round((activeKeys / keys.length) * 100)}% of total` : 'No keys yet'}
-          </p>
-        </div>
-
-        {/* Total Requests */}
-        <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Requests</span>
-            <Icon icon={icons.trendingUp} className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="text-2xl font-bold font-mono tabular-nums">{totalRequests.toLocaleString()}</div>
-          <p className="text-[11px] text-muted-foreground mt-1">across all keys</p>
-        </div>
-
-        {/* Total Spend */}
-        <div className="rounded-lg border bg-card p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Total Spend</span>
-            <Icon icon={icons.budget} className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="text-2xl font-bold font-mono tabular-nums">
-            <span className="text-muted-foreground text-lg">$</span>{totalSpend.toFixed(2)}
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-1">cumulative</p>
-        </div>
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile
+          label="Total keys"
+          value={keys.length}
+          icon={<Icon icon={icons.keys} />}
+          iconColor="prompt"
+          sub={
+            keys.length > 0
+              ? `${activeKeys} active · ${inactiveKeys} inactive${revokedKeys > 0 ? ` · ${revokedKeys} revoked` : ""}`
+              : "No keys yet"
+          }
+        />
+        <StatTile
+          label="Active keys"
+          value={activeKeys}
+          tone={activeKeys > 0 ? "good" : "default"}
+          icon={<Icon icon={icons.guardrails} />}
+          iconColor="good"
+          sub={keys.length > 0 ? `${Math.round((activeKeys / keys.length) * 100)}% of total` : undefined}
+        />
+        <StatTile
+          label="Total requests"
+          value={totalRequests.toLocaleString()}
+          icon={<Icon icon={icons.trendingUp} />}
+          iconColor="primary"
+          sub="Across all keys"
+        />
+        <StatTile
+          label="Total spend"
+          value={`$${totalSpend.toFixed(2)}`}
+          icon={<Icon icon={icons.budget} />}
+          iconColor="agent"
+          sub="Cumulative"
+        />
       </div>
 
       {/* Key Table */}

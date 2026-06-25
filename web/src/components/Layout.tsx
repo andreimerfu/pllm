@@ -10,8 +10,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         <SidebarInset>
           <AppNavbar />
-          <main className="flex flex-1 flex-col gap-4 bg-background px-6 pt-6 pb-0 lg:px-8 lg:pt-8">
-            <div className="w-full flex-1 flex flex-col min-h-0">
+          <main className="flex flex-1 flex-col bg-background">
+            <div className="mx-auto flex min-h-0 w-full max-w-[1340px] flex-1 flex-col px-6 pb-16 pt-6 lg:px-[30px] lg:pt-[26px]">
               {children}
             </div>
           </main>

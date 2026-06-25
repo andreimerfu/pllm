@@ -3,81 +3,128 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens — "pLLM Console" editorial palette.
+ * Light = paper (#F4F5F8 canvas, white surfaces); dark = near-black neutral
+ * (#0A0D12 canvas, lifted #10141B surfaces). Emerald accent (#0E9F6E).
+ * Core shadcn vars stay as `H S% L%` triplets (consumed via hsl(var(--x)));
+ * tints + shadows are stored as literal values in their own vars.
+ */
 :root {
-  /* Light — slate base, emerald accent (matches pllm.dev) */
-  --background: 210 40% 98%;        /* #F8FAFC - slate-50 */
-  --foreground: 222 47% 11%;        /* #0F172A - slate-900 */
-  --card: 0 0% 100%;                /* #FFFFFF */
-  --card-foreground: 222 47% 11%;
+  --background: 225 22% 96%;        /* #F4F5F8 */
+  --foreground: 213 27% 8%;         /* #0F141A — text */
+  --card: 0 0% 100%;                /* #FFFFFF — surface */
+  --card-foreground: 213 27% 8%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --primary: 160 84% 39%;           /* #10B981 - emerald-500 */
+  --popover-foreground: 213 27% 8%;
+  --primary: 160 84% 34%;           /* #0E9F6E — accent */
   --primary-foreground: 0 0% 100%;
-  --secondary: 210 40% 96%;         /* #F1F5F9 - slate-100 */
-  --secondary-foreground: 215 16% 47%; /* #64748B - slate-500 */
-  --muted: 210 40% 96%;             /* slate-100 */
-  --muted-foreground: 215 16% 47%;  /* slate-500 */
-  --accent: 210 40% 96%;            /* slate-100 */
-  --accent-foreground: 222 47% 11%;
-  --destructive: 0 84% 60%;
+  --secondary: 216 22% 95%;         /* #F1F3F6 — surface-2 */
+  --secondary-foreground: 218 13% 40%; /* text-muted */
+  --muted: 216 22% 95%;             /* surface-2 */
+  --muted-foreground: 218 13% 40%;  /* #586273 — text-muted */
+  --accent: 216 22% 95%;            /* surface-2 — shadcn hover bg */
+  --accent-foreground: 213 27% 8%;
+  --destructive: 358 71% 58%;       /* #E0484D — bad */
   --destructive-foreground: 0 0% 100%;
-  --border: 214 32% 91%;            /* #E2E8F0 - slate-200 */
-  --input: 214 32% 91%;
-  --ring: 160 84% 39%;              /* emerald-500 */
-  --radius: 0.5rem;
-  --chart-1: 160 84% 39%;           /* emerald-500 */
-  --chart-2: 158 64% 52%;           /* emerald-400 */
-  --chart-3: 161 94% 30%;           /* emerald-600 */
-  --chart-4: 215 20% 65%;           /* slate-400 */
-  --chart-5: 215 25% 27%;           /* slate-700 */
+  --border: 220 13% 91%;            /* #E5E7EB */
+  --input: 220 13% 91%;
+  --ring: 160 84% 34%;              /* accent */
+  --radius: 0.625rem;               /* 10px base; cards override to 14px */
 
-  /* Sidebar */
+  /* Extended surface / text scale (per "pLLM Console") */
+  --surface-2: 216 22% 95%;         /* #F1F3F6 */
+  --surface-3: 210 25% 98%;         /* #FAFBFC */
+  --border-strong: 216 13% 85%;     /* #D3D7DD */
+  --text-dim: 214 11% 59%;          /* #8B95A2 */
+
+  /* Semantic status tones */
+  --good: 160 84% 34%;              /* #0E9F6E */
+  --warn: 38 98% 39%;               /* #C77F02 */
+  --bad: 358 71% 58%;               /* #E0484D */
+  --info: 221 83% 53%;              /* #2563EB */
+
+  /* Accent tints + elevation (literal — used via var(), not hsl()) */
+  --accent-soft: rgba(14, 159, 110, 0.11);
+  --accent-line: rgba(14, 159, 110, 0.18);
+  --shadow-sm: 0 1px 2px rgba(15, 20, 26, 0.06);
+  --shadow-md: 0 8px 28px rgba(15, 20, 26, 0.10);
+
+  /* Registry kind colors (shared across light/dark — only tint alpha varies) */
+  --kind-agent: 240 60% 60%;        /* #5B5BD6 indigo */
+  --kind-mcp: 202 78% 51%;          /* #1F9CE4 blue   */
+  --kind-skill: 271 81% 56%;        /* #9333EA purple */
+  --kind-prompt: 32 95% 44%;        /* #D97706 amber  */
+  --kind-model: 333 71% 51%;        /* #DB2777 pink   */
+
+  /* Charts — multi-hue so donuts/composition read clearly */
+  --chart-1: 160 84% 34%;           /* accent  */
+  --chart-2: 202 78% 51%;           /* mcp     */
+  --chart-3: 240 60% 60%;           /* agent   */
+  --chart-4: 32 95% 44%;            /* prompt  */
+  --chart-5: 333 71% 51%;           /* model   */
+
+  /* Sidebar — sits on the surface color */
   --sidebar-background: 0 0% 100%;
-  --sidebar-foreground: 222 47% 11%;
-  --sidebar-primary: 160 84% 39%;
+  --sidebar-foreground: 213 27% 8%;
+  --sidebar-primary: 160 84% 34%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 210 40% 96%;
-  --sidebar-accent-foreground: 160 84% 39%;
-  --sidebar-border: 214 32% 91%;
-  --sidebar-ring: 160 84% 39%;
+  --sidebar-accent: 216 22% 95%;
+  --sidebar-accent-foreground: 160 84% 34%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-ring: 160 84% 34%;
 }
 
 .dark {
-  /* Dark — deep slate navy (not black), emerald accent (matches pllm.dev) */
-  --background: 222 47% 11%;        /* #0F172A - slate-900 (base canvas) */
-  --foreground: 210 40% 98%;        /* #F8FAFC - slate-50 */
-  --card: 217 33% 17%;              /* #1E293B - slate-800 (cards lift off bg) */
-  --card-foreground: 210 40% 98%;
-  --popover: 217 33% 17%;           /* slate-800 */
-  --popover-foreground: 210 40% 98%;
-  --primary: 160 84% 39%;           /* #10B981 - emerald-500 */
-  --primary-foreground: 222 47% 11%;/* slate-900 */
-  --secondary: 215 25% 27%;         /* #334155 - slate-700 */
-  --secondary-foreground: 210 40% 98%;
-  --muted: 215 25% 27%;             /* slate-700 */
-  --muted-foreground: 215 20% 65%;  /* #94A3B8 - slate-400 */
-  --accent: 215 25% 27%;            /* slate-700 */
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 84% 66%;         /* #F36666 - between red-400 and red-500, pops on slate-900 */
+  --background: 218 29% 5%;         /* #0A0D12 */
+  --foreground: 213 24% 93%;        /* #E8ECF1 — text */
+  --card: 218 26% 8%;               /* #10141B — surface (lifted off canvas) */
+  --card-foreground: 213 24% 93%;
+  --popover: 218 26% 8%;
+  --popover-foreground: 213 24% 93%;
+  --primary: 159 49% 47%;           /* #3DB389 — accent lightened for dark */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 217 22% 12%;         /* #171C24 — surface-2 */
+  --secondary-foreground: 215 13% 64%;
+  --muted: 217 22% 12%;             /* surface-2 */
+  --muted-foreground: 215 13% 64%;  /* #98A2B0 — text-muted */
+  --accent: 217 22% 12%;            /* surface-2 — shadcn hover bg */
+  --accent-foreground: 213 24% 93%;
+  --destructive: 358 82% 67%;       /* #F0686D — bad */
   --destructive-foreground: 0 0% 100%;
-  --border: 215 25% 27%;            /* slate-700 */
-  --input: 215 25% 27%;
-  --ring: 160 84% 39%;              /* emerald-500 */
-  --chart-1: 158 64% 52%;           /* emerald-400 */
-  --chart-2: 160 84% 39%;           /* emerald-500 */
-  --chart-3: 161 94% 30%;           /* emerald-600 */
-  --chart-4: 215 20% 65%;           /* slate-400 */
-  --chart-5: 217 33% 17%;           /* slate-800 */
+  --border: 215 22% 15%;            /* #1F2630 */
+  --input: 215 22% 15%;
+  --ring: 159 49% 47%;
 
-  /* Sidebar — same as app canvas, separated by border only */
-  --sidebar-background: 222 47% 11%; /* #0F172A - slate-900, matches --background */
-  --sidebar-foreground: 210 40% 98%;
-  --sidebar-primary: 160 84% 39%;    /* emerald-500 */
-  --sidebar-primary-foreground: 222 47% 11%;
-  --sidebar-accent: 217 33% 17%;     /* slate-800 */
-  --sidebar-accent-foreground: 158 64% 52%; /* emerald-400 */
-  --sidebar-border: 215 25% 27%;     /* slate-700 */
-  --sidebar-ring: 160 84% 39%;
+  --surface-2: 217 22% 12%;         /* #171C24 */
+  --surface-3: 216 28% 7%;          /* #0D1117 */
+  --border-strong: 213 19% 21%;     /* #2C3540 */
+  --text-dim: 211 11% 41%;          /* #5E6975 */
+
+  --good: 157 66% 44%;              /* #26B981 */
+  --warn: 43 95% 45%;               /* #E0A406 */
+  --bad: 358 82% 67%;               /* #F0686D */
+  --info: 218 85% 65%;              /* #5B92F2 */
+
+  --accent-soft: rgba(14, 159, 110, 0.20);
+  --accent-line: rgba(14, 159, 110, 0.32);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 12px 34px rgba(0, 0, 0, 0.5);
+
+  --chart-1: 159 49% 47%;
+  --chart-2: 202 78% 51%;
+  --chart-3: 240 60% 60%;
+  --chart-4: 43 95% 45%;
+  --chart-5: 333 71% 51%;
+
+  --sidebar-background: 218 26% 8%; /* surface — lifted off the canvas */
+  --sidebar-foreground: 213 24% 93%;
+  --sidebar-primary: 159 49% 47%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 217 22% 12%;
+  --sidebar-accent-foreground: 159 49% 47%;
+  --sidebar-border: 215 22% 15%;
+  --sidebar-ring: 159 49% 47%;
 }
 
 @layer base {
@@ -91,6 +138,12 @@
 
 @layer utilities {
   .font-mono {
-    font-family: 'Geist Mono', ui-monospace, monospace;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
   }
+}
+
+/* Soft attention pulse — live status dots, "operational" indicators. */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }

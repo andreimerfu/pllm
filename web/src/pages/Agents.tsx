@@ -36,7 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/common/EmptyState";
-import { PageShell, StatStrip, StatStripItem } from "@/components/common/page-shell";
+import { PageShell, StatTile } from "@/components/common/page-shell";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Agents() {
@@ -205,41 +205,55 @@ export default function Agents() {
         />
       ) : (
         <>
-          {/* ────────────── Stat strip ────────────── */}
-          <StatStrip>
-            <StatStripItem label="Agents" value={stats.total} />
-            <StatStripItem
+          {/* ────────────── KPI cards ────────────── */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            <StatTile
+              label="Agents"
+              value={stats.total}
+              icon={<Icon icon={icons.agents} />}
+              iconColor="agent"
+              sub="Across all use cases"
+            />
+            <StatTile
               label="Running"
               value={stats.running}
-              tone={stats.running > 0 ? "emerald" : "default"}
-              hint={stats.deploying > 0 ? `${stats.deploying} deploying` : undefined}
+              tone={stats.running > 0 ? "good" : "default"}
+              icon={<Icon icon={icons.rocket} />}
+              iconColor="good"
+              sub={stats.deploying > 0 ? `${stats.deploying} deploying` : undefined}
             />
-            <StatStripItem
+            <StatTile
               label="Failed"
               value={stats.failed}
-              tone={stats.failed > 0 ? "rose" : "default"}
+              tone={stats.failed > 0 ? "bad" : "default"}
+              icon={<Icon icon={icons.warning} />}
+              iconColor="bad"
             />
-            <StatStripItem
+            <StatTile
               label="Pods"
               value={stats.pods}
-              hint={stats.pods === stats.total ? "1× each" : undefined}
+              icon={<Icon icon={icons.mcp} />}
+              iconColor="mcp"
+              sub={stats.pods === stats.total ? "1× each" : undefined}
             />
-            <StatStripItem
+            <StatTile
               label="Use cases"
               value={stats.useCasesCovered}
-              hint={
-                stats.useCasesCovered === 1 ? "single binding" : "across bindings"
-              }
+              icon={<Icon icon={icons.useCase} />}
+              iconColor="primary"
+              sub={stats.useCasesCovered === 1 ? "single binding" : "across bindings"}
             />
             {stats.oomBumped > 0 && (
-              <StatStripItem
+              <StatTile
                 label="Mem scaled"
                 value={stats.oomBumped}
-                tone="amber"
-                hint="OOM auto-bumped"
+                tone="warn"
+                icon={<Icon icon={icons.bolt} />}
+                iconColor="warn"
+                sub="OOM auto-bumped"
               />
             )}
-          </StatStrip>
+          </div>
 
           {/* ────────────── Grouped by use case ────────────── */}
           <div className="space-y-6">

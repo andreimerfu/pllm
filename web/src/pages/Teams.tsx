@@ -3,7 +3,6 @@ import { Icon } from '@iconify/react';
 import { icons } from '@/lib/icons';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useToast } from '../components/ui/use-toast';
 import {
@@ -17,8 +16,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { formatDate } from '../lib/date-utils';
 import { EmptyState } from '../components/common/EmptyState';
 import { LoadingState } from '../components/common/LoadingState';
-import { PageShell } from '../components/common/page-shell';
-import { PageActions } from '../components/common/page-chrome';
+import { PageShell, StatTile } from '../components/common/page-shell';
+import { StatusChip, SectionLabel, type StatusTone } from '../components/common/status-chip';
 import { useTeams, type Team } from '../hooks/useTeams';
 import { useTeamMembers, type TeamMember } from '../hooks/useTeamMembers';
 import { useTeamAnalytics } from '../hooks/useTeamAnalytics';
@@ -32,6 +31,15 @@ import {
   getMemberEmail,
   getMemberAvatarUrl,
 } from '../lib/team-member-display';
+
+// Map a member role to a StatusChip tone:
+// Admin → info, Maintainer → good, everything else (Member/Viewer) → neutral.
+const roleTone = (role: string): StatusTone => {
+  const r = (role || '').toLowerCase();
+  if (r === 'admin') return 'info';
+  if (r === 'maintainer') return 'good';
+  return 'neutral';
+};
 
 const Teams: React.FC = () => {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
@@ -104,17 +112,15 @@ const Teams: React.FC = () => {
   if (teams.length === 0) {
     return (
       <PageShell
-        eyebrow="Access"
-        title="Team"
-        accent="workspaces"
+        title="Teams"
         description="Groups that scope keys, budgets, and model access."
-      >
-        <PageActions>
+        actions={
           <Button onClick={() => setShowCreateModal(true)}>
             <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
             Create Team
           </Button>
-        </PageActions>
+        }
+      >
         <EmptyState
           icon={icons.teams}
           title="No teams"
@@ -134,39 +140,44 @@ const Teams: React.FC = () => {
 
   return (
     <PageShell
-      eyebrow="Access"
-      title="Team"
-      accent="workspaces"
+      title="Teams"
       description="Groups that scope keys, budgets, and model access. Membership maps to Dex groups."
-    >
-      <PageActions>
+      actions={
         <Button onClick={() => setShowCreateModal(true)}>
           <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
           Create Team
         </Button>
-      </PageActions>
-
+      }
+    >
       <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[300px_1fr] gap-6">
         {/* Teams List Sidebar */}
-        <Card className="md:sticky md:top-4 self-start">
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Your Teams</CardTitle>
-          </CardHeader>
-          <CardContent className="p-2 space-y-1">
-            {teams.map((team) => (
-              <div
-                key={team.id}
-                onClick={() => setSelectedTeam(team)}
-                className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                  selectedTeam?.id === team.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'hover:bg-muted'
-                }`}
-              >
-                <div className="flex items-center justify-between">
+        <div className="md:sticky md:top-4 self-start space-y-2">
+          <SectionLabel>Your Teams</SectionLabel>
+          <div className="space-y-2">
+            {teams.map((team) => {
+              const isSelected = selectedTeam?.id === team.id;
+              return (
+                <div
+                  key={team.id}
+                  onClick={() => setSelectedTeam(team)}
+                  className={`group flex items-center gap-3 rounded-[14px] border p-3 shadow-sm cursor-pointer transition-colors ${
+                    isSelected
+                      ? 'border-primary/40 bg-[var(--accent-soft)]'
+                      : 'border-border bg-card hover:border-border-strong'
+                  }`}
+                >
+                  <span
+                    className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[13px] font-semibold uppercase ${
+                      isSelected
+                        ? 'bg-primary/15 text-primary'
+                        : 'bg-surface-2 text-text-dim'
+                    }`}
+                  >
+                    {team.name?.[0] ?? '?'}
+                  </span>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{team.name}</p>
-                    <p className="text-sm opacity-80">{team.member_count || 0} members</p>
+                    <p className="truncate font-medium text-foreground">{team.name}</p>
+                    <p className="text-[12px] text-muted-foreground">{team.member_count || 0} members</p>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -198,40 +209,42 @@ const Teams: React.FC = () => {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Team Details */}
         <div className="space-y-6 min-w-0">
           {selectedTeam ? (
             <>
-              {/* Compact Stats Row */}
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border bg-card p-4">
-                <div className="flex items-center gap-2">
-                  <Icon icon={icons.teams} className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-2xl font-bold tabular-nums">{members.length}</span>
-                  <span className="text-sm text-muted-foreground">Members</span>
-                </div>
-                <div className="hidden sm:block h-8 w-px bg-border" />
-                <div className="flex items-center gap-2">
-                  <Icon icon={icons.trendingUp} className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-2xl font-bold tabular-nums">{stats?.total_requests?.toLocaleString() || '0'}</span>
-                  <span className="text-sm text-muted-foreground">Requests</span>
-                </div>
-                <div className="hidden sm:block h-8 w-px bg-border" />
-                <div className="flex items-center gap-2">
-                  <Icon icon={icons.budget} className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-2xl font-bold tabular-nums">${(stats?.total_cost || 0).toFixed(2)}</span>
-                  <span className="text-sm text-muted-foreground">Cost</span>
-                </div>
-                <div className="hidden lg:block h-8 w-px bg-border" />
-                <div className="hidden lg:flex items-center gap-2">
-                  <Icon icon={icons.trendingUp} className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-2xl font-bold tabular-nums">${((stats?.total_cost || 0) / (stats?.total_requests || 1)).toFixed(4)}</span>
-                  <span className="text-sm text-muted-foreground">Avg/Req</span>
-                </div>
+              {/* KPI Row */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <StatTile
+                  label="Members"
+                  value={members.length}
+                  iconColor="primary"
+                  icon={<Icon icon={icons.teams} />}
+                />
+                <StatTile
+                  label="Requests"
+                  value={stats?.total_requests?.toLocaleString() || '0'}
+                  iconColor="info"
+                  icon={<Icon icon={icons.trendingUp} />}
+                />
+                <StatTile
+                  label="Cost"
+                  value={`$${(stats?.total_cost || 0).toFixed(2)}`}
+                  tone="good"
+                  iconColor="good"
+                  icon={<Icon icon={icons.budget} />}
+                />
+                <StatTile
+                  label="Avg / Req"
+                  value={`$${((stats?.total_cost || 0) / (stats?.total_requests || 1)).toFixed(4)}`}
+                  iconColor="model"
+                  icon={<Icon icon={icons.trendingUp} />}
+                />
               </div>
 
               <Tabs defaultValue="members" className="w-full">
@@ -277,9 +290,9 @@ const Teams: React.FC = () => {
                       {members.map((member: TeamMember) => (
                         <div
                           key={member.id}
-                          className="flex items-center justify-between p-4 border rounded-lg bg-card"
+                          className="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-card p-4 shadow-sm"
                         >
-                          <div className="flex items-center gap-4">
+                          <div className="flex min-w-0 items-center gap-3">
                             <Avatar>
                               {getMemberAvatarUrl(member) && (
                                 <AvatarImage
@@ -289,17 +302,15 @@ const Teams: React.FC = () => {
                               )}
                               <AvatarFallback>{getMemberInitial(member)}</AvatarFallback>
                             </Avatar>
-                            <div>
-                              <p className="font-medium">{getMemberDisplayName(member)}</p>
-                              <p className="text-sm text-muted-foreground">
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-foreground">{getMemberDisplayName(member)}</p>
+                              <p className="truncate text-[12.5px] text-muted-foreground">
                                 {getMemberEmail(member) || '\u2014'}
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>
-                              {member.role}
-                            </Badge>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <StatusChip tone={roleTone(member.role)} label={member.role} dot={false} />
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="sm">
@@ -340,24 +351,24 @@ const Teams: React.FC = () => {
                       description="Usage analytics will appear here once team members start making requests."
                     />
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {breakdown.map((user) => (
-                        <div key={user.user_id} className="p-4 border rounded-lg bg-card">
-                          <div className="flex items-center justify-between mb-2">
-                            <div>
-                              <p className="font-medium">{user.name || user.email}</p>
-                              <p className="text-sm text-muted-foreground">{user.email}</p>
+                        <div key={user.user_id} className="rounded-[14px] border border-border bg-card p-4 shadow-sm">
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-foreground">{user.name || user.email}</p>
+                              <p className="truncate text-[12.5px] text-muted-foreground">{user.email}</p>
                             </div>
-                            <Badge>${user.cost.toFixed(2)}</Badge>
+                            <StatusChip tone="info" label={`$${user.cost.toFixed(2)}`} dot={false} />
                           </div>
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                              <p className="text-muted-foreground">Requests</p>
-                              <p className="font-medium">{user.requests.toLocaleString()}</p>
+                              <SectionLabel>Requests</SectionLabel>
+                              <p className="mt-0.5 font-mono tabular-nums text-foreground">{user.requests.toLocaleString()}</p>
                             </div>
                             <div>
-                              <p className="text-muted-foreground">Tokens</p>
-                              <p className="font-medium">{user.tokens.toLocaleString()}</p>
+                              <SectionLabel>Tokens</SectionLabel>
+                              <p className="mt-0.5 font-mono tabular-nums text-foreground">{user.tokens.toLocaleString()}</p>
                             </div>
                           </div>
                         </div>
@@ -368,7 +379,7 @@ const Teams: React.FC = () => {
 
                 {/* Settings Tab */}
                 <TabsContent value="settings">
-                  <Card>
+                  <Card className="rounded-[14px] shadow-sm">
                     <CardHeader>
                       <CardTitle>Team Settings</CardTitle>
                       <CardDescription>
@@ -377,23 +388,23 @@ const Teams: React.FC = () => {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div>
-                        <h3 className="font-medium mb-2">Team Information</h3>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Name:</span>
-                            <span>{selectedTeam.name}</span>
+                        <SectionLabel className="mb-2">Team Information</SectionLabel>
+                        <div className="divide-y divide-border rounded-[12px] border border-border bg-surface-2/40 text-sm">
+                          <div className="flex items-center justify-between gap-3 px-3 py-2">
+                            <span className="text-muted-foreground">Name</span>
+                            <span className="truncate text-foreground">{selectedTeam.name}</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Description:</span>
-                            <span>{selectedTeam.description || 'N/A'}</span>
+                          <div className="flex items-center justify-between gap-3 px-3 py-2">
+                            <span className="text-muted-foreground">Description</span>
+                            <span className="truncate text-foreground">{selectedTeam.description || 'N/A'}</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Created:</span>
-                            <span>{formatDate(selectedTeam.created_at)}</span>
+                          <div className="flex items-center justify-between gap-3 px-3 py-2">
+                            <span className="text-muted-foreground">Created</span>
+                            <span className="text-foreground">{formatDate(selectedTeam.created_at)}</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Updated:</span>
-                            <span>{formatDate(selectedTeam.updated_at)}</span>
+                          <div className="flex items-center justify-between gap-3 px-3 py-2">
+                            <span className="text-muted-foreground">Updated</span>
+                            <span className="text-foreground">{formatDate(selectedTeam.updated_at)}</span>
                           </div>
                         </div>
                       </div>

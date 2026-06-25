@@ -65,50 +65,114 @@ export function PageShell({
   );
 }
 
-type Tone = "default" | "primary" | "emerald" | "amber" | "rose";
+// Value text color. Keeps the legacy emerald/amber/rose aliases working
+// while adding the new semantic tones.
+type Tone =
+  | "default" | "primary"
+  | "good" | "warn" | "bad" | "info"
+  | "emerald" | "amber" | "rose";
 
 const toneMap: Record<Tone, string> = {
   default: "text-foreground",
   primary: "text-primary",
-  emerald: "text-emerald-600 dark:text-emerald-400",
-  amber: "text-amber-600 dark:text-amber-400",
-  rose: "text-rose-600 dark:text-rose-400",
+  good: "text-good",
+  warn: "text-warn",
+  bad: "text-bad",
+  info: "text-info",
+  emerald: "text-good",
+  amber: "text-warn",
+  rose: "text-bad",
 };
 
-// StatTile — framed, for dashboard-style pages where the tile IS the
-// content (Dashboard, Use Cases, Compliance). 4–5 across on lg.
+// Color of the icon tile (soft tint bg + solid fg). Kind colors + semantics.
+export type IconColor =
+  | "primary" | "agent" | "mcp" | "skill" | "prompt" | "model"
+  | "good" | "warn" | "bad" | "info";
+
+const tileMap: Record<IconColor, string> = {
+  primary: "bg-[var(--accent-soft)] text-primary",
+  agent: "bg-kind-agent/12 text-kind-agent",
+  mcp: "bg-kind-mcp/12 text-kind-mcp",
+  skill: "bg-kind-skill/12 text-kind-skill",
+  prompt: "bg-kind-prompt/12 text-kind-prompt",
+  model: "bg-kind-model/12 text-kind-model",
+  good: "bg-good/12 text-good",
+  warn: "bg-warn/12 text-warn",
+  bad: "bg-bad/12 text-bad",
+  info: "bg-info/12 text-info",
+};
+
+// StatTile — the "pLLM Console" KPI card: colored icon tile + optional
+// delta chip, big mono value, label, and a dim sub line. Framed; 4–5
+// across on lg. Legacy callers passing only {label,value,tone,hint,icon}
+// still render correctly (icon lands in the tile, hint becomes the sub).
 export function StatTile({
   label,
   value,
   tone = "default",
   hint,
+  sub,
   icon,
+  iconColor = "primary",
+  delta,
+  deltaPositive = true,
   className,
 }: {
   label: string;
   value: ReactNode;
   tone?: Tone;
   hint?: ReactNode;
+  sub?: ReactNode;
   icon?: ReactNode;
+  iconColor?: IconColor;
+  delta?: ReactNode;
+  deltaPositive?: boolean;
   className?: string;
 }) {
+  const subLine = sub ?? hint;
   return (
     <div
       className={cn(
-        "rounded-lg border border-border/70 bg-card p-3 flex flex-col gap-1 min-w-0",
+        "flex flex-col rounded-[14px] border border-border bg-card p-4 shadow-sm min-w-0",
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground truncate">
-          {label}
-        </span>
-        {icon && <span className="text-muted-foreground text-[11px]">{icon}</span>}
-      </div>
-      <div className={cn("text-2xl font-semibold tabular-nums leading-none", toneMap[tone])}>
+      {(icon || delta != null) && (
+        <div className="mb-3.5 flex items-center justify-between gap-2">
+          {icon ? (
+            <span
+              className={cn(
+                "inline-flex h-[34px] w-[34px] items-center justify-center rounded-[9px] [&_svg]:h-[18px] [&_svg]:w-[18px]",
+                tileMap[iconColor],
+              )}
+            >
+              {icon}
+            </span>
+          ) : (
+            <span />
+          )}
+          {delta != null && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-[7px] py-[3px] text-[11px] font-semibold",
+                deltaPositive ? "bg-good/12 text-good" : "bg-bad/12 text-bad",
+              )}
+            >
+              {delta}
+            </span>
+          )}
+        </div>
+      )}
+      <div
+        className={cn(
+          "font-mono text-[26px] font-semibold leading-none tracking-[-0.02em] tabular-nums",
+          toneMap[tone],
+        )}
+      >
         {value}
       </div>
-      {hint && <div className="text-[11px] text-muted-foreground truncate">{hint}</div>}
+      <div className="mt-[3px] truncate text-[12.5px] text-muted-foreground">{label}</div>
+      {subLine && <div className="mt-0.5 truncate text-[11.5px] text-text-dim">{subLine}</div>}
     </div>
   );
 }

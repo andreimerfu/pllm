@@ -22,7 +22,6 @@ import type {
 } from "@/types/api";
 
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -52,6 +51,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PageShell, StatTile } from "@/components/common/page-shell";
+import {
+  SectionLabel,
+  StatusChip,
+  Tag,
+  type StatusTone,
+} from "@/components/common/status-chip";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useToast } from "@/hooks/use-toast";
 
@@ -73,16 +78,51 @@ function modeLabel(m: FederationSyncMode): string {
   return SYNC_MODES.find((x) => x.value === m)?.label ?? m;
 }
 
-function statusTone(status?: string): "emerald" | "amber" | "rose" | "default" {
-  switch (status) {
+// Per-peer asset counts parsed from the backend's stable
+// `last_sync_summary` line ("N servers, N agents, N skills, N prompts
+// [, N orphaned]"). This is the only persisted source of how many assets
+// a peer mirrored — sync results are transient. Returns null when a peer
+// has never synced (no summary).
+type PeerCounts = {
+  servers: number;
+  agents: number;
+  skills: number;
+  prompts: number;
+  total: number;
+};
+
+function parseCounts(summary?: string): PeerCounts | null {
+  if (!summary) return null;
+  const pick = (kind: string): number => {
+    const m = summary.match(new RegExp(`(\\d+)\\s+${kind}`));
+    return m ? parseInt(m[1], 10) : 0;
+  };
+  const servers = pick("servers");
+  const agents = pick("agents");
+  const skills = pick("skills");
+  const prompts = pick("prompts");
+  return {
+    servers,
+    agents,
+    skills,
+    prompts,
+    total: servers + agents + skills + prompts,
+  };
+}
+
+// Status tone for the connection-card chip. A peer that has synced
+// cleanly reads "Connected" (good); a failed/partial run reads
+// "Degraded" (warn); anything else is neutral.
+function chipFor(peer: FederationPeer): { tone: StatusTone; label: string } {
+  if (!peer.enabled) return { tone: "neutral", label: "Disabled" };
+  switch (peer.last_sync_status) {
     case "success":
-      return "emerald";
+      return { tone: "good", label: "Connected" };
     case "partial":
-      return "amber";
     case "failed":
-      return "rose";
+      return { tone: "warn", label: "Degraded" };
     default:
-      return "default";
+      return { tone: "neutral", label: "Pending sync" };
   }
 }
 
@@ -117,10 +157,56 @@ export default function Federation() {
   const peers = peersQ.data?.peers ?? [];
 
   const stats = useMemo(() => {
-    const enabled = peers.filter((p) => p.enabled).length;
-    const lastOk = peers.filter((p) => p.last_sync_status === "success").length;
-    const failing = peers.filter((p) => p.last_sync_status === "failed").length;
-    return { total: peers.length, enabled, lastOk, failing };
+    const healthy = peers.filter(
+      (p) => p.enabled && p.last_sync_status === "success",
+    ).length;
+    const degraded = peers.filter(
+      (p) =>
+        p.enabled &&
+        (p.last_sync_status === "failed" || p.last_sync_status === "partial"),
+    ).length;
+
+    let assets = 0;
+    let agents = 0;
+    let anyCounts = false;
+    for (const p of peers) {
+      const c = parseCounts(p.last_sync_summary);
+      if (c) {
+        assets += c.total;
+        agents += c.agents;
+        anyCounts = true;
+      }
+    }
+
+    // Most-recent sync across all peers + the shortest configured cadence,
+    // so the "Last sync" KPI can show "Auto every N minutes".
+    let lastSyncAt: string | undefined;
+    let minInterval: number | undefined;
+    for (const p of peers) {
+      if (
+        p.last_sync_at &&
+        (!lastSyncAt || new Date(p.last_sync_at) > new Date(lastSyncAt))
+      ) {
+        lastSyncAt = p.last_sync_at;
+      }
+      if (p.enabled && p.sync_interval_minutes > 0) {
+        minInterval =
+          minInterval === undefined
+            ? p.sync_interval_minutes
+            : Math.min(minInterval, p.sync_interval_minutes);
+      }
+    }
+
+    return {
+      total: peers.length,
+      healthy,
+      degraded,
+      assets,
+      agents,
+      hasCounts: anyCounts,
+      lastSyncAt,
+      minInterval,
+    };
   }, [peers]);
 
   const [editing, setEditing] = useState<FederationPeer | null>(null);
@@ -155,42 +241,81 @@ export default function Federation() {
   return (
     <PageShell
       title="Federation"
-      description="Peer pllm registries this instance pulls from. Synced artifacts are read-only on this side."
+      description="Connect external agent and MCP registries — AWS Bedrock AgentCore, MCP registry gateways, or peer pLLM registries. Their assets appear in your catalog, governed by your local policies."
       actions={
-        <Button onClick={() => setShowCreate(true)}>
+        <Button
+          onClick={() => setShowCreate(true)}
+          className="bg-good text-white hover:bg-good/90"
+        >
           <Icon icon={icons.add} className="mr-2 size-4" />
-          Add peer
+          Connect registry
         </Button>
       }
-      stats={
-        <>
-          <StatTile label="Total" value={stats.total} icon={<Icon icon={icons.federation} />} />
-          <StatTile label="Enabled" value={stats.enabled} tone="emerald" />
-          <StatTile label="Last sync OK" value={stats.lastOk} tone="emerald" />
-          <StatTile
-            label="Failing"
-            value={stats.failing}
-            tone={stats.failing > 0 ? "rose" : "default"}
-          />
-        </>
-      }
     >
+      {peers.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatTile
+            label="Connected registries"
+            value={stats.total}
+            iconColor="skill"
+            icon={<Icon icon={icons.federation} />}
+            sub={`${stats.healthy} healthy · ${stats.degraded} degraded`}
+          />
+          {stats.hasCounts && (
+            <StatTile
+              label="Federated assets"
+              value={stats.assets}
+              iconColor="agent"
+              icon={<Icon icon={icons.layers} />}
+              sub="Mirrored into your catalog"
+            />
+          )}
+          {stats.hasCounts && (
+            <StatTile
+              label="Federated agents"
+              value={stats.agents}
+              iconColor="mcp"
+              icon={<Icon icon={icons.agent} />}
+              sub="From Bedrock & peers"
+            />
+          )}
+          {stats.lastSyncAt && (
+            <StatTile
+              label="Last sync"
+              value={formatDistanceToNow(new Date(stats.lastSyncAt), {
+                addSuffix: true,
+              })}
+              iconColor="good"
+              icon={<Icon icon={icons.syncSquare} />}
+              sub={
+                stats.minInterval !== undefined
+                  ? `Auto every ${stats.minInterval} minutes`
+                  : undefined
+              }
+            />
+          )}
+        </div>
+      )}
+
       {peers.length === 0 && !peersQ.isLoading ? (
         <EmptyState
           icon={icons.federation}
-          title="No federation peers yet"
-          description="Add an upstream pllm registry to pull servers, agents, skills, and prompts on a schedule."
+          title="No connected registries yet"
+          description="Connect an external agent or MCP registry — Bedrock AgentCore, an MCP gateway, or a peer pLLM — to pull its assets into your catalog on a schedule."
           action={
-            <Button onClick={() => setShowCreate(true)}>
+            <Button
+              onClick={() => setShowCreate(true)}
+              className="bg-good text-white hover:bg-good/90"
+            >
               <Icon icon={icons.add} className="mr-2 size-4" />
-              Add peer
+              Connect registry
             </Button>
           }
         />
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {peers.map((p) => (
-            <PeerRow
+            <PeerCard
               key={p.id}
               peer={p}
               onEdit={() => setEditing(p)}
@@ -249,7 +374,7 @@ export default function Federation() {
   );
 }
 
-function PeerRow({
+function PeerCard({
   peer,
   onEdit,
   onSync,
@@ -262,55 +387,66 @@ function PeerRow({
   onDelete: () => void;
   syncing: boolean;
 }) {
-  const tone = statusTone(peer.last_sync_status);
+  const chip = chipFor(peer);
+  const counts = parseCounts(peer.last_sync_summary);
+  // Auth label is derived from what the peer config carries: a bearer
+  // token (masked on read) and/or an expected client id.
+  const auth = peer.expected_client_id
+    ? "Token + client id"
+    : peer.federation_token
+      ? "Bearer token"
+      : "No auth";
+
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-border/70 bg-card p-4">
-      <div
-        className={`size-2.5 shrink-0 rounded-full ${
-          peer.enabled
-            ? tone === "rose"
-              ? "bg-rose-500"
-              : tone === "amber"
-                ? "bg-amber-500"
-                : "bg-emerald-500"
-            : "bg-muted-foreground/40"
-        }`}
-        aria-hidden
-      />
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold truncate">{peer.name}</span>
-          <Badge variant="secondary" className="font-mono text-[10px]">
-            {peer.peer_id}
-          </Badge>
-          <Badge variant="outline" className="text-[10px]">
-            {modeLabel(peer.sync_mode)}
-          </Badge>
-          {!peer.enabled && (
-            <Badge variant="outline" className="text-[10px] text-muted-foreground">
-              disabled
-            </Badge>
-          )}
+    <div className="flex flex-col rounded-[14px] border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <span className="inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--accent-soft)] text-primary [&_svg]:h-[20px] [&_svg]:w-[20px]">
+          <Icon icon={icons.federation} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-semibold leading-tight">{peer.name}</div>
+          <div className="truncate text-[12px] text-text-dim">Peer pLLM registry</div>
         </div>
-        <div className="text-[12px] text-muted-foreground truncate">
-          {peer.endpoint}
-        </div>
-        <div className="text-[12px] text-muted-foreground">
-          {peer.last_sync_at ? (
-            <>
-              Last sync{" "}
-              {formatDistanceToNow(new Date(peer.last_sync_at), { addSuffix: true })}
-              {peer.last_sync_summary ? ` · ${peer.last_sync_summary}` : ""}
-            </>
-          ) : (
-            <>Never synced — click Sync to pull now</>
-          )}
-          {peer.last_sync_error && (
-            <span className="ml-2 text-rose-500">· {peer.last_sync_error}</span>
-          )}
-        </div>
+        <StatusChip tone={chip.tone} label={chip.label} className="shrink-0" />
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+
+      <div className="mt-3 truncate rounded-md bg-surface-2 px-3 py-2 font-mono text-[12px] text-text-dim">
+        {peer.endpoint}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {counts ? (
+          <>
+            {counts.servers > 0 && <Tag label={`${counts.servers} Servers`} />}
+            {counts.agents > 0 && <Tag label={`${counts.agents} Agents`} />}
+            {counts.skills > 0 && <Tag label={`${counts.skills} Skills`} />}
+            {counts.prompts > 0 && <Tag label={`${counts.prompts} Prompts`} />}
+            {counts.total === 0 && <Tag label="No assets yet" />}
+          </>
+        ) : (
+          <Tag label="Never synced" />
+        )}
+        {peer.last_sync_error && (
+          <SectionLabel className="w-full text-bad">
+            {peer.last_sync_error}
+          </SectionLabel>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-[11px] text-text-dim">
+        <span className="truncate">
+          {auth} · {modeLabel(peer.sync_mode)}
+        </span>
+        <span className="shrink-0">
+          {peer.last_sync_at
+            ? `synced ${formatDistanceToNow(new Date(peer.last_sync_at), {
+                addSuffix: true,
+              })}`
+            : "not yet synced"}
+        </span>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
         <Button
           variant="outline"
           size="sm"
@@ -331,7 +467,7 @@ function PeerRow({
           variant="ghost"
           size="sm"
           onClick={onDelete}
-          className="text-rose-500 hover:text-rose-600"
+          className="ml-auto text-bad hover:text-bad"
         >
           <Icon icon={icons.delete} className="size-4" />
         </Button>

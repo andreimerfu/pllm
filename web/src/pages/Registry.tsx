@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -90,12 +90,8 @@ import { PackageChip } from "@/components/registry/package-chip";
 import { InstallCommand } from "@/components/registry/install-command";
 import { ScoresPanel } from "@/components/registry/score-ribbon";
 import { VersionPicker } from "@/components/registry/version-picker";
-import {
-  KindBreakdown,
-  PublishActivity,
-  ThirdPartyMix,
-} from "@/components/registry/registry-overview";
 import { PageShell } from "@/components/common/page-shell";
+import { SectionLabel } from "@/components/common/status-chip";
 import { useToast } from "@/hooks/use-toast";
 
 // ---------------------------------------------------------------------------
@@ -159,8 +155,20 @@ const deployInProgress = (s?: DeploymentStatus) =>
 // Page
 // ---------------------------------------------------------------------------
 
+// Sidebar deep-links (Skills/Prompts) land here as /registry?kind=<singular>.
+// Map the registry-kind query value back to this page's plural tab key.
+const KIND_PARAM_TO_TAB: Record<string, Kind> = {
+  skill: "skills",
+  prompt: "prompts",
+  agent: "agents",
+  server: "servers",
+  mcp: "servers",
+};
+
 export default function Registry() {
-  const [kind, setKind] = useState<Kind>("servers");
+  const [searchParams] = useSearchParams();
+  const kindParam = searchParams.get("kind");
+  const [kind, setKind] = useState<Kind>(KIND_PARAM_TO_TAB[kindParam ?? ""] ?? "servers");
   const [search, setSearch] = useState("");
   const [latestOnly, setLatestOnly] = useState(true);
   const [sort, setSort] = useState<SortMode>("recent");
@@ -169,6 +177,13 @@ export default function Registry() {
     { kind: Kind; name: string; version?: string } | null
   >(null);
   const [publishOpen, setPublishOpen] = useState(false);
+
+  // Re-sync the active tab when the sidebar deep-link param changes while
+  // we're already mounted (e.g. Skills → Prompts without a full remount).
+  useEffect(() => {
+    const mapped = KIND_PARAM_TO_TAB[kindParam ?? ""];
+    if (mapped) setKind(mapped);
+  }, [kindParam]);
 
   const query = { search: search || undefined, latest: latestOnly };
 
@@ -249,10 +264,51 @@ export default function Registry() {
     skills: skills.data?.total ?? skills.data?.skills?.length ?? 0,
     prompts: prompts.data?.total ?? prompts.data?.prompts?.length ?? 0,
   };
-  const deployCount = deployments.data?.deployments?.length ?? 0;
-  const runningDeployments = (deployments.data?.deployments ?? []).filter(
-    (d) => d.status === "running",
-  ).length;
+  // KPI cards are derived entirely from the four already-fetched arrays.
+  const allItems = useMemo<AnyRow[]>(
+    () => [
+      ...(servers.data?.servers ?? []),
+      ...(agents.data?.agents ?? []),
+      ...(skills.data?.skills ?? []),
+      ...(prompts.data?.prompts ?? []),
+    ],
+    [servers.data, agents.data, skills.data, prompts.data],
+  );
+
+  const registryStats = useMemo(() => {
+    const total = allItems.length;
+    // Third-party = federated from a peer OR pulled in via the npm/PyPI
+    // importer namespace; everything else is internal/first-party.
+    const isThirdParty = (r: AnyRow) =>
+      !!r.source_peer_id || /\.import\//i.test(r.name);
+    const vendor = allItems.filter(isThirdParty).length;
+    const internal = total - vendor;
+    const thirdPartyPct = total === 0 ? 0 : Math.round((vendor / total) * 100);
+
+    // No `verified`/`signed`/score field on list rows — derive trust from
+    // the fields we do have: lifecycle status and latest-version coverage.
+    const active = allItems.filter((r) => r.status === "active").length;
+    const latest = allItems.filter((r) => r.is_latest).length;
+    const activePct = total === 0 ? 0 : Math.round((active / total) * 100);
+    const latestPct = total === 0 ? 0 : Math.round((latest / total) * 100);
+
+    // "New this week" from published_at, used as the catalog sub when > 0.
+    const weekAgo = Date.now() - 7 * 86_400_000;
+    const newThisWeek = allItems.filter(
+      (r) => r.published_at && new Date(r.published_at).getTime() >= weekAgo,
+    ).length;
+
+    return {
+      total,
+      vendor,
+      internal,
+      thirdPartyPct,
+      active,
+      activePct,
+      latestPct,
+      newThisWeek,
+    };
+  }, [allItems]);
 
   // Package types present among current servers (for filter chips).
   const availablePkgTypes = useMemo(() => {
@@ -273,17 +329,10 @@ export default function Registry() {
     prompts: prompts.isLoading,
   }[kind];
 
-  const overviewInput = {
-    servers: servers.data?.servers ?? [],
-    agents: agents.data?.agents ?? [],
-    skills: skills.data?.skills ?? [],
-    prompts: prompts.data?.prompts ?? [],
-  };
-
   return (
     <PageShell
       title="Registry"
-      description="Published MCP servers, agents, skills and prompts. Reviewed, versioned, scored, and deployable as Kubernetes workloads."
+      description="The catalog of everything deployable — agents, MCP servers, skills, prompts, and models. Reviewed, versioned, scored, and ready to ship."
       actions={
         <>
           {kind === "servers" && <ImportButton />}
@@ -300,41 +349,26 @@ export default function Registry() {
         onOpenChange={setPublishOpen}
       />
 
-      {/* ────────────────────────── Overview charts ────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-1">
-          <PublishActivity input={overviewInput} />
-        </div>
-        <KindBreakdown input={overviewInput} />
-        <ThirdPartyMix input={overviewInput} />
-      </div>
-
-      {/* ────────────────────────── KPI strip ────────────────────────── */}
-      <KPIStrip
-        counts={counts}
-        activeKind={kind}
-        onSelect={setKind}
-        deployCount={deployCount}
-        runningDeployments={runningDeployments}
-      />
+      {/* ────────────────────────── KPI cards ────────────────────────── */}
+      <RegistryKPIs counts={counts} stats={registryStats} />
 
       {/* ────────────────────────── Toolbar ────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center gap-3">
-        <div className="relative flex-1 md:max-w-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="relative flex-1">
           <Icon
             icon={icons.search}
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim"
           />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={`Search ${kind}…`}
-            className="pl-9 h-9"
+            className="h-9 rounded-[9px] pl-9"
           />
         </div>
 
         <Select value={sort} onValueChange={(v) => setSort(v as SortMode)}>
-          <SelectTrigger className="h-9 w-[10rem]">
+          <SelectTrigger className="h-9 w-[10rem] rounded-[9px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -344,11 +378,12 @@ export default function Registry() {
           </SelectContent>
         </Select>
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2">
           <Switch
             id="latest-only"
             checked={latestOnly}
             onCheckedChange={setLatestOnly}
+            className="data-[state=checked]:bg-good"
           />
           <Label
             htmlFor="latest-only"
@@ -395,12 +430,21 @@ export default function Registry() {
 
       {/* ────────────────────────── Tabs + Grid ────────────────────────── */}
       <Tabs value={kind} onValueChange={(v) => setKind(v as Kind)}>
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+        <TabsList className="h-auto w-full justify-start gap-0 rounded-none border-b border-border bg-transparent p-0">
           {(Object.keys(KIND_META) as Kind[]).map((k) => (
-            <TabsTrigger key={k} value={k} className="gap-2 data-[state=active]:font-semibold">
-              <KindIcon kind={KIND_META[k].singular} size="sm" className="!h-5 !w-5 !rounded" />
-              <span className="hidden sm:inline">{KIND_META[k].label.replace(/^MCP /, "")}</span>
-              <span className="text-[10px] font-mono tabular-nums text-muted-foreground">
+            <TabsTrigger
+              key={k}
+              value={k}
+              className="mr-[18px] gap-2 rounded-none border-b-2 border-transparent bg-transparent px-1 py-0 h-10 text-[13.5px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:shadow-none"
+            >
+              <Icon icon={kindAccent(KIND_META[k].singular).icon} className="h-[15px] w-[15px]" />
+              <span>{KIND_META[k].label.replace(/^MCP /, "")}</span>
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-px font-mono text-[10.5px] font-semibold tabular-nums",
+                  kind === k ? "bg-[var(--accent-soft)] text-primary" : "bg-surface-2 text-text-dim",
+                )}
+              >
                 {counts[k]}
               </span>
             </TabsTrigger>
@@ -458,87 +502,153 @@ export default function Registry() {
 }
 
 // ---------------------------------------------------------------------------
-// KPI strip
+// KPI cards — three framed panels derived entirely from the fetched arrays
 // ---------------------------------------------------------------------------
 
-function KPIStrip({
+type RegistryStats = {
+  total: number;
+  vendor: number;
+  internal: number;
+  thirdPartyPct: number;
+  active: number;
+  activePct: number;
+  latestPct: number;
+  newThisWeek: number;
+};
+
+function RegistryKPIs({
   counts,
-  activeKind,
-  onSelect,
-  deployCount,
-  runningDeployments,
+  stats,
 }: {
   counts: Record<Kind, number>;
-  activeKind: Kind;
-  onSelect: (k: Kind) => void;
-  deployCount: number;
-  runningDeployments: number;
+  stats: RegistryStats;
 }) {
-  const tiles: {
-    key: Kind | "deployments";
-    label: string;
-    value: number;
-    secondary?: string;
-    kind?: RegistryKind;
-  }[] = [
-    { key: "servers", label: "MCP Servers", value: counts.servers, kind: "server" },
-    { key: "agents", label: "Agents", value: counts.agents, kind: "agent" },
-    { key: "skills", label: "Skills", value: counts.skills, kind: "skill" },
-    { key: "prompts", label: "Prompts", value: counts.prompts, kind: "prompt" },
-    {
-      key: "deployments",
-      label: "Deployments",
-      value: deployCount,
-      secondary: `${runningDeployments} running`,
-    },
+  const legend: { kind: RegistryKind; label: string; count: number }[] = [
+    { kind: "agent", label: "Agents", count: counts.agents },
+    { kind: "server", label: "MCP Servers", count: counts.servers },
+    { kind: "skill", label: "Skills", count: counts.skills },
+    { kind: "prompt", label: "Prompts", count: counts.prompts },
   ];
+
+  const internalPct =
+    stats.total === 0 ? 0 : Math.round((stats.internal / stats.total) * 100);
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-      {tiles.map((t) => {
-        const isTab = t.key !== "deployments";
-        const active = isTab && activeKind === t.key;
-        return (
-          <button
-            key={t.key}
-            onClick={() => isTab && onSelect(t.key as Kind)}
-            disabled={!isTab}
-            className={cn(
-              "group relative text-left rounded-lg border transition-all",
-              "px-3 py-3",
-              active
-                ? "border-foreground/40 bg-foreground/[0.03]"
-                : "border-border hover:border-foreground/30",
-              !isTab && "cursor-default",
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* ── CATALOG ── */}
+      <div className="rounded-[14px] border border-border bg-card p-5 shadow-sm">
+        <SectionLabel>Catalog</SectionLabel>
+        <div className="mt-3 flex items-baseline gap-2">
+          <span className="font-mono text-[30px] font-semibold leading-none tracking-[-0.02em] tabular-nums">
+            {stats.total}
+          </span>
+          <span className="text-[12px] text-text-dim">
+            assets
+            {stats.newThisWeek > 0 && (
+              <>
+                {" · "}
+                <span className="text-good">+{stats.newThisWeek}</span> this week
+              </>
             )}
-          >
-            <div className="flex items-center justify-between mb-2">
-              {t.kind ? (
-                <KindIcon kind={t.kind} size="sm" />
-              ) : (
-                <div className="h-8 w-8 rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-300 ring-1 ring-sky-500/20 flex items-center justify-center">
-                  <Icon icon={icons.deployment} className="h-4 w-4" />
-                </div>
-              )}
-              {active && (
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              )}
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-semibold tabular-nums tracking-tight">
-                {t.value}
+          </span>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
+          {legend.map((l) => (
+            <span key={l.kind} className="inline-flex items-center gap-1.5 text-[12px]">
+              <span
+                className={cn(
+                  "h-2 w-2 shrink-0 rounded-full",
+                  KIND_DOT[l.kind],
+                )}
+              />
+              <span className="text-muted-foreground">{l.label}</span>
+              <span className="font-mono tabular-nums text-foreground">
+                {l.count}
               </span>
-              {t.secondary && (
-                <span className="text-[10px] font-mono text-muted-foreground">
-                  · {t.secondary}
-                </span>
-              )}
-            </div>
-            <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mt-0.5">
-              {t.label}
-            </p>
-          </button>
-        );
-      })}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* ── SUPPLY CHAIN ── */}
+      <div className="rounded-[14px] border border-border bg-card p-5 shadow-sm">
+        <SectionLabel>Supply chain</SectionLabel>
+        <div className="mt-3 flex items-baseline gap-2">
+          <span className="font-mono text-[30px] font-semibold leading-none tracking-[-0.02em] tabular-nums">
+            {stats.thirdPartyPct}%
+          </span>
+          <span className="text-[12px] text-text-dim">third-party</span>
+        </div>
+        <div className="mt-4 flex h-2.5 w-full overflow-hidden rounded-full bg-surface-2">
+          <div className="bg-good" style={{ width: `${internalPct}%` }} />
+          <div
+            className="bg-kind-skill"
+            style={{ width: `${stats.thirdPartyPct}%` }}
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-good" />
+            Internal
+            <span className="font-mono tabular-nums text-foreground">
+              {stats.internal}
+            </span>
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-kind-skill" />
+            Vendor
+            <span className="font-mono tabular-nums text-foreground">
+              {stats.vendor}
+            </span>
+          </span>
+        </div>
+      </div>
+
+      {/* ── TRUST & SECURITY ── */}
+      <div className="rounded-[14px] border border-border bg-card p-5 shadow-sm">
+        <SectionLabel>Trust &amp; security</SectionLabel>
+        <div className="mt-3 flex items-baseline gap-2">
+          <span className="font-mono text-[30px] font-semibold leading-none tracking-[-0.02em] tabular-nums">
+            {stats.activePct}
+          </span>
+          <span className="text-[12px] text-text-dim">/ 100 active</span>
+        </div>
+        <div className="mt-4 space-y-2.5">
+          <MiniBar label="Active" pct={stats.activePct} tone="bg-good" />
+          <MiniBar label="Latest" pct={stats.latestPct} tone="bg-info" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const KIND_DOT: Record<RegistryKind, string> = {
+  agent: "bg-kind-agent",
+  server: "bg-kind-mcp",
+  skill: "bg-kind-skill",
+  prompt: "bg-kind-prompt",
+  llm: "bg-kind-model",
+  use_case: "bg-primary",
+};
+
+function MiniBar({
+  label,
+  pct,
+  tone,
+}: {
+  label: string;
+  pct: number;
+  tone: string;
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-[12px]">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-mono tabular-nums text-foreground">{pct}%</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+        <div className={cn("h-full rounded-full", tone)} style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }
@@ -581,9 +691,16 @@ function extrasFor(kind: Kind, row: AnyRow, deployments?: Deployment[]) {
     case "servers": {
       const s = row as RegistryServer;
       const dep = deploymentFor(deployments, s.name, s.version);
+      const deployCount = (deployments ?? []).filter(
+        (d) =>
+          d.resource_name === s.name &&
+          d.status !== "stopped" &&
+          d.status !== "terminating",
+      ).length;
       return {
         packages: parsePackages(s.packages),
         deployStatus: dep?.status,
+        deployCount,
       };
     }
     case "agents": {
