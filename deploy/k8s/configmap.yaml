@@ -195,4 +195,47 @@ data:
       tick_interval: 1m
       default_sync_interval: 1h
 
+    # Guardrails: safety policies applied on requests/responses. Enabled by
+    # default so the gateway screens traffic out of the box (mirrors
+    # config.docker.yaml). Backed by the Presidio analyzer/anonymizer services.
+    guardrails:
+      enabled: true
+      guardrails:
+        - guardrail_name: "presidio-pii-detection"
+          provider: "presidio"
+          mode: ["pre_call", "logging_only"]
+          enabled: true
+          config:
+            analyzer_url: "http://presidio-analyzer:3000"
+            anonymizer_url: "http://presidio-anonymizer:3000"
+            entities: ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "SSN", "IP_ADDRESS"]
+            threshold: 0.7
+            mask_pii: true
+            anonymize_method: "replace"
+            language: "en"
+        - guardrail_name: "presidio-pii-response-scan"
+          provider: "presidio"
+          mode: ["post_call"]
+          enabled: true
+          config:
+            analyzer_url: "http://presidio-analyzer:3000"
+            anonymizer_url: "http://presidio-anonymizer:3000"
+            entities: ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "SSN"]
+            threshold: 0.8
+            mask_pii: false
+            anonymize_method: "replace"
+            language: "en"
+        - guardrail_name: "presidio-pii-monitoring"
+          provider: "presidio"
+          mode: ["during_call", "logging_only"]
+          enabled: true
+          config:
+            analyzer_url: "http://presidio-analyzer:3000"
+            anonymizer_url: "http://presidio-anonymizer:3000"
+            entities: ["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER"]
+            threshold: 0.6
+            mask_pii: false
+            anonymize_method: "replace"
+            language: "en"
+
     model_list: []

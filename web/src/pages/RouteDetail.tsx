@@ -294,7 +294,7 @@ export default function RouteDetail() {
         </div>
 
         {/* Right: Tabbed panel — takes ~35% */}
-        <div className="flex-1 min-w-[300px] max-w-[400px] flex flex-col border border-border rounded-xl overflow-hidden bg-background">
+        <div className="flex-1 min-w-[300px] max-w-[400px] flex flex-col border border-border rounded-xl overflow-hidden bg-card">
           {/* Tab bar */}
           <div className="flex border-b border-border bg-muted/30 flex-shrink-0">
             {panelTabs.map((tab) => (

@@ -1,653 +1,313 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { Icon } from '@iconify/react';
-import { icons } from '@/lib/icons';
-
+import { Icon } from "@iconify/react";
+import { icons } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { SectionLabel } from "@/components/common/status-chip";
+import { getBrandLogo, isColoredLogo } from "@/lib/brand-logos";
+import { cn } from "@/lib/utils";
 
-// Types
-interface GuardrailProvider {
+// ---------------------------------------------------------------------------
+// Catalog — curated list of installable guardrail integrations. Static
+// reference data (the marketplace listing), not runtime metrics.
+// ---------------------------------------------------------------------------
+
+type Category =
+  | "PII & Privacy"
+  | "Content Safety"
+  | "Prompt Security"
+  | "Toxicity"
+  | "Secrets"
+  | "Compliance";
+
+type Pricing = "Free" | "Paid" | "Enterprise";
+
+interface Guardrail {
   id: string;
   name: string;
-  description: string;
-  short_description: string;
   provider: string;
-  category: "privacy" | "safety" | "compliance" | "security";
-  subcategory: string;
-  version: string;
-  author: {
-    name: string;
-    avatar?: string;
-    company?: string;
-    verified: boolean;
-  };
-  pricing: "free" | "paid" | "freemium";
+  category: Category;
+  description: string;
+  pricing: Pricing;
   rating: number;
   downloads: number;
-  last_updated: string;
-  tags: string[];
-  features: string[];
-  supported_languages: string[];
-  execution_modes: string[];
-  integration_difficulty: "easy" | "medium" | "hard";
-  documentation_url?: string;
-  github_url?: string;
-  homepage_url?: string;
-  demo_available: boolean;
-  enterprise_ready: boolean;
-  open_source: boolean;
-  compliance: string[];
-  use_cases: string[];
-  performance: {
-    avg_latency_ms: number;
-    throughput_rps: number;
-    accuracy: number;
-  };
+  verified: boolean;
+  installed: boolean;
+  featured: boolean;
 }
 
-// Mock data for demonstration
-const MOCK_PROVIDERS: GuardrailProvider[] = [
-  {
-    id: "presidio",
-    name: "Microsoft Presidio",
-    description: "Microsoft Presidio is an open source data protection toolkit that helps identify, classify, and anonymize sensitive data in text, images, and documents. It provides built-in recognizers for common PII types and allows custom recognizers for specific use cases.",
-    short_description: "Enterprise-grade PII detection and anonymization toolkit from Microsoft",
-    provider: "Microsoft",
-    category: "privacy",
-    subcategory: "PII Detection",
-    version: "2.2.354",
-    author: {
-      name: "Microsoft",
-      avatar: "/api/placeholder/40/40",
-      company: "Microsoft Corporation",
-      verified: true
-    },
-    pricing: "free",
-    rating: 4.8,
-    downloads: 125000,
-    last_updated: "2024-01-15",
-    tags: ["PII", "anonymization", "GDPR", "HIPAA", "enterprise"],
-    features: [
-      "Multi-language PII detection",
-      "Custom entity recognizers",
-      "Multiple anonymization methods",
-      "REST API integration",
-      "Batch processing support"
-    ],
-    supported_languages: ["en", "es", "fr", "de", "it", "pt", "he"],
-    execution_modes: ["pre_call", "post_call", "logging_only"],
-    integration_difficulty: "easy",
-    documentation_url: "https://microsoft.github.io/presidio/",
-    github_url: "https://github.com/microsoft/presidio",
-    homepage_url: "https://presidio.dev/",
-    demo_available: true,
-    enterprise_ready: true,
-    open_source: true,
-    compliance: ["GDPR", "HIPAA", "PCI DSS", "SOX"],
-    use_cases: ["Healthcare data protection", "Financial services", "Customer support", "Document processing"],
-    performance: {
-      avg_latency_ms: 85,
-      throughput_rps: 1200,
-      accuracy: 0.94
-    }
-  },
-  {
-    id: "aws-comprehend-pii",
-    name: "AWS Comprehend PII",
-    description: "Amazon Comprehend provides natural language processing capabilities including PII detection and redaction. It can identify common PII entities like names, addresses, credit card numbers, and more across multiple languages.",
-    short_description: "AWS managed PII detection service with high accuracy and scalability",
-    provider: "Amazon Web Services",
-    category: "privacy",
-    subcategory: "PII Detection",
-    version: "1.0.0",
-    author: {
-      name: "AWS",
-      avatar: "/api/placeholder/40/40",
-      company: "Amazon Web Services",
-      verified: true
-    },
-    pricing: "paid",
-    rating: 4.6,
-    downloads: 85000,
-    last_updated: "2024-01-10",
-    tags: ["AWS", "managed", "scalable", "multi-language"],
-    features: [
-      "Managed service",
-      "High accuracy detection",
-      "Batch and real-time processing",
-      "Custom entity types",
-      "Confidence scoring"
-    ],
-    supported_languages: ["en", "es", "fr", "de", "it", "pt", "ar", "hi", "ja", "ko", "zh"],
-    execution_modes: ["pre_call", "post_call"],
-    integration_difficulty: "medium",
-    documentation_url: "https://docs.aws.amazon.com/comprehend/",
-    homepage_url: "https://aws.amazon.com/comprehend/",
-    demo_available: false,
-    enterprise_ready: true,
-    open_source: false,
-    compliance: ["SOC 2", "HIPAA", "PCI DSS"],
-    use_cases: ["Content moderation", "Document analysis", "Customer data protection"],
-    performance: {
-      avg_latency_ms: 120,
-      throughput_rps: 2000,
-      accuracy: 0.96
-    }
-  },
-  {
-    id: "openai-moderation",
-    name: "OpenAI Moderation",
-    description: "OpenAI's moderation models are designed to check whether content complies with OpenAI's usage policies. These models provide classification capabilities across several categories of content.",
-    short_description: "AI-powered content moderation from OpenAI for safety and compliance",
-    provider: "OpenAI",
-    category: "safety",
-    subcategory: "Content Moderation",
-    version: "text-moderation-007",
-    author: {
-      name: "OpenAI",
-      avatar: "/api/placeholder/40/40",
-      company: "OpenAI",
-      verified: true
-    },
-    pricing: "freemium",
-    rating: 4.5,
-    downloads: 67000,
-    last_updated: "2024-01-08",
-    tags: ["content moderation", "safety", "AI", "real-time"],
-    features: [
-      "Real-time content analysis",
-      "Multiple violation categories",
-      "Confidence scoring",
-      "Low latency",
-      "Easy integration"
-    ],
-    supported_languages: ["en"],
-    execution_modes: ["pre_call", "post_call", "during_call"],
-    integration_difficulty: "easy",
-    documentation_url: "https://platform.openai.com/docs/guides/moderation",
-    homepage_url: "https://openai.com/",
-    demo_available: true,
-    enterprise_ready: true,
-    open_source: false,
-    compliance: ["OpenAI Usage Policies"],
-    use_cases: ["Chatbot safety", "User-generated content", "Community moderation"],
-    performance: {
-      avg_latency_ms: 45,
-      throughput_rps: 5000,
-      accuracy: 0.92
-    }
-  },
-  {
-    id: "perspective-api",
-    name: "Perspective API",
-    description: "Perspective API uses machine learning models to score the perceived impact a comment might have on a conversation. It helps online platforms foster healthier discussions by identifying toxic, insulting, or threatening comments.",
-    short_description: "Google's toxicity detection API for healthier online conversations",
-    provider: "Google Jigsaw",
-    category: "safety",
-    subcategory: "Toxicity Detection",
-    version: "1.0.0",
-    author: {
-      name: "Jigsaw",
-      avatar: "/api/placeholder/40/40",
-      company: "Google",
-      verified: true
-    },
-    pricing: "free",
-    rating: 4.3,
-    downloads: 45000,
-    last_updated: "2023-12-20",
-    tags: ["toxicity", "harassment", "community", "free"],
-    features: [
-      "Toxicity scoring",
-      "Multiple attribute analysis",
-      "Language support",
-      "Free tier available",
-      "Real-time analysis"
-    ],
-    supported_languages: ["en", "es", "fr", "de", "it", "pt", "ru"],
-    execution_modes: ["pre_call", "post_call"],
-    integration_difficulty: "easy",
-    documentation_url: "https://developers.perspectiveapi.com/",
-    homepage_url: "https://perspectiveapi.com/",
-    demo_available: true,
-    enterprise_ready: false,
-    open_source: false,
-    compliance: ["Google Cloud Terms"],
-    use_cases: ["Community moderation", "Comment filtering", "Social media safety"],
-    performance: {
-      avg_latency_ms: 95,
-      throughput_rps: 800,
-      accuracy: 0.89
-    }
-  },
-  {
-    id: "custom-regex",
-    name: "Custom Regex Guardrail",
-    description: "A flexible guardrail that allows you to define custom regular expressions for pattern matching and content filtering. Suitable for organization-specific rules and custom compliance requirements.",
-    short_description: "Flexible pattern-based guardrail using custom regular expressions",
-    provider: "Community",
-    category: "compliance",
-    subcategory: "Pattern Matching",
-    version: "1.2.0",
-    author: {
-      name: "Community",
-      avatar: "/api/placeholder/40/40",
-      company: "Open Source",
-      verified: false
-    },
-    pricing: "free",
-    rating: 4.1,
-    downloads: 23000,
-    last_updated: "2024-01-05",
-    tags: ["regex", "custom", "pattern", "compliance"],
-    features: [
-      "Custom regex patterns",
-      "Multiple pattern sets",
-      "Case-sensitive options",
-      "Whitelist/blacklist modes",
-      "Fast pattern matching"
-    ],
-    supported_languages: ["universal"],
-    execution_modes: ["pre_call", "post_call", "logging_only"],
-    integration_difficulty: "medium",
-    github_url: "https://github.com/community/regex-guardrail",
-    demo_available: false,
-    enterprise_ready: false,
-    open_source: true,
-    compliance: ["Custom"],
-    use_cases: ["Custom compliance rules", "Industry-specific patterns", "Internal policies"],
-    performance: {
-      avg_latency_ms: 15,
-      throughput_rps: 10000,
-      accuracy: 0.85
-    }
-  }
+const GUARDRAILS: Guardrail[] = [
+  { id: "presidio", name: "Microsoft Presidio", provider: "Microsoft", category: "PII & Privacy", pricing: "Free", rating: 4.8, downloads: 12400, verified: true, installed: true, featured: true, description: "Detect and redact 40+ PII entity types — names, SSNs, cards, emails — before requests reach the model." },
+  { id: "lakera", name: "Lakera Guard", provider: "Lakera", category: "Prompt Security", pricing: "Paid", rating: 4.9, downloads: 8100, verified: true, installed: true, featured: true, description: "Real-time defense against prompt injection, jailbreaks and data exfiltration, backed by a live threat database." },
+  { id: "openai-moderation", name: "OpenAI Moderation", provider: "OpenAI", category: "Content Safety", pricing: "Free", rating: 4.7, downloads: 21300, verified: true, installed: true, featured: true, description: "Flag hate, harassment, self-harm, sexual and violent content across requests and responses." },
+  { id: "azure-content-safety", name: "Azure AI Content Safety", provider: "Microsoft", category: "Content Safety", pricing: "Paid", rating: 4.6, downloads: 9700, verified: true, installed: false, featured: false, description: "Severity-scored moderation across four harm categories with configurable blocklists." },
+  { id: "bedrock-guardrails", name: "Bedrock Guardrails", provider: "Amazon", category: "Content Safety", pricing: "Paid", rating: 4.5, downloads: 6200, verified: false, installed: false, featured: false, description: "Denied topics, word filters and contextual grounding checks managed natively in AWS." },
+  { id: "nemo-guardrails", name: "NeMo Guardrails", provider: "NVIDIA", category: "Prompt Security", pricing: "Free", rating: 4.5, downloads: 4800, verified: true, installed: false, featured: false, description: "Programmable rails for dialog, topic and safety control using Colang flows." },
+  { id: "protect-ai", name: "Protect AI Guardian", provider: "Protect AI", category: "Secrets", pricing: "Paid", rating: 4.4, downloads: 3100, verified: true, installed: false, featured: false, description: "Catch API keys, tokens and credentials leaking through prompts and tool calls." },
+  { id: "guardrails-ai", name: "Guardrails AI", provider: "Guardrails AI", category: "Compliance", pricing: "Free", rating: 4.6, downloads: 5500, verified: true, installed: false, featured: false, description: "Open-source validators for structure, format and policy compliance on every output." },
+  { id: "skyflow", name: "Skyflow PII Shield", provider: "Skyflow", category: "PII & Privacy", pricing: "Paid", rating: 4.4, downloads: 1800, verified: true, installed: false, featured: false, description: "Tokenize and de-identify sensitive data with a privacy vault before it ever hits an LLM." },
+  { id: "detoxify", name: "Detoxify", provider: "Community", category: "Toxicity", pricing: "Free", rating: 4.2, downloads: 2900, verified: false, installed: false, featured: false, description: "Lightweight toxicity, severe-toxicity and threat scoring on model responses." },
+  { id: "aporia", name: "Aporia Guardrails", provider: "Aporia", category: "Content Safety", pricing: "Paid", rating: 4.5, downloads: 2100, verified: true, installed: false, featured: false, description: "Hallucination, RAG-grounding and off-topic detection tuned for production traffic." },
+  { id: "robust-intelligence", name: "Robust Intelligence", provider: "Cisco", category: "Compliance", pricing: "Enterprise", rating: 4.6, downloads: 1500, verified: true, installed: false, featured: false, description: "Continuous AI validation and policy enforcement mapped to regulatory frameworks." },
+  { id: "rebuff", name: "Rebuff", provider: "Community", category: "Prompt Security", pricing: "Free", rating: 4.2, downloads: 2400, verified: false, installed: false, featured: false, description: "Self-hardening prompt-injection detector combining heuristics, LLM checks and a vector store." },
+  { id: "langkit", name: "WhyLabs LangKit", provider: "WhyLabs", category: "Toxicity", pricing: "Free", rating: 4.1, downloads: 1900, verified: true, installed: false, featured: false, description: "Out-of-the-box text metrics — toxicity, sentiment, PII and quality — for monitoring LLM traffic." },
 ];
 
-const CATEGORIES = [
-  { value: "all", label: "All Categories", icon: icons.shield },
-  { value: "privacy", label: "Privacy & PII", icon: icons.lock },
-  { value: "safety", label: "Content Safety", icon: icons.warning },
-  { value: "compliance", label: "Compliance", icon: icons.check },
-  { value: "security", label: "Security", icon: icons.shield }
+const CATEGORIES: ("All" | Category)[] = [
+  "All", "PII & Privacy", "Content Safety", "Prompt Security", "Toxicity", "Secrets", "Compliance",
 ];
 
-const PRICING_FILTERS = [
-  { value: "all", label: "All" },
-  { value: "free", label: "Free" },
-  { value: "freemium", label: "Freemium" },
-  { value: "paid", label: "Paid" }
-];
+// Category → kind tint (color reserved for meaning).
+const CATEGORY_TINT: Record<Category, string> = {
+  "PII & Privacy": "bg-kind-model/12 text-kind-model",
+  "Content Safety": "bg-kind-prompt/12 text-kind-prompt",
+  "Prompt Security": "bg-kind-skill/12 text-kind-skill",
+  Toxicity: "bg-bad/12 text-bad",
+  Secrets: "bg-kind-mcp/12 text-kind-mcp",
+  Compliance: "bg-kind-agent/12 text-kind-agent",
+};
 
-const DIFFICULTY_FILTERS = [
-  { value: "all", label: "All" },
-  { value: "easy", label: "Easy" },
-  { value: "medium", label: "Medium" },
-  { value: "hard", label: "Hard" }
-];
+// Solid text color per category — used for the verified seal so it reads
+// in the provider's category color, matching the reference.
+const CATEGORY_TEXT: Record<Category, string> = {
+  "PII & Privacy": "text-kind-model",
+  "Content Safety": "text-kind-prompt",
+  "Prompt Security": "text-kind-skill",
+  Toxicity: "text-bad",
+  Secrets: "text-kind-mcp",
+  Compliance: "text-kind-agent",
+};
+
+function VerifiedSeal({ category }: { category: Category }) {
+  return <Icon icon="lucide:badge-check" className={cn("h-4 w-4 shrink-0", CATEGORY_TEXT[category])} />;
+}
+
+function fmtDownloads(n: number): string {
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+}
+
+function PricingTag({ pricing }: { pricing: Pricing }) {
+  const cls =
+    pricing === "Free"
+      ? "bg-good/12 text-good"
+      : pricing === "Enterprise"
+        ? "bg-info/12 text-info"
+        : "bg-surface-2 text-text-dim";
+  return (
+    <span className={cn("inline-flex items-center rounded-md px-2 py-[3px] text-[11px] font-medium", cls)}>
+      {pricing}
+    </span>
+  );
+}
+
+function CategoryTag({ category }: { category: Category }) {
+  return (
+    <span className={cn("inline-flex items-center rounded-md px-2 py-[3px] text-[10.5px] font-semibold", CATEGORY_TINT[category])}>
+      {category}
+    </span>
+  );
+}
+
+function Rating({ rating, downloads }: { rating: number; downloads: number }) {
+  return (
+    <div className="flex items-center gap-3 text-[12px] text-text-dim">
+      <span className="inline-flex items-center gap-1">
+        <Icon icon={icons.star} className="h-3.5 w-3.5 text-warn" />
+        <span className="font-mono text-foreground">{rating.toFixed(1)}</span>
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <Icon icon={icons.download} className="h-3.5 w-3.5" />
+        <span className="font-mono">{fmtDownloads(downloads)}</span>
+      </span>
+    </div>
+  );
+}
 
 export default function GuardrailMarketplace() {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [pricingFilter, setPricingFilter] = useState("all");
-  const [difficultyFilter, setDifficultyFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("downloads"); // downloads, rating, updated
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<"All" | Category>("All");
+  const [installed, setInstalled] = useState<Record<string, boolean>>(
+    Object.fromEntries(GUARDRAILS.filter((g) => g.installed).map((g) => [g.id, true])),
+  );
 
-  // Filter and sort providers
-  const filteredProviders = MOCK_PROVIDERS
-    .filter(provider => {
-      const matchesSearch = searchQuery === "" ||
-        provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        provider.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        provider.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      const matchesCategory = selectedCategory === "all" || provider.category === selectedCategory;
-      const matchesPricing = pricingFilter === "all" || provider.pricing === pricingFilter;
-      const matchesDifficulty = difficultyFilter === "all" || provider.integration_difficulty === difficultyFilter;
-
-      return matchesSearch && matchesCategory && matchesPricing && matchesDifficulty;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "rating":
-          return b.rating - a.rating;
-        case "updated":
-          return new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime();
-        case "downloads":
-        default:
-          return b.downloads - a.downloads;
-      }
-    });
-
-  const formatDownloads = (count: number) => {
-    if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
-    if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
-    return count.toString();
+  const install = (g: Guardrail) => {
+    setInstalled((prev) => ({ ...prev, [g.id]: true }));
+    navigate(`/guardrails/config/new?provider=${g.id}`);
   };
 
-  const getPricingColor = (pricing: string) => {
-    switch (pricing) {
-      case "free": return "bg-green-100 text-green-800";
-      case "freemium": return "bg-blue-100 text-blue-800";
-      case "paid": return "bg-yellow-100 text-yellow-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
+  const matches = (g: Guardrail) => {
+    const q = search.trim().toLowerCase();
+    const inSearch =
+      !q || g.name.toLowerCase().includes(q) || g.provider.toLowerCase().includes(q) || g.description.toLowerCase().includes(q);
+    const inCategory = category === "All" || g.category === category;
+    return inSearch && inCategory;
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case "easy": return "bg-green-100 text-green-800";
-      case "medium": return "bg-yellow-100 text-yellow-800";
-      case "hard": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
-  };
+  const featured = GUARDRAILS.filter((g) => g.featured);
+  const all = GUARDRAILS.filter(matches);
 
-  const getCategoryIcon = (category: string) => {
-    const categoryData = CATEGORIES.find(c => c.value === category);
-    return categoryData?.icon || icons.shield;
+  // Featured cards use a solid green "Installed" button.
+  const FeaturedInstall = ({ g }: { g: Guardrail }) =>
+    installed[g.id] ? (
+      <Button size="sm" disabled>Installed</Button>
+    ) : (
+      <Button size="sm" onClick={() => install(g)}>Install</Button>
+    );
+
+  // Grid cards show installed as inline green text, install as an outline button.
+  const GridInstall = ({ g }: { g: Guardrail }) =>
+    installed[g.id] ? (
+      <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-primary">
+        <Icon icon={icons.check} className="h-4 w-4" />
+        Installed
+      </span>
+    ) : (
+      <Button size="sm" variant="outline" onClick={() => install(g)}>Install</Button>
+    );
+
+  const Tile = ({ g, size = 38 }: { g: Guardrail; size?: number }) => {
+    // Prefer the real provider/brand logo (Microsoft, OpenAI, AWS, NVIDIA…);
+    // fall back to a category-tinted shield for vendors without one.
+    const brand = getBrandLogo(g.provider) || getBrandLogo(g.name);
+    const colored = brand ? isColoredLogo(brand) : false;
+    return (
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center rounded-[10px]",
+          colored ? "bg-surface-2" : CATEGORY_TINT[g.category],
+        )}
+        style={{ width: size, height: size }}
+      >
+        <Icon icon={brand ?? icons.shield} className="h-[18px] w-[18px]" />
+      </span>
+    );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-10">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-bold">Guardrail Marketplace</h1>
-        <p className="text-muted-foreground">
-          Discover and integrate guardrails from verified providers to protect your LLM applications
-        </p>
+      <div className="space-y-3">
+        <button
+          onClick={() => navigate("/guardrails")}
+          className="inline-flex items-center gap-1.5 text-[13px] text-text-dim hover:text-foreground"
+        >
+          <Icon icon={icons.arrowLeft} className="h-4 w-4" />
+          Guardrails
+        </button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-2xl space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight">Guardrail Marketplace</h1>
+            <p className="text-[13px] text-muted-foreground">
+              Discover and install safety guardrails from trusted providers and the community. One click
+              adds them to your gateway — governed by your local policies.
+            </p>
+          </div>
+          <div className="relative w-full sm:w-72">
+            <Icon icon={icons.search} className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-dim" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search guardrails…"
+              className="h-9 pl-9"
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Featured Notice */}
-      <Alert>
-        <Icon icon={icons.info} className="h-4 w-4" />
-        <AlertDescription>
-          These guardrail providers offer various levels of PII detection, content safety, and compliance features.
-          Choose based on your specific needs and integration requirements.
-        </AlertDescription>
-      </Alert>
+      {/* Category pills */}
+      <div className="flex flex-wrap items-center gap-2">
+        {CATEGORIES.map((c) => {
+          const active = c === category;
+          return (
+            <button
+              key={c}
+              onClick={() => setCategory(c)}
+              className={cn(
+                "h-8 rounded-full px-3.5 text-[13px] font-medium transition-colors",
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border bg-card text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {c}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Icon icon={icons.filter} className="h-5 w-5" />
-            Filters & Search
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Icon icon={icons.search} className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search guardrails, providers, or features..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+      {/* Featured */}
+      {category === "All" && !search && (
+        <section className="space-y-3">
+          <SectionLabel className="flex items-center gap-1.5">
+            <Icon icon={icons.star} className="h-3.5 w-3.5 text-warn" />
+            Featured
+          </SectionLabel>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {featured.map((g) => (
+              <div key={g.id} className="flex flex-col rounded-[14px] border border-border bg-card p-5 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <Tile g={g} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="truncate font-semibold text-foreground">{g.name}</h3>
+                      {g.verified && <VerifiedSeal category={g.category} />}
+                    </div>
+                    <p className="truncate text-[12px] text-text-dim">by {g.provider}</p>
+                  </div>
+                  <PricingTag pricing={g.pricing} />
+                </div>
+                <p className="mt-3 line-clamp-2 text-[13px] text-muted-foreground">{g.description}</p>
+                <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+                  <Rating rating={g.rating} downloads={g.downloads} />
+                  <FeaturedInstall g={g} />
+                </div>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Select value={pricingFilter} onValueChange={setPricingFilter}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRICING_FILTERS.map(filter => (
-                    <SelectItem key={filter.value} value={filter.value}>
-                      {filter.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DIFFICULTY_FILTERS.map(filter => (
-                    <SelectItem key={filter.value} value={filter.value}>
-                      {filter.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="downloads">Most Downloaded</SelectItem>
-                  <SelectItem value="rating">Highest Rated</SelectItem>
-                  <SelectItem value="updated">Recently Updated</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        </section>
+      )}
 
-      {/* Categories */}
-      <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-        <TabsList className="grid w-full grid-cols-5">
-          {CATEGORIES.map((category) => {
-            return (
-              <TabsTrigger key={category.value} value={category.value} className="flex items-center gap-2">
-                <Icon icon={category.icon} className="h-4 w-4" />
-                <span className="hidden md:inline">{category.label}</span>
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-
-        {CATEGORIES.map((category) => (
-          <TabsContent key={category.value} value={category.value} className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {filteredProviders.length} guardrails found
-              </p>
-            </div>
-
-            {/* Provider Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredProviders.map((provider) => {
-                const CategoryIcon = getCategoryIcon(provider.category);
-                const visibleFeatures = provider.features.slice(0, 2);
-                const remainingFeaturesCount = provider.features.length - 2;
-                const remainingFeatures = provider.features.slice(2);
-
-                return (
-                  <Card key={provider.id} className="flex flex-col hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-primary/10 rounded-lg">
-                            <Icon icon={CategoryIcon} className="h-5 w-5 text-primary" />
-                          </div>
-                          <div className="flex-1">
-                            <CardTitle className="text-lg leading-tight">{provider.name}</CardTitle>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Avatar className="h-4 w-4">
-                                <AvatarImage src={provider.author.avatar} alt={provider.author.name} />
-                                <AvatarFallback>{provider.author.name.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <span className="text-xs text-muted-foreground">{provider.author.name}</span>
-                              {provider.author.verified && (
-                                <Icon icon={icons.check} className="h-3 w-3 text-blue-500" />
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <CardDescription className="text-sm line-clamp-2">
-                        {provider.short_description}
-                      </CardDescription>
-                    </CardHeader>
-
-                    <CardContent className="flex-1 space-y-4">
-                      {/* Stats */}
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-1">
-                          <Icon icon={icons.star} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                          <span className="font-medium">{provider.rating}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-muted-foreground">
-                          <Icon icon={icons.download} className="h-3 w-3" />
-                          <span>{formatDownloads(provider.downloads)}</span>
-                        </div>
-                      </div>
-
-                      {/* Badges */}
-                      <div className="flex flex-wrap gap-2">
-                        <Badge className={getPricingColor(provider.pricing)}>
-                          {provider.pricing}
-                        </Badge>
-                        <Badge className={getDifficultyColor(provider.integration_difficulty)}>
-                          {provider.integration_difficulty}
-                        </Badge>
-                        {provider.enterprise_ready && (
-                          <Badge variant="outline" className="text-xs">
-                            Enterprise
-                          </Badge>
-                        )}
-                        {provider.open_source && (
-                          <Badge variant="outline" className="text-xs">
-                            Open Source
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Key Features with HoverCard */}
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Key Features</p>
-                        <div className="text-xs text-muted-foreground flex items-center flex-wrap gap-1">
-                          {visibleFeatures.join(" • ")}
-                          {remainingFeaturesCount > 0 && (
-                            <>
-                              <span className="mx-1">•</span>
-                              <HoverCard>
-                                <HoverCardTrigger asChild>
-                                  <span className="text-primary cursor-help hover:underline">
-                                    +{remainingFeaturesCount} more
-                                  </span>
-                                </HoverCardTrigger>
-                                <HoverCardContent className="w-80">
-                                  <div className="space-y-2">
-                                    <h4 className="text-sm font-semibold">All Features</h4>
-                                    <ul className="space-y-1">
-                                      {remainingFeatures.map((feature, idx) => (
-                                        <li key={idx} className="text-xs text-muted-foreground flex items-start">
-                                          <Icon icon={icons.check} className="h-3 w-3 mr-2 mt-0.5 flex-shrink-0 text-green-600" />
-                                          {feature}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                </HoverCardContent>
-                              </HoverCard>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Performance Metrics */}
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <span className="text-muted-foreground">Latency:</span>
-                          <span className="font-medium ml-1">{provider.performance.avg_latency_ms}ms</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Accuracy:</span>
-                          <span className="font-medium ml-1">{(provider.performance.accuracy * 100).toFixed(0)}%</span>
-                        </div>
-                      </div>
-
-                      <Separator />
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => navigate(`/guardrails/config/new?provider=${provider.id}`)}
-                        >
-                          <Icon icon={icons.arrowRight} className="h-3 w-3 mr-1" />
-                          Configure
-                        </Button>
-                        <div className="flex gap-1">
-                          {provider.documentation_url && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => window.open(provider.documentation_url, '_blank')}
-                            >
-                              <Icon icon={icons.book} className="h-3 w-3" />
-                            </Button>
-                          )}
-                          {provider.github_url && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => window.open(provider.github_url, '_blank')}
-                            >
-                              <Icon icon={icons.github} className="h-3 w-3" />
-                            </Button>
-                          )}
-                          {provider.homepage_url && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => window.open(provider.homepage_url, '_blank')}
-                            >
-                              <Icon icon={icons.externalLink} className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-
-            {filteredProviders.length === 0 && (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Icon icon={icons.shield} className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Guardrails Found</h3>
-                  <p className="text-muted-foreground text-center max-w-md">
-                    No guardrails match your current filters. Try adjusting your search criteria or browse all categories.
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSearchQuery("");
-                      setSelectedCategory("all");
-                      setPricingFilter("all");
-                      setDifficultyFilter("all");
-                    }}
-                    className="mt-4"
-                  >
-                    Clear Filters
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
+      {/* All guardrails */}
+      <section className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          <SectionLabel>All guardrails</SectionLabel>
+          <span className="text-[12px] text-text-dim">{all.length} guardrails</span>
+        </div>
+        {all.length === 0 ? (
+          <div className="rounded-[14px] border border-border bg-card p-12 text-center text-sm text-muted-foreground">
+            No guardrails match your filters.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {all.map((g) => (
+              <div key={g.id} className="flex flex-col rounded-[14px] border border-border bg-card p-5 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <Tile g={g} size={36} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="truncate font-semibold text-foreground">{g.name}</h3>
+                      {g.verified && <VerifiedSeal category={g.category} />}
+                    </div>
+                    <p className="truncate text-[12px] text-text-dim">by {g.provider}</p>
+                  </div>
+                </div>
+                <p className="mt-3 line-clamp-2 text-[13px] text-muted-foreground">{g.description}</p>
+                <div className="mt-3 flex items-center gap-3">
+                  <CategoryTag category={g.category} />
+                  <Rating rating={g.rating} downloads={g.downloads} />
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+                  <PricingTag pricing={g.pricing} />
+                  <GridInstall g={g} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
-import { formatDistanceToNow } from "date-fns";
 
 import { icons } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import {
   listAgents,
+  listRegistryAgents,
   deleteAgent,
   refreshAgentStatus,
   bumpAgentOOM,
@@ -15,7 +15,9 @@ import {
 } from "@/lib/api";
 import { InvokeDialog } from "@/components/agents/invoke-dialog";
 import { DeployDialog } from "@/components/agents/deploy-dialog";
-import type { AgentDeployment, UseCase } from "@/types/api";
+import { PublishDialog } from "@/components/registry/publish-dialog";
+import { KindIcon } from "@/components/registry/kind-icon";
+import type { AgentDeployment, RegistryAgent, UseCase } from "@/types/api";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -39,32 +41,55 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { PageShell, StatTile } from "@/components/common/page-shell";
 import { useToast } from "@/hooks/use-toast";
 
+// The Agents page is registry-agent-centric: it lists every *published*
+// agent (from the catalog) and overlays its live deployment state. An agent
+// with no deployment shows a Deploy button; a deployed one shows its
+// workload status + management actions. This keeps the page in sync with the
+// Catalog and the sidebar "Agents" count (both registry-based).
 export default function Agents() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [confirmDelete, setConfirmDelete] = useState<AgentDeployment | null>(null);
   const [invokeFor, setInvokeFor] = useState<string | null>(null);
-  const [deployOpen, setDeployOpen] = useState(false);
+  // deployKey = "<name>::<version>" preselects the agent in the deploy drawer.
+  // "" opens the drawer with no preset (the header Deploy button).
+  const [deployKey, setDeployKey] = useState<string | null>(null);
+  const [publishOpen, setPublishOpen] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  const { data: regData, isLoading: regLoading } = useQuery({
+    queryKey: ["registry-agents", { latest: true }],
+    queryFn: () => listRegistryAgents({ latest: true }),
+  });
+  const registryAgents: RegistryAgent[] = regData?.agents ?? [];
+
+  const { data: depData } = useQuery({
     queryKey: ["agent-deployments"],
     queryFn: listAgents,
     refetchInterval: 5_000,
   });
-  const agents: AgentDeployment[] = data?.agents ?? [];
+  const deployments: AgentDeployment[] = depData?.agents ?? [];
 
-  // Use cases are needed to render names on the cards; the deployment row
-  // only carries a UUID. Load once when the page mounts.
   const { data: ucRes } = useQuery({
     queryKey: ["use-cases", "for-agents-page"],
     queryFn: () => listUseCases(),
   });
-  const useCases: UseCase[] = ucRes?.use_cases ?? [];
   const useCaseById = useMemo(() => {
     const m = new Map<string, UseCase>();
-    for (const u of useCases) m.set(u.id, u);
+    for (const u of ucRes?.use_cases ?? []) m.set(u.id, u);
     return m;
-  }, [useCases]);
+  }, [ucRes]);
+
+  // Group deployments under the registry agent they were launched from.
+  // Match on resource_name so any deployed version counts toward the agent.
+  const deploymentsByName = useMemo(() => {
+    const m = new Map<string, AgentDeployment[]>();
+    for (const d of deployments) {
+      const arr = m.get(d.resource_name) ?? [];
+      arr.push(d);
+      m.set(d.resource_name, arr);
+    }
+    return m;
+  }, [deployments]);
 
   const refreshMutation = useMutation({
     mutationFn: (id: string) => refreshAgentStatus(id),
@@ -72,13 +97,8 @@ export default function Agents() {
       qc.invalidateQueries({ queryKey: ["agent-deployments"] });
       toast({ title: `Status: ${a.status}`, description: a.status_reason });
     },
-    onError: (e: any) => {
-      toast({
-        title: "Refresh failed",
-        description: e?.response?.data?.error ?? e.message,
-        variant: "destructive",
-      });
-    },
+    onError: (e: any) =>
+      toast({ title: "Refresh failed", description: e?.response?.data?.error ?? e.message, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -88,31 +108,18 @@ export default function Agents() {
       setConfirmDelete(null);
       toast({ title: "Agent undeployed" });
     },
-    onError: (e: any) => {
-      toast({
-        title: "Undeploy failed",
-        description: e?.response?.data?.error ?? e.message,
-        variant: "destructive",
-      });
-    },
+    onError: (e: any) =>
+      toast({ title: "Undeploy failed", description: e?.response?.data?.error ?? e.message, variant: "destructive" }),
   });
 
   const bumpOOMMutation = useMutation({
     mutationFn: (id: string) => bumpAgentOOM(id),
     onSuccess: (a) => {
       qc.invalidateQueries({ queryKey: ["agent-deployments"] });
-      toast({
-        title: "Memory bumped",
-        description: `New limit: ${a.oom_memory_override ?? "baseline"}`,
-      });
+      toast({ title: "Memory bumped", description: `New limit: ${a.oom_memory_override ?? "baseline"}` });
     },
-    onError: (e: any) => {
-      toast({
-        title: "Bump failed",
-        description: e?.response?.data?.error ?? e.message,
-        variant: "destructive",
-      });
-    },
+    onError: (e: any) =>
+      toast({ title: "Bump failed", description: e?.response?.data?.error ?? e.message, variant: "destructive" }),
   });
 
   const resetOOMMutation = useMutation({
@@ -121,106 +128,95 @@ export default function Agents() {
       qc.invalidateQueries({ queryKey: ["agent-deployments"] });
       toast({ title: "Memory override cleared" });
     },
-    onError: (e: any) => {
-      toast({
-        title: "Reset failed",
-        description: e?.response?.data?.error ?? e.message,
-        variant: "destructive",
-      });
-    },
+    onError: (e: any) =>
+      toast({ title: "Reset failed", description: e?.response?.data?.error ?? e.message, variant: "destructive" }),
   });
 
-  // --- derived stats + grouping --------------------------------------------
-
+  // --- derived stats --------------------------------------------------------
   const stats = useMemo(() => {
-    const byStatus = agents.reduce<Record<string, number>>((acc, a) => {
-      acc[a.status] = (acc[a.status] ?? 0) + 1;
-      return acc;
-    }, {});
-    const pods = agents.reduce((n, a) => n + (a.replicas || 1), 0);
-    const oomBumped = agents.filter((a) => !!a.oom_memory_override).length;
-    const useCasesCovered = new Set(agents.map((a) => a.use_case_id)).size;
+    const deployedNames = new Set(deployments.map((d) => d.resource_name));
+    const deployed = registryAgents.filter((a) => deployedNames.has(a.name)).length;
+    const running = deployments.filter((d) => d.status === "running").length;
+    const failed = deployments.filter((d) => d.status === "failed").length;
+    const pods = deployments.reduce((n, d) => n + (d.replicas || 1), 0);
+    const useCasesCovered = new Set(
+      deployments.map((d) => d.use_case_id).filter(Boolean),
+    ).size;
     return {
-      total: agents.length,
-      running: byStatus.running ?? 0,
-      failed: byStatus.failed ?? 0,
-      deploying: byStatus.deploying ?? 0,
+      published: registryAgents.length,
+      deployed,
+      running,
+      failed,
       pods,
-      oomBumped,
       useCasesCovered,
     };
-  }, [agents]);
+  }, [registryAgents, deployments]);
 
-  // Group agents by their bound use case — this is the editorial move.
-  // Agents live under use cases in the governance model; showing that
-  // grouping in the UI makes the scope-enforcement story visible.
-  const grouped = useMemo(() => {
-    const buckets = new Map<string, { uc: UseCase | undefined; agents: AgentDeployment[] }>();
-    for (const a of agents) {
-      const bucket = buckets.get(a.use_case_id) ?? {
-        uc: useCaseById.get(a.use_case_id),
-        agents: [],
-      };
-      bucket.agents.push(a);
-      buckets.set(a.use_case_id, bucket);
-    }
-    return Array.from(buckets.values()).sort((a, b) => {
-      // Stable: biggest bucket first, then by use case name
-      const d = b.agents.length - a.agents.length;
-      if (d !== 0) return d;
-      return (a.uc?.name ?? "").localeCompare(b.uc?.name ?? "");
-    });
-  }, [agents, useCaseById]);
-
-  if (isLoading) {
+  if (regLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
       </div>
     );
   }
 
+  const headerActions = (
+    <>
+      <Button variant="outline" onClick={() => setDeployKey("")}>
+        <Icon icon={icons.rocket} className="mr-2 size-4" />
+        Deploy
+      </Button>
+      <Button onClick={() => setPublishOpen(true)}>
+        <Icon icon={icons.plus} className="mr-2 size-4" />
+        Add agent
+      </Button>
+    </>
+  );
+
   return (
     <PageShell
       title="Agents"
-      description="Deployed agent workloads, each scoped to an approved use case. Every pod runs with an auto-provisioned key that cannot escape its binding."
-      actions={
-        <Button onClick={() => setDeployOpen(true)}>
-          <Icon icon={icons.rocket} className="mr-2 size-4" />
-          Deploy agent
-        </Button>
-      }
+      description="Published agents and their live deployments. Each running pod is scoped to an approved use case with an auto-provisioned key that cannot escape its binding."
+      actions={headerActions}
     >
-      {agents.length === 0 ? (
+      {registryAgents.length === 0 ? (
         <EmptyState
           icon={icons.agents}
-          title="No agents deployed"
-          description="Publish an agent to the registry, bind it to a use case, and deploy. Its scoped API key is provisioned automatically."
+          title="No agents yet"
+          description="Publish an agent to the registry, then deploy it bound to a use case. Its scoped API key is provisioned automatically."
           action={
-            <Button onClick={() => setDeployOpen(true)}>
-              <Icon icon={icons.rocket} className="mr-2 size-4" />
-              Deploy your first agent
+            <Button onClick={() => setPublishOpen(true)}>
+              <Icon icon={icons.plus} className="mr-2 size-4" />
+              Add your first agent
             </Button>
           }
         />
       ) : (
         <>
           {/* ────────────── KPI cards ────────────── */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <StatTile
               label="Agents"
-              value={stats.total}
+              value={stats.published}
               icon={<Icon icon={icons.agents} />}
               iconColor="agent"
-              sub="Across all use cases"
+              sub="Published in the catalog"
+            />
+            <StatTile
+              label="Deployed"
+              value={stats.deployed}
+              tone={stats.deployed > 0 ? "good" : "default"}
+              icon={<Icon icon={icons.rocket} />}
+              iconColor="good"
+              sub={`${stats.published - stats.deployed} not deployed`}
             />
             <StatTile
               label="Running"
               value={stats.running}
               tone={stats.running > 0 ? "good" : "default"}
-              icon={<Icon icon={icons.rocket} />}
-              iconColor="good"
-              sub={stats.deploying > 0 ? `${stats.deploying} deploying` : undefined}
+              icon={<Icon icon={icons.activity} />}
+              iconColor="mcp"
+              sub={stats.pods > 0 ? `${stats.pods} pods` : undefined}
             />
             <StatTile
               label="Failed"
@@ -230,62 +226,41 @@ export default function Agents() {
               iconColor="bad"
             />
             <StatTile
-              label="Pods"
-              value={stats.pods}
-              icon={<Icon icon={icons.mcp} />}
-              iconColor="mcp"
-              sub={stats.pods === stats.total ? "1× each" : undefined}
-            />
-            <StatTile
               label="Use cases"
               value={stats.useCasesCovered}
               icon={<Icon icon={icons.useCase} />}
               iconColor="primary"
               sub={stats.useCasesCovered === 1 ? "single binding" : "across bindings"}
             />
-            {stats.oomBumped > 0 && (
-              <StatTile
-                label="Mem scaled"
-                value={stats.oomBumped}
-                tone="warn"
-                icon={<Icon icon={icons.bolt} />}
-                iconColor="warn"
-                sub="OOM auto-bumped"
-              />
-            )}
           </div>
 
-          {/* ────────────── Grouped by use case ────────────── */}
-          <div className="space-y-6">
-            {grouped.map(({ uc, agents: bucket }) => (
-              <section
-                key={uc?.id ?? "unbound"}
-                className="space-y-2.5"
-                aria-label={uc?.name ?? "Unbound"}
-              >
-                <UseCaseHeader uc={uc} agentCount={bucket.length} />
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {bucket.map((a) => (
-                    <AgentCard
-                      key={a.id}
-                      agent={a}
-                      useCase={uc}
-                      onRefresh={() => refreshMutation.mutate(a.id)}
-                      onDelete={() => setConfirmDelete(a)}
-                      onInvoke={() => setInvokeFor(a.workload_name)}
-                      onBumpOOM={() => bumpOOMMutation.mutate(a.id)}
-                      onResetOOM={() => resetOOMMutation.mutate(a.id)}
-                    />
-                  ))}
-                </div>
-              </section>
+          {/* ────────────── Agent grid ────────────── */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {registryAgents.map((agent) => (
+              <AgentCard
+                key={agent.id}
+                agent={agent}
+                deployments={deploymentsByName.get(agent.name) ?? []}
+                useCaseById={useCaseById}
+                onDeploy={() => setDeployKey(`${agent.name}::${agent.version}`)}
+                onInvoke={(workload) => setInvokeFor(workload)}
+                onRefresh={(id) => refreshMutation.mutate(id)}
+                onDelete={(d) => setConfirmDelete(d)}
+                onBumpOOM={(id) => bumpOOMMutation.mutate(id)}
+                onResetOOM={(id) => resetOOMMutation.mutate(id)}
+              />
             ))}
           </div>
         </>
       )}
 
       <InvokeDialog slug={invokeFor} onClose={() => setInvokeFor(null)} />
-      <DeployDialog open={deployOpen} onClose={() => setDeployOpen(false)} />
+      <DeployDialog
+        open={deployKey !== null}
+        presetAgentKey={deployKey || undefined}
+        onClose={() => setDeployKey(null)}
+      />
+      <PublishDialog kind="agents" open={publishOpen} onOpenChange={setPublishOpen} />
 
       <AlertDialog
         open={!!confirmDelete}
@@ -297,16 +272,15 @@ export default function Agents() {
             <AlertDialogDescription>
               The pod, Service, and scoped-key Secret will be removed for{" "}
               <span className="font-mono">{confirmDelete?.workload_name}</span>.
-              Inbound invocations to this workload will fail.
+              Inbound invocations to this workload will fail. The agent stays in
+              the catalog.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() =>
-                confirmDelete && deleteMutation.mutate(confirmDelete.id)
-              }
+              onClick={() => confirmDelete && deleteMutation.mutate(confirmDelete.id)}
             >
               Undeploy
             </AlertDialogAction>
@@ -318,216 +292,174 @@ export default function Agents() {
 }
 
 // ---------------------------------------------------------------------------
-// Use-case group header
-// ---------------------------------------------------------------------------
-
-function UseCaseHeader({
-  uc,
-  agentCount,
-}: {
-  uc: UseCase | undefined;
-  agentCount: number;
-}) {
-  return (
-    <div className="flex items-baseline gap-3 pb-1 border-b border-border/50">
-      <Icon
-        icon={icons.useCase}
-        className="h-3.5 w-3.5 text-muted-foreground self-center"
-      />
-      <div className="flex items-baseline gap-2 min-w-0">
-        <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Use case
-        </span>
-        <h2 className="text-[15px] font-semibold tracking-tight truncate">
-          {uc?.name ?? (
-            <span className="text-muted-foreground italic">Unbound</span>
-          )}
-        </h2>
-        {uc?.slug && (
-          <code className="text-[10px] font-mono text-muted-foreground tabular-nums">
-            {uc.slug}
-          </code>
-        )}
-      </div>
-      <span className="ml-auto text-[10px] font-mono uppercase tracking-widest text-muted-foreground tabular-nums">
-        {agentCount} {agentCount === 1 ? "agent" : "agents"}
-      </span>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Agent card
+// Agent card — one published registry agent + its deployment state.
 // ---------------------------------------------------------------------------
 
 function AgentCard({
-  agent: a,
-  useCase,
+  agent,
+  deployments,
+  useCaseById,
+  onDeploy,
+  onInvoke,
   onRefresh,
   onDelete,
-  onInvoke,
   onBumpOOM,
   onResetOOM,
 }: {
-  agent: AgentDeployment;
-  useCase: UseCase | undefined;
-  onRefresh: () => void;
-  onDelete: () => void;
-  onInvoke: () => void;
-  onBumpOOM: () => void;
-  onResetOOM: () => void;
+  agent: RegistryAgent;
+  deployments: AgentDeployment[];
+  useCaseById: Map<string, UseCase>;
+  onDeploy: () => void;
+  onInvoke: (workload: string) => void;
+  onRefresh: (id: string) => void;
+  onDelete: (d: AgentDeployment) => void;
+  onBumpOOM: (id: string) => void;
+  onResetOOM: (id: string) => void;
 }) {
-  const isFailed = a.status === "failed";
-  const isRunning = a.status === "running";
-  const hasOverride = !!a.oom_memory_override;
-  const attempts = a.oom_attempts ?? 0;
-
-  // Short name: strip the namespace prefix ("pllm.io/agent-research" → "agent-research")
-  const shortName = a.resource_name.includes("/")
-    ? a.resource_name.slice(a.resource_name.lastIndexOf("/") + 1)
-    : a.resource_name;
+  const shortName = agent.name.includes("/")
+    ? agent.name.slice(agent.name.lastIndexOf("/") + 1)
+    : agent.name;
+  const meta = [agent.framework, agent.model_name].filter(Boolean);
+  const hasFailed = deployments.some((d) => d.status === "failed");
 
   return (
     <div
       className={cn(
-        "group relative rounded-lg border bg-card transition-all overflow-hidden",
-        isFailed
-          ? "border-rose-500/30 shadow-[inset_0_0_0_1px_rgb(244_63_94_/_0.08)]"
-          : "border-border hover:border-primary/40 hover:shadow-[0_0_0_1px_rgb(var(--primary)/_0.15)]",
+        "flex flex-col gap-3 rounded-[14px] border bg-card p-4 shadow-sm transition-colors",
+        hasFailed ? "border-bad/30" : "border-border",
       )}
     >
-      {/* Top accent bar — status-colored, 1.5px. Replaces the square avatar. */}
-      <div
-        className={cn(
-          "h-[2px] w-full",
-          isRunning && "bg-gradient-to-r from-emerald-500/80 via-emerald-400/40 to-transparent",
-          a.status === "deploying" &&
-            "bg-gradient-to-r from-sky-500/80 via-sky-400/40 to-transparent animate-pulse",
-          isFailed && "bg-gradient-to-r from-rose-500/80 via-rose-400/40 to-transparent",
-          (a.status === "pending" ||
-            a.status === "terminating" ||
-            a.status === "stopped") &&
-            "bg-border",
-        )}
-      />
-
-      <div className="p-4 space-y-3">
-        {/* Title row — name-first, actions on the right */}
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <div className="flex items-baseline gap-2 min-w-0">
-              <h3 className="text-[15px] font-semibold tracking-tight leading-tight truncate">
-                {shortName}
-              </h3>
-              <code className="text-[10px] font-mono text-muted-foreground tabular-nums shrink-0">
-                v{a.resource_version}
-              </code>
-            </div>
-            <div className="flex items-center gap-1.5 text-[10.5px] font-mono text-muted-foreground/80 truncate">
-              <Icon icon={icons.globe} className="h-2.5 w-2.5 shrink-0" />
-              <span className="truncate">
-                {a.namespace}/{a.workload_name}
-              </span>
-            </div>
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <KindIcon kind="agent" name={agent.name} size="md" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <h3 className="truncate text-[15px] font-semibold leading-tight">
+              {agent.title || shortName}
+            </h3>
+            <code className="shrink-0 font-mono text-[10.5px] tabular-nums text-text-dim">
+              v{agent.version}
+            </code>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 opacity-60 group-hover:opacity-100 transition-opacity"
-              >
-                <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onClick={onInvoke} disabled={!isRunning}>
-                <Icon icon={icons.play} className="mr-2 h-4 w-4" />
-                Invoke
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onRefresh}>
-                <Icon icon={icons.refresh} className="mr-2 h-4 w-4" />
-                Refresh status
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onBumpOOM}>
-                <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
-                Bump memory
-              </DropdownMenuItem>
-              {hasOverride && (
-                <DropdownMenuItem onClick={onResetOOM}>
-                  <Icon icon={icons.refresh} className="mr-2 h-4 w-4" />
-                  Reset memory
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={onDelete}>
-                <Icon icon={icons.delete} className="mr-2 h-4 w-4" />
-                Undeploy
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <code className="mt-0.5 block truncate font-mono text-[11px] text-text-dim">
+            {agent.name}
+          </code>
         </div>
+      </div>
 
-        {/* Metadata chips row */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <StatusPill status={a.status} />
-          <MetaChip icon={icons.deployment}>{a.platform}</MetaChip>
-          <MetaChip icon={icons.rocket}>
-            {a.replicas}× {a.replicas === 1 ? "pod" : "pods"}
-          </MetaChip>
-          {useCase?.risk_tier && (
-            <TierBadge tier={useCase.risk_tier} />
-          )}
-          {hasOverride && (
-            <span
-              className="inline-flex items-center gap-1 h-5 px-1.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/30 text-[10px] font-mono tabular-nums"
-              title={`OOM auto-scaled — ${attempts} bump${attempts === 1 ? "" : "s"} so far`}
-            >
-              <Icon icon={icons.warning} className="h-2.5 w-2.5" />
-              {a.oom_memory_override}
-              {attempts > 0 && <span className="text-amber-500/80"> /{attempts}</span>}
+      {agent.description && (
+        <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
+          {agent.description}
+        </p>
+      )}
+
+      {meta.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {agent.framework && <MetaChip icon={icons.deployment}>{agent.framework}</MetaChip>}
+          {agent.model_name && <MetaChip icon={icons.models}>{agent.model_name}</MetaChip>}
+        </div>
+      )}
+
+      {/* Deployment state */}
+      <div className="mt-auto border-t border-border pt-3">
+        {deployments.length === 0 ? (
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-[12px] text-text-dim">
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+              Not deployed
             </span>
-          )}
-        </div>
-
-        {/* Endpoint — subtle monospace strip */}
-        {a.endpoint && (
-          <div className="text-[11px] font-mono text-muted-foreground/90 bg-muted/40 rounded-md px-2 py-1 truncate border border-border/40 hover:border-border/70 transition-colors">
-            <span className="text-muted-foreground/60 mr-1.5">→</span>
-            {a.endpoint}
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 px-2.5 text-[11px]" onClick={onDeploy}>
+              <Icon icon={icons.rocket} className="h-3 w-3" />
+              Deploy
+            </Button>
           </div>
-        )}
-
-        {/* Failure reason, if any */}
-        {a.status_reason && isFailed && (
-          <p className="text-[11px] leading-relaxed text-rose-600 dark:text-rose-400 bg-rose-500/5 rounded-md px-2 py-1.5 border border-rose-500/20 line-clamp-3">
-            {a.status_reason}
-          </p>
-        )}
-
-        {/* Footer — applied-ago */}
-        {a.last_applied_at && (
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <Icon icon={icons.clock} className="h-3 w-3" />
-              applied{" "}
-              {formatDistanceToNow(new Date(a.last_applied_at), {
-                addSuffix: true,
-              })}
-            </span>
-            {a.secret_name && (
-              <span
-                className="inline-flex items-center gap-1 normal-case tracking-normal"
-                title={`Scoped key attached as Secret: ${a.secret_name}`}
-              >
-                <Icon icon={icons.keys} className="h-3 w-3" />
-                <span className="text-muted-foreground/80">scoped key</span>
-              </span>
-            )}
+        ) : (
+          <div className="space-y-2">
+            {deployments.map((d) => (
+              <DeploymentLine
+                key={d.id}
+                d={d}
+                useCase={useCaseById.get(d.use_case_id)}
+                onInvoke={() => onInvoke(d.workload_name)}
+                onRefresh={() => onRefresh(d.id)}
+                onDelete={() => onDelete(d)}
+                onBumpOOM={() => onBumpOOM(d.id)}
+                onResetOOM={() => onResetOOM(d.id)}
+              />
+            ))}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// One deployed workload row inside an agent card.
+function DeploymentLine({
+  d,
+  useCase,
+  onInvoke,
+  onRefresh,
+  onDelete,
+  onBumpOOM,
+  onResetOOM,
+}: {
+  d: AgentDeployment;
+  useCase: UseCase | undefined;
+  onInvoke: () => void;
+  onRefresh: () => void;
+  onDelete: () => void;
+  onBumpOOM: () => void;
+  onResetOOM: () => void;
+}) {
+  const isRunning = d.status === "running";
+  const hasOverride = !!d.oom_memory_override;
+  return (
+    <div className="flex items-center gap-2">
+      <StatusPill status={d.status} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+          <Icon icon={icons.useCase} className="h-3 w-3 shrink-0" />
+          <span className="truncate">{useCase?.name ?? "unbound"}</span>
+          <span className="text-text-dim">·</span>
+          <span className="font-mono tabular-nums text-text-dim">
+            {d.replicas}× {d.replicas === 1 ? "pod" : "pods"}
+          </span>
+        </div>
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">
+            <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onClick={onInvoke} disabled={!isRunning}>
+            <Icon icon={icons.play} className="mr-2 h-4 w-4" />
+            Invoke
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onRefresh}>
+            <Icon icon={icons.refresh} className="mr-2 h-4 w-4" />
+            Refresh status
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={onBumpOOM}>
+            <Icon icon={icons.plus} className="mr-2 h-4 w-4" />
+            Bump memory
+          </DropdownMenuItem>
+          {hasOverride && (
+            <DropdownMenuItem onClick={onResetOOM}>
+              <Icon icon={icons.refresh} className="mr-2 h-4 w-4" />
+              Reset memory
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-destructive" onClick={onDelete}>
+            <Icon icon={icons.delete} className="mr-2 h-4 w-4" />
+            Undeploy
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -538,27 +470,24 @@ function AgentCard({
 
 function StatusPill({ status }: { status: AgentDeployment["status"] }) {
   const cls: Record<string, string> = {
-    running:
-      "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 ring-emerald-500/20",
-    deploying:
-      "bg-sky-500/10 text-sky-700 dark:text-sky-400 ring-sky-500/20",
+    running: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 ring-emerald-500/20",
+    deploying: "bg-sky-500/10 text-sky-700 dark:text-sky-400 ring-sky-500/20",
     failed: "bg-rose-500/10 text-rose-700 dark:text-rose-400 ring-rose-500/20",
     pending: "bg-muted text-muted-foreground ring-border",
-    terminating:
-      "bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-amber-500/20",
+    terminating: "bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-amber-500/20",
     stopped: "bg-muted text-muted-foreground ring-border",
   };
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 h-5 px-1.5 rounded ring-1 text-[10px] font-mono uppercase tracking-wider",
+        "inline-flex shrink-0 items-center gap-1 h-5 px-1.5 rounded ring-1 text-[10px] font-mono uppercase tracking-wider",
         cls[status] ?? "bg-muted text-muted-foreground ring-border",
       )}
     >
       {status === "running" && (
         <span className="relative flex h-1.5 w-1.5">
           <span className="absolute inset-0 rounded-full bg-emerald-500/50 animate-ping" />
-          <span className="relative rounded-full h-1.5 w-1.5 bg-emerald-500" />
+          <span className="relative h-1.5 w-1.5 rounded-full bg-emerald-500" />
         </span>
       )}
       {status}
@@ -566,37 +495,11 @@ function StatusPill({ status }: { status: AgentDeployment["status"] }) {
   );
 }
 
-function MetaChip({
-  icon,
-  children,
-}: {
-  icon: string;
-  children: React.ReactNode;
-}) {
+function MetaChip({ icon, children }: { icon: string; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded bg-muted/60 text-muted-foreground ring-1 ring-border text-[10px] font-mono tabular-nums">
+    <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded bg-surface-2 text-muted-foreground ring-1 ring-border text-[10.5px] font-mono">
       <Icon icon={icon} className="h-2.5 w-2.5" />
       {children}
-    </span>
-  );
-}
-
-function TierBadge({ tier }: { tier: string }) {
-  const tones: Record<string, string> = {
-    tier1: "bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-rose-500/30",
-    tier2: "bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-500/30",
-    tier3: "bg-sky-500/10 text-sky-700 dark:text-sky-300 ring-sky-500/30",
-    tier4: "bg-muted text-muted-foreground ring-border",
-  };
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center h-5 px-1.5 rounded ring-1 text-[10px] font-mono uppercase tracking-wider",
-        tones[tier] ?? "bg-muted text-muted-foreground ring-border",
-      )}
-      title={`Risk ${tier}`}
-    >
-      {tier.replace("tier", "T")}
     </span>
   );
 }

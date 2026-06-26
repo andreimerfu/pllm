@@ -77,7 +77,7 @@ function RouteModelNode({ data, id, selected }: any) {
 
       <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-primary" />
 
-      <div className="px-4 py-3 border-2 rounded-lg bg-background shadow-sm border-border hover:border-primary/40 transition-colors min-w-[220px]">
+      <div className="px-4 py-3 border-2 rounded-lg bg-card shadow-sm border-border hover:border-primary/40 transition-colors min-w-[220px]">
         <div className="flex items-center gap-3 mb-3">
           <div className={`p-2 rounded-lg border ${providerInfo.bgColor} ${providerInfo.borderColor}`}>
             <Icon
@@ -315,9 +315,13 @@ function RouteFlowDiagramInner({
           zoomOnScroll={true}
           deleteKeyCode="Delete"
           proOptions={{ hideAttribution: false }}
+          style={{ backgroundColor: "hsl(var(--card))" }}
         >
-          <Background className="!stroke-border/40" gap={24} size={1} />
-          <Controls className="[&>button]:bg-background [&>button]:border-border [&>button]:text-primary [&>button]:hover:bg-muted" />
+          {/* Canvas is a white card surface (light) / lifted surface (dark) so
+              it reads like other pages' cards; the dotted grid gives the
+              workspace texture and the node cards float above it. */}
+          <Background gap={24} size={1.5} color="rgba(120,130,145,0.22)" />
+          <Controls className="[&>button]:bg-card [&>button]:border-border [&>button]:text-primary [&>button]:hover:bg-surface-2" />
         </ReactFlow>
       </div>
     </div>

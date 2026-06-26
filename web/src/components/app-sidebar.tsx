@@ -1,11 +1,20 @@
 import * as React from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/OIDCAuthContext";
 import { useConfig } from "@/contexts/ConfigContext";
 import { CanAccess } from "@/components/CanAccess";
 import { Icon } from '@iconify/react';
 import { icons } from '@/lib/icons';
 import { useColorMode } from '@/contexts/ColorModeContext';
+import {
+  listRegistryServers,
+  listRegistryAgents,
+  listRegistrySkills,
+  listRegistryPrompts,
+  listDeployments,
+  listFederationPeers,
+} from "@/lib/api";
 
 import {
   Sidebar,
@@ -19,11 +28,6 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
 } from "@/components/ui/sidebar";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,9 +54,10 @@ type NavItem = {
   // kind. Skills/Prompts have no standalone page — they're catalog facets.
   // Active-matching keys off the ?kind= query when this is set.
   kind?: string;
-  // count renders an optional mono pill badge. Left undefined for now —
-  // wired to live list counts later; never fabricated.
-  count?: number;
+  // countKey selects which live count feeds the mono pill badge. Counts come
+  // from real list endpoints (registry / deployments / federation) — never
+  // fabricated; the badge is omitted while loading or on a 403.
+  countKey?: "agents" | "servers" | "skills" | "prompts" | "deployments" | "federation";
 };
 
 type NavGroup = {
@@ -75,12 +80,12 @@ const navigation: NavGroup[] = [
     title: "AI Registry",
     items: [
       { title: "Catalog", href: "/registry", icon: icons.registry, permission: null },
-      { title: "Agents", href: "/agents", icon: icons.agents, permission: null },
-      { title: "MCP Servers", href: "/mcp-servers", icon: icons.mcp, permission: null },
-      { title: "Skills", href: "/registry?kind=skill", icon: icons.skill, permission: null, kind: "skill" },
-      { title: "Prompts", href: "/registry?kind=prompt", icon: icons.prompt, permission: null, kind: "prompt" },
-      { title: "Deployments", href: "/deployments", icon: icons.rocket, permission: null },
-      { title: "Federation", href: "/federation", icon: icons.federation, permission: null, feature: "federation" },
+      { title: "Agents", href: "/agents", icon: icons.agents, permission: null, countKey: "agents" },
+      { title: "MCP Servers", href: "/mcp-servers", icon: icons.mcp, permission: null, countKey: "servers" },
+      { title: "Skills", href: "/registry?kind=skill", icon: icons.skill, permission: null, kind: "skill", countKey: "skills" },
+      { title: "Prompts", href: "/registry?kind=prompt", icon: icons.prompt, permission: null, kind: "prompt", countKey: "prompts" },
+      { title: "Deployments", href: "/deployments", icon: icons.rocket, permission: null, countKey: "deployments" },
+      { title: "Federation", href: "/federation", icon: icons.federation, permission: null, feature: "federation", countKey: "federation" },
     ],
   },
   {
@@ -98,7 +103,7 @@ const navigation: NavGroup[] = [
     enterprise: true,
     items: [
       { title: "Use Cases", href: "/use-cases", icon: icons.useCase, permission: null, feature: "mrm" },
-      { title: "Compliance", href: "/compliance", icon: icons.shield, permission: null, feature: "mrm" },
+      { title: "Compliance", href: "/compliance", icon: icons.shieldCheck, permission: null, feature: "mrm" },
       { title: "Policies", href: "/policies", icon: icons.policies, permission: null, feature: "mrm" },
     ],
   },
@@ -159,6 +164,50 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setColorMode(resolvedMode === 'dark' ? 'light' : 'dark');
   };
 
+  // Live nav counts — real catalog / deployment / federation totals. Cached
+  // and shared across the session; a 403 (non-admin) just leaves the badge
+  // off. Never fabricated.
+  const registryCounts = useQuery({
+    queryKey: ["sidebar-registry-counts"],
+    queryFn: async () => {
+      const [s, a, sk, p] = await Promise.all([
+        listRegistryServers({ latest: true }),
+        listRegistryAgents({ latest: true }),
+        listRegistrySkills({ latest: true }),
+        listRegistryPrompts({ latest: true }),
+      ]);
+      return {
+        servers: s.total ?? s.servers?.length ?? 0,
+        agents: a.total ?? a.agents?.length ?? 0,
+        skills: sk.total ?? sk.skills?.length ?? 0,
+        prompts: p.total ?? p.prompts?.length ?? 0,
+      };
+    },
+    staleTime: 60_000,
+    retry: false,
+  });
+  const deploymentsCount = useQuery({
+    queryKey: ["sidebar-deployments-count"],
+    queryFn: async () => (await listDeployments()).deployments?.length ?? 0,
+    staleTime: 30_000,
+    retry: false,
+  });
+  const peersCount = useQuery({
+    queryKey: ["sidebar-peers-count"],
+    queryFn: async () => (await listFederationPeers()).peers?.length ?? 0,
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  const liveCounts: Record<NonNullable<NavItem["countKey"]>, number | undefined> = {
+    agents: registryCounts.data?.agents,
+    servers: registryCounts.data?.servers,
+    skills: registryCounts.data?.skills,
+    prompts: registryCounts.data?.prompts,
+    deployments: deploymentsCount.data,
+    federation: peersCount.data,
+  };
+
   const dashboardActive = location.pathname === "/dashboard";
 
   // Skills/Prompts are catalog facets (/registry?kind=…). Match active state
@@ -182,7 +231,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // Active-row style: soft accent fill + accent text (the "pLLM Console"
   // pill). Saturated color stays reserved for the CTA on each page.
   const activeRowClass = cn(
-    "rounded-[9px]",
+    "rounded-[9px] gap-[11px] px-2.5 text-[13.5px] font-medium tracking-[-0.01em]",
+    "text-muted-foreground hover:text-foreground",
     "data-[active=true]:bg-[var(--accent-soft)] data-[active=true]:text-primary data-[active=true]:font-semibold",
     "data-[active=true]:[&_svg]:text-primary",
     "data-[active=true]:hover:bg-[var(--accent-soft)] data-[active=true]:hover:text-primary",
@@ -214,10 +264,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="gap-0 pb-3.5">
         {/* Pinned top-level — Dashboard is the cross-cutting overview that
             doesn't belong to a single narrative group. */}
-        <SidebarGroup>
+        <SidebarGroup className="px-3.5 pb-0 pt-2">
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
@@ -227,7 +277,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 className={activeRowClass}
               >
                 <Link to="/dashboard">
-                  <Icon icon={icons.dashboard} className="h-4 w-4" />
+                  <Icon icon={icons.dashboard} className="h-[18px] w-[18px]" />
                   <span>Dashboard</span>
                 </Link>
               </SidebarMenuButton>
@@ -236,78 +286,60 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
 
         {filteredNavigation.map((section) => (
-          <Collapsible
-            key={section.title}
-            asChild
-            defaultOpen={true}
-            className="group/collapsible"
-          >
-            <SidebarGroup>
-              <SidebarGroupLabel asChild>
-                <CollapsibleTrigger>
-                  <span className="flex-1 text-left">{section.title}</span>
-                  {section.enterprise && (
-                    <span
-                      className="mr-1 h-1.5 w-1.5 rounded-full bg-amber-500/70"
-                      title="pLLM Enterprise"
-                      aria-label="Enterprise feature"
-                    />
-                  )}
-                  <Icon icon={icons.chevronRight} className="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarMenu>
-                  {section.items.map((item) => {
-                    const isActive = itemActive(item);
-                    const locked = Boolean(item.feature) && !features?.[item.feature as string];
+          <SidebarGroup key={section.title} className="px-3.5 py-0">
+            <SidebarGroupLabel className="h-auto px-2.5 pb-[7px] pt-[15px] text-[10.5px] font-semibold uppercase tracking-[0.08em] text-text-dim">
+              {section.title}
+            </SidebarGroupLabel>
+            <SidebarMenu>
+              {section.items.map((item) => {
+                const isActive = itemActive(item);
+                const locked = Boolean(item.feature) && !features?.[item.feature as string];
+                const count = item.countKey ? liveCounts[item.countKey] : undefined;
 
-                    const NavigationItem = (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={isActive}
-                          tooltip={locked ? `${item.title} — pLLM Enterprise` : item.title}
-                          className={cn(activeRowClass, locked && "opacity-60")}
-                        >
-                          <Link
-                            to={locked ? "/unauthorized?feature=mrm" : item.href}
-                            aria-disabled={locked}
-                          >
-                            <Icon icon={item.icon} className="h-4 w-4" />
-                            <span className="flex-1">{item.title}</span>
-                            {locked ? (
-                              <Icon
-                                icon={icons.lock}
-                                className="h-3 w-3 text-muted-foreground"
-                                aria-hidden
-                              />
-                            ) : (
-                              item.count != null && (
-                                <span className="ml-auto rounded-full bg-surface-2 px-[7px] py-px font-mono text-[10.5px] font-semibold text-text-dim group-data-[collapsible=icon]:hidden">
-                                  {item.count}
-                                </span>
-                              )
-                            )}
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
+                const NavigationItem = (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={locked ? `${item.title} — pLLM Enterprise` : item.title}
+                      className={cn(activeRowClass, locked && "opacity-60")}
+                    >
+                      <Link
+                        to={locked ? "/unauthorized?feature=mrm" : item.href}
+                        aria-disabled={locked}
+                      >
+                        <Icon icon={item.icon} className="h-[18px] w-[18px]" />
+                        <span className="flex-1">{item.title}</span>
+                        {locked ? (
+                          <Icon
+                            icon={icons.lock}
+                            className="h-3 w-3 text-muted-foreground"
+                            aria-hidden
+                          />
+                        ) : (
+                          count != null && (
+                            <span className="ml-auto rounded-full bg-surface-2 px-[7px] py-px font-mono text-[10.5px] font-semibold tabular-nums text-text-dim group-data-[collapsible=icon]:hidden">
+                              {count}
+                            </span>
+                          )
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
 
-                    if (item.permission) {
-                      return (
-                        <CanAccess key={item.title} permission={item.permission}>
-                          {NavigationItem}
-                        </CanAccess>
-                      );
-                    }
+                if (item.permission) {
+                  return (
+                    <CanAccess key={item.title} permission={item.permission}>
+                      {NavigationItem}
+                    </CanAccess>
+                  );
+                }
 
-                    return NavigationItem;
-                  })}
-                </SidebarMenu>
-              </CollapsibleContent>
-            </SidebarGroup>
-          </Collapsible>
+                return NavigationItem;
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
         ))}
       </SidebarContent>
 

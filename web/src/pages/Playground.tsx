@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Icon } from "@iconify/react";
 
 import { cn } from "@/lib/utils";
 import { icons } from "@/lib/icons";
@@ -60,9 +59,17 @@ export default function Playground() {
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <ModeTabs current={mode} onChange={setMode} />
-      <div className="flex-1 min-h-0 overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="px-1 pb-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Playground</h1>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          Try any primitive — a prompt, agent, MCP server, or use case — before wiring it up.
+        </p>
+        <div className="mt-4">
+          <ModeTabs current={mode} onChange={setMode} />
+        </div>
+      </header>
+      <div className="min-h-0 flex-1 overflow-auto">
         {mode === "prompt" && <Chat />}
         {mode === "agent" && <AgentMode onOpenRegistry={() => navigate("/registry")} />}
         {mode === "mcp" && <McpMode />}
@@ -82,47 +89,25 @@ function ModeTabs({
   onChange: (m: Mode) => void;
 }) {
   return (
-    <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="px-4 pt-3">
-        <div className="flex items-baseline justify-between gap-4 mb-2">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight leading-none">
-              Playground
-            </h1>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Try any primitive before wiring it up.
-            </p>
-          </div>
-        </div>
-        <nav className="flex items-center gap-1 -mb-px">
-          {MODES.map((m) => {
-            const active = m.id === current;
-            return (
-              <button
-                key={m.id}
-                onClick={() => onChange(m.id)}
-                className={cn(
-                  "group relative flex items-center gap-2 px-3 py-2 text-[13px] font-medium transition-colors",
-                  "border-b-2",
-                  active
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                )}
-                title={m.description}
-              >
-                <Icon
-                  icon={m.icon}
-                  className={cn(
-                    "h-4 w-4 transition-colors",
-                    active ? "text-primary" : "text-muted-foreground/70",
-                  )}
-                />
-                {m.label}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+    <div className="inline-flex items-center gap-0.5 rounded-[10px] border border-border bg-surface-2 p-1">
+      {MODES.map((m) => {
+        const active = m.id === current;
+        return (
+          <button
+            key={m.id}
+            onClick={() => onChange(m.id)}
+            className={cn(
+              "h-8 rounded-md px-3.5 text-[13px] font-medium transition-colors",
+              active
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            title={m.description}
+          >
+            {m.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

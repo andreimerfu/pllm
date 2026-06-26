@@ -1,13 +1,52 @@
-import { useMemo } from "react";
+import { Fragment, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import { icons } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import type { UseCase, UseCaseRiskTier, UseCaseStatus } from "@/types/api";
 
 // ---------------------------------------------------------------------------
-// Tier × Status matrix — the risk officer's default view: how much work
-// sits in each (tier, status) cell. Tier1/under_review is the hot cell —
-// the one they paged on last time — so we want it immediately visible.
+// Shared chart colors. These are the one place raw hex is permitted —
+// chart stroke/fill only — to faithfully match the decoded mockup. Tier
+// colors run hottest (T1) to coolest (T4); classification colors group by
+// sensitivity tier.
+// ---------------------------------------------------------------------------
+
+const TIER_HEX: Record<UseCaseRiskTier, string> = {
+  tier1: "#E0484D",
+  tier2: "#D97706",
+  tier3: "#2563EB",
+  tier4: "#8B95A2",
+};
+
+const CLASS_HEX: Record<string, string> = {
+  pii: "#E0484D",
+  pci: "#E0484D",
+  phi: "#E0484D",
+  "customer-financial": "#D97706",
+  financial: "#D97706",
+  confidential: "#D97706",
+  internal: "#2563EB",
+  public: "#0E9F6E",
+};
+
+function classHex(c: string): string {
+  return CLASS_HEX[c.toLowerCase()] ?? "#586273";
+}
+
+// rgba helper for the soft cell/bar tints (8% / 45% of the tier hue).
+function softHex(hex: string, a: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+// ---------------------------------------------------------------------------
+// Tier × Lifecycle matrix — the risk officer's default view: how much work
+// sits in each (tier, status) cell. Each cell is a tappable filter. Cells
+// are 70px tall, rounded-[11px], with an 18px mono count; non-zero cells
+// pick up a soft tier tint + a tier-colored border.
 // ---------------------------------------------------------------------------
 
 const TIERS: { key: UseCaseRiskTier; label: string }[] = [
@@ -17,26 +56,12 @@ const TIERS: { key: UseCaseRiskTier; label: string }[] = [
   { key: "tier4", label: "Tier 4" },
 ];
 
-const STATUSES: { key: UseCaseStatus; label: string }[] = [
+const MATRIX_STATUSES: { key: UseCaseStatus; label: string }[] = [
   { key: "draft", label: "Draft" },
   { key: "under_review", label: "Under review" },
   { key: "approved", label: "Approved" },
   { key: "retired", label: "Retired" },
 ];
-
-const TIER_COLOR: Record<UseCaseRiskTier, string> = {
-  tier1: "bg-rose-500",
-  tier2: "bg-amber-500",
-  tier3: "bg-sky-500",
-  tier4: "bg-slate-400",
-};
-
-const TIER_TEXT: Record<UseCaseRiskTier, string> = {
-  tier1: "text-rose-600 dark:text-rose-400",
-  tier2: "text-amber-600 dark:text-amber-400",
-  tier3: "text-sky-600 dark:text-sky-400",
-  tier4: "text-slate-500 dark:text-slate-400",
-};
 
 export function RiskMatrix({
   useCases,
@@ -47,7 +72,7 @@ export function RiskMatrix({
   onSelect: (tier: UseCaseRiskTier | "", status: UseCaseStatus | "") => void;
   activeCell?: { tier: UseCaseRiskTier | ""; status: UseCaseStatus | "" };
 }) {
-  const { counts, rowTotals, colTotals, max } = useMemo(() => {
+  const { counts, rowTotals, colTotals } = useMemo(() => {
     const counts = new Map<string, number>();
     const rowTotals: Record<UseCaseRiskTier, number> = {
       tier1: 0, tier2: 0, tier3: 0, tier4: 0,
@@ -55,175 +80,138 @@ export function RiskMatrix({
     const colTotals: Record<UseCaseStatus, number> = {
       draft: 0, under_review: 0, approved: 0, retired: 0,
     };
-    let max = 1;
     for (const uc of useCases) {
       const key = `${uc.risk_tier}|${uc.status}`;
-      const next = (counts.get(key) ?? 0) + 1;
-      counts.set(key, next);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
       rowTotals[uc.risk_tier]++;
       colTotals[uc.status]++;
-      if (next > max) max = next;
     }
-    return { counts, rowTotals, colTotals, max };
+    return { counts, rowTotals, colTotals };
   }, [useCases]);
 
+  const filterActive =
+    !!activeCell && (activeCell.tier !== "" || activeCell.status !== "");
+
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-baseline justify-between mb-3">
+    <div className="rounded-[14px] border border-border bg-card p-4 shadow-sm">
+      <div className="mb-3 flex items-baseline justify-between">
         <div>
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             Risk × lifecycle
           </div>
-          <div className="text-sm font-semibold tracking-tight mt-0.5">
-            {useCases.length} use cases across the portfolio
+          <div className="mt-0.5 text-sm font-semibold tracking-tight">
+            {useCases.length} use{" "}
+            {useCases.length === 1 ? "case" : "cases"} across the portfolio
           </div>
         </div>
-        {activeCell &&
-          (activeCell.tier !== "" || activeCell.status !== "") && (
-            <button
-              onClick={() => onSelect("", "")}
-              className="text-[11px] text-primary hover:underline flex items-center gap-1"
-            >
-              <Icon icon={icons.close} className="h-3 w-3" />
-              Clear filter
-            </button>
-          )}
+        {filterActive && (
+          <button
+            onClick={() => onSelect("", "")}
+            className="flex items-center gap-1 text-[11px] text-primary hover:underline"
+          >
+            <Icon icon={icons.close} className="h-3 w-3" />
+            Clear filter
+          </button>
+        )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-[11px]">
-          <thead>
-            <tr>
-              <th className="text-left font-mono uppercase tracking-widest text-muted-foreground pb-2 pr-3"></th>
-              {STATUSES.map((s) => (
-                <th
-                  key={s.key}
-                  className="font-mono uppercase tracking-widest text-muted-foreground pb-2 px-2 text-left"
+      {/* grid: tier-label column + 4 status columns + a Σ total column */}
+      <div
+        className="grid items-center gap-[9px]"
+        style={{ gridTemplateColumns: "1.5fr repeat(4, 1fr) 52px" }}
+      >
+        {/* header row — inline "Label N", sentence case */}
+        <div />
+        {MATRIX_STATUSES.map((s) => (
+          <button
+            key={s.key}
+            onClick={() => onSelect("", s.key)}
+            className={cn(
+              "flex items-baseline justify-center gap-1.5 pb-1 text-[12px] transition-colors hover:text-foreground",
+              activeCell?.status === s.key && activeCell?.tier === ""
+                ? "text-foreground"
+                : "text-muted-foreground",
+            )}
+          >
+            <span className="font-semibold">{s.label}</span>
+            <span className="font-mono tabular-nums text-text-dim">
+              {colTotals[s.key]}
+            </span>
+          </button>
+        ))}
+        <div className="flex items-end justify-center pb-1 text-[14px] text-text-dim">
+          Σ
+        </div>
+
+        {/* tier rows */}
+        {TIERS.map((t) => {
+          const hex = TIER_HEX[t.key];
+          return (
+            <Fragment key={t.key}>
+              <button
+                onClick={() => onSelect(t.key, "")}
+                className="flex items-center gap-2.5 self-center transition-opacity hover:opacity-80"
+              >
+                <span
+                  className="h-[9px] w-[9px] shrink-0 rounded-full"
+                  style={{ background: hex }}
+                />
+                <span
+                  className="font-mono text-[13px] font-semibold"
+                  style={{ color: hex }}
                 >
+                  {t.label}
+                </span>
+              </button>
+              {MATRIX_STATUSES.map((s) => {
+                const count = counts.get(`${t.key}|${s.key}`) ?? 0;
+                const active =
+                  activeCell?.tier === t.key && activeCell?.status === s.key;
+                return (
                   <button
-                    onClick={() => onSelect("", s.key)}
+                    key={s.key}
+                    onClick={() => onSelect(t.key, s.key)}
                     className={cn(
-                      "hover:text-foreground transition-colors",
-                      activeCell?.status === s.key &&
-                        activeCell?.tier === "" &&
-                        "text-foreground",
+                      "flex h-[70px] items-center justify-center rounded-[11px] border font-mono text-[18px] font-semibold transition-all",
+                      count > 0
+                        ? "text-foreground"
+                        : "border-border bg-card text-text-dim",
+                      count > 0 && "hover:brightness-105",
+                      active && "ring-2 ring-primary ring-offset-1 ring-offset-card",
                     )}
+                    style={
+                      count > 0
+                        ? {
+                            background: softHex(hex, 0.12),
+                            borderColor: softHex(hex, 0.45),
+                          }
+                        : undefined
+                    }
                   >
-                    {s.label}
-                    <span className="ml-1.5 font-mono tabular-nums text-foreground/70">
-                      {colTotals[s.key]}
-                    </span>
+                    {count}
                   </button>
-                </th>
-              ))}
-              <th className="font-mono uppercase tracking-widest text-muted-foreground pb-2 pl-3 text-right">
-                Σ
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {TIERS.map((t) => {
-              const rowTotal = rowTotals[t.key];
-              return (
-                <tr key={t.key}>
-                  <th
-                    scope="row"
-                    className="py-1 pr-3 text-left font-mono uppercase tracking-widest"
-                  >
-                    <button
-                      onClick={() => onSelect(t.key, "")}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity",
-                        TIER_TEXT[t.key],
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "h-2 w-2 rounded-full",
-                          TIER_COLOR[t.key],
-                        )}
-                      />
-                      {t.label}
-                    </button>
-                  </th>
-                  {STATUSES.map((s) => {
-                    const count = counts.get(`${t.key}|${s.key}`) ?? 0;
-                    const active =
-                      activeCell?.tier === t.key && activeCell?.status === s.key;
-                    const intensity = count / max;
-                    return (
-                      <td key={s.key} className="p-1">
-                        <button
-                          onClick={() => onSelect(t.key, s.key)}
-                          className={cn(
-                            "relative w-full h-12 rounded-md border transition-all overflow-hidden",
-                            count === 0
-                              ? "border-border/40 bg-muted/20 text-muted-foreground/50"
-                              : "border-border hover:border-primary/50 cursor-pointer",
-                            active && "ring-2 ring-primary border-primary",
-                          )}
-                        >
-                          {count > 0 && (
-                            <div
-                              className={cn(
-                                "absolute inset-0",
-                                TIER_COLOR[t.key],
-                              )}
-                              style={{
-                                opacity: 0.08 + intensity * 0.25,
-                              }}
-                            />
-                          )}
-                          <span
-                            className={cn(
-                              "relative text-base font-semibold tabular-nums",
-                              count > 0 && TIER_TEXT[t.key],
-                            )}
-                          >
-                            {count}
-                          </span>
-                        </button>
-                      </td>
-                    );
-                  })}
-                  <td className="py-1 pl-3 text-right font-mono tabular-nums text-foreground/70">
-                    {rowTotal}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                );
+              })}
+              <div className="flex items-center justify-center font-mono text-[13px] tabular-nums text-text-dim">
+                {rowTotals[t.key]}
+              </div>
+            </Fragment>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Classification mix — what classifications are in the portfolio, how
+// Classification mix — what classifications are in the portfolio and how
 // many use cases touch each. Pulls from both declared and effective
 // classifications so propagated labels show up alongside hand-tagged ones.
+// Each row: colored dot + uppercase label + "count · pct%" and a track with
+// a colored bar (solid = declared share, faded = inherited share).
 // ---------------------------------------------------------------------------
 
-const CLASS_COLOR: Record<string, string> = {
-  pii: "bg-rose-500",
-  pci: "bg-rose-500",
-  phi: "bg-rose-500",
-  "customer-financial": "bg-amber-500",
-  confidential: "bg-amber-500",
-  internal: "bg-sky-500",
-  public: "bg-emerald-500",
-};
-
-function classTone(c: string): string {
-  return CLASS_COLOR[c] ?? "bg-slate-500";
-}
-
-export function ClassificationMix({
-  useCases,
-}: {
-  useCases: UseCase[];
-}) {
+export function ClassificationMix({ useCases }: { useCases: UseCase[] }) {
   const rows = useMemo(() => {
     const counts = new Map<string, { declared: number; inherited: number }>();
     for (const uc of useCases) {
@@ -247,56 +235,65 @@ export function ClassificationMix({
       .slice(0, 8);
   }, [useCases]);
 
-  const max = Math.max(1, ...rows.map((r) => r.total));
   const total = useCases.length || 1;
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-[14px] border border-border bg-card p-4 shadow-sm">
       <div className="mb-3">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           Classification mix
         </div>
-        <div className="text-sm font-semibold tracking-tight mt-0.5">
+        <div className="mt-0.5 text-sm font-semibold tracking-tight">
           Data classes in scope
         </div>
       </div>
       {rows.length === 0 ? (
-        <div className="h-32 flex items-center justify-center text-xs text-muted-foreground">
+        <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
           No classifications declared
         </div>
       ) : (
-        <div className="space-y-2.5">
-          {rows.map((r) => (
-            <div key={r.label} className="space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span
-                    className={cn("h-2 w-2 rounded-full shrink-0", classTone(r.label))}
-                  />
-                  <span className="text-[11px] font-mono uppercase tracking-wider truncate">
-                    {r.label}
+        <div className="space-y-3">
+          {rows.map((r) => {
+            const hex = classHex(r.label);
+            const pct = Math.round((r.total / total) * 100);
+            const declaredPct = Math.round((r.declared / total) * 100);
+            const inheritedPct = pct - declaredPct;
+            return (
+              <div key={r.label} className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: hex }}
+                    />
+                    <span className="truncate font-mono text-[12px] font-semibold uppercase tracking-wide text-foreground">
+                      {r.label}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                    {r.total}
+                    <span className="ml-1 text-muted-foreground/60">· {pct}%</span>
                   </span>
                 </div>
-                <span className="text-[11px] font-mono tabular-nums text-muted-foreground">
-                  {r.total}
-                  <span className="ml-1 text-muted-foreground/60">
-                    · {Math.round((r.total / total) * 100)}%
-                  </span>
-                </span>
+                <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                  <div
+                    className="h-1.5 rounded-full"
+                    style={{ width: `${declaredPct}%`, background: hex }}
+                  />
+                  {inheritedPct > 0 && (
+                    <div
+                      className="h-1.5 rounded-full"
+                      style={{
+                        width: `${inheritedPct}%`,
+                        background: softHex(hex, 0.5),
+                      }}
+                    />
+                  )}
+                </div>
               </div>
-              <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-muted/60">
-                <div
-                  className={cn(classTone(r.label))}
-                  style={{ width: `${(r.declared / max) * 100}%` }}
-                />
-                <div
-                  className={cn(classTone(r.label), "opacity-50")}
-                  style={{ width: `${(r.inherited / max) * 100}%` }}
-                />
-              </div>
-            </div>
-          ))}
-          <p className="text-[10px] text-muted-foreground pt-1">
+            );
+          })}
+          <p className="pt-1 text-[10px] text-muted-foreground">
             Solid = declared · Faded = inherited from components
           </p>
         </div>
@@ -306,10 +303,12 @@ export function ClassificationMix({
 }
 
 // ---------------------------------------------------------------------------
-// Hero ring — "blocking coverage" = of approved use cases, how many are
+// Blocking gauge — "blocking coverage" = of approved use cases, how many are
 // in blocking mode. `blocking` MUST already be filtered to approved-only;
-// historically callers passed the unfiltered enforce count, which let
-// drafts push the ring past 100%.
+// historically callers passed the unfiltered enforce count, which let drafts
+// push the gauge past 100%. Rendered as an SVG donut (r=40) with the percent
+// in the center and the "{blocking} of {approved} approved are blocking"
+// sub-line beside it.
 // ---------------------------------------------------------------------------
 
 export function CoverageRing({
@@ -321,52 +320,42 @@ export function CoverageRing({
 }) {
   const safeBlocking = Math.min(blocking, approved);
   const pct = approved === 0 ? 0 : Math.round((safeBlocking / approved) * 100);
-  const tone = pct >= 80 ? "emerald" : pct >= 50 ? "amber" : "rose";
-  const color =
-    tone === "emerald"
-      ? "text-emerald-500"
-      : tone === "amber"
-        ? "text-amber-500"
-        : "text-rose-500";
+  const tone = pct >= 80 ? "text-good" : pct >= 50 ? "text-warn" : "text-bad";
 
-  const r = 42;
+  const r = 40;
   const c = 2 * Math.PI * r;
-  const offset = c - (pct / 100) * c;
+  const dash = (pct / 100) * c;
 
   return (
-    <div
-      className="relative w-24 h-24 shrink-0"
-      title={`${safeBlocking} of ${approved} approved use cases are in blocking mode`}
-    >
-      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+    <div className="relative h-[92px] w-[92px] shrink-0">
+      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
         <circle
           cx="50"
           cy="50"
           r={r}
           stroke="currentColor"
-          strokeWidth="6"
+          strokeWidth="9"
           fill="none"
-          className="text-muted/50"
+          className="text-surface-2"
         />
         <circle
           cx="50"
           cy="50"
           r={r}
           stroke="currentColor"
-          strokeWidth="6"
+          strokeWidth="9"
           fill="none"
-          strokeDasharray={c}
-          strokeDashoffset={offset}
+          strokeDasharray={`${dash} ${c}`}
           strokeLinecap="round"
-          className={cn(color, "transition-all duration-700 ease-out")}
+          className={cn(tone, "transition-all duration-700 ease-out")}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={cn("text-2xl font-bold tabular-nums leading-none", color)}>
+        <span className={cn("font-mono text-[19px] font-bold leading-none tabular-nums", tone)}>
           {pct}
-          <span className="text-base">%</span>
+          <span className="text-[13px]">%</span>
         </span>
-        <span className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground mt-0.5">
+        <span className="mt-[3px] font-mono text-[8px] uppercase tracking-[0.08em] text-text-dim">
           blocking
         </span>
       </div>

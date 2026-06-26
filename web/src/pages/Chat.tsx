@@ -7,14 +7,9 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { Button } from '../components/ui/button'
 import { Textarea } from '../components/ui/textarea'
-import { ScrollArea } from '../components/ui/scroll-area'
-import { Avatar, AvatarFallback } from '../components/ui/avatar'
 import { Switch } from '../components/ui/switch'
 import { Slider } from '../components/ui/slider'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
-import { Separator } from '../components/ui/separator'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip'
-import { toast } from '../components/ui/use-toast'
+import { StatusChip } from '@/components/common/status-chip'
 import {
   Command,
   CommandEmpty,
@@ -28,18 +23,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '../components/ui/popover'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '../components/ui/sheet'
 import { getModels, getRoutes } from '../lib/api'
 import { cn } from '../lib/utils'
 import { getModelIcon } from '../lib/chat-utils'
-import { useChatMessages, type MessageContent, type UploadedFile } from '../hooks/useChatMessages'
-import { useChatConversations } from '../hooks/useChatConversations'
+import { useChatMessages, type MessageContent } from '../hooks/useChatMessages'
+import { useColorMode } from '@/contexts/ColorModeContext'
 
 // Model Combobox Component
 function ModelCombobox({
@@ -131,101 +119,58 @@ function ModelCombobox({
 }
 
 
-// Settings Popover Content
-function SettingsPopover({
-  temperature,
-  setTemperature,
-  maxTokens,
-  setMaxTokens,
-  reasoningEffort,
-  setReasoningEffort,
-  cacheDisabled,
-  setCacheDisabled,
-}: {
-  temperature: number
-  setTemperature: (temp: number) => void
-  maxTokens: number
-  setMaxTokens: (tokens: number) => void
-  reasoningEffort: string
-  setReasoningEffort: (effort: string) => void
-  cacheDisabled: boolean
-  setCacheDisabled: (disabled: boolean) => void
-}) {
-  return (
-    <div className="w-72 space-y-4">
-      {/* Temperature */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium">Temperature</label>
-          <span className="text-xs font-mono text-muted-foreground">{temperature}</span>
-        </div>
-        <Slider
-          value={[temperature]}
-          onValueChange={(value) => setTemperature(value[0])}
-          max={2}
-          min={0}
-          step={0.1}
-          className="w-full"
-        />
-        <div className="flex justify-between text-xs text-muted-foreground mt-1">
-          <span>Precise</span>
-          <span>Creative</span>
-        </div>
-      </div>
+// Prose wrapper for rendered markdown. `prose-pre:*` resets neutralize the
+// dark <pre> frame Typography adds around fenced code (the highlighter draws
+// its own panel), and `prose-code:before/after:content-['']` strips the
+// literal backtick quotes Typography injects around inline <code>.
+const PROSE_CLASS =
+  "prose prose-sm max-w-none dark:prose-invert break-words " +
+  "prose-pre:m-0 prose-pre:bg-transparent prose-pre:p-0 " +
+  "prose-code:before:content-[''] prose-code:after:content-['']"
 
-      {/* Max Tokens */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-medium">Max Tokens</label>
-          <span className="text-xs font-mono text-muted-foreground">{maxTokens}</span>
+function useMarkdownComponents() {
+  const { resolvedMode } = useColorMode()
+  const isDark = resolvedMode === 'dark'
+  return {
+    code({ className, children }: any) {
+      const match = /language-(\w+)/.exec(className || '')
+      const text = String(children ?? '')
+      // Treat anything with a language hint OR a newline as a block; the rest
+      // (short, single-line) renders as inline code.
+      const isBlock = !!match || text.includes('\n')
+      if (!isBlock) {
+        return (
+          <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[0.85em] text-foreground">
+            {children}
+          </code>
+        )
+      }
+      return (
+        <div className="my-2 overflow-hidden rounded-lg border border-border">
+          <SyntaxHighlighter
+            style={isDark ? vscDarkPlus : oneLight}
+            language={match ? match[1] : 'text'}
+            PreTag="div"
+            customStyle={{
+              margin: 0,
+              borderRadius: 0,
+              padding: '0.875rem',
+              fontSize: '0.8125rem',
+              background: isDark ? 'hsl(218 26% 8%)' : 'hsl(216 22% 95%)',
+              overflowX: 'auto',
+            }}
+            codeTagProps={{ style: { fontFamily: "'IBM Plex Mono', ui-monospace, monospace" } }}
+          >
+            {text.replace(/\n$/, '')}
+          </SyntaxHighlighter>
         </div>
-        <Slider
-          value={[maxTokens]}
-          onValueChange={(value) => setMaxTokens(value[0])}
-          max={4000}
-          min={100}
-          step={100}
-          className="w-full"
-        />
-      </div>
-
-      {/* Reasoning Effort */}
-      <div>
-        <label className="text-sm font-medium mb-2 block">Reasoning Effort</label>
-        <Select value={reasoningEffort} onValueChange={setReasoningEffort}>
-          <SelectTrigger className="w-full h-8 text-sm">
-            <SelectValue placeholder="Default" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            <SelectItem value="low">Low</SelectItem>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="high">High</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground mt-1">For reasoning models (o1, o3, etc.)</p>
-      </div>
-
-      <Separator />
-
-      {/* Disable Cache */}
-      <div className="flex items-center justify-between">
-        <div>
-          <label className="text-sm font-medium">Disable Cache</label>
-          <p className="text-xs text-muted-foreground">Fresh responses every time</p>
-        </div>
-        <Switch
-          checked={cacheDisabled}
-          onCheckedChange={setCacheDisabled}
-        />
-      </div>
-    </div>
-  )
+      )
+    },
+  }
 }
 
-
 function MessageContentRenderer({ content }: { content: string | MessageContent[] }) {
-  const isDark = document.documentElement.classList.contains('dark')
+  const components = useMarkdownComponents()
 
   if (Array.isArray(content)) {
     return (
@@ -233,36 +178,8 @@ function MessageContentRenderer({ content }: { content: string | MessageContent[
         {content.map((item, index) => (
           <div key={index}>
             {item.type === 'text' && (
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                <ReactMarkdown
-                  components={{
-                    code({ className, children }) {
-                      const match = /language-(\w+)/.exec(className || '')
-                      const language = match ? match[1] : ''
-                      const isInline = !match
-
-                      return !isInline ? (
-                        <SyntaxHighlighter
-                          style={isDark ? vscDarkPlus : oneLight}
-                          language={language}
-                          PreTag="div"
-                          customStyle={{
-                            borderRadius: '0.375rem',
-                            fontSize: '0.875rem'
-                          }}
-                        >
-                          {String(children).replace(/\n$/, '')}
-                        </SyntaxHighlighter>
-                      ) : (
-                        <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono">
-                          {children}
-                        </code>
-                      )
-                    }
-                  }}
-                >
-                  {item.text || ''}
-                </ReactMarkdown>
+              <div className={PROSE_CLASS}>
+                <ReactMarkdown components={components}>{item.text || ''}</ReactMarkdown>
               </div>
             )}
             {item.type === 'image_url' && item.image_url && (
@@ -282,290 +199,9 @@ function MessageContentRenderer({ content }: { content: string | MessageContent[
   }
 
   return (
-    <div className="prose prose-sm max-w-none dark:prose-invert">
-      <ReactMarkdown
-        components={{
-          code({ className, children }) {
-            const match = /language-(\w+)/.exec(className || '')
-            const language = match ? match[1] : ''
-            const isInline = !match
-
-            return !isInline ? (
-              <SyntaxHighlighter
-                style={isDark ? vscDarkPlus : oneLight}
-                language={language}
-                PreTag="div"
-                customStyle={{
-                  borderRadius: '0.375rem',
-                  fontSize: '0.875rem'
-                }}
-              >
-                {String(children).replace(/\n$/, '')}
-              </SyntaxHighlighter>
-            ) : (
-              <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono">
-                {children}
-              </code>
-            )
-          }
-        }}
-      >
-        {content}
-      </ReactMarkdown>
+    <div className={PROSE_CLASS}>
+      <ReactMarkdown components={components}>{content}</ReactMarkdown>
     </div>
-  )
-}
-
-
-function EmptyState() {
-  return (
-    <div className="flex-1 flex items-center justify-center min-h-0 px-4">
-      <div className="text-center max-w-sm">
-        <div className="mb-3 inline-flex items-center justify-center w-12 h-12 rounded-lg bg-muted">
-          <Icon icon={icons.terminal} className="h-6 w-6 text-muted-foreground" />
-        </div>
-        <h2 className="text-lg font-semibold mb-1">Test a model</h2>
-        <p className="text-sm text-muted-foreground">
-          Select a model above and send a prompt to test your gateway configuration.
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function MessageInput({
-  value,
-  onChange,
-  onSubmit,
-  disabled,
-  onStop,
-  attachments,
-  onAttachmentAdd,
-  onAttachmentRemove
-}: {
-  value: string
-  onChange: (value: string) => void
-  onSubmit: () => void
-  disabled: boolean
-  onStop: () => void
-  attachments?: UploadedFile[]
-  onAttachmentAdd?: (file: File) => void
-  onAttachmentRemove?: (fileId: string) => void
-}) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      onSubmit()
-    }
-  }
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0 || !onAttachmentAdd) return
-
-    const file = files[0]
-
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: "Invalid file type",
-        description: "Only image files are supported",
-        variant: "destructive"
-      })
-      return
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "File size must be less than 10MB",
-        variant: "destructive"
-      })
-      return
-    }
-
-    onAttachmentAdd(file)
-
-    toast({
-      title: "Image added",
-      description: `${file.name} ready to send`
-    })
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-  }
-
-  useEffect(() => {
-    const handleSetPrompt = (e: any) => {
-      onChange(e.detail)
-    }
-    window.addEventListener('setPrompt', handleSetPrompt)
-    return () => window.removeEventListener('setPrompt', handleSetPrompt)
-  }, [onChange])
-
-  return (
-    <div className="px-4 py-3">
-      <div className="max-w-4xl mx-auto">
-        {/* Attachments preview */}
-        {attachments && attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-2">
-            {attachments.map((file) => (
-              <div key={file.id} className="relative group">
-                <div className="flex items-center gap-2 bg-muted rounded-md p-1.5 pr-7 text-xs">
-                  <Icon icon={icons.image} className="h-3.5 w-3.5" />
-                  <span className="truncate max-w-32">{file.filename}</span>
-                </div>
-                {onAttachmentRemove && (
-                  <button
-                    onClick={() => onAttachmentRemove(file.id)}
-                    className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center text-[10px] hover:bg-destructive/80"
-                    aria-label="Remove attachment"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="relative flex items-end gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            style={{ display: 'none' }}
-          />
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 h-9 w-9 text-muted-foreground hover:text-foreground"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={disabled}
-                >
-                  <Icon icon="solar:paperclip-linear" className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Attach image</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <Textarea
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Test a prompt..."
-            className="min-h-[40px] max-h-[200px] resize-none flex-1 text-sm"
-            disabled={disabled}
-          />
-
-          <TooltipProvider>
-            {disabled ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="icon" variant="destructive" onClick={onStop} className="shrink-0 h-9 w-9">
-                    <Icon icon={icons.stop} className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Stop generation</p>
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    onClick={onSubmit}
-                    disabled={!value.trim() && (!attachments || attachments.length === 0)}
-                    className="shrink-0 h-9 w-9 bg-teal-600 hover:bg-teal-700 text-white"
-                  >
-                    <Icon icon={icons.send} className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Send (Enter)</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </TooltipProvider>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-
-// Conversations sidebar as a Sheet (slide-over panel)
-function ConversationsSheet({
-  conversations,
-  searchQuery,
-  setSearchQuery,
-  children,
-}: {
-  conversations: any[]
-  searchQuery: string
-  setSearchQuery: (query: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <Sheet>
-      <SheetTrigger asChild>
-        {children}
-      </SheetTrigger>
-      <SheetContent side="left" className="w-72 p-0">
-        <SheetHeader className="px-4 pt-4 pb-2">
-          <SheetTitle className="text-sm font-semibold">Conversations</SheetTitle>
-        </SheetHeader>
-
-        <div className="px-4 pb-3">
-          <div className="relative">
-            <Icon icon={icons.search} className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-          </div>
-        </div>
-
-        <ScrollArea className="flex-1 h-[calc(100vh-120px)]">
-          <div className="px-2 space-y-0.5">
-            {conversations.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">
-                <p className="text-sm">No conversations</p>
-              </div>
-            ) : (
-              conversations.map((conversation) => (
-                <Button
-                  key={conversation.id}
-                  variant="ghost"
-                  className="w-full justify-start text-left h-auto py-2 px-3 hover:bg-accent"
-                >
-                  <div className="flex flex-col items-start w-full">
-                    <span className="font-medium truncate w-full text-sm">{conversation.title}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {conversation.updatedAt.toLocaleDateString()}
-                    </span>
-                  </div>
-                </Button>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
   )
 }
 
@@ -576,22 +212,21 @@ export default function Chat() {
   const [temperature, setTemperature] = useState(1)
   const [maxTokens, setMaxTokens] = useState(2048)
   const [availableModels, setAvailableModels] = useState<any[]>([])
-  const [currentAttachments, setCurrentAttachments] = useState<UploadedFile[]>([])
-  const [reasoningEffort, setReasoningEffort] = useState('')
-  const [cacheDisabled, setCacheDisabled] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [reasoningEffort] = useState('')
+  const [cacheDisabled] = useState(false)
+  const [systemPrompt, setSystemPrompt] = useState('You are a helpful assistant.')
+  const [guardrailsEnabled, setGuardrailsEnabled] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const { messages, isLoading, sendMessage, stopGeneration, clearMessages } = useChatMessages({
+  const { messages, isLoading, sendMessage, stopGeneration } = useChatMessages({
     selectedModel,
     temperature,
     maxTokens,
     cacheDisabled,
     reasoningEffort: reasoningEffort || undefined,
+    systemPrompt,
   })
-
-  const { conversations, searchQuery, setSearchQuery } = useChatConversations()
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -631,273 +266,199 @@ export default function Chat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const handleAttachmentAdd = (file: File) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const base64Data = e.target?.result as string
-      const uploadedFile: UploadedFile = {
-        id: Date.now().toString(),
-        filename: file.name,
-        size: file.size,
-        type: file.type,
-        url: base64Data
-      }
-      setCurrentAttachments(prev => [...prev, uploadedFile])
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const handleAttachmentRemove = (fileId: string) => {
-    setCurrentAttachments(prev => prev.filter(f => f.id !== fileId))
-  }
-
   const handleSubmit = async () => {
-    await sendMessage(input, currentAttachments)
+    if (!input.trim() || isLoading) return
+    await sendMessage(input, [])
     setInput('')
-    setCurrentAttachments([])
   }
 
-  const handleStop = () => {
-    stopGeneration()
-  }
-
-  const handleNewChat = () => {
-    clearMessages()
-    setInput('')
-    setCurrentAttachments([])
-  }
-
-  const handleCopyMessage = (content: string | MessageContent[]) => {
-    const text = Array.isArray(content)
-      ? content.filter(c => c.type === 'text').map(c => c.text).join('\n')
-      : content
-    navigator.clipboard.writeText(text)
-    toast({ title: "Copied to clipboard" })
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit()
+    }
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] overflow-hidden">
-      {/* Compact Header Bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b bg-background shrink-0 gap-3">
-        {/* Left: Conversations + Title */}
-        <div className="flex items-center gap-2 shrink-0">
-          <ConversationsSheet
-            conversations={conversations}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-          >
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Icon icon={icons.clock} className="h-4 w-4" />
-            </Button>
-          </ConversationsSheet>
-          <span className="text-sm font-semibold text-muted-foreground hidden sm:block">Chat</span>
-        </div>
-
-        {/* Center: Model Selector */}
-        <div className="flex-1 flex justify-center max-w-md">
+    <div className="flex h-[calc(100vh-14rem)] min-h-[480px] flex-col gap-4 lg:flex-row">
+      {/* LEFT — chat card */}
+      <div className="flex min-w-0 flex-1 flex-col rounded-[14px] border border-border bg-card shadow-sm">
+        {/* Header: model selector + guardrails chip */}
+        <div className="flex items-center justify-between border-b border-border p-4">
           <ModelCombobox
             models={availableModels}
             selectedModel={selectedModel}
             onModelChange={setSelectedModel}
             compact
           />
+          {guardrailsEnabled && (
+            <StatusChip
+              tone="good"
+              dot={false}
+              label={
+                <span className="inline-flex items-center gap-1.5">
+                  <Icon icon={icons.shield} className="h-3.5 w-3.5" />
+                  1 guardrail active
+                </span>
+              }
+            />
+          )}
         </div>
 
-        {/* Right: Settings, Clear, New */}
-        <div className="flex items-center gap-1 shrink-0">
-          <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Icon icon={icons.settings} className="h-4 w-4" />
+        {/* Messages */}
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          {messages.length === 0 ? (
+            <div className="flex h-full items-center justify-center px-4">
+              <div className="max-w-sm text-center">
+                <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-surface-2">
+                  <Icon icon={icons.terminal} className="h-6 w-6 text-text-dim" />
+                </div>
+                <h2 className="mb-1 text-base font-semibold text-foreground">Test a prompt</h2>
+                <p className="text-[13px] text-muted-foreground">
+                  Send a message to test your model and configuration.
+                </p>
+              </div>
+            </div>
+          ) : (
+            messages.map((message) =>
+              message.role === 'user' ? (
+                <div key={message.id} className="flex flex-row-reverse gap-3">
+                  <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-primary">
+                    <Icon icon={icons.user} className="h-4 w-4" />
+                  </div>
+                  <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-tr-md bg-[var(--accent-soft)] px-4 py-3 text-[13.5px] leading-relaxed text-foreground">
+                    {Array.isArray(message.content) ? (
+                      <MessageContentRenderer content={message.content} />
+                    ) : (
+                      message.content
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div key={message.id} className="flex gap-3">
+                  <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-kind-agent/12 text-kind-agent">
+                    <Icon icon={icons.agent} className="h-4 w-4" />
+                  </div>
+                  <div className="max-w-[80%] rounded-2xl rounded-tl-md bg-surface-2 px-4 py-3 text-[13.5px] leading-relaxed text-foreground">
+                    <MessageContentRenderer content={message.content} />
+                  </div>
+                </div>
+              )
+            )
+          )}
+
+          {isLoading && (
+            <div className="flex gap-3">
+              <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-kind-agent/12 text-kind-agent">
+                <Icon icon={icons.agent} className="h-4 w-4" />
+              </div>
+              <div className="flex items-center gap-2 rounded-2xl rounded-tl-md bg-surface-2 px-4 py-3 text-[13.5px] text-muted-foreground">
+                <Icon icon={icons.refresh} className="h-3.5 w-3.5 animate-spin" />
+                Thinking…
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input bar */}
+        <div className="border-t border-border p-3">
+          <div className="flex items-end gap-2">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Send a message to test your configuration…"
+              className="max-h-[160px] min-h-[40px] flex-1 resize-none text-[13.5px]"
+              disabled={isLoading}
+            />
+            {isLoading ? (
+              <Button variant="destructive" onClick={stopGeneration} className="shrink-0 gap-1.5">
+                <Icon icon={icons.stop} className="h-4 w-4" />
+                Stop
               </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-auto">
-              <SettingsPopover
-                temperature={temperature}
-                setTemperature={setTemperature}
-                maxTokens={maxTokens}
-                setMaxTokens={setMaxTokens}
-                reasoningEffort={reasoningEffort}
-                setReasoningEffort={setReasoningEffort}
-                cacheDisabled={cacheDisabled}
-                setCacheDisabled={setCacheDisabled}
-              />
-            </PopoverContent>
-          </Popover>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={handleNewChat}
-                  disabled={messages.length === 0}
-                >
-                  <Icon icon={icons.delete} className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent><p>Clear chat</p></TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={handleNewChat}
-                >
-                  <Icon icon={icons.plus} className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent><p>New chat</p></TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+            ) : (
+              <Button
+                onClick={handleSubmit}
+                disabled={!input.trim()}
+                className="shrink-0 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                Send
+                <Icon icon={icons.arrowRight} className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Message Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {messages.length === 0 ? (
-          <>
-            <EmptyState />
-            <div className="shrink-0 border-t bg-background">
-              <MessageInput
-                value={input}
-                onChange={setInput}
-                onSubmit={handleSubmit}
-                disabled={isLoading}
-                onStop={handleStop}
-                attachments={currentAttachments}
-                onAttachmentAdd={handleAttachmentAdd}
-                onAttachmentRemove={handleAttachmentRemove}
-              />
-            </div>
-          </>
-        ) : (
-          <>
-            <ScrollArea className="h-full">
-              <div className="max-w-4xl mx-auto py-4 px-4 pb-8">
-                <div className="space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={cn(
-                        "flex gap-3",
-                        message.role === 'user' ? "flex-row-reverse" : "flex-row"
-                      )}
-                    >
-                      <Avatar className="h-7 w-7 shrink-0">
-                        <AvatarFallback className={cn(
-                          "text-xs",
-                          message.role === 'user'
-                            ? "bg-teal-600 text-white"
-                            : "bg-muted"
-                        )}>
-                          <Icon
-                            icon={message.role === 'user'
-                              ? icons.user
-                              : (message.model ? getModelIcon(message.model) : icons.chat)
-                            }
-                            width="14"
-                            height="14"
-                          />
-                        </AvatarFallback>
-                      </Avatar>
+      {/* RIGHT — configuration panel */}
+      <div className="w-full shrink-0 space-y-5 self-start rounded-[14px] border border-border bg-card p-5 shadow-sm lg:w-[360px] xl:w-[380px]">
+        <h2 className="text-base font-semibold text-foreground">Configuration</h2>
 
-                      <div className={cn(
-                        "flex flex-col min-w-0 max-w-[80%]",
-                        message.role === 'user' ? "items-end" : "items-start"
-                      )}>
-                        {message.role === 'assistant' && message.model && (
-                          <div className="mb-1">
-                            <span className="text-xs font-mono text-muted-foreground">{message.model}</span>
-                          </div>
-                        )}
+        {/* Model */}
+        <div className="space-y-2">
+          <label className="text-[13px] font-medium text-foreground">Model</label>
+          <ModelCombobox
+            models={availableModels}
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
+          />
+        </div>
 
-                        <div className={cn(
-                          "rounded-lg px-3.5 py-2.5",
-                          message.role === 'user'
-                            ? "bg-teal-600 text-white"
-                            : "bg-card border shadow-sm"
-                        )}>
-                          {message.role === 'user' ? (
-                            Array.isArray(message.content) ? (
-                              <MessageContentRenderer content={message.content} />
-                            ) : (
-                              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-                                {message.content}
-                              </p>
-                            )
-                          ) : (
-                            <MessageContentRenderer content={message.content} />
-                          )}
-                        </div>
+        {/* Temperature */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[13px] font-medium text-foreground">Temperature</label>
+            <span className="font-mono text-[12px] text-text-dim">{temperature.toFixed(1)}</span>
+          </div>
+          <Slider
+            value={[temperature]}
+            onValueChange={(value) => setTemperature(value[0])}
+            min={0}
+            max={1}
+            step={0.1}
+          />
+        </div>
 
-                        {/* Assistant message footer with metadata */}
-                        {message.role === 'assistant' && (
-                          <div className="mt-1 flex items-center gap-3 text-[10px] text-muted-foreground px-1">
-                            <span className="font-mono">
-                              {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={() => handleCopyMessage(message.content)}
-                                    className="hover:text-foreground transition-colors"
-                                  >
-                                    <Icon icon={icons.copy} className="h-3 w-3" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>Copy response</p></TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+        {/* Max tokens */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[13px] font-medium text-foreground">Max tokens</label>
+            <span className="font-mono text-[12px] text-text-dim">{maxTokens}</span>
+          </div>
+          <Slider
+            value={[maxTokens]}
+            onValueChange={(value) => setMaxTokens(value[0])}
+            min={100}
+            max={4000}
+            step={100}
+          />
+        </div>
 
-                  {isLoading && (
-                    <div className="flex gap-3">
-                      <Avatar className="h-7 w-7 shrink-0">
-                        <AvatarFallback className="bg-muted text-xs">
-                          <Icon icon={selectedModel ? getModelIcon(selectedModel) : icons.chat} width="14" height="14" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="rounded-lg px-3.5 py-2.5 bg-card border shadow-sm">
-                        <div className="flex items-center gap-2">
-                          <Icon icon={icons.refresh} width="14" height="14" className="animate-spin" />
-                          <span className="text-sm text-muted-foreground">Thinking...</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              </div>
-            </ScrollArea>
+        {/* System prompt */}
+        <div className="space-y-2">
+          <label className="text-[13px] font-medium text-foreground">System prompt</label>
+          <Textarea
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            placeholder="You are a helpful assistant."
+            className="min-h-[88px] resize-none text-[13px]"
+          />
+        </div>
 
-            {/* Input at bottom */}
-            <div className="shrink-0 border-t bg-background">
-              <MessageInput
-                value={input}
-                onChange={setInput}
-                onSubmit={handleSubmit}
-                disabled={isLoading}
-                onStop={handleStop}
-                attachments={currentAttachments}
-                onAttachmentAdd={handleAttachmentAdd}
-                onAttachmentRemove={handleAttachmentRemove}
-              />
-            </div>
-          </>
-        )}
+        {/* Guardrails */}
+        <div className="flex items-center justify-between">
+          <label className="text-[13px] font-medium text-foreground">Guardrails</label>
+          <Switch checked={guardrailsEnabled} onCheckedChange={setGuardrailsEnabled} />
+        </div>
+
+        {/* Tools */}
+        <div className="space-y-2">
+          <label className="text-[13px] font-medium text-foreground">Tools</label>
+          <div className="flex flex-wrap gap-1.5">
+            <span className="rounded-md bg-surface-2 px-2 py-1 text-[12px] text-text-dim">None</span>
+          </div>
+        </div>
       </div>
     </div>
   )

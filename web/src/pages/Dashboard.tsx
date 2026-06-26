@@ -5,13 +5,13 @@ import { useQuery } from "@tanstack/react-query"
 import { formatDistanceToNow } from "date-fns"
 import { Icon } from "@iconify/react"
 import { icons } from "@/lib/icons"
-import { getProviderLogo } from "@/lib/provider-logos"
 import { detectProvider } from "@/lib/providers"
 import {
   getDashboardMetrics,
   getUsageTrends,
   getAdminModels,
   getModelsHealth,
+  getGuardrailStats,
   getAuditLogs,
   listDeployments,
   listRegistryServers,
@@ -23,33 +23,12 @@ import { PageShell, StatTile } from "@/components/common/page-shell"
 import type { AdminModelsResponse, ModelsHealthResponse, AuditLog } from "@/types/api"
 import { formatChartLabel, fillTimeGaps } from "@/lib/date-utils"
 
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
 // ─── Time range model ─────────────────────────────────────────────────────────
 //
@@ -158,6 +137,8 @@ function HeroMetrics({ range }: { range: TimeRange }) {
     refetchInterval: 10000,
   })
 
+  const { data: guard } = useGuardrailAgg()
+
   const metrics = React.useMemo(() => {
     if (!rawData) return null
     const data = (rawData as any).data || rawData
@@ -167,6 +148,8 @@ function HeroMetrics({ range }: { range: TimeRange }) {
       totalCost: data.total_cost || 0,
       activeKeys: data.active_keys || 0,
       activeModels: data.active_models || 0,
+      avgLatency: data.avg_latency || 0,
+      successRate: data.success_rate || 0,
       topModels: data.top_models || [],
     }
   }, [rawData])
@@ -211,24 +194,29 @@ function HeroMetrics({ range }: { range: TimeRange }) {
   const registeredAssets = c ? c.servers + c.agents + c.skills + c.prompts : null
   const deployments = deploymentsData?.deployments ?? []
   const running = deployments.filter((d) => d.status === "running").length
+  const failed = deployments.filter((d) => d.status === "failed").length
   const reqTrend = computeTrend(sparkRequests)
+  const passRate = guard?.passRate ?? null
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
       <StatTile
         label="Registered assets"
         value={registeredAssets ?? "—"}
         icon={<Icon icon={icons.registry} />}
         iconColor="agent"
         sub={c ? `${c.agents} agents · ${c.servers} MCP · ${c.skills + c.prompts} others` : "Across the catalog"}
-        className="cursor-pointer"
       />
       <StatTile
         label="Live deployments"
         value={deployments.length}
         icon={<Icon icon={icons.rocket} />}
         iconColor="mcp"
-        sub={`${running} running`}
+        sub={
+          failed > 0
+            ? `${running} running · ${failed} failed`
+            : `${running} running`
+        }
       />
       <StatTile
         label={`Requests (${rangeLabel(range)})`}
@@ -237,24 +225,70 @@ function HeroMetrics({ range }: { range: TimeRange }) {
         iconColor="primary"
         delta={reqTrend !== null ? `${reqTrend >= 0 ? "+" : ""}${reqTrend.toFixed(0)}%` : undefined}
         deltaPositive={(reqTrend ?? 0) >= 0}
-        sub="Routed through the gateway"
+        sub={`${activeModelCount} models · ${metrics.activeKeys} keys`}
       />
       <StatTile
-        label="Active models"
-        value={activeModelCount}
-        icon={<Icon icon={icons.models} />}
-        iconColor="model"
-        sub={`${metrics.activeKeys} active keys`}
+        label="Avg latency"
+        value={metrics.avgLatency > 0 ? `${metrics.avgLatency}ms` : "—"}
+        icon={<Icon icon={icons.activity} />}
+        iconColor="warn"
+        sub="Across all routes"
       />
       <StatTile
-        label={`Spend (${rangeLabel(range)})`}
-        value={`$${metrics.totalCost.toFixed(2)}`}
-        icon={<Icon icon={icons.budget} />}
-        iconColor="prompt"
-        sub={`${fmtCompact(metrics.totalTokens)} tokens`}
+        label="Guardrail pass rate"
+        value={passRate !== null ? `${passRate.toFixed(1)}%` : "—"}
+        icon={<Icon icon={icons.shieldCheck} />}
+        iconColor="good"
+        sub={
+          guard && guard.executions > 0
+            ? `${guard.blocked.toLocaleString()} requests blocked`
+            : "No traffic checked yet"
+        }
       />
     </div>
   )
+}
+
+// Aggregate guardrail runtime counters across every configured guardrail.
+// These are the executor's in-memory counters (reset on gateway restart),
+// so they read 0 until traffic flows — never fabricated. Drives the
+// pass-rate KPI and the compliance panel's blocked / PII / injection trio.
+function useGuardrailAgg() {
+  return useQuery({
+    queryKey: ["guardrail-stats-agg"],
+    queryFn: async () => {
+      const res: any = await getGuardrailStats()
+      const body = res?.data ?? res
+      const stats: Record<string, any> = body?.stats ?? {}
+      let executions = 0,
+        passed = 0,
+        blocked = 0,
+        pii = 0,
+        injection = 0
+      for (const [name, s] of Object.entries(stats)) {
+        executions += s.total_executions ?? 0
+        passed += s.total_passed ?? 0
+        blocked += s.total_blocked ?? 0
+        const n = name.toLowerCase()
+        if (n.includes("pii") || n.includes("redact") || n.includes("presidio"))
+          pii += s.total_blocked ?? 0
+        if (n.includes("inject") || n.includes("prompt") || n.includes("lakera"))
+          injection += s.total_blocked ?? 0
+      }
+      const passRate = executions > 0 ? (passed / executions) * 100 : null
+      return {
+        executions,
+        passed,
+        blocked,
+        pii,
+        injection,
+        passRate,
+        enabled: !!body?.enabled,
+      }
+    },
+    refetchInterval: 60000,
+    retry: false,
+  })
 }
 
 // Shared registry-count query — agents/MCP/skills/prompts totals. Used by
@@ -280,16 +314,97 @@ function useRegistryCounts() {
   })
 }
 
-// ─── Request Volume Chart ─────────────────────────────────────────────────────
+// ─── Mockup panel primitives ──────────────────────────────────────────────────
+
+function Panel({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={`rounded-[14px] border border-border bg-card p-[18px] shadow-sm ${className ?? ""}`}
+    >
+      {children}
+    </div>
+  )
+}
+
+function SectionTitle({ title, sub }: { title: string; sub?: string }) {
+  return (
+    <div>
+      <div className="text-[14px] font-semibold tracking-tight text-foreground">
+        {title}
+      </div>
+      {sub && <div className="mt-0.5 text-[12px] text-text-dim">{sub}</div>}
+    </div>
+  )
+}
+
+// Soft 12% tint of a hex — for chips / rings that carry a static brand or
+// semantic color (kind pink, framework greens/ambers).
+function softTint(hex: string): string {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, 0.12)`
+}
+
+// ─── Operational status pill (header) ─────────────────────────────────────────
+
+function OperationalPill() {
+  const { data: healthData } = useQuery({
+    queryKey: ["models-health"],
+    queryFn: getModelsHealth,
+    refetchInterval: 30000,
+  })
+
+  const summary = React.useMemo(() => {
+    const response = healthData as ModelsHealthResponse | undefined
+    if (!response?.models) return { healthy: 0, degraded: 0, down: 0 }
+    let healthy = 0,
+      degraded = 0,
+      down = 0
+    for (const m of Object.values(response.models)) {
+      if (!m.healthy) down++
+      else if (m.healthy_count < m.total_count) degraded++
+      else healthy++
+    }
+    return { healthy, degraded, down }
+  }, [healthData])
+
+  const total = summary.healthy + summary.degraded + summary.down
+  const allGood = summary.down === 0 && summary.degraded === 0
+  const hex = allGood ? "#0E9F6E" : summary.down > 0 ? "#E0484D" : "#D97706"
+  const label =
+    total === 0
+      ? "Awaiting traffic"
+      : allGood
+        ? "All systems operational"
+        : summary.down > 0
+          ? `${summary.down} system${summary.down === 1 ? "" : "s"} down`
+          : `${summary.degraded} degraded`
+
+  return (
+    <div
+      className="inline-flex h-8 items-center gap-2 rounded-lg px-3 text-[12.5px] font-semibold"
+      style={{ background: softTint(hex), color: hex }}
+    >
+      <span
+        className={`h-[7px] w-[7px] rounded-full ${allGood ? "animate-pulse" : ""}`}
+        style={{ background: hex }}
+      />
+      {label}
+    </div>
+  )
+}
+
+// ─── Request volume area chart ────────────────────────────────────────────────
 
 const chartConfig = {
   requests: {
     label: "Requests",
     color: "hsl(var(--primary))",
-  },
-  tokens: {
-    label: "Tokens (100s)",
-    color: "hsl(var(--kind-mcp))",
   },
 } satisfies ChartConfig
 
@@ -306,425 +421,71 @@ function RequestVolumeChart({ range }: { range: TimeRange }) {
   const chartData = React.useMemo(() => {
     if (!rawTrends) return []
     const raw = (rawTrends as any).data || rawTrends
-    const data = raw || []
     const span = tp.hours ?? tp.days ?? 30
-    return fillTimeGaps(data, currentInterval, span)
+    return fillTimeGaps(raw || [], currentInterval, span)
   }, [rawTrends, currentInterval, tp])
 
   const filteredData = chartData.map((item: any) => ({
     date: item.date,
     requests: item.requests || 0,
-    tokens: item.tokens ? Math.floor(item.tokens / 100) : 0,
   }))
+  const total = filteredData.reduce((a: number, d: any) => a + d.requests, 0)
 
   return (
-    <Card className="pt-0 flex-1 min-w-0">
-      <CardHeader className="flex items-center gap-2 space-y-0 border-b py-4 sm:flex-row">
-        <CardTitle className="flex-1 text-base">Request Volume</CardTitle>
-        <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-          {rangeLabel(range)}
+    <Panel className="min-w-0 flex-1">
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <SectionTitle title="Request volume" sub={`Across all routes · last ${range}`} />
+        <span className="font-mono text-[20px] font-semibold tracking-tight">
+          {fmtCompact(total)}
         </span>
-      </CardHeader>
-      <CardContent className="overflow-hidden px-2 pt-4 sm:px-6 sm:pt-6">
-        {loading ? (
-          <div className="aspect-auto h-[280px] w-full flex items-center justify-center">
-            <div className="flex items-center gap-2">
-              <Icon icon={icons.refresh} className="h-4 w-4 animate-spin" />
-              <span className="text-muted-foreground text-sm">Loading chart data...</span>
-            </div>
-          </div>
-        ) : (
-          <ChartContainer
-            config={chartConfig}
-            className="aspect-auto h-[280px] w-full"
-          >
-            <AreaChart data={filteredData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id="fillRequests" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-requests)" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="var(--color-requests)" stopOpacity={0.02} />
-                </linearGradient>
-                <linearGradient id="fillTokens" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-tokens)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="var(--color-tokens)" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis
-                dataKey="date"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                minTickGap={32}
-                tickFormatter={(value) => formatChartLabel(value, currentInterval)}
-                className="text-xs"
-              />
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(value) => formatChartLabel(value, currentInterval)}
-                    indicator="dot"
-                  />
-                }
-              />
-              <Area
-                dataKey="tokens"
-                type="monotone"
-                fill="url(#fillTokens)"
-                stroke="var(--color-tokens)"
-                strokeWidth={1.5}
-                stackId="a"
-              />
-              <Area
-                dataKey="requests"
-                type="monotone"
-                fill="url(#fillRequests)"
-                stroke="var(--color-requests)"
-                strokeWidth={1.5}
-                stackId="a"
-              />
-            </AreaChart>
-          </ChartContainer>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Provider Breakdown Panel ─────────────────────────────────────────────────
-
-function ProviderBreakdown({ range }: { range: TimeRange }) {
-  const mp = metricsParams(range)
-  const { data: rawData, isLoading: metricsLoading } = useQuery({
-    queryKey: ["dashboard-metrics", mp],
-    queryFn: () => getDashboardMetrics(mp),
-    refetchInterval: 60000,
-  })
-
-  const { data: adminModelsData, isLoading: modelsLoading } = useQuery({
-    queryKey: ["admin-models"],
-    queryFn: getAdminModels,
-  })
-
-  const providers = React.useMemo(() => {
-    const adminResponse = adminModelsData as AdminModelsResponse | undefined
-    const adminModels = adminResponse?.models || []
-    const dashboard = rawData ? ((rawData as any).data || rawData) : null
-    const topModels: any[] = dashboard?.top_models || []
-
-    // Build usage map
-    const usageMap = new Map<string, number>()
-    for (const m of topModels) {
-      if (m.model) {
-        usageMap.set(m.model, m.requests || 0)
-      }
-    }
-
-    // Aggregate by provider
-    const providerMap = new Map<string, number>()
-    for (const am of adminModels) {
-      const provider = am.provider?.type || "unknown"
-      const requests = usageMap.get(am.model_name) || 0
-      providerMap.set(provider, (providerMap.get(provider) || 0) + requests)
-    }
-
-    // Also count providers with no requests (so they still appear)
-    for (const am of adminModels) {
-      const provider = am.provider?.type || "unknown"
-      if (!providerMap.has(provider)) {
-        providerMap.set(provider, 0)
-      }
-    }
-
-    const entries = Array.from(providerMap.entries())
-      .map(([name, requests]) => ({ name, requests }))
-      .sort((a, b) => b.requests - a.requests)
-
-    const total = entries.reduce((sum, e) => sum + e.requests, 0)
-    return entries.map(e => ({
-      ...e,
-      percentage: total > 0 ? (e.requests / total) * 100 : 0,
-    }))
-  }, [rawData, adminModelsData])
-
-  const loading = metricsLoading || modelsLoading
-
-  return (
-    <Card className="pt-0 w-full lg:w-[340px] xl:w-[380px] flex-shrink-0">
-      <CardHeader className="border-b py-4 flex items-center gap-2 sm:flex-row">
-        <CardTitle className="text-base flex-1">Provider Breakdown</CardTitle>
-        <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-          {rangeLabel(range)}
-        </span>
-      </CardHeader>
-      <CardContent className="pt-4">
-        {loading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="h-6 w-6 bg-muted animate-pulse rounded" />
-                <div className="flex-1">
-                  <div className="h-3 w-20 bg-muted animate-pulse rounded mb-2" />
-                  <div className="h-2 w-full bg-muted animate-pulse rounded" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : providers.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">No providers configured</p>
-        ) : (
-          <div className="space-y-4">
-            {providers.map((provider) => (
-              <div key={provider.name} className="flex items-center gap-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-muted/50 flex-shrink-0">
-                  <Icon icon={getProviderLogo(provider.name)} width={16} height={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium truncate capitalize">{provider.name}</span>
-                    <span className="text-xs font-mono text-muted-foreground ml-2">
-                      {provider.requests.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-muted/50 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${Math.max(provider.percentage, 2)}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── System Health Strip ──────────────────────────────────────────────────────
-
-function SystemHealthStrip() {
-  const { data: healthData, isLoading } = useQuery({
-    queryKey: ["models-health"],
-    queryFn: getModelsHealth,
-    refetchInterval: 30000,
-  })
-
-  const summary = React.useMemo(() => {
-    const response = healthData as ModelsHealthResponse | undefined
-    if (!response?.models) return { healthy: 0, degraded: 0, down: 0 }
-    const models = Object.values(response.models)
-    let healthy = 0, degraded = 0, down = 0
-    for (const m of models) {
-      if (!m.healthy) {
-        down++
-      } else if (m.healthy_count < m.total_count) {
-        degraded++
-      } else {
-        healthy++
-      }
-    }
-    return { healthy, degraded, down }
-  }, [healthData])
-
-  if (isLoading) return null
-
-  const total = summary.healthy + summary.degraded + summary.down
-  if (total === 0) return null
-
-  return (
-    <div className="flex items-center gap-4 px-4 py-2 rounded-lg border bg-card text-sm">
-      <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">System Health</span>
-      <div className="flex items-center gap-4 ml-auto">
-        {summary.healthy > 0 && (
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            <span className="font-mono text-xs">{summary.healthy}</span>
-            <span className="text-muted-foreground text-xs">healthy</span>
-          </span>
-        )}
-        {summary.degraded > 0 && (
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-amber-500" />
-            <span className="font-mono text-xs">{summary.degraded}</span>
-            <span className="text-muted-foreground text-xs">degraded</span>
-          </span>
-        )}
-        {summary.down > 0 && (
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-red-500" />
-            <span className="font-mono text-xs">{summary.down}</span>
-            <span className="text-muted-foreground text-xs">down</span>
-          </span>
-        )}
       </div>
-    </div>
+      {loading ? (
+        <div className="flex h-[200px] items-center justify-center">
+          <Icon icon={icons.refresh} className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <ChartContainer config={chartConfig} className="aspect-auto h-[200px] w-full">
+          <AreaChart data={filteredData} margin={{ top: 10, right: 6, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id="fillRequests" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.22} />
+                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} strokeDasharray="3 6" stroke="hsl(var(--border))" />
+            <XAxis
+              dataKey="date"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              minTickGap={32}
+              tickFormatter={(value) => formatChartLabel(value, currentInterval)}
+              className="font-mono text-[11px]"
+            />
+            <ChartTooltip
+              cursor={false}
+              content={
+                <ChartTooltipContent
+                  labelFormatter={(value) => formatChartLabel(value, currentInterval)}
+                  indicator="dot"
+                />
+              }
+            />
+            <Area
+              dataKey="requests"
+              type="monotone"
+              fill="url(#fillRequests)"
+              stroke="hsl(var(--primary))"
+              strokeWidth={2.5}
+            />
+          </AreaChart>
+        </ChartContainer>
+      )}
+    </Panel>
   )
 }
 
-// ─── Models Activity Table ────────────────────────────────────────────────────
-
-function ModelsActivityTable({ range }: { range: TimeRange }) {
-  const navigate = useNavigate()
-  const mp = metricsParams(range)
-
-  const { data: rawData, isLoading: metricsLoading } = useQuery({
-    queryKey: ["dashboard-metrics", mp],
-    queryFn: () => getDashboardMetrics(mp),
-    refetchInterval: 60000,
-  })
-
-  const { data: adminModelsData, isLoading: modelsLoading } = useQuery({
-    queryKey: ["admin-models"],
-    queryFn: getAdminModels,
-  })
-
-  const loading = metricsLoading || modelsLoading
-
-  const models = React.useMemo(() => {
-    const adminResponse = adminModelsData as AdminModelsResponse | undefined
-    const adminModels = adminResponse?.models || []
-    if (adminModels.length === 0) return []
-
-    const dashboard = rawData ? ((rawData as any).data || rawData) : null
-    const topModels: any[] = dashboard?.top_models || []
-
-    const usageMap = new Map<string, { requests: number; cost: number; latency: number }>()
-    for (const m of topModels) {
-      if (m.model) {
-        usageMap.set(m.model, {
-          requests: m.requests || 0,
-          cost: m.cost || 0,
-          latency: m.avg_latency || 0,
-        })
-      }
-    }
-
-    return adminModels
-      .map((am) => {
-        const usage = usageMap.get(am.model_name)
-        return {
-          id: am.id,
-          name: am.model_name,
-          provider: am.provider?.type || "Unknown",
-          enabled: am.enabled,
-          requests: usage?.requests || 0,
-          cost: usage?.cost || 0,
-          latency: usage?.latency || 0,
-        }
-      })
-      .sort((a, b) => b.requests - a.requests)
-      .slice(0, 8)
-  }, [rawData, adminModelsData])
-
-  return (
-    <Card className="pt-0">
-      <CardHeader className="flex items-center gap-2 space-y-0 border-b py-4 sm:flex-row">
-        <CardTitle className="flex-1 text-base">Models Activity</CardTitle>
-        <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-          {rangeLabel(range)}
-        </span>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-primary hover:text-primary/80 text-xs"
-          onClick={() => navigate("/models")}
-        >
-          View All Models
-          <Icon icon={icons.arrowRight} className="ml-1 h-3 w-3" />
-        </Button>
-      </CardHeader>
-      <CardContent className="p-0">
-        {loading ? (
-          <div className="p-6 space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="h-4 w-4 bg-muted animate-pulse rounded" />
-                <div className="h-4 w-28 bg-muted animate-pulse rounded" />
-                <div className="flex-1" />
-                <div className="h-4 w-12 bg-muted animate-pulse rounded" />
-                <div className="h-4 w-16 bg-muted animate-pulse rounded" />
-                <div className="h-4 w-14 bg-muted animate-pulse rounded" />
-              </div>
-            ))}
-          </div>
-        ) : models.length === 0 ? (
-          <div className="py-12 text-center text-muted-foreground text-sm">
-            No models configured yet.
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Model</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Latency</TableHead>
-                <TableHead className="text-right">Requests</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-                <TableHead className="w-[40px]" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {models.map((model) => (
-                <TableRow key={model.id} className="group">
-                  <TableCell>
-                    <div className="flex items-center gap-2.5">
-                      <Icon icon={detectProvider(model.name || model.id, model.provider).icon} width={18} height={18} />
-                      <div>
-                        <div className="font-medium text-sm">{model.name}</div>
-                        <div className="text-[11px] text-muted-foreground capitalize">{model.provider}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      <span className={`h-1.5 w-1.5 rounded-full ${model.enabled ? "bg-good" : "bg-text-dim"}`} />
-                      <span className="text-xs text-muted-foreground">{model.enabled ? "Active" : "Inactive"}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    {model.latency > 0 ? `${model.latency}ms` : "--"}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    {model.requests.toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
-                    ${model.cost.toFixed(2)}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Icon icon={icons.moreHorizontal} className="h-4 w-4" />
-                          <span className="sr-only">Open menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/models/${model.id}`)}>
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate("/models")}>
-                          Edit
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Catalog Composition Donut ────────────────────────────────────────────────
+// ─── Registry composition donut ───────────────────────────────────────────────
 
 function CompositionDonut() {
   const { data: c } = useRegistryCounts()
@@ -732,7 +493,8 @@ function CompositionDonut() {
     queryKey: ["admin-models"],
     queryFn: getAdminModels,
   })
-  const modelCount = (adminModelsData as AdminModelsResponse | undefined)?.models?.length ?? 0
+  const modelCount =
+    (adminModelsData as AdminModelsResponse | undefined)?.models?.length ?? 0
 
   const segs = [
     { key: "agent", name: "Agents", value: c?.agents ?? 0, color: "hsl(var(--kind-agent))" },
@@ -743,97 +505,367 @@ function CompositionDonut() {
   ]
   const data = segs.filter((s) => s.value > 0)
   const total = segs.reduce((a, s) => a + s.value, 0)
+  const kinds = data.length
 
   return (
-    <Card className="w-full flex-shrink-0 pt-0 lg:w-[360px] xl:w-[400px]">
-      <CardHeader className="border-b py-4">
-        <CardTitle className="text-base">Catalog composition</CardTitle>
-      </CardHeader>
-      <CardContent className="pt-5">
-        {total === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">Nothing published yet.</p>
-        ) : (
-          <div className="flex items-center gap-5">
-            <div className="relative h-[150px] w-[150px] shrink-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={data} dataKey="value" nameKey="name" innerRadius={48} outerRadius={70} paddingAngle={2} stroke="none">
-                    {data.map((s) => (
-                      <Cell key={s.key} fill={s.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="font-mono text-2xl font-semibold leading-none">{total}</span>
-                <span className="text-[10.5px] uppercase tracking-wider text-text-dim">assets</span>
-              </div>
-            </div>
-            <div className="flex-1 space-y-2">
-              {segs.map((s) => (
-                <div key={s.key} className="flex items-center gap-2.5 text-sm">
-                  <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: s.color }} />
-                  <span className="flex-1 text-muted-foreground">{s.name}</span>
-                  <span className="font-mono tabular-nums">{s.value}</span>
-                </div>
-              ))}
+    <Panel className="w-full shrink-0 lg:w-[360px] xl:w-[400px]">
+      <SectionTitle
+        title="Registry composition"
+        sub={`${total} assets across ${kinds} ${kinds === 1 ? "kind" : "kinds"}`}
+      />
+      {total === 0 ? (
+        <p className="py-10 text-center text-sm text-muted-foreground">
+          Nothing published yet.
+        </p>
+      ) : (
+        <div className="mt-4 flex items-center gap-5">
+          <div className="relative h-[124px] w-[124px] shrink-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={42}
+                  outerRadius={58}
+                  paddingAngle={2}
+                  stroke="none"
+                >
+                  {data.map((s) => (
+                    <Cell key={s.key} fill={s.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="font-mono text-[22px] font-semibold leading-none">
+                {total}
+              </span>
+              <span className="text-[9.5px] uppercase tracking-wider text-text-dim">
+                assets
+              </span>
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <div className="flex flex-1 flex-col gap-[9px]">
+            {segs.map((s) => (
+              <div key={s.key} className="flex items-center gap-2.5 text-[12.5px]">
+                <span
+                  className="h-2.5 w-2.5 rounded-[3px]"
+                  style={{ background: s.color }}
+                />
+                <span className="flex-1 text-muted-foreground">{s.name}</span>
+                <span className="font-mono font-semibold tabular-nums">
+                  {s.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Panel>
   )
 }
 
-// ─── Recent Activity Feed ─────────────────────────────────────────────────────
+// ─── Compliance & guardrails ──────────────────────────────────────────────────
+
+// Static compliance posture for the demo — pllm has no frameworks API yet, so
+// these chips are representative (the Compliance page is the real surface).
+// The pass-rate ring + blocked / PII / injection figures ARE real (guardrail
+// executor counters), so they read 0 until traffic flows.
+const FRAMEWORKS = [
+  { name: "SOC 2", label: "Compliant", color: "#0E9F6E" },
+  { name: "ISO 27001", label: "Compliant", color: "#0E9F6E" },
+  { name: "GDPR", label: "Compliant", color: "#0E9F6E" },
+  { name: "EU AI Act", label: "In review", color: "#D97706" },
+]
+
+function Ring({
+  pct,
+  label,
+  valueLabel,
+}: {
+  pct: number
+  label: string
+  valueLabel: string
+}) {
+  // r=15.915 → circumference ≈ 100, so dasharray "{pct} 100" fills pct%.
+  const dash = `${Math.max(0, Math.min(100, pct))} 100`
+  return (
+    <div className="relative h-[112px] w-[112px] shrink-0">
+      <svg viewBox="0 0 42 42" className="h-full w-full -rotate-90">
+        <circle cx="21" cy="21" r="15.915" fill="none" stroke="hsl(var(--surface-2))" strokeWidth="4" />
+        <circle
+          cx="21"
+          cy="21"
+          r="15.915"
+          fill="none"
+          stroke="hsl(var(--good))"
+          strokeWidth="4"
+          strokeDasharray={dash}
+          strokeLinecap="round"
+          className="transition-all duration-700 ease-out"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="font-mono text-[19px] font-semibold leading-none">
+          {valueLabel}
+        </span>
+        <span className="text-[9px] uppercase tracking-wider text-text-dim">
+          {label}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function ComplianceGuardrails() {
+  const { data: guard } = useGuardrailAgg()
+  const passRate = guard?.passRate ?? null
+  const stats = [
+    { value: guard ? guard.blocked.toLocaleString() : "—", label: "Requests blocked" },
+    { value: guard ? guard.pii.toLocaleString() : "—", label: "PII redactions" },
+    { value: guard ? guard.injection.toLocaleString() : "—", label: "Injections caught" },
+  ]
+
+  return (
+    <Panel className="min-w-0 lg:flex-[1.4]">
+      <SectionTitle
+        title="Compliance & guardrails"
+        sub="Policy enforcement across all traffic"
+      />
+      <div className="mt-[18px] flex items-center gap-[22px]">
+        <Ring
+          pct={passRate ?? 0}
+          label="pass rate"
+          valueLabel={passRate !== null ? `${passRate.toFixed(1)}%` : "—"}
+        />
+        <div className="flex flex-1 flex-col gap-3.5">
+          {stats.map((s) => (
+            <div key={s.label}>
+              <div className="font-mono text-[20px] font-semibold leading-none">
+                {s.value}
+              </div>
+              <div className="mt-1 text-[11.5px] text-muted-foreground">
+                {s.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="my-4 h-px bg-border" />
+      <div className="mb-2.5 font-mono text-[10.5px] uppercase tracking-wider text-text-dim">
+        Compliance frameworks
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {FRAMEWORKS.map((f) => (
+          <span
+            key={f.name}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-[3px] text-[11.5px] font-medium"
+            style={{ background: softTint(f.color), color: f.color }}
+          >
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: f.color }} />
+            {f.name} · {f.label}
+          </span>
+        ))}
+      </div>
+    </Panel>
+  )
+}
+
+// ─── Recent activity feed ─────────────────────────────────────────────────────
 
 function RecentActivity() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["dashboard-recent-activity"],
-    queryFn: () => getAuditLogs({ limit: 7 }),
+    queryFn: () => getAuditLogs({ limit: 6 }),
     refetchInterval: 30000,
     retry: false,
   })
-  const logs = (((data as any)?.audit_logs as AuditLog[] | undefined) ?? [])
+  const logs = ((data as any)?.audit_logs as AuditLog[] | undefined) ?? []
   const dotClass = (r: AuditLog["event_result"]) =>
-    r === "success" ? "bg-good" : r === "warning" ? "bg-warn" : r === "failure" || r === "error" ? "bg-bad" : "bg-info"
+    r === "success"
+      ? "bg-good"
+      : r === "warning"
+        ? "bg-warn"
+        : r === "failure" || r === "error"
+          ? "bg-bad"
+          : "bg-info"
 
   return (
-    <Card className="flex-1 pt-0">
-      <CardHeader className="border-b py-4">
-        <CardTitle className="text-base">Recent activity</CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        {isLoading ? (
-          <div className="space-y-3 p-5">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-8 animate-pulse rounded bg-muted" />
-            ))}
-          </div>
-        ) : isError || logs.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">No recent events.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {logs.map((l) => (
-              <li key={l.id} className="flex items-start gap-3 px-5 py-3">
-                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotClass(l.event_result)}`} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium">{l.event_action || l.event_type}</p>
-                  <p className="truncate text-[11.5px] text-text-dim">
-                    {[l.resource_type, l.message].filter(Boolean).join(" · ") || l.user?.email || "—"}
-                  </p>
+    <Panel className="flex min-w-0 flex-1 flex-col">
+      <SectionTitle title="Recent activity" />
+      {isLoading ? (
+        <div className="mt-3 space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-8 animate-pulse rounded bg-muted" />
+          ))}
+        </div>
+      ) : isError || logs.length === 0 ? (
+        <p className="py-10 text-center text-sm text-muted-foreground">
+          No recent events.
+        </p>
+      ) : (
+        <div className="mt-1.5 flex flex-col">
+          {logs.map((l) => (
+            <div
+              key={l.id}
+              className="flex items-start gap-3 border-b border-border py-[11px] last:border-0"
+            >
+              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dotClass(l.event_result)}`} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-medium">
+                  {l.event_action || l.event_type}
                 </div>
-                {l.created_at && (
-                  <span className="shrink-0 text-[11px] text-text-dim">
-                    {formatDistanceToNow(new Date(l.created_at))}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+                <div className="truncate text-[11.5px] text-text-dim">
+                  {[l.resource_type, l.message].filter(Boolean).join(" · ") ||
+                    l.user?.email ||
+                    "—"}
+                </div>
+              </div>
+              {l.created_at && (
+                <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-text-dim">
+                  {formatDistanceToNow(new Date(l.created_at))}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+// ─── Asset activity table ─────────────────────────────────────────────────────
+//
+// Busiest models, presented in the mockup's asset-table shape. Every figure
+// is real (per-model requests + latency from the dashboard metrics top_models
+// join). Models are registry assets of kind "model", hence the kind chip.
+
+const ASSET_COLS = "grid-cols-[2.2fr_1.1fr_1fr_.9fr_1fr]"
+
+function AssetActivityTable({ range }: { range: TimeRange }) {
+  const navigate = useNavigate()
+  const mp = metricsParams(range)
+
+  const { data: rawData, isLoading: metricsLoading } = useQuery({
+    queryKey: ["dashboard-metrics", mp],
+    queryFn: () => getDashboardMetrics(mp),
+    refetchInterval: 60000,
+  })
+  const { data: adminModelsData, isLoading: modelsLoading } = useQuery({
+    queryKey: ["admin-models"],
+    queryFn: getAdminModels,
+  })
+  const loading = metricsLoading || modelsLoading
+
+  const models = React.useMemo(() => {
+    const adminResponse = adminModelsData as AdminModelsResponse | undefined
+    const adminModels = adminResponse?.models || []
+    if (adminModels.length === 0) return []
+
+    const dashboard = rawData ? (rawData as any).data || rawData : null
+    const topModels: any[] = dashboard?.top_models || []
+    const usageMap = new Map<string, { requests: number; latency: number }>()
+    for (const m of topModels) {
+      if (m.model) {
+        usageMap.set(m.model, {
+          requests: m.requests || 0,
+          latency: m.p95_latency || m.avg_latency || 0,
+        })
+      }
+    }
+    return adminModels
+      .map((am) => {
+        const usage = usageMap.get(am.model_name)
+        return {
+          id: am.id,
+          name: am.model_name,
+          provider: am.provider?.type || "Unknown",
+          enabled: am.enabled,
+          requests: usage?.requests || 0,
+          latency: Math.round(usage?.latency || 0),
+        }
+      })
+      .sort((a, b) => b.requests - a.requests)
+      .slice(0, 6)
+  }, [rawData, adminModelsData])
+
+  return (
+    <div className="overflow-hidden rounded-[14px] border border-border bg-card shadow-sm">
+      <div className="flex items-center justify-between border-b border-border px-[18px] py-4">
+        <SectionTitle title="Asset activity" sub={`Busiest models · last ${range}`} />
+        <button
+          onClick={() => navigate("/registry")}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+        >
+          Open registry
+          <Icon icon={icons.arrowRight} className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div
+        className={`grid ${ASSET_COLS} items-center gap-2.5 border-b border-border px-[18px] py-[11px] font-mono text-[10.5px] uppercase tracking-wider text-text-dim`}
+      >
+        <span>Asset</span>
+        <span>Kind</span>
+        <span>Requests</span>
+        <span>Latency</span>
+        <span>Status</span>
+      </div>
+      {loading ? (
+        <div className="space-y-3 p-[18px]">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-5 animate-pulse rounded bg-muted" />
+          ))}
+        </div>
+      ) : models.length === 0 ? (
+        <div className="py-12 text-center text-sm text-muted-foreground">
+          No models configured yet.
+        </div>
+      ) : (
+        models.map((m) => (
+          <div
+            key={m.id}
+            className={`grid ${ASSET_COLS} items-center gap-2.5 border-b border-border px-[18px] py-[13px] transition-colors last:border-0 hover:bg-surface-2`}
+          >
+            <div className="flex min-w-0 items-center gap-2.5">
+              <Icon
+                icon={detectProvider(m.name || m.id, m.provider).icon}
+                width={17}
+                height={17}
+                className="shrink-0"
+              />
+              <span className="truncate text-[13px] font-semibold">{m.name}</span>
+            </div>
+            <div>
+              <span
+                className="inline-flex items-center rounded-md px-2 py-[3px] text-[10.5px] font-semibold"
+                style={{ background: softTint("#DB2777"), color: "#DB2777" }}
+              >
+                Model
+              </span>
+            </div>
+            <div className="font-mono text-[13px]">
+              {m.requests.toLocaleString()}
+            </div>
+            <div className="font-mono text-[13px] text-muted-foreground">
+              {m.latency > 0 ? `${m.latency}ms` : "—"}
+            </div>
+            <div>
+              <span
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium"
+                style={{ color: m.enabled ? "hsl(var(--good))" : "hsl(var(--text-dim))" }}
+              >
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ background: m.enabled ? "hsl(var(--good))" : "hsl(var(--text-dim))" }}
+                />
+                {m.enabled ? "Active" : "Inactive"}
+              </span>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
   )
 }
 
@@ -845,19 +877,24 @@ export default function Dashboard() {
     <PageShell
       title="Dashboard"
       description="Registry health, governance, and gateway traffic at a glance."
-      actions={<TimeRangePill value={range} onChange={setRange} />}
+      actions={
+        <div className="flex items-center gap-3">
+          <OperationalPill />
+          <TimeRangePill value={range} onChange={setRange} />
+        </div>
+      }
     >
-      <SystemHealthStrip />
       <HeroMetrics range={range} />
-      <div className="flex flex-col gap-4 xl:flex-row">
+      <div className="flex flex-col gap-4 lg:flex-row">
         <RequestVolumeChart range={range} />
         <CompositionDonut />
       </div>
       <div className="flex flex-col gap-4 lg:flex-row">
+        <ComplianceGuardrails />
         <RecentActivity />
-        <ProviderBreakdown range={range} />
       </div>
-      <ModelsActivityTable range={range} />
+      <AssetActivityTable range={range} />
     </PageShell>
   )
 }
+

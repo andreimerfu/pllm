@@ -40,7 +40,7 @@ export function PageShell({
     <div className={cn("space-y-5 pb-10", className)}>
       <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight leading-tight truncate">
+          <h1 className="text-2xl font-bold tracking-[-0.02em] leading-tight truncate">
             {title}
           </h1>
           {description && (

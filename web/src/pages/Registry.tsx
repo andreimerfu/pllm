@@ -32,10 +32,12 @@ import {
   listRegistryPromptVersions,
   listRegistryDependents,
   getObservedAgentDeps,
+  getAdminModels,
 } from "@/lib/api";
 import { frameworkInfo } from "@/lib/frameworks";
 import { detectProvider } from "@/lib/providers";
 import type {
+  AdminModel,
   Deployment,
   DeploymentStatus,
   EnrichmentScore,
@@ -83,15 +85,16 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PublishDialog } from "@/components/registry/publish-dialog";
+import { DeployDialog } from "@/components/agents/deploy-dialog";
 import { ArtifactCard } from "@/components/registry/artifact-card";
-import { KindIcon, kindAccent } from "@/components/registry/kind-icon";
+import { KindIcon } from "@/components/registry/kind-icon";
 import { ObservedGraph } from "@/components/registry/observed-graph";
 import { PackageChip } from "@/components/registry/package-chip";
 import { InstallCommand } from "@/components/registry/install-command";
 import { ScoresPanel } from "@/components/registry/score-ribbon";
 import { VersionPicker } from "@/components/registry/version-picker";
 import { PageShell } from "@/components/common/page-shell";
-import { SectionLabel } from "@/components/common/status-chip";
+import { KindChip, SectionLabel, StatusChip } from "@/components/common/status-chip";
 import { useToast } from "@/hooks/use-toast";
 
 // ---------------------------------------------------------------------------
@@ -99,7 +102,20 @@ import { useToast } from "@/hooks/use-toast";
 // ---------------------------------------------------------------------------
 
 type Kind = "servers" | "agents" | "skills" | "prompts";
+// The tab bar adds two non-registry tabs: a combined "all" view and the
+// gateway "models" list. Registry kinds keep their plural keys.
+type TabKey = "all" | "agents" | "servers" | "skills" | "prompts" | "models";
 type SortMode = "recent" | "alpha" | "score";
+
+// Ordered tab bar — drives the underline nav (label + icon per tab).
+const TABS: { key: TabKey; label: string; icon: string }[] = [
+  { key: "all", label: "All", icon: icons.layers },
+  { key: "agents", label: "Agents", icon: icons.agent },
+  { key: "servers", label: "MCP", icon: icons.mcp },
+  { key: "skills", label: "Skills", icon: icons.skill },
+  { key: "prompts", label: "Prompts", icon: icons.prompt },
+  { key: "models", label: "Models", icon: icons.models },
+];
 
 const KIND_META: Record<
   Kind,
@@ -131,6 +147,41 @@ const KIND_META: Record<
   },
 };
 
+const TAB_BY_KEY = TABS.reduce(
+  (acc, t) => {
+    acc[t.key] = t;
+    return acc;
+  },
+  {} as Record<TabKey, { key: TabKey; label: string; icon: string }>,
+);
+
+// Map a registry singular kind back to this page's plural tab/query key.
+const SINGULAR_TO_KIND: Record<"server" | "agent" | "skill" | "prompt", Kind> = {
+  server: "servers",
+  agent: "agents",
+  skill: "skills",
+  prompt: "prompts",
+};
+
+function tabTagline(tab: TabKey): string {
+  switch (tab) {
+    case "all":
+      return "Everything in the catalog — agents, MCP servers, skills, prompts, and gateway models.";
+    case "models":
+      return "Gateway LLMs routed through pllm. Configured on the Models page.";
+    default:
+      return KIND_META[tab].tagline;
+  }
+}
+
+type RegistrySingular = "server" | "agent" | "skill" | "prompt";
+
+// One combined grid for the "all" tab: registry rows tagged with their kind,
+// interleaved with gateway models.
+type AllEntry =
+  | { type: "registry"; kind: RegistrySingular; row: AnyRow }
+  | { type: "model"; model: AdminModel };
+
 function parsePackages(raw: unknown): RegistryPackage[] {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw as RegistryPackage[];
@@ -156,19 +207,23 @@ const deployInProgress = (s?: DeploymentStatus) =>
 // ---------------------------------------------------------------------------
 
 // Sidebar deep-links (Skills/Prompts) land here as /registry?kind=<singular>.
-// Map the registry-kind query value back to this page's plural tab key.
-const KIND_PARAM_TO_TAB: Record<string, Kind> = {
+// Map the registry-kind query value back to this page's tab key. No param
+// falls through to the default "all" tab.
+const KIND_PARAM_TO_TAB: Record<string, TabKey> = {
   skill: "skills",
   prompt: "prompts",
   agent: "agents",
   server: "servers",
   mcp: "servers",
+  model: "models",
+  llm: "models",
 };
 
 export default function Registry() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const kindParam = searchParams.get("kind");
-  const [kind, setKind] = useState<Kind>(KIND_PARAM_TO_TAB[kindParam ?? ""] ?? "servers");
+  const [tab, setTab] = useState<TabKey>(KIND_PARAM_TO_TAB[kindParam ?? ""] ?? "all");
   const [search, setSearch] = useState("");
   const [latestOnly, setLatestOnly] = useState(true);
   const [sort, setSort] = useState<SortMode>("recent");
@@ -177,12 +232,15 @@ export default function Registry() {
     { kind: Kind; name: string; version?: string } | null
   >(null);
   const [publishOpen, setPublishOpen] = useState(false);
+  // "<name>::<version>" of the agent to deploy, set by a card Deploy button →
+  // opens the bind-to-use-case drawer preselected. Null = drawer closed.
+  const [deployAgentKey, setDeployAgentKey] = useState<string | null>(null);
 
   // Re-sync the active tab when the sidebar deep-link param changes while
   // we're already mounted (e.g. Skills → Prompts without a full remount).
   useEffect(() => {
     const mapped = KIND_PARAM_TO_TAB[kindParam ?? ""];
-    if (mapped) setKind(mapped);
+    if (mapped) setTab(mapped);
   }, [kindParam]);
 
   const query = { search: search || undefined, latest: latestOnly };
@@ -206,6 +264,13 @@ export default function Registry() {
     queryFn: () => listRegistryPrompts(query),
   });
 
+  // Gateway models — the sixth tab. Sourced from the admin model list, not the
+  // registry; no fabricated scores.
+  const models = useQuery({
+    queryKey: ["admin-models"],
+    queryFn: getAdminModels,
+  });
+
   // Deployment state is polled broadly so every card can show live deploy info.
   const deployments = useQuery({
     queryKey: ["deployments"],
@@ -213,8 +278,15 @@ export default function Registry() {
     refetchInterval: 5_000,
   });
 
-  const activeItems = useMemo(() => {
-    switch (kind) {
+  // The registry kind backing the active tab (null for "all"/"models", which
+  // are handled explicitly).
+  const activeKind: Kind | null =
+    tab === "agents" || tab === "servers" || tab === "skills" || tab === "prompts"
+      ? tab
+      : null;
+
+  const activeItems = useMemo<AnyRow[]>(() => {
+    switch (activeKind) {
       case "servers":
         return servers.data?.servers ?? [];
       case "agents":
@@ -223,46 +295,104 @@ export default function Registry() {
         return skills.data?.skills ?? [];
       case "prompts":
         return prompts.data?.prompts ?? [];
+      default:
+        return [];
     }
-  }, [kind, servers.data, agents.data, skills.data, prompts.data]);
+  }, [activeKind, servers.data, agents.data, skills.data, prompts.data]);
 
-  const filteredItems = useMemo(() => {
-    let items = [...activeItems];
-    // Package-type filter only makes sense for servers.
-    if (kind === "servers" && pkgFilter) {
-      items = items.filter((row) => {
-        const pkgs = parsePackages((row as RegistryServer).packages);
-        return pkgs.some(
-          (p) => (p.registry_type ?? "").toLowerCase() === pkgFilter,
-        );
-      });
-    }
-    // Sort client-side; backend default is name-asc which is fine as a tiebreaker.
-    switch (sort) {
-      case "alpha":
-        items.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case "recent":
-        items.sort((a, b) => {
-          const ad = a.published_at ? new Date(a.published_at).getTime() : 0;
-          const bd = b.published_at ? new Date(b.published_at).getTime() : 0;
-          return bd - ad;
-        });
-        break;
-      case "score":
-        // Score isn't on the list row. Keep alpha tiebreak; real score sort
-        // would need a backend join — a future improvement.
-        items.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-    }
-    return items;
-  }, [activeItems, kind, pkgFilter, sort]);
+  // Shared sort/filter applied to any registry-row array.
+  const sortRows = useMemo(
+    () =>
+      (rows: AnyRow[], forKind: Kind | null) => {
+        let items = [...rows];
+        // Package-type filter only makes sense for servers.
+        if (forKind === "servers" && pkgFilter) {
+          items = items.filter((row) => {
+            const pkgs = parsePackages((row as RegistryServer).packages);
+            return pkgs.some(
+              (p) => (p.registry_type ?? "").toLowerCase() === pkgFilter,
+            );
+          });
+        }
+        // Sort client-side; backend default is name-asc which is fine as a tiebreaker.
+        switch (sort) {
+          case "alpha":
+            items.sort((a, b) => a.name.localeCompare(b.name));
+            break;
+          case "recent":
+            items.sort((a, b) => {
+              const ad = a.published_at ? new Date(a.published_at).getTime() : 0;
+              const bd = b.published_at ? new Date(b.published_at).getTime() : 0;
+              return bd - ad;
+            });
+            break;
+          case "score":
+            // Score isn't on the list row. Keep alpha tiebreak; real score sort
+            // would need a backend join — a future improvement.
+            items.sort((a, b) => a.name.localeCompare(b.name));
+            break;
+        }
+        return items;
+      },
+    [pkgFilter, sort],
+  );
 
-  const counts = {
-    servers: servers.data?.total ?? servers.data?.servers?.length ?? 0,
-    agents: agents.data?.total ?? agents.data?.agents?.length ?? 0,
-    skills: skills.data?.total ?? skills.data?.skills?.length ?? 0,
-    prompts: prompts.data?.total ?? prompts.data?.prompts?.length ?? 0,
+  const filteredItems = useMemo(
+    () => sortRows(activeItems, activeKind),
+    [sortRows, activeItems, activeKind],
+  );
+
+  // Models filtered by the search term against model_name.
+  const filteredModels = useMemo(() => {
+    const all = models.data?.models ?? [];
+    const term = search.trim().toLowerCase();
+    if (!term) return all;
+    return all.filter((m) => m.model_name.toLowerCase().includes(term));
+  }, [models.data, search]);
+
+  // Combined "all" grid — every registry row tagged with its kind, plus models.
+  const allEntries = useMemo<AllEntry[]>(() => {
+    const reg: AllEntry[] = [
+      ...sortRows(servers.data?.servers ?? [], "servers").map((row) => ({
+        type: "registry" as const,
+        kind: "server" as const,
+        row,
+      })),
+      ...sortRows(agents.data?.agents ?? [], "agents").map((row) => ({
+        type: "registry" as const,
+        kind: "agent" as const,
+        row,
+      })),
+      ...sortRows(skills.data?.skills ?? [], "skills").map((row) => ({
+        type: "registry" as const,
+        kind: "skill" as const,
+        row,
+      })),
+      ...sortRows(prompts.data?.prompts ?? [], "prompts").map((row) => ({
+        type: "registry" as const,
+        kind: "prompt" as const,
+        row,
+      })),
+    ];
+    const mdls: AllEntry[] = filteredModels.map((model) => ({
+      type: "model" as const,
+      model,
+    }));
+    return [...reg, ...mdls];
+  }, [servers.data, agents.data, skills.data, prompts.data, filteredModels, sortRows]);
+
+  const countAgents = agents.data?.total ?? agents.data?.agents?.length ?? 0;
+  const countServers = servers.data?.total ?? servers.data?.servers?.length ?? 0;
+  const countSkills = skills.data?.total ?? skills.data?.skills?.length ?? 0;
+  const countPrompts = prompts.data?.total ?? prompts.data?.prompts?.length ?? 0;
+  const countModels = models.data?.models?.length ?? 0;
+  const counts: Record<TabKey, number> = {
+    all: countAgents + countServers + countSkills + countPrompts + countModels,
+    agents: countAgents,
+    servers: countServers,
+    skills: countSkills,
+    prompts: countPrompts,
+    models: countModels,
   };
   // KPI cards are derived entirely from the four already-fetched arrays.
   const allItems = useMemo<AnyRow[]>(
@@ -312,7 +442,7 @@ export default function Registry() {
 
   // Package types present among current servers (for filter chips).
   const availablePkgTypes = useMemo(() => {
-    if (kind !== "servers") return [];
+    if (tab !== "servers") return [];
     const set = new Set<string>();
     for (const row of activeItems) {
       for (const p of parsePackages((row as RegistryServer).packages)) {
@@ -320,14 +450,47 @@ export default function Registry() {
       }
     }
     return Array.from(set).sort();
-  }, [activeItems, kind]);
+  }, [activeItems, tab]);
 
-  const activeQueryLoading = {
-    servers: servers.isLoading,
-    agents: agents.isLoading,
-    skills: skills.isLoading,
-    prompts: prompts.isLoading,
-  }[kind];
+  const activeQueryLoading =
+    tab === "all"
+      ? servers.isLoading ||
+        agents.isLoading ||
+        skills.isLoading ||
+        prompts.isLoading ||
+        models.isLoading
+      : tab === "models"
+        ? models.isLoading
+        : {
+            servers: servers.isLoading,
+            agents: agents.isLoading,
+            skills: skills.isLoading,
+            prompts: prompts.isLoading,
+          }[tab];
+
+  // Default publish target for the "all" view and the registry tabs. The
+  // models tab routes publish actions to the /models page instead.
+  const publishKind: Kind = activeKind ?? "agents";
+
+  // Per-card Deploy affordance — agents open the bind-to-use-case drawer,
+  // MCP servers deploy as a K8s workload inline. Skills/prompts aren't
+  // deployable on their own, so they get no action.
+  const cardAction = (kind: RegistryKind, row: AnyRow) => {
+    if (kind === "agent")
+      return (
+        <AgentDeployButton
+          onDeploy={() => setDeployAgentKey(`${row.name}::${row.version}`)}
+        />
+      );
+    if (kind === "server")
+      return (
+        <ServerDeployButton
+          row={row as RegistryServer}
+          deployments={deployments.data?.deployments}
+        />
+      );
+    return undefined;
+  };
 
   return (
     <PageShell
@@ -335,16 +498,23 @@ export default function Registry() {
       description="The catalog of everything deployable — agents, MCP servers, skills, prompts, and models. Reviewed, versioned, scored, and ready to ship."
       actions={
         <>
-          {kind === "servers" && <ImportButton />}
-          <Button onClick={() => setPublishOpen(true)} className="gap-2">
-            <Icon icon={icons.plus} className="h-4 w-4" />
-            Publish {kind.slice(0, -1)}
-          </Button>
+          {tab === "servers" && <ImportButton />}
+          {tab === "models" ? (
+            <Button onClick={() => navigate("/models")} className="gap-2">
+              <Icon icon={icons.plus} className="h-4 w-4" />
+              Add model
+            </Button>
+          ) : (
+            <Button onClick={() => setPublishOpen(true)} className="gap-2">
+              <Icon icon={icons.plus} className="h-4 w-4" />
+              Publish {publishKind.slice(0, -1)}
+            </Button>
+          )}
         </>
       }
     >
       <PublishDialog
-        kind={kind}
+        kind={publishKind}
         open={publishOpen}
         onOpenChange={setPublishOpen}
       />
@@ -362,7 +532,7 @@ export default function Registry() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={`Search ${kind}…`}
+            placeholder={`Search ${tab}…`}
             className="h-9 rounded-[9px] pl-9"
           />
         </div>
@@ -395,7 +565,7 @@ export default function Registry() {
       </div>
 
       {/* Package-type filter chips (servers only) */}
-      {kind === "servers" && availablePkgTypes.length > 0 && (
+      {tab === "servers" && availablePkgTypes.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mr-1">
             packages
@@ -429,44 +599,42 @@ export default function Registry() {
       )}
 
       {/* ────────────────────────── Tabs + Grid ────────────────────────── */}
-      <Tabs value={kind} onValueChange={(v) => setKind(v as Kind)}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
         <TabsList className="h-auto w-full justify-start gap-0 rounded-none border-b border-border bg-transparent p-0">
-          {(Object.keys(KIND_META) as Kind[]).map((k) => (
+          {TABS.map((t) => (
             <TabsTrigger
-              key={k}
-              value={k}
+              key={t.key}
+              value={t.key}
               className="mr-[18px] gap-2 rounded-none border-b-2 border-transparent bg-transparent px-1 py-0 h-10 text-[13.5px] font-medium text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-primary data-[state=active]:shadow-none"
             >
-              <Icon icon={kindAccent(KIND_META[k].singular).icon} className="h-[15px] w-[15px]" />
-              <span>{KIND_META[k].label.replace(/^MCP /, "")}</span>
+              <Icon icon={t.icon} className="h-[15px] w-[15px]" />
+              <span>{t.label}</span>
               <span
                 className={cn(
                   "rounded-full px-1.5 py-px font-mono text-[10.5px] font-semibold tabular-nums",
-                  kind === k ? "bg-[var(--accent-soft)] text-primary" : "bg-surface-2 text-text-dim",
+                  tab === t.key ? "bg-[var(--accent-soft)] text-primary" : "bg-surface-2 text-text-dim",
                 )}
               >
-                {counts[k]}
+                {counts[t.key]}
               </span>
             </TabsTrigger>
           ))}
         </TabsList>
 
-        {(Object.keys(KIND_META) as Kind[]).map((k) => (
-          <TabsContent key={k} value={k} className="mt-5">
-            <p className="text-sm text-muted-foreground mb-4 flex items-center gap-2">
-              <Icon
-                icon={kindAccent(KIND_META[k].singular).icon}
-                className="h-4 w-4"
-              />
-              {KIND_META[k].tagline}
-            </p>
+        <TabsContent value={tab} className="mt-5">
+          {/* Tagline rail */}
+          <p className="text-sm text-muted-foreground mb-4 flex items-center gap-2">
+            <Icon icon={TAB_BY_KEY[tab].icon} className="h-4 w-4" />
+            {tabTagline(tab)}
+          </p>
 
-            {activeQueryLoading && k === kind ? (
-              <LoadingGrid />
-            ) : filteredItems.length === 0 ? (
+          {activeQueryLoading ? (
+            <LoadingGrid />
+          ) : tab === "all" ? (
+            allEntries.length === 0 ? (
               <EmptyState
                 icon={icons.registry}
-                title={KIND_META[k].empty}
+                title="Nothing in the catalog yet."
                 description={
                   search
                     ? `No matches for "${search}". Try clearing the filter.`
@@ -475,27 +643,106 @@ export default function Registry() {
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {filteredItems.map((row) => (
-                  <ArtifactCard
-                    key={row.id}
-                    kind={KIND_META[k].singular}
-                    row={row}
-                    extras={extrasFor(k, row, deployments.data?.deployments)}
-                    onClick={() =>
-                      setDetail({ kind: k, name: row.name, version: row.version })
-                    }
+                {allEntries.map((entry) =>
+                  entry.type === "model" ? (
+                    <ModelCard
+                      key={`model-${entry.model.id}`}
+                      model={entry.model}
+                      onClick={() => navigate("/models")}
+                    />
+                  ) : (
+                    <ArtifactCard
+                      key={`${entry.kind}-${entry.row.id}`}
+                      kind={entry.kind}
+                      row={entry.row}
+                      extras={extrasFor(
+                        SINGULAR_TO_KIND[entry.kind],
+                        entry.row,
+                        deployments.data?.deployments,
+                      )}
+                      action={cardAction(entry.kind, entry.row)}
+                      onClick={() =>
+                        setDetail({
+                          kind: SINGULAR_TO_KIND[entry.kind],
+                          name: entry.row.name,
+                          version: entry.row.version,
+                        })
+                      }
+                    />
+                  ),
+                )}
+              </div>
+            )
+          ) : tab === "models" ? (
+            filteredModels.length === 0 ? (
+              <EmptyState
+                icon={icons.models}
+                title="No models configured yet."
+                description={
+                  search
+                    ? `No matches for "${search}". Try clearing the filter.`
+                    : "Add gateway models on the Models page."
+                }
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredModels.map((model) => (
+                  <ModelCard
+                    key={model.id}
+                    model={model}
+                    onClick={() => navigate("/models")}
                   />
                 ))}
               </div>
-            )}
-          </TabsContent>
-        ))}
+            )
+          ) : filteredItems.length === 0 ? (
+            <EmptyState
+              icon={icons.registry}
+              title={activeKind ? KIND_META[activeKind].empty : "Nothing here yet."}
+              description={
+                search
+                  ? `No matches for "${search}". Try clearing the filter.`
+                  : undefined
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredItems.map((row) => (
+                <ArtifactCard
+                  key={row.id}
+                  kind={activeKind ? KIND_META[activeKind].singular : "server"}
+                  row={row}
+                  extras={
+                    activeKind
+                      ? extrasFor(activeKind, row, deployments.data?.deployments)
+                      : undefined
+                  }
+                  action={
+                    activeKind
+                      ? cardAction(KIND_META[activeKind].singular, row)
+                      : undefined
+                  }
+                  onClick={() =>
+                    activeKind &&
+                    setDetail({ kind: activeKind, name: row.name, version: row.version })
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
 
       <DetailDrawer
         target={detail}
         onClose={() => setDetail(null)}
         deployments={deployments.data?.deployments ?? []}
+      />
+
+      <DeployDialog
+        open={!!deployAgentKey}
+        presetAgentKey={deployAgentKey ?? undefined}
+        onClose={() => setDeployAgentKey(null)}
       />
     </PageShell>
   );
@@ -520,7 +767,7 @@ function RegistryKPIs({
   counts,
   stats,
 }: {
-  counts: Record<Kind, number>;
+  counts: Record<TabKey, number>;
   stats: RegistryStats;
 }) {
   const legend: { kind: RegistryKind; label: string; count: number }[] = [
@@ -677,6 +924,127 @@ function LoadingGrid() {
         </div>
       ))}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Model card — gateway LLMs (the "models" tab / "all" interleave). Styled to
+// match ArtifactCard. No fabricated scores: only what the model row carries.
+// ---------------------------------------------------------------------------
+
+function ModelCard({
+  model,
+  onClick,
+}: {
+  model: AdminModel;
+  onClick?: () => void;
+}) {
+  const provider = detectProvider(model.model_name, model.provider?.type ?? "");
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full flex-col gap-3 rounded-[14px] border border-border bg-card p-4 text-left shadow-sm transition hover:border-primary/40 hover:shadow-md"
+    >
+      <div className="flex items-start gap-3">
+        <KindIcon kind="llm" name={model.model_name} size="md" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold leading-tight">
+            {model.model_name}
+          </p>
+          <p className="truncate text-[12px] text-text-dim">{provider.name}</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <KindChip kind="llm" label="Model" />
+        <StatusChip
+          tone={model.enabled ? "good" : "neutral"}
+          label={model.enabled ? "Enabled" : "Disabled"}
+        />
+      </div>
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Per-card Deploy buttons (Catalog). Agents open the bind-to-use-case drawer;
+// MCP servers deploy as a dedicated K8s workload inline. Both stopPropagation
+// so the click doesn't also open the card's detail drawer.
+// ---------------------------------------------------------------------------
+
+function AgentDeployButton({ onDeploy }: { onDeploy: () => void }) {
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-7 gap-1.5 px-2.5 text-[11px]"
+      onClick={(e) => {
+        e.stopPropagation();
+        onDeploy();
+      }}
+    >
+      <Icon icon={icons.rocket} className="h-3 w-3" />
+      Deploy
+    </Button>
+  );
+}
+
+function ServerDeployButton({
+  row,
+  deployments,
+}: {
+  row: RegistryServer;
+  deployments?: Deployment[];
+}) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const dep = deploymentFor(deployments, row.name, row.version);
+
+  const deployMutation = useMutation({
+    mutationFn: () =>
+      deployRegistryServer({ server_name: row.name, server_version: row.version }),
+    onSuccess: (d) => {
+      qc.invalidateQueries({ queryKey: ["deployments"] });
+      qc.invalidateQueries({ queryKey: ["mcp-servers"] });
+      toast({
+        title: dep ? "Re-deploy started" : "Deploy started",
+        description: `${d.workload_name} · ${d.status}`,
+      });
+    },
+    onError: (e: any) => {
+      toast({
+        title: "Deploy failed",
+        description: e?.response?.data?.error ?? e.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const busy = deployMutation.isPending || deployInProgress(dep?.status);
+  const label = deployMutation.isPending
+    ? "Deploying…"
+    : deployInProgress(dep?.status)
+      ? "Deploying…"
+      : dep?.status === "running"
+        ? "Re-deploy"
+        : dep?.status === "failed"
+          ? "Retry"
+          : "Deploy";
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-7 gap-1.5 px-2.5 text-[11px]"
+      disabled={busy}
+      onClick={(e) => {
+        e.stopPropagation();
+        deployMutation.mutate();
+      }}
+    >
+      <Icon icon={icons.rocket} className="h-3 w-3" />
+      {label}
+    </Button>
   );
 }
 

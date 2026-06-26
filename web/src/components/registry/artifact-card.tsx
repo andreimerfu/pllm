@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Icon } from "@iconify/react";
 import { frameworkInfo } from "@/lib/frameworks";
@@ -49,11 +50,16 @@ export function ArtifactCard({
   row,
   extras,
   onClick,
+  action,
 }: {
   kind: RegistryKind;
   row: AnyRow;
   extras?: Extras;
   onClick?: () => void;
+  // Optional trailing action (e.g. a Deploy button) rendered in the footer.
+  // It's a real interactive element nested in this clickable card, so the
+  // action itself must stopPropagation to avoid also firing the card onClick.
+  action?: ReactNode;
 }) {
   const when = row.published_at
     ? formatDistanceToNow(new Date(row.published_at), { addSuffix: true })
@@ -73,10 +79,18 @@ export function ArtifactCard({
   const hasScore = typeof extras?.score === "number";
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
       className={cn(
-        "group relative flex w-full flex-col gap-3 text-left",
+        "group relative flex w-full cursor-pointer flex-col gap-3 text-left",
         "rounded-[14px] border border-border bg-card p-4 shadow-sm",
         "transition-all hover:border-border-strong hover:shadow",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
@@ -150,14 +164,17 @@ export function ArtifactCard({
             deployed
           </span>
         )}
-        {when && (
-          <span className="ml-auto inline-flex shrink-0 items-center gap-1">
-            <Icon icon={icons.clock} className="h-3 w-3" />
-            {when}
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-3">
+          {when && (
+            <span className="inline-flex shrink-0 items-center gap-1">
+              <Icon icon={icons.clock} className="h-3 w-3" />
+              {when}
+            </span>
+          )}
+          {action}
+        </div>
       </div>
-    </button>
+    </div>
   );
 }
 

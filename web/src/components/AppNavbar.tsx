@@ -36,7 +36,7 @@ const routes: Record<string, RouteMeta> = {
   "/playground":    { label: "Playground",   group: "Gateway",           icon: icons.terminal },
   "/chat":          { label: "Playground",   group: "Gateway",           icon: icons.terminal },
   "/use-cases":     { label: "Use Cases",    group: "Governance",        icon: icons.useCase },
-  "/compliance":    { label: "Compliance",   group: "Governance",        icon: icons.shield },
+  "/compliance":    { label: "Compliance",   group: "Governance",        icon: icons.shieldCheck },
   "/policies":      { label: "Policies",     group: "Governance",        icon: icons.policies },
   "/keys":          { label: "API Keys",     group: "Access & Activity", icon: icons.keys },
   "/teams":         { label: "Teams",        group: "Access & Activity", icon: icons.teams },

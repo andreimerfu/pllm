@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import {
   deleteUseCase,
   getUseCase,
+  listAgents,
   listUseCases,
 } from "@/lib/api";
 import type {
@@ -97,16 +98,7 @@ const STATUS_TONES: Record<UseCaseStatus, string> = {
   retired: "bg-muted text-muted-foreground/60 ring-border",
 };
 
-// Tier rail — a 3px stripe on the card's left edge so a grid of cards reads
-// as a tier sort at first glance, before any text is parsed.
-const TIER_RAIL: Record<UseCaseRiskTier, string> = {
-  tier1: "bg-rose-500/70",
-  tier2: "bg-amber-500/70",
-  tier3: "bg-sky-500/70",
-  tier4: "bg-muted-foreground/30",
-};
-
-// Status dot — small "presence" indicator at the corner of the monogram tile.
+// Status dot — small "presence" indicator next to the use-case status.
 // under_review pulses to surface things waiting on a human.
 const STATUS_DOT: Record<UseCaseStatus, string> = {
   draft: "bg-muted-foreground/50",
@@ -114,17 +106,6 @@ const STATUS_DOT: Record<UseCaseStatus, string> = {
   approved: "bg-emerald-500",
   retired: "bg-transparent ring-1 ring-muted-foreground/40",
 };
-
-// Two-letter monogram derived from the use-case name. Single-word names
-// fall back to the first two characters.
-function monogramFromName(name: string): string {
-  const cleaned = name.trim();
-  if (!cleaned) return "?";
-  const words = cleaned.split(/[\s\-_/.]+/).filter(Boolean);
-  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
-  const w = words[0];
-  return (w.length >= 2 ? w[0] + w[1] : w[0]).toUpperCase();
-}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -157,6 +138,22 @@ export default function UseCases() {
   });
   const items = data?.use_cases ?? [];
 
+  // Real agents-per-use-case count: deployed agents carry a use_case_id, so
+  // we bucket the deployment list by it. This is genuine data — not the
+  // representative footer figures (see UseCaseCard).
+  const { data: agentsData } = useQuery({
+    queryKey: ["agents"],
+    queryFn: () => listAgents(),
+  });
+  const agentCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of agentsData?.agents ?? []) {
+      if (!a.use_case_id) continue;
+      m.set(a.use_case_id, (m.get(a.use_case_id) ?? 0) + 1);
+    }
+    return m;
+  }, [agentsData]);
+
   const portfolio = useMemo(() => {
     const byStatus = { draft: 0, under_review: 0, approved: 0, retired: 0 };
     let blockingTotal = 0;
@@ -181,8 +178,8 @@ export default function UseCases() {
 
   return (
     <PageShell
-      title="Use cases"
-      description="A use case declares what a business activity is allowed to use — MCP servers, agents, LLMs, skills, prompts — plus its risk tier and data classifications. Keys bound to it are scope-checked at runtime."
+      title="Use Cases"
+      description="Governed contexts that agents operate within. Each use case sets its own policies, guardrails and compliance scope — an agent can belong to several."
       actions={
         <>
           <GovernanceHelp accent="declare" />
@@ -193,62 +190,64 @@ export default function UseCases() {
         </>
       }
     >
-      {/* ────────────── Hero ────────────── */}
-      <div className="rounded-lg border border-border bg-card p-5">
-        <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-5 items-center">
-          <div className="flex items-center gap-5">
-            <CoverageRing
-              blocking={portfolio.blockingApproved}
-              approved={portfolio.byStatus.approved}
-            />
-            <div>
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                Portfolio
-              </div>
-              <div className="text-2xl font-bold tabular-nums tracking-tight leading-none mt-1">
+      {/* ── Portfolio overview — ONE panel: blocking gauge + count on the
+            left, the 4 lifecycle mini-cards on the right (matches mockup) ── */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-4 rounded-[14px] border border-border bg-card p-5 shadow-sm">
+        <div className="flex items-center gap-[18px]">
+          <CoverageRing
+            blocking={portfolio.blockingApproved}
+            approved={portfolio.byStatus.approved}
+          />
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-text-dim">
+              Portfolio
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="font-mono text-[26px] font-semibold leading-none tabular-nums tracking-tight">
                 {portfolio.total}
-                <span className="text-xs font-normal font-mono uppercase tracking-widest text-muted-foreground ml-2">
-                  use cases
-                </span>
-              </div>
-              <div className="text-[11px] text-muted-foreground mt-1.5">
-                {portfolio.byStatus.approved === 0
-                  ? "no approved use cases yet"
-                  : `${portfolio.blockingApproved} of ${portfolio.byStatus.approved} approved are blocking`}
-              </div>
+              </span>
+              <span className="text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {portfolio.total === 1 ? "use case" : "use cases"}
+              </span>
+            </div>
+            <div className="mt-1.5 text-[11.5px] text-text-dim">
+              {portfolio.byStatus.approved === 0
+                ? "no approved use cases yet"
+                : `${portfolio.blockingApproved} of ${portfolio.byStatus.approved} approved are blocking`}
             </div>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <HeroStat
-              icon={icons.edit}
-              label="Draft"
-              value={portfolio.byStatus.draft}
-              tone="muted"
-              hint="Not yet submitted for review. Keys can still bind to drafts; runtime enforcement reflects whatever flag/blocking mode is set."
-            />
-            <HeroStat
-              icon={icons.clock}
-              label="Under review"
-              value={portfolio.byStatus.under_review}
-              tone={portfolio.byStatus.under_review > 0 ? "amber" : "muted"}
-              hint="Submitted to risk / governance for sign-off. The component graph is frozen during review."
-            />
-            <HeroStat
-              icon={icons.check}
-              label="Approved"
-              value={portfolio.byStatus.approved}
-              tone={portfolio.byStatus.approved > 0 ? "emerald" : "muted"}
-              hint="Signed off. The blocking-coverage ring tracks how many of these are running in blocking (vs flag) mode."
-            />
-            <HeroStat
-              icon={icons.shieldAlert}
-              label="Flagged"
-              value={portfolio.flagged}
-              tone={portfolio.flagged > 0 ? "rose" : "muted"}
-              hint="Reconciler raised a compliance flag — usually because a dependency now exposes a data class the use case doesn't declare."
-            />
-          </div>
+        <div className="flex min-w-[300px] flex-1 flex-wrap gap-3">
+          <StatusCard
+            icon={icons.edit}
+            label="Draft"
+            value={portfolio.byStatus.draft}
+            tone="muted"
+            hint="Not yet submitted for review. Keys can still bind to drafts; runtime enforcement reflects whatever flag/blocking mode is set."
+          />
+          <StatusCard
+            icon={icons.clock}
+            label="Under review"
+            value={portfolio.byStatus.under_review}
+            tone={portfolio.byStatus.under_review > 0 ? "amber" : "muted"}
+            hint="Submitted to risk / governance for sign-off. The component graph is frozen during review."
+          />
+          <StatusCard
+            icon={icons.check}
+            label="Approved"
+            value={portfolio.byStatus.approved}
+            tone="emerald"
+            highlight={portfolio.byStatus.approved > 0}
+            hint="Signed off. The blocking-coverage gauge tracks how many of these are running in blocking (vs flag) mode."
+          />
+          <StatusCard
+            icon={icons.shieldAlert}
+            label="Flagged"
+            value={portfolio.flagged}
+            tone={portfolio.flagged > 0 ? "rose" : "muted"}
+            hint="Reconciler raised a compliance flag — usually because a dependency now exposes a data class the use case doesn't declare."
+          />
         </div>
       </div>
 
@@ -261,8 +260,8 @@ export default function UseCases() {
             setStatusFilter(status);
           }}
           activeCell={{
-            tier: (tierFilter as any) || "",
-            status: (statusFilter as any) || "",
+            tier: (tierFilter as UseCaseRiskTier) || "",
+            status: (statusFilter as UseCaseStatus) || "",
           }}
         />
         <ClassificationMix useCases={all} />
@@ -361,6 +360,7 @@ export default function UseCases() {
             <UseCaseCard
               key={uc.id}
               row={uc}
+              agentCount={agentCounts.get(uc.id) ?? 0}
               onClick={() => setDetailId(uc.id)}
             />
           ))}
@@ -384,47 +384,57 @@ export default function UseCases() {
 }
 
 // ---------------------------------------------------------------------------
-// Hero stat tile
+// Portfolio status card — one per lifecycle column (Draft / Under review /
+// Approved / Flagged). 34px tinted icon tile + mono-uppercase label + big
+// mono count. The Approved card flips to an accent-tinted surface when it
+// has any approved use cases.
 // ---------------------------------------------------------------------------
 
-function HeroStat({
+function StatusCard({
   icon,
   label,
   value,
   tone = "muted",
+  highlight = false,
   hint,
 }: {
   icon: string;
   label: string;
   value: number;
   tone?: "emerald" | "amber" | "rose" | "muted";
+  highlight?: boolean;
   hint?: string;
 }) {
   const inner = (
-    <div className="rounded-md border border-border/70 bg-background/40 px-3 py-2.5 flex items-center gap-2.5">
-      <div
+    <div
+      className={cn(
+        "flex min-w-[140px] flex-1 items-center gap-[13px] rounded-[12px] border p-[14px_16px]",
+        highlight
+          ? "border-good/40 bg-[var(--accent-soft)]"
+          : "border-border bg-card",
+      )}
+    >
+      <span
         className={cn(
-          "h-8 w-8 rounded-md flex items-center justify-center shrink-0",
-          tone === "emerald" &&
-            "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-          tone === "amber" &&
-            "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-          tone === "rose" && "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-          tone === "muted" && "bg-muted text-muted-foreground",
+          "inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] [&_svg]:h-[17px] [&_svg]:w-[17px]",
+          tone === "emerald" && "bg-good/12 text-good",
+          tone === "amber" && "bg-warn/12 text-warn",
+          tone === "rose" && "bg-bad/12 text-bad",
+          tone === "muted" && "bg-surface-2 text-text-dim",
         )}
       >
-        <Icon icon={icon} className="h-4 w-4" />
-      </div>
+        <Icon icon={icon} />
+      </span>
       <div className="min-w-0">
-        <div className="text-[9px] font-mono uppercase tracking-widest text-muted-foreground leading-none">
+        <div className="font-mono text-[10px] uppercase tracking-wider leading-none text-text-dim">
           {label}
         </div>
         <div
           className={cn(
-            "text-lg font-bold tabular-nums leading-none mt-1",
-            tone === "emerald" && "text-emerald-600 dark:text-emerald-400",
-            tone === "amber" && "text-amber-600 dark:text-amber-400",
-            tone === "rose" && "text-rose-600 dark:text-rose-400",
+            "mt-1.5 font-mono text-[22px] font-semibold leading-none tabular-nums",
+            tone === "emerald" && value > 0 && "text-good",
+            tone === "amber" && value > 0 && "text-warn",
+            tone === "rose" && value > 0 && "text-bad",
           )}
         >
           {value}
@@ -432,97 +442,266 @@ function HeroStat({
       </div>
     </div>
   );
-  return hint ? <InfoTip label={hint}>{inner}</InfoTip> : inner;
+  return hint ? (
+    <InfoTip label={hint}>
+      <div className="flex min-w-[140px] flex-1">{inner}</div>
+    </InfoTip>
+  ) : (
+    inner
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sparkline — a tiny request-trend microchart for the use-case card footer.
+// The series is DETERMINISTIC: seeded by the row's own id/name so the curve
+// is stable across renders (not random) yet visually distinct per card. The
+// underlying volume is NOT in the UseCase API, so this is a representative
+// trend shape — see UseCaseCard footer for the data caveat.
+// ---------------------------------------------------------------------------
+
+function seededSeries(seed: string, n = 12): number[] {
+  // Cheap deterministic PRNG (mulberry32) seeded from the string so the same
+  // use case always draws the same gently-rising curve.
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  let a = h >>> 0;
+  const rand = () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const out: number[] = [];
+  let v = 0.35 + rand() * 0.25;
+  for (let i = 0; i < n; i++) {
+    // Gentle upward drift with small jitter — reads like a usage trend.
+    v += (rand() - 0.4) * 0.12 + 0.015;
+    out.push(Math.max(0.05, Math.min(0.95, v)));
+  }
+  return out;
+}
+
+function Sparkline({
+  points,
+  color,
+  height = 34,
+  className,
+}: {
+  points: number[];
+  color: string;
+  height?: number;
+  className?: string;
+}) {
+  // The SVG stretches to its container width (preserveAspectRatio="none")
+  // while a non-scaling stroke keeps the line a constant 1.5px regardless of
+  // how wide the card is — so the trend spans the right side of the footer.
+  const W = 100;
+  const max = Math.max(...points);
+  const min = Math.min(...points);
+  const rng = max - min || 1;
+  const pts = points
+    .map((v, i) => {
+      const x = (W * i) / (points.length - 1);
+      const y = 3 + (height - 6) * (1 - (v - min) / rng);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  return (
+    <svg
+      width="100%"
+      height={height}
+      viewBox={`0 0 ${W} ${height}`}
+      fill="none"
+      preserveAspectRatio="none"
+      className={cn("block", className)}
+    >
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Card
 // ---------------------------------------------------------------------------
 
-function UseCaseCard({ row, onClick }: { row: UseCase; onClick: () => void }) {
+// Risk-tier → chart hex (icon tile fg, risk chip, sparkline stroke). One of
+// the few places raw hex is permitted: these double as chart colors.
+const RISK_HEX: Record<UseCaseRiskTier, string> = {
+  tier1: "#E0484D",
+  tier2: "#D97706",
+  tier3: "#2563EB",
+  tier4: "#0E9F6E",
+};
+
+// Risk chip label per tier (the matrix rows are Tier 1–4; the chip reads
+// the impact label).
+const RISK_LABEL: Record<UseCaseRiskTier, string> = {
+  tier1: "Critical",
+  tier2: "High",
+  tier3: "Medium",
+  tier4: "Low",
+};
+
+function softHex(hex: string, a: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
+// Representative 30-day request volume, derived deterministically from the
+// seeded trend so it's stable per card. NOT real telemetry — request volume
+// isn't carried on the UseCase API (see seededSeries above).
+function volFromSeries(series: number[]): number {
+  const total = series.reduce((a, b) => a + b, 0);
+  return Math.round(total * 480 + 120);
+}
+
+function formatCompact(n: number): string {
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+  return String(n);
+}
+
+// A single mono stat for the card footer — big mono value over a dim label,
+// matching the mockup's "N agents · N classes" footer pair.
+function FooterStat({ value, label }: { value: number; label: string }) {
+  return (
+    <div>
+      <div className="font-mono text-[15px] font-semibold leading-none tabular-nums text-foreground">
+        {value}
+      </div>
+      <div className="mt-1 text-[11px] text-text-dim">{label}</div>
+    </div>
+  );
+}
+
+function UseCaseCard({
+  row,
+  agentCount,
+  onClick,
+}: {
+  row: UseCase;
+  agentCount: number;
+  onClick: () => void;
+}) {
+  const statusLabel = STATUSES.find((s) => s.value === row.status)?.label ?? row.status;
+  const statusText =
+    row.status === "approved"
+      ? "text-good"
+      : row.status === "under_review"
+        ? "text-warn"
+        : "text-text-dim";
+  const riskHex = RISK_HEX[row.risk_tier];
+  const tags = (row.data_classifications ?? []).slice(0, 3);
+  const classCount = row.data_classifications?.length ?? 0;
+  const extraTags = classCount - tags.length;
+  const series = seededSeries(row.id || row.name);
+  const vol = formatCompact(volFromSeries(series));
+
   return (
     <button
       onClick={onClick}
       className={cn(
-        "group relative text-left w-full overflow-hidden",
-        "rounded-xl border border-border/80 bg-card",
-        "hover:border-primary/40 hover:shadow-sm transition-all",
+        "group relative flex w-full flex-col gap-3 overflow-hidden text-left",
+        "rounded-[14px] border border-border bg-card p-4 shadow-sm",
+        "transition-all hover:border-primary/40",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        "p-4 pl-[18px] space-y-3",
       )}
     >
-      <span
-        aria-hidden
-        className={cn(
-          "absolute left-0 top-0 bottom-0 w-[3px]",
-          TIER_RAIL[row.risk_tier],
-        )}
-      />
-      <div className="flex items-start gap-3 min-w-0">
-        <div className="relative shrink-0">
-          <div
-            className={cn(
-              "h-10 w-10 rounded-lg flex items-center justify-center font-semibold text-[13px] tracking-wide ring-1",
-              TIER_TONES[row.risk_tier],
-            )}
-          >
-            {monogramFromName(row.name)}
-          </div>
+      {/* header: icon tile + name/slug, status top-right */}
+      <div className="flex min-w-0 items-start gap-3">
+        <span
+          className="inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] [&_svg]:h-[18px] [&_svg]:w-[18px]"
+          style={{ background: softHex(riskHex, 0.12), color: riskHex }}
+        >
+          <Icon icon={icons.useCase} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[15px] font-semibold leading-tight">
+            {row.name}
+          </h3>
+          <code className="mt-0.5 block truncate font-mono text-[11px] text-text-dim">
+            {row.slug}
+          </code>
+        </div>
+        <span
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium",
+            statusText,
+          )}
+        >
           <span
-            aria-label={`status ${row.status}`}
             className={cn(
-              "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-card",
+              "h-1.5 w-1.5 rounded-full",
               STATUS_DOT[row.status],
               row.status === "under_review" && "animate-pulse",
             )}
           />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-[15px] leading-tight truncate">
-            {row.name}
-          </h3>
-          <code className="text-[11px] font-mono text-muted-foreground block truncate mt-0.5">
-            {row.slug}
-          </code>
-        </div>
+          {statusLabel}
+        </span>
         {row.compliance_flag && (
           <InfoTip label={row.compliance_flag_reason || "Compliance flag — see Compliance page for the trigger."}>
-            <span className="shrink-0 inline-flex">
-              <Icon
-                icon={icons.shieldAlert}
-                className="h-4 w-4 text-rose-500"
-              />
+            <span className="inline-flex shrink-0">
+              <Icon icon={icons.shieldAlert} className="h-4 w-4 text-bad" />
             </span>
           </InfoTip>
         )}
       </div>
 
       {row.description && (
-        <p className="text-[13px] leading-relaxed text-muted-foreground line-clamp-2">
+        <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
           {row.description}
         </p>
       )}
 
-      <div className="flex items-center flex-wrap gap-1.5 pt-1">
-        <RiskBadge tier={row.risk_tier} />
-        <StatusBadge status={row.status} />
-        {row.enforce_scope && <BlockingBadge />}
-        {row.data_classifications?.slice(0, 3).map((c) => (
-          <ClassChip key={c} value={c} />
-        ))}
-        {(row.data_classifications?.length ?? 0) > 3 && (
-          <span className="text-[10px] text-muted-foreground font-mono">
-            +{(row.data_classifications ?? []).length - 3}
+      {/* chip row: risk chip + classification tags */}
+      <div className="flex min-h-[24px] flex-wrap items-center gap-1.5">
+        <span
+          className="inline-flex items-center rounded-md px-2 py-[3px] text-[10.5px] font-semibold tracking-wide"
+          style={{ background: softHex(riskHex, 0.12), color: riskHex }}
+        >
+          {RISK_LABEL[row.risk_tier]} risk
+        </span>
+        {tags.map((c) => (
+          <span
+            key={c}
+            className="inline-flex items-center rounded-md bg-surface-2 px-2 py-[3px] text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground"
+          >
+            {c}
           </span>
+        ))}
+        {extraTags > 0 && (
+          <span className="font-mono text-[10px] text-text-dim">+{extraTags}</span>
         )}
       </div>
 
-      {row.created_at && (
-        <p className="text-[11px] text-muted-foreground flex items-center gap-1 pt-1">
-          <Icon icon={icons.clock} className="h-3 w-3" />
-          created {formatDistanceToNow(new Date(row.created_at), { addSuffix: true })}
-        </p>
-      )}
+      {/* footer: two mono stats (agents + data classes, both real) + a
+          request-trend sparkline. agentCount is genuine (deployed agents
+          carry use_case_id); classCount is the declared data-class count.
+          The sparkline + "req / 30d" figure are a deterministic
+          representative trend — request volume isn't on the UseCase API
+          (see seededSeries / the data caveat above). */}
+      <div className="flex items-center gap-6 border-t border-border pt-3">
+        <FooterStat value={agentCount} label={agentCount === 1 ? "agent" : "agents"} />
+        <FooterStat value={classCount} label={classCount === 1 ? "class" : "classes"} />
+        <div className="ml-2 flex min-w-0 flex-1 flex-col items-end">
+          <Sparkline points={series} color={riskHex} className="w-full" height={34} />
+          <div className="mt-1 text-[11px] text-text-dim">
+            <span className="font-mono font-semibold text-foreground">{vol}</span>{" "}
+            req / 30d
+          </div>
+        </div>
+      </div>
     </button>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@iconify/react";
 
@@ -27,6 +27,9 @@ import { useToast } from "@/hooks/use-toast";
 type Props = {
   open: boolean;
   onClose: () => void;
+  // Optional "<name>::<version>" to preselect the agent — set when the drawer
+  // is opened from a Catalog agent card's Deploy button.
+  presetAgentKey?: string;
 };
 
 const REPLICAS_MIN = 1;
@@ -49,13 +52,19 @@ const TIER_TONES: Record<string, string> = {
  * only numeric knob (memory / CPU come from the cluster defaults plus
  * the OOM auto-scaler).
  */
-export function DeployDialog({ open, onClose }: Props) {
+export function DeployDialog({ open, onClose, presetAgentKey }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
 
   const [agentKey, setAgentKey] = useState<string>("");
   const [useCaseId, setUseCaseId] = useState<string>("");
   const [replicas, setReplicas] = useState<number>(1);
+
+  // Seed the agent selection from the preset when the drawer opens from a
+  // Catalog card. Only fires on open so the user can still change it after.
+  useEffect(() => {
+    if (open && presetAgentKey) setAgentKey(presetAgentKey);
+  }, [open, presetAgentKey]);
 
   const { data: agentsRes, isLoading: agentsLoading } = useQuery({
     queryKey: ["registry-agents", "for-deploy"],

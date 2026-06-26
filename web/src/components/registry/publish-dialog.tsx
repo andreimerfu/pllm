@@ -15,13 +15,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -197,25 +197,25 @@ export function PublishDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Publish {kindLabel(kind)}</DialogTitle>
-          <DialogDescription>
-            New (name, version) pairs are inserted; re-publishing the same pair overwrites the
-            existing row and promotes it to latest.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2 col-span-2">
-            <Label>Kind</Label>
-            <div className="flex items-center gap-2 text-sm">
-              <Icon icon={kindIcon(kind)} className="h-4 w-4" />
-              <span className="capitalize">{kind.slice(0, -1)}</span>
+    <Sheet open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
+      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
+        <SheetHeader className="space-y-0 border-b border-border px-6 py-4">
+          <div className="flex items-start gap-3">
+            <span className="inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--accent-soft)] text-primary [&_svg]:h-[18px] [&_svg]:w-[18px]">
+              <Icon icon={kindIcon(kind)} />
+            </span>
+            <div className="space-y-1">
+              <SheetTitle className="text-base">Publish {kindLabel(kind)}</SheetTitle>
+              <SheetDescription className="text-[12.5px]">
+                New (name, version) pairs are inserted; re-publishing the same pair overwrites the
+                existing row and promotes it to latest.
+              </SheetDescription>
             </div>
           </div>
+        </SheetHeader>
 
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2 col-span-2 sm:col-span-1">
             <Label htmlFor="reg-name">Name</Label>
             <Input
@@ -274,15 +274,16 @@ export function PublishDialog({
           {kind === "skills" && <SkillFields form={form} setForm={setForm} />}
           {kind === "prompts" && <PromptFields form={form} setForm={setForm} />}
         </div>
+        </div>
 
-        <DialogFooter>
+        <SheetFooter className="border-t border-border px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
             {mutation.isPending ? "Publishing…" : "Publish"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 

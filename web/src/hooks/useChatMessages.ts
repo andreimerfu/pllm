@@ -33,10 +33,11 @@ export interface UseChatMessagesOptions {
   maxTokens: number
   cacheDisabled?: boolean
   reasoningEffort?: string
+  systemPrompt?: string
 }
 
 export function useChatMessages(options: UseChatMessagesOptions) {
-  const { selectedModel, temperature, maxTokens, cacheDisabled, reasoningEffort } = options
+  const { selectedModel, temperature, maxTokens, cacheDisabled, reasoningEffort, systemPrompt } = options
 
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -91,7 +92,7 @@ export function useChatMessages(options: UseChatMessagesOptions) {
       const requestPayload = {
         model: selectedModel,
         messages: [
-          { role: 'system', content: 'You are a helpful assistant.' },
+          { role: 'system', content: systemPrompt?.trim() || 'You are a helpful assistant.' },
           ...messages.map(m => ({
             role: m.role,
             content: m.content

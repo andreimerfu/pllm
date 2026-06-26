@@ -123,8 +123,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	case ".js":
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		// Revalidate JS so a new deploy is picked up even when the bundle
+		// filename is reused (browsers otherwise serve the stale cached copy).
+		w.Header().Set("Cache-Control", "no-cache")
 	case ".css":
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
 	case ".json":
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	case ".svg":
